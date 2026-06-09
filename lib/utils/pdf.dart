@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 import 'package:flutter_saf/flutter_saf.dart';
-import 'package:KongComic/foundation/app.dart';
-import 'package:KongComic/foundation/local.dart';
-import 'package:KongComic/utils/image.dart';
-import 'package:KongComic/utils/io.dart';
+import 'package:venera/foundation/app.dart';
+import 'package:venera/foundation/local.dart';
+import 'package:venera/utils/image.dart';
+import 'package:venera/utils/io.dart';
 import 'package:zip_flutter/zip_flutter.dart';
 
 typedef DecodeImage = Future<Image> Function(Uint8List data);
