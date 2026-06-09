@@ -210,7 +210,7 @@ class DirectoryPicker {
     }
   });
 
-  static const _methodChannel = MethodChannel("venera/method_channel");
+  static const _methodChannel = MethodChannel("kong_comic/method_channel");
 
   Future<Directory?> pickDirectory({bool directAccess = false}) async {
     IO._isSelectingFiles = true;
@@ -247,7 +247,7 @@ class DirectoryPicker {
 }
 
 class IOSDirectoryPicker {
-  static const MethodChannel _channel = MethodChannel("venera/method_channel");
+  static const MethodChannel _channel = MethodChannel("kong_comic/method_channel");
 
   // 调用 iOS 目录选择方法
   static Future<String?> selectDirectory() async {
@@ -276,7 +276,7 @@ Future<FileSelectResult?> selectFile({required List<String> ext}) async {
     );
     FileSelectResult? file;
     if (App.isAndroid) {
-      const selectFileChannel = MethodChannel("venera/select_file");
+      const selectFileChannel = MethodChannel("kong_comic/select_file");
       String mimeType = "*/*";
       if (ext.length == 1) {
         mimeType = FileType.fromExtension(ext[0]).mime;

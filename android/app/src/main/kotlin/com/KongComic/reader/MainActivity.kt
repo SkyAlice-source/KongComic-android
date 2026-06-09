@@ -1,4 +1,4 @@
-package com.kongman.reader
+package com.KongComic.reader
 
 import android.Manifest
 import android.app.Activity

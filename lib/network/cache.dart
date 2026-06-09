@@ -102,7 +102,7 @@ class NetworkCacheManager implements Interceptor {
         requestOptions: options,
         data: cache.data,
         headers: Headers.fromMap(cache.responseHeaders)
-          ..set('venera-cache', 'true'),
+          ..set('kongcomic-cache', 'true'),
         statusCode: 200,
       ));
     } else if (diff < const Duration(seconds: 5)) {
@@ -110,7 +110,7 @@ class NetworkCacheManager implements Interceptor {
         requestOptions: options,
         data: cache.data,
         headers: Headers.fromMap(cache.responseHeaders)
-          ..set('venera-cache', 'true'),
+          ..set('kongcomic-cache', 'true'),
         statusCode: 200,
       ));
     } else if (diff < const Duration(hours: 2)) {
@@ -125,7 +125,7 @@ class NetworkCacheManager implements Interceptor {
           requestOptions: options,
           data: cache.data,
           headers: Headers.fromMap(cache.responseHeaders)
-            ..set('venera-cache', 'true'),
+            ..set('kongcomic-cache', 'true'),
           statusCode: 200,
         ));
       }

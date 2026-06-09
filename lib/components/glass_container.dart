@@ -240,7 +240,7 @@ class _LiquidGlassSurface extends AnimatedWidget {
 }
 
 
-/// iOS 26 Liquid Glass 底部导航栏
+/// M3 Expressive 悬浮底部导航栏（pill 造型，独立浮动）
 class GlassBottomBar extends StatelessWidget {
   final List<Widget> children;
   final double height;
@@ -248,38 +248,37 @@ class GlassBottomBar extends StatelessWidget {
   const GlassBottomBar({
     super.key,
     required this.children,
-    this.height = 58,
+    this.height = 56,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-
     return GlassContainer(
       blurStrength: 40,
-      opacity: 0.08,
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(24),
-        topRight: Radius.circular(24),
-      ),
-      border: Border(
-        top: BorderSide(
-          color: Theme.of(context).brightness == Brightness.light
-              ? Colors.white.withValues(alpha: 0.7)
-              : Colors.white.withValues(alpha: 0.10),
-          width: 0.3,
-        ),
+      opacity: 0.10,
+      borderRadius: BorderRadius.circular(28),
+      border: Border.all(
+        color: Theme.of(context).brightness == Brightness.light
+            ? Colors.white.withValues(alpha: 0.7)
+            : Colors.white.withValues(alpha: 0.12),
+        width: 0.3,
       ),
       boxShadow: [
         BoxShadow(
+          color: Colors.black.withValues(alpha: 0.08),
+          blurRadius: 16,
+          spreadRadius: -1,
+          offset: const Offset(0, 6),
+        ),
+        BoxShadow(
           color: Colors.black.withValues(alpha: 0.03),
-          blurRadius: 15,
-          offset: const Offset(0, -4),
+          blurRadius: 6,
+          spreadRadius: -2,
+          offset: const Offset(0, 2),
         ),
       ],
-      padding: EdgeInsets.only(bottom: bottomPadding),
       width: double.infinity,
-      height: height + bottomPadding,
+      height: height,
       child: Row(
         children: children,
       ),

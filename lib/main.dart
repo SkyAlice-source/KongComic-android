@@ -163,15 +163,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ];
     }
     return ThemeData(
+      useMaterial3: true,
       colorScheme: SeedColorScheme.fromSeeds(
         primaryKey: primary,
         secondaryKey: secondary,
         tertiaryKey: tertiary,
         brightness: brightness,
-        tones: FlexTones.vividBackground(brightness),
+        tones: FlexTones.vividBackground(Brightness.light)
+            .material(primary),
       ),
       fontFamily: font,
       fontFamilyFallback: fallback,
+      cardTheme: CardThemeData(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        elevation: 0,
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+      ),
     );
   }
 
@@ -199,7 +211,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         tertiary = light.tertiary;
       }
       return MaterialApp(
-        title: "空漫",
+        title: "KongComic",
         home: home,
         debugShowCheckedModeBanner: false,
         theme: getTheme(primary, secondary, tertiary, Brightness.light),

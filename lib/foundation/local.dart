@@ -247,7 +247,7 @@ class LocalManager with ChangeNotifier {
   }
 
   Future<void> _checkPathValidation() async {
-    var testFile = File(FilePath.join(path, 'venera_test'));
+    var testFile = File(FilePath.join(path, 'kongcomic_test'));
     try {
       testFile.createSync();
       testFile.deleteSync();

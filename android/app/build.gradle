@@ -32,7 +32,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.kongman.reader"
+    namespace = "com.KongComic.reader"
     compileSdk = flutter.compileSdkVersion
     ndkVersion "28.2.13676358"
 
@@ -79,7 +79,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.kongman.reader"
+        applicationId = "com.KongComic.reader"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
         minSdk = flutter.minSdkVersion

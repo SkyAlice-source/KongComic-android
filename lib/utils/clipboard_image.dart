@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'package:flutter/services.dart';
 
 Future<void> writeImageToClipboard(Uint8List imageBytes) async {
-  const channel = MethodChannel("venera/clipboard");
+  const channel = MethodChannel("kong_comic/clipboard");
   if (Platform.isWindows || Platform.isLinux) {
     var image = await instantiateImageCodec(imageBytes);
     var frame = await image.getNextFrame();

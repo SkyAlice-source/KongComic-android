@@ -110,7 +110,7 @@ class _AppSettingsState extends State<AppSettings> {
           title: "Import App Data".tl,
           callback: () async {
             var controller = showLoadingDialog(context);
-            var file = await selectFile(ext: ['venera', 'picadata']);
+            var file = await selectFile(ext: ['KongComic', 'picadata']);
             if (file != null) {
               var cacheFile =
                   File(FilePath.join(App.cachePath, "import_data_temp"));

@@ -40,7 +40,7 @@ class _AboutSettingsState extends State<AboutSettings> {
               "V${App.version}",
               style: const TextStyle(fontSize: 16),
             ),
-            Text("Venera is a free and open-source app for comic reading.".tl),
+            Text("KongComic is a free and open-source comic reader.".tl),
             const SizedBox(height: 8),
           ],
         ).toSliver(),
@@ -69,14 +69,14 @@ class _AboutSettingsState extends State<AboutSettings> {
           title: const Text("Github"),
           trailing: const Icon(Icons.open_in_new),
           onTap: () {
-            launchUrlString("https://github.com/venera-app/venera");
+            launchUrlString("https://github.com/SkyAlice-source/kongman-android");
           },
         ).toSliver(),
         ListTile(
           title: const Text("Telegram"),
           trailing: const Icon(Icons.open_in_new),
           onTap: () {
-            launchUrlString("https://t.me/venera_release");
+            launchUrlString("https://t.me/kongcomic");
           },
         ).toSliver(),
       ],
@@ -117,7 +117,7 @@ Future<void> checkUpdateUi([bool showMessageIfNoUpdate = true, bool delay = fals
                   onPressed: () {
                     Navigator.pop(context);
                     launchUrlString(
-                        "https://github.com/venera-app/venera/releases");
+                        "https://github.com/SkyAlice-source/kongman-android/releases");
                   },
                   child: Text("Update".tl),
                 ),

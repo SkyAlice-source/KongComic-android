@@ -664,7 +664,10 @@ class _NaviMainViewState extends State<_NaviMainView> {
           ),
         ),
         if (shouldShowAppBar)
-          state.buildBottom().paddingBottom(context.padding.bottom),
+          Padding(
+            padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: state.buildBottom(),
+          ),
       ],
     );
   }

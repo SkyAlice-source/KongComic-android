@@ -26,7 +26,7 @@ Future<String?> _getProxy() async {
 
   String res;
   if (!App.isLinux) {
-    const channel = MethodChannel("venera/method_channel");
+    const channel = MethodChannel("kong_comic/method_channel");
     try {
       res = await channel.invokeMethod("getProxy");
     } catch (e) {

@@ -224,7 +224,7 @@ class RHttpAdapter implements HttpClientAdapter {
   ) async {
     if (options.headers['User-Agent'] == null &&
         options.headers['user-agent'] == null) {
-      options.headers['User-Agent'] = "venera/v${App.version}";
+      options.headers['User-Agent'] = "kong_comic/v${App.version}";
     }
 
     var res = await rhttp.Rhttp.request(
