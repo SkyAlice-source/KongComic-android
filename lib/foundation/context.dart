@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:venera/components/components.dart';
+import 'package:kong_comic/components/components.dart';
 
 import 'app_page_route.dart';
 

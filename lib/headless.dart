@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
-import 'package:venera/utils/data_sync.dart';
-import 'package:venera/foundation/comic_source/comic_source.dart';
-import 'package:venera/foundation/log.dart';
-import 'package:venera/pages/comic_source_page.dart';
-import 'package:venera/init.dart';
-import 'package:venera/foundation/follow_updates.dart';
-import 'package:venera/foundation/appdata.dart';
-import 'package:venera/foundation/favorites.dart';
+import 'package:kong_comic/utils/data_sync.dart';
+import 'package:kong_comic/foundation/comic_source/comic_source.dart';
+import 'package:kong_comic/foundation/log.dart';
+import 'package:kong_comic/pages/comic_source_page.dart';
+import 'package:kong_comic/init.dart';
+import 'package:kong_comic/foundation/follow_updates.dart';
+import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/foundation/favorites.dart';
 
 void cliPrint(Map<String, dynamic> data) {
   print('[CLI PRINT] ${jsonEncode(data)}');

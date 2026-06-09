@@ -1,4 +1,4 @@
-import 'package:venera/foundation/comic_source/comic_source.dart';
+import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 
 class ComicType {
   final int value;

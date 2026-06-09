@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
-import 'package:venera/foundation/app.dart';
-import 'package:venera/foundation/log.dart';
-import 'package:venera/utils/data_sync.dart';
-import 'package:venera/utils/init.dart';
-import 'package:venera/utils/io.dart';
+import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/log.dart';
+import 'package:kong_comic/utils/data_sync.dart';
+import 'package:kong_comic/utils/init.dart';
+import 'package:kong_comic/utils/io.dart';
 
 class Appdata with Init {
   Appdata._create();

@@ -3,7 +3,7 @@ import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
 import 'package:sqlite3/sqlite3.dart';
-import 'package:venera/utils/io.dart';
+import 'package:kong_comic/utils/io.dart';
 
 import 'app.dart';
 

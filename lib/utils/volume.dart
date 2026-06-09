@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 class VolumeListener {
-  static const channel = EventChannel('venera/volume');
+  static const channel = EventChannel('kong_comic/volume');
 
   void Function()? onUp;
 

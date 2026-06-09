@@ -1,14 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:venera/components/components.dart';
-import 'package:venera/foundation/app.dart';
-import 'package:venera/foundation/appdata.dart';
-import 'package:venera/foundation/favorites.dart';
-import 'package:venera/utils/data_sync.dart';
-import 'package:venera/utils/translations.dart';
+import 'package:kong_comic/components/components.dart';
+import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/foundation/favorites.dart';
+import 'package:kong_comic/utils/data_sync.dart';
+import 'package:kong_comic/utils/translations.dart';
 import '../foundation/global_state.dart';
-import 'package:venera/foundation/follow_updates.dart';
+import 'package:kong_comic/foundation/follow_updates.dart';
 
 class FollowUpdatesWidget extends StatefulWidget {
   const FollowUpdatesWidget({super.key});

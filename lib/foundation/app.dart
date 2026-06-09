@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:venera/foundation/history.dart';
+import 'package:kong_comic/foundation/history.dart';
 
 import 'appdata.dart';
 import 'favorites.dart';

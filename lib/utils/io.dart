@@ -4,12 +4,12 @@ import 'dart:isolate';
 import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:flutter_saf/flutter_saf.dart';
-import 'package:venera/foundation/app.dart';
-import 'package:venera/utils/ext.dart';
+import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/utils/ext.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart' as s;
 import 'package:file_selector/file_selector.dart' as file_selector;
-import 'package:venera/utils/file_type.dart';
+import 'package:kong_comic/utils/file_type.dart';
 
 export 'dart:io';
 export 'dart:typed_data';

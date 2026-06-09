@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
-import 'package:venera/foundation/app.dart';
-import 'package:venera/foundation/appdata.dart';
-import 'package:venera/utils/ext.dart';
+import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/utils/ext.dart';
 
 String? _cachedProxy;
 

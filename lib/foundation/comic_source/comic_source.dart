@@ -7,17 +7,17 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_qjs/flutter_qjs.dart';
-import 'package:venera/foundation/app.dart';
-import 'package:venera/foundation/comic_type.dart';
-import 'package:venera/foundation/history.dart';
-import 'package:venera/foundation/res.dart';
-import 'package:venera/pages/category_comics_page.dart';
-import 'package:venera/pages/search_result_page.dart';
-import 'package:venera/utils/data_sync.dart';
-import 'package:venera/utils/ext.dart';
-import 'package:venera/utils/init.dart';
-import 'package:venera/utils/io.dart';
-import 'package:venera/utils/translations.dart';
+import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/comic_type.dart';
+import 'package:kong_comic/foundation/history.dart';
+import 'package:kong_comic/foundation/res.dart';
+import 'package:kong_comic/pages/category_comics_page.dart';
+import 'package:kong_comic/pages/search_result_page.dart';
+import 'package:kong_comic/utils/data_sync.dart';
+import 'package:kong_comic/utils/ext.dart';
+import 'package:kong_comic/utils/init.dart';
+import 'package:kong_comic/utils/io.dart';
+import 'package:kong_comic/utils/translations.dart';
 
 import '../js_engine.dart';
 import '../log.dart';

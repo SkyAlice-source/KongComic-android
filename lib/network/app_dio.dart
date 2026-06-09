@@ -4,10 +4,10 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:rhttp/rhttp.dart' as rhttp;
-import 'package:venera/foundation/appdata.dart';
-import 'package:venera/foundation/log.dart';
-import 'package:venera/network/cache.dart';
-import 'package:venera/network/proxy.dart';
+import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/foundation/log.dart';
+import 'package:kong_comic/network/cache.dart';
+import 'package:kong_comic/network/proxy.dart';
 
 import '../foundation/app.dart';
 import 'cloudflare.dart';

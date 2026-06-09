@@ -101,7 +101,7 @@ class _AppSettingsState extends State<AppSettings> {
           callback: () async {
             var controller = showLoadingDialog(context);
             var file = await exportAppData(false);
-            await saveFile(filename: "data.venera", file: file);
+            await saveFile(filename: "data.kongcomic", file: file);
             controller.close();
           },
           actionTitle: 'Export'.tl,

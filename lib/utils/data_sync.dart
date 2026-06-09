@@ -1,17 +1,17 @@
 import 'package:flutter/foundation.dart';
-import 'package:venera/components/components.dart';
-import 'package:venera/components/window_frame.dart';
-import 'package:venera/foundation/app.dart';
-import 'package:venera/foundation/appdata.dart';
-import 'package:venera/foundation/comic_source/comic_source.dart';
-import 'package:venera/foundation/favorites.dart';
-import 'package:venera/foundation/log.dart';
-import 'package:venera/foundation/res.dart';
-import 'package:venera/network/app_dio.dart';
-import 'package:venera/utils/data.dart';
-import 'package:venera/utils/ext.dart';
+import 'package:kong_comic/components/components.dart';
+import 'package:kong_comic/components/window_frame.dart';
+import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/foundation/comic_source/comic_source.dart';
+import 'package:kong_comic/foundation/favorites.dart';
+import 'package:kong_comic/foundation/log.dart';
+import 'package:kong_comic/foundation/res.dart';
+import 'package:kong_comic/network/app_dio.dart';
+import 'package:kong_comic/utils/data.dart';
+import 'package:kong_comic/utils/ext.dart';
 import 'package:webdav_client/webdav_client.dart' hide File;
-import 'package:venera/utils/translations.dart';
+import 'package:kong_comic/utils/translations.dart';
 
 import 'io.dart';
 
@@ -138,9 +138,9 @@ class DataSync with ChangeNotifier {
         var filename = time;
         filename += '-';
         filename += appdata.settings['dataVersion'].toString();
-        filename += '.venera';
+        filename += '.kongcomic';
         var files = await client.readDir('/');
-        files = files.where((e) => e.name!.endsWith('.venera')).toList();
+        files = files.where((e) => e.name!.endsWith('.kongcomic')).toList();
         var old = files.firstWhereOrNull((e) => e.name!.startsWith("$time-"));
         if (old != null) {
           await client.remove(old.name!);
@@ -197,7 +197,7 @@ class DataSync with ChangeNotifier {
       try {
         var files = await client.readDir('/');
         files.sort((a, b) => b.name!.compareTo(a.name!));
-        var file = files.firstWhereOrNull((e) => e.name!.endsWith('.venera'));
+        var file = files.firstWhereOrNull((e) => e.name!.endsWith('.kongcomic'));
         if (file == null) {
           throw 'No data file found';
         }
