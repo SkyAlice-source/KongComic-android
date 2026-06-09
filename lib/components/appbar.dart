@@ -77,10 +77,13 @@ class _AppbarState extends State<Appbar> {
 
   @override
   Widget build(BuildContext context) {
+    final double effectiveBlur = _scrolledUnder ? 22 : 0;
+    final double effectiveOpacity = _scrolledUnder ? 0.25 : 0.12;
+    
     var content = Container(
       decoration: BoxDecoration(
         color: widget.backgroundColor ??
-            context.colorScheme.surface.toOpacity(0.86),
+            GlassContainer.glassColor(context, effectiveOpacity),
       ),
       height: _kAppBarHeight + context.padding.top,
       child: Row(
@@ -119,8 +122,31 @@ class _AppbarState extends State<Appbar> {
         child: content,
       );
     } else {
-      return BlurEffect(
-        blur: _scrolledUnder ? 15 : 0,
+      return GlassContainer(
+        blurStrength: effectiveBlur,
+        opacity: effectiveOpacity,
+        borderRadius: BorderRadius.zero,
+        border: Border(
+          bottom: BorderSide(
+            color: _scrolledUnder
+                ? (Theme.of(context).brightness == Brightness.light
+                    ? Colors.white.withValues(alpha: 0.5)
+                    : Colors.white.withValues(alpha: 0.08))
+                : Colors.transparent,
+            width: 0.5,
+          ),
+        ),
+        boxShadow: _scrolledUnder
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ]
+            : [],
+        width: double.infinity,
+        height: _kAppBarHeight + context.padding.top,
         child: content,
       );
     }
@@ -228,14 +254,30 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
     if (style == AppbarStyle.blur) {
       return SizedBox.expand(
-        child: BlurEffect(
-          blur: 15,
-          child: Material(
-            color: context.colorScheme.surface.toOpacity(0.86),
-            elevation: 0,
-            borderRadius: BorderRadius.circular(radius),
-            child: body,
+        child: GlassContainer(
+          blurStrength: 22,
+          opacity: 0.20,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border(
+            bottom: BorderSide(
+              color: overlapsContent
+                  ? (Theme.of(context).brightness == Brightness.light
+                      ? Colors.white.withValues(alpha: 0.5)
+                      : Colors.white.withValues(alpha: 0.08))
+                  : Colors.transparent,
+              width: 0.5,
+            ),
           ),
+          boxShadow: overlapsContent
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : [],
+          child: body,
         ),
       );
     } else {
@@ -762,18 +804,18 @@ class _SliverSearchBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      height: _kAppBarHeight + topPadding,
-      width: double.infinity,
-      padding: EdgeInsets.only(top: topPadding),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
+    return GlassContainer(
+      blurStrength: overlapsContent ? 22 : 0,
+      opacity: 0.15,
+      borderRadius: BorderRadius.zero,
+      border: Border(
+        bottom: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
+      width: double.infinity,
+      height: _kAppBarHeight + topPadding,
+      padding: EdgeInsets.only(top: topPadding),
       child: Row(
         children: [
           const SizedBox(width: 8),
@@ -869,17 +911,18 @@ class _SearchBarState extends State<AppSearchBar> with _SearchBarMixin {
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
-    return Container(
-      height: _kAppBarHeight + topPadding,
-      width: double.infinity,
-      padding: EdgeInsets.only(top: topPadding),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
+    return GlassContainer(
+      blurStrength: 0,
+      opacity: 0.12,
+      borderRadius: BorderRadius.zero,
+      border: Border(
+        bottom: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
+      width: double.infinity,
+      height: _kAppBarHeight + topPadding,
+      padding: EdgeInsets.only(top: topPadding),
       child: Row(
         children: [
           const SizedBox(width: 8),

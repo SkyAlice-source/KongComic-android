@@ -20,27 +20,21 @@ class PopUpWidget<T> extends PopupRoute<T> {
     var height = MediaQuery.of(context).size.height * 0.9;
     bool showPopUp = MediaQuery.of(context).size.width > 500;
     Widget body = PopupIndicatorWidget(
-      child: Container(
-        decoration: showPopUp
-            ? BoxDecoration(
-                borderRadius: BorderRadius.all(Radius.circular(12)),
-                boxShadow: context.brightness == ui.Brightness.dark ? [
-                  BoxShadow(
-                    color: Colors.white.withAlpha(50),
-                    blurRadius: 10,
-                    offset: Offset(0, 2),
-                  ),
-                ] : null,
-              )
+      child: GlassContainer(
+        blurStrength: 25,
+        opacity: 0.20,
+        borderRadius: showPopUp
+            ? const BorderRadius.all(Radius.circular(12))
+            : BorderRadius.zero,
+        border: showPopUp
+            ? GlassContainer.iosBorder(context)
             : null,
-        clipBehavior: showPopUp ? Clip.antiAlias : Clip.none,
+        boxShadow: GlassContainer.defaultShadow(context),
         width: showPopUp ? 500 : double.infinity,
         height: showPopUp ? height : double.infinity,
-        child: ClipRect(
-          child: Navigator(
-            onGenerateRoute: (settings) => MaterialPageRoute(
-              builder: (context) => widget,
-            ),
+        child: Navigator(
+          onGenerateRoute: (settings) => MaterialPageRoute(
+            builder: (context) => widget,
           ),
         ),
       ),
@@ -117,16 +111,13 @@ class _PopUpWidgetScaffoldState extends State<PopUpWidgetScaffold> {
     return Material(
       child: Column(
         children: [
-          Container(
-            height: 56 + context.padding.top,
-            padding: EdgeInsets.only(top: context.padding.top),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: top
-                  ? null
-                  : Theme.of(context).colorScheme.surfaceTint.withAlpha(20),
-            ),
-            child: Row(
+          GlassAppBarWrapper(
+            scrolledUnder: !top,
+            child: Container(
+              height: 56 + context.padding.top,
+              padding: EdgeInsets.only(top: context.padding.top),
+              width: double.infinity,
+              child: Row(
               children: [
                 const SizedBox(
                   width: 8,
@@ -152,6 +143,7 @@ class _PopUpWidgetScaffoldState extends State<PopUpWidgetScaffold> {
                 const SizedBox(width: 8),
               ],
             ),
+          ),
           ),
           NotificationListener<ScrollNotification>(
             onNotification: (notifications) {

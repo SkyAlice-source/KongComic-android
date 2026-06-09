@@ -143,7 +143,7 @@ class _ExplorePageState extends State<ExplorePage>
       return buildEmpty();
     }
 
-    Widget tabBar = Material(
+    Widget tabBar = GlassAppBarWrapper(
       child: AppTabBar(
         key: PageStorageKey(pages.toString()),
         tabs: pages.map((e) => buildTab(e)).toList(),

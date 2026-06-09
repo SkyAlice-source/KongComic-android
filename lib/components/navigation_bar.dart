@@ -264,7 +264,8 @@ class NaviPaneState extends State<NaviPane>
   }
 
   Widget buildTop() {
-    return Material(
+    return GlassAppBarWrapper(
+      scrolledUnder: false,
       child: Container(
         padding: const EdgeInsets.only(left: 16, right: 16),
         height: _kTopBarHeight,
@@ -291,83 +292,61 @@ class NaviPaneState extends State<NaviPane>
   }
 
   Widget buildBottom() {
-    return Material(
-      textStyle: Theme.of(context).textTheme.labelSmall,
-      elevation: 0,
-      child: Container(
-        height: _kBottomBarHeight,
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-              width: 1,
-            ),
+    return GlassBottomBar(
+      height: _kBottomBarHeight,
+      children: List<Widget>.generate(widget.paneItems.length, (index) {
+        return Expanded(
+          child: _SingleBottomNaviWidget(
+            enabled: currentPage == index,
+            entry: widget.paneItems[index],
+            onTap: () {
+              updatePage(index);
+            },
+            key: ValueKey(index),
           ),
-        ),
-        child: Row(
-          children: List<Widget>.generate(widget.paneItems.length, (index) {
-            return Expanded(
-              child: _SingleBottomNaviWidget(
-                enabled: currentPage == index,
-                entry: widget.paneItems[index],
-                onTap: () {
-                  updatePage(index);
-                },
-                key: ValueKey(index),
-              ),
-            );
-          }),
-        ),
-      ),
+        );
+      }),
     );
   }
 
   Widget buildLeft() {
     final value = controller.value;
     const paddingHorizontal = 12.0;
-    return Material(
-      child: Container(
-        width:
-            _kFoldedSideBarWidth +
-            (_kSideBarWidth - _kFoldedSideBarWidth) * ((value - 2).clamp(0, 1)),
-        height: double.infinity,
+    final sideBarWidth =
+        _kFoldedSideBarWidth +
+        (_kSideBarWidth - _kFoldedSideBarWidth) * ((value - 2).clamp(0, 1));
+    return GlassSideBar(
+      width: sideBarWidth,
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: paddingHorizontal),
-        decoration: BoxDecoration(
-          border: Border(
-            right: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-              width: 1.0,
-            ),
-          ),
-        ),
         child: Column(
           children: [
             const SizedBox(height: 16),
             SizedBox(height: MediaQuery.of(context).padding.top),
-            ...List<Widget>.generate(
-              widget.paneItems.length,
-              (index) => _SideNaviWidget(
-                enabled: currentPage == index,
-                entry: widget.paneItems[index],
-                showTitle: value == 3,
-                onTap: () {
-                  updatePage(index);
-                },
-                key: ValueKey(index),
-              ),
+          ...List<Widget>.generate(
+            widget.paneItems.length,
+            (index) => _SideNaviWidget(
+              enabled: currentPage == index,
+              entry: widget.paneItems[index],
+              showTitle: value == 3,
+              onTap: () {
+                updatePage(index);
+              },
+              key: ValueKey(index),
             ),
-            const Spacer(),
-            ...List<Widget>.generate(
-              widget.paneActions.length,
-              (index) => _PaneActionWidget(
-                entry: widget.paneActions[index],
-                showTitle: value == 3,
-                key: ValueKey(index + widget.paneItems.length),
-              ),
+          ),
+          const Spacer(),
+          ...List<Widget>.generate(
+            widget.paneActions.length,
+            (index) => _PaneActionWidget(
+              entry: widget.paneActions[index],
+              showTitle: value == 3,
+              key: ValueKey(index + widget.paneItems.length),
             ),
-            const SizedBox(height: 16),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
       ),
     );
   }

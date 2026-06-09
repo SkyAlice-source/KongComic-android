@@ -51,27 +51,26 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverToBoxAdapter(
-      child: Container(
+      child: GlassContainer(
+        blurStrength: 0,
+        opacity: 0.10,
+        borderRadius: BorderRadius.circular(32),
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         height: App.isMobile ? 52 : 46,
         width: double.infinity,
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Material(
-          color: context.colorScheme.surfaceContainerHigh,
+        child: InkWell(
           borderRadius: BorderRadius.circular(32),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(32),
-            onTap: () {
-              context.to(() => const SearchPage());
-            },
-            child: Row(
-              children: [
-                const SizedBox(width: 16),
-                const Icon(Icons.search),
-                const SizedBox(width: 8),
-                Text('Search'.tl, style: ts.s16),
-                const Spacer(),
-              ],
-            ),
+          onTap: () {
+            context.to(() => const SearchPage());
+          },
+          child: Row(
+            children: [
+              const SizedBox(width: 16),
+              const Icon(Icons.search),
+              const SizedBox(width: 8),
+              Text('Search'.tl, style: ts.s16),
+              const Spacer(),
+            ],
           ),
         ),
       ),
@@ -129,14 +128,8 @@ class _SyncDataWidgetState extends State<_SyncDataWidget>
       child = const SliverPadding(padding: EdgeInsets.zero);
     } else if (DataSync().isUploading || DataSync().isDownloading) {
       child = SliverToBoxAdapter(
-        child: Container(
+        child: GlassCard(
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            borderRadius: BorderRadius.circular(8),
-          ),
           child: ListTile(
             leading: const Icon(Icons.sync),
             title: Text('Syncing Data'.tl),
@@ -148,14 +141,8 @@ class _SyncDataWidgetState extends State<_SyncDataWidget>
       );
     } else {
       child = SliverToBoxAdapter(
-        child: Container(
+        child: GlassCard(
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-            borderRadius: BorderRadius.circular(8),
-          ),
           child: ListTile(
             leading: const Icon(Icons.sync),
             title: Text('Sync Data'.tl),
@@ -256,21 +243,12 @@ class _HistoryState extends State<_History> {
   @override
   Widget build(BuildContext context) {
     return SliverToBoxAdapter(
-      child: Container(
+      child: GlassCard(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            context.to(() => const HistoryPage());
-          },
-          child: Column(
+        onTap: () {
+          context.to(() => const HistoryPage());
+        },
+        child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
@@ -323,7 +301,6 @@ class _HistoryState extends State<_History> {
                 ).paddingHorizontal(8).paddingBottom(16),
             ],
           ),
-        ),
       ),
     );
   }
@@ -364,21 +341,12 @@ class _LocalState extends State<_Local> {
   @override
   Widget build(BuildContext context) {
     return SliverToBoxAdapter(
-      child: Container(
+      child: GlassCard(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            context.to(() => const LocalComicsPage());
-          },
-          child: Column(
+        onTap: () {
+          context.to(() => const LocalComicsPage());
+        },
+        child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
@@ -460,7 +428,6 @@ class _LocalState extends State<_Local> {
               ).paddingHorizontal(16).paddingVertical(8),
             ],
           ),
-        ),
       ),
     );
   }
@@ -689,21 +656,12 @@ class _ComicSourceWidgetState extends State<_ComicSourceWidget> {
   @override
   Widget build(BuildContext context) {
     return SliverToBoxAdapter(
-      child: Container(
+      child: GlassCard(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            context.to(() => const ComicSourcePage());
-          },
-          child: Column(
+        onTap: () {
+          context.to(() => const ComicSourcePage());
+        },
+        child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
@@ -785,7 +743,6 @@ class _ComicSourceWidgetState extends State<_ComicSourceWidget> {
                     .paddingBottom(8),
             ],
           ),
-        ),
       ),
     );
   }
@@ -892,23 +849,14 @@ class _ImageFavoritesState extends State<ImageFavorites> {
     bool hasData =
         imageFavoritesCompute != null && !imageFavoritesCompute!.isEmpty;
     return SliverToBoxAdapter(
-      child: Container(
+      child: GlassCard(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            context.to(
-              () => const ImageFavoritesPage()
-            );
-          },
-          child: Column(
+        onTap: () {
+          context.to(
+            () => const ImageFavoritesPage()
+          );
+        },
+        child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
@@ -962,7 +910,6 @@ class _ImageFavoritesState extends State<ImageFavorites> {
                     .paddingBottom(16),
             ],
           ),
-        ),
       ),
     );
   }

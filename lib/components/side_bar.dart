@@ -89,44 +89,33 @@ class SideBarRoute<T> extends PopupRoute<T> {
 
     final sideBarWidth = math.min(width, MediaQuery.of(context).size.width);
 
-    body = Container(
-      decoration: BoxDecoration(
-        borderRadius: showSideBar
-            ? const BorderRadius.horizontal(left: Radius.circular(16))
-            : null,
-        color: Theme.of(context).colorScheme.surfaceTint,
-        boxShadow: context.brightness == ui.Brightness.dark ? [
-          BoxShadow(
-            color: Colors.white.withAlpha(50),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ] : null,
-      ),
-      clipBehavior: Clip.antiAlias,
+    body = GlassContainer(
+      blurStrength: 25,
+      opacity: 0.20,
+      borderRadius: showSideBar
+          ? const BorderRadius.horizontal(left: Radius.circular(16))
+          : BorderRadius.zero,
+      border: showSideBar
+          ? Border(
+              left: BorderSide(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.white.withValues(alpha: 0.5)
+                    : Colors.white.withValues(alpha: 0.08),
+                width: 0.5,
+              ),
+            )
+          : null,
       constraints: BoxConstraints(maxWidth: sideBarWidth),
       height: MediaQuery.of(context).size.height,
-      child: GestureDetector(
-        child: Material(
-          child: ClipRect(
-            clipBehavior: Clip.antiAlias,
-            child: Container(
-              padding: EdgeInsets.fromLTRB(
-                  0,
-                  0,
-                  MediaQuery.of(context).padding.right,
-                  addBottomPadding
-                      ? MediaQuery.of(context).padding.bottom +
-                          MediaQuery.of(context).viewInsets.bottom
-                      : 0),
-              color: useSurfaceTintColor
-                  ? Theme.of(context).colorScheme.surfaceTint.withAlpha(20)
-                  : null,
-              child: body,
-            ),
-          ),
-        ),
-      ),
+      padding: EdgeInsets.fromLTRB(
+          0,
+          0,
+          MediaQuery.of(context).padding.right,
+          addBottomPadding
+              ? MediaQuery.of(context).padding.bottom +
+                  MediaQuery.of(context).viewInsets.bottom
+              : 0),
+      child: body,
     );
 
     if (App.isIOS) {

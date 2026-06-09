@@ -54,21 +54,12 @@ class _FollowUpdatesWidgetState
   @override
   Widget build(BuildContext context) {
     return SliverToBoxAdapter(
-      child: Container(
+      child: GlassCard(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            context.to(() => FollowUpdatesPage());
-          },
-          child: Column(
+        onTap: () {
+          context.to(() => FollowUpdatesPage());
+        },
+        child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -102,7 +93,6 @@ class _FollowUpdatesWidgetState
                 ),
             ],
           ),
-        ),
       ),
     );
   }
