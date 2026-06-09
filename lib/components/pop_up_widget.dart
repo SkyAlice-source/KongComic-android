@@ -29,7 +29,7 @@ class PopUpWidget<T> extends PopupRoute<T> {
         border: showPopUp
             ? GlassContainer.iosBorder(context)
             : null,
-        boxShadow: GlassContainer.defaultShadow(context),
+        boxShadow: GlassContainer.liquidShadow(context),
         width: showPopUp ? 500 : double.infinity,
         height: showPopUp ? height : double.infinity,
         child: Navigator(

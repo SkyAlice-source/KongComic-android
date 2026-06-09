@@ -114,8 +114,8 @@ class _GlassContainerState extends State<GlassContainer>
   @override
   Widget build(BuildContext context) {
     final effectiveBorderRadius = widget.borderRadius ?? BorderRadius.circular(20);
-    final effectiveBorder = widget.border ?? iosBorder(context);
-    final effectiveShadow = widget.boxShadow ?? liquidShadow(context);
+    final effectiveBorder = widget.border ?? GlassContainer.iosBorder(context);
+    final effectiveShadow = widget.boxShadow ?? GlassContainer.liquidShadow(context);
     final brightness = Theme.of(context).brightness;
 
     Widget glassChild = ClipRRect(
