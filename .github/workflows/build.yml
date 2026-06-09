@@ -20,8 +20,8 @@ jobs:
           distribution: 'oracle'
           java-version: '17'
       - run: flutter pub get
-      - run: flutter build apk --release
+      - run: flutter build apk --debug
       - uses: actions/upload-artifact@v4
         with:
           name: apks
-          path: build/app/outputs/apk/release
+          path: build/app/outputs/flutter-apk
