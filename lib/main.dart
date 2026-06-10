@@ -163,27 +163,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ];
     }
     return ThemeData(
-      useMaterial3: true,
       colorScheme: SeedColorScheme.fromSeeds(
         primaryKey: primary,
         secondaryKey: secondary,
         tertiaryKey: tertiary,
         brightness: brightness,
-        tones: FlexTones.vividBackground(Brightness.light)
-            .material(primary),
+        tones: FlexTones.vividBackground(brightness),
       ),
       fontFamily: font,
       fontFamilyFallback: fallback,
-      cardTheme: CardThemeData(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        elevation: 0,
-        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-      ),
     );
   }
 
