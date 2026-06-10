@@ -1,42 +1,36 @@
-# Due to my limited time and energy, this project is no longer maintained. Feel free to fork it.
-# 由于本人精力有限, 此项目已停止维护, 欢迎fork
+# KongComic
 
-# venera
+> 基于 [venera-app/venera](https://github.com/venera-app/venera) 由 AI 修改二次开发
+
 [![flutter](https://img.shields.io/badge/flutter-3.41.4-blue)](https://flutter.dev/)
-[![License](https://img.shields.io/github/license/venera-app/venera)](https://github.com/venera-app/venera/blob/master/LICENSE)
-[![stars](https://img.shields.io/github/stars/venera-app/venera?style=flat)](https://github.com/venera-app/venera/stargazers)
+[![License](https://img.shields.io/github/license/SkyAlice-source/KongComic-android)](LICENSE)
 
-[![Download](https://img.shields.io/github/v/release/venera-app/venera)](https://github.com/venera-app/venera/releases)
-[![AUR Version](https://img.shields.io/aur/version/venera-bin)](https://aur.archlinux.org/packages/venera-bin)
-[![F-Droid Version](https://img.shields.io/f-droid/v/com.github.wgh136.venera)](https://f-droid.org/packages/com.github.wgh136.venera/)
+KongComic 是一款漫画阅读器，支持本地漫画和网络漫画源。
 
-A comic reader that support reading local and network comics.
+**本仓库由 AI (Reasonix Code) 自动生成修改，包括：**
+- iOS 26 Liquid Glass 毛玻璃 UI 风格
+- Material 3 Expressive 视觉更新
+- 悬浮式底部导航栏
+- Android 专属版本（已移除 iOS/macOS/Windows/Linux 平台代码）
+- 包名 `com.KongComic.reader`
 
-## Features
-- Read local comics
-- Use javascript to create comic sources
-- Read comics from network sources
-- Manage favorite comics
-- Download comics
-- View comments, tags, and other information of comics if the source supports
-- Login to comment, rate, and other operations if the source supports
+## 与原版的区别
 
-## Build from source
-1. Clone the repository
-2. Install flutter, see [flutter.dev](https://flutter.dev/docs/get-started/install)
-3. Install rust, see [rustup.rs](https://rustup.rs/)
-4. Build for your platform: e.g. `flutter build apk`
+| 特性 | Venera | KongComic |
+|------|--------|-----------|
+| UI 风格 | 原生 Material | iOS 26 Liquid Glass 毛玻璃 |
+| 底部导航 | 贴边底栏 | 悬浮 pill 造型 |
+| 平台 | 全平台 | 仅 Android |
+| 包名 | `com.github.wgh136.venera` | `com.KongComic.reader` |
+| 构建工具 | CI/CD | GitHub Actions |
 
-## Create a new comic source
-See [Comic Source](doc/comic_source.md)
+## 构建
 
-## Thanks
+```bash
+flutter pub get
+flutter build apk --debug
+```
 
-### Tags Translation
-[EhTagTranslation](https://github.com/EhTagTranslation/Database)
+## 开源许可
 
-The Chinese translation of the manga tags is from this project.
-
-## Headless Mode
-See [Headless Doc](doc/headless_doc.md)
-
+[GPL-3.0](LICENSE)
