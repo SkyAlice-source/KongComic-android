@@ -128,7 +128,6 @@ class _ReaderSettingsState extends State<ReaderSettings> {
                     ),
                   ),
                 ).toSliver(),
-              Divider().toSliver(),
             ],
           ),
         if (comicId == null)
@@ -158,7 +157,6 @@ class _ReaderSettingsState extends State<ReaderSettings> {
                     ),
                   ),
                 ).toSliver(),
-              Divider().toSliver(),
             ],
           ),
         _SwitchSetting(
@@ -475,6 +473,7 @@ class __CustomImageProcessingState extends State<_CustomImageProcessing> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: Appbar(
         title: Text("Custom Image Processing".tl),
         actions: [

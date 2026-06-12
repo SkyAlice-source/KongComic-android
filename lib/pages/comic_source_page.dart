@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -1003,7 +1004,7 @@ class _SliverComicSourceState extends State<_SliverComicSource> {
     if (!logged) {
       yield ListTile(
         title: Text("Log in".tl),
-        trailing: const Icon(Icons.arrow_right),
+        trailing: const Icon(FluentIcons.chevron_right_24_regular),
         onTap: () async {
           await context.to(
             () => _LoginPage(config: source.account!, source: source),

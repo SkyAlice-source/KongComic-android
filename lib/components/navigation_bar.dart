@@ -294,18 +294,21 @@ class NaviPaneState extends State<NaviPane>
   Widget buildBottom() {
     return GlassBottomBar(
       height: _kBottomBarHeight,
-      children: List<Widget>.generate(widget.paneItems.length, (index) {
-        return Expanded(
-          child: _SingleBottomNaviWidget(
-            enabled: currentPage == index,
-            entry: widget.paneItems[index],
-            onTap: () {
-              updatePage(index);
-            },
-            key: ValueKey(index),
-          ),
-        );
-      }),
+      children: [
+        ...List<Widget>.generate(widget.paneItems.length, (index) {
+          return Expanded(
+            child: _SingleBottomNaviWidget(
+              enabled: currentPage == index,
+              entry: widget.paneItems[index],
+              onTap: () {
+                updatePage(index);
+              },
+              key: ValueKey(index),
+            ),
+          );
+        }),
+        const _SearchNavButton(),
+      ],
     );
   }
 
@@ -499,29 +502,29 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
 
   Widget buildContent() {
     final value = controller.value;
-    final colorScheme = Theme.of(context).colorScheme;
-    final icon = Icon(
-      widget.enabled ? widget.entry.activeIcon : widget.entry.icon,
-    );
+    final isActive = widget.enabled;
+    final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
+    final activeColor = isDark ? const Color(0xFFDDDDDD) : const Color(0xFF0EA5E9);
+    final inactiveColor = isDark ? const Color(0xFF888888) : const Color(0xFF6C7B8A);
+
     return Center(
-      child: Container(
-        width: 64,
-        height: 28,
-        decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(32)),
-          color: isHovering ? colorScheme.surfaceContainer : Colors.transparent,
-        ),
-        child: Center(
-          child: Container(
-            width: 32 + value * 32,
-            height: 28,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.circular(32)),
-              color: value != 0
-                  ? colorScheme.secondaryContainer
-                  : Colors.transparent,
-            ),
-            child: Center(child: icon),
+      child: Transform.scale(
+        scale: 1.0 + (0.1 * value),
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isActive
+                ? activeColor.withValues(alpha: 0.12 * value)
+                : Colors.transparent,
+          ),
+          child: Icon(
+            widget.enabled
+                ? widget.entry.activeIcon
+                : widget.entry.icon,
+            size: 24 + (4 * value),
+            color: isActive ? activeColor : inactiveColor,
           ),
         ),
       ),
@@ -669,6 +672,21 @@ class _NaviMainViewState extends State<_NaviMainView> {
             child: state.buildBottom(),
           ),
       ],
+    );
+  }
+}
+
+class _SearchNavButton extends StatelessWidget {
+  const _SearchNavButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: GestureDetector(
+        onTap: () { App.mainNavigatorKey?.currentContext?.to(() => const SearchPage()); },
+        child: const Icon(FluentIcons.search_24_regular, size: 26, color: Color(0xFF0EA5E9)),
+      ),
     );
   }
 }

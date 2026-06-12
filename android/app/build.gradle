@@ -35,6 +35,11 @@ android {
     namespace = "com.KongComic.reader"
     compileSdk = flutter.compileSdkVersion
     ndkVersion "28.2.13676358"
+    externalNativeBuild {
+        cmake {
+            version "4.1.2"
+        }
+    }
 
     packaging {
         jniLibs {

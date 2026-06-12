@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
 import 'package:local_auth/local_auth.dart';
@@ -53,19 +54,17 @@ class _SettingsPageState extends State<SettingsPage> {
     "Local Favorites",
     "APP",
     "Network",
-    "About",
-    "Debug"
+    "About"
   ];
 
   final icons = <IconData>[
-    Icons.explore,
-    Icons.book,
-    Icons.color_lens,
-    Icons.collections_bookmark_rounded,
-    Icons.apps,
-    Icons.public,
-    Icons.info,
-    Icons.bug_report,
+    FluentIcons.compass_northwest_24_regular,
+    FluentIcons.book_24_regular,
+    FluentIcons.color_24_regular,
+    FluentIcons.bookmark_multiple_24_regular,
+    FluentIcons.apps_24_regular,
+    FluentIcons.globe_24_regular,
+    FluentIcons.info_24_regular,
   ];
 
   @override
@@ -77,6 +76,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Material(
+      color: Theme.of(context).colorScheme.surface,
       child: buildBody(),
     );
   }
@@ -143,6 +143,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget buildLeft() {
     return Material(
+      color: Theme.of(context).colorScheme.surface,
       child: Column(
         children: [
           SizedBox(
@@ -157,7 +158,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Tooltip(
                 message: "Back",
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(FluentIcons.arrow_left_24_regular),
                   onPressed: context.pop,
                 ),
               ),
@@ -184,39 +185,57 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget buildCategories() {
     Widget buildItem(String name, int id) {
       final bool selected = id == currentPage;
+      final isDark = Theme.of(context).brightness == Brightness.dark;
 
-      Widget content = AnimatedContainer(
-        key: ValueKey(id),
-        duration: const Duration(milliseconds: 200),
-        width: double.infinity,
-        height: 46,
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-        decoration: BoxDecoration(
-          color: selected ? colors.primaryContainer.toOpacity(0.36) : null,
-          border: Border(
-            left: BorderSide(
-              color: selected ? colors.primary : Colors.transparent,
-              width: 2,
-            ),
-          ),
-        ),
+      Widget content = Container(
+        height: 58,
+        padding: const EdgeInsets.fromLTRB(16, 0, 12, 0),
         child: Row(children: [
-          Icon(icons[id]),
-          const SizedBox(width: 16),
+          Icon(icons[id], color: isDark
+              ? (selected ? const Color(0xFF0EA5E9) : Colors.white.withValues(alpha: 0.7))
+              : const Color(0xFF0EA5E9), size: 22),
+          const SizedBox(width: 14),
           Text(
             name,
-            style: ts.s16,
+            style: ts.s16.copyWith(
+              color: selected
+                  ? (isDark ? Colors.white : const Color(0xFF1A365D))
+                  : (isDark ? Colors.white.withValues(alpha: 0.7) : null),
+              fontWeight: selected ? FontWeight.w600 : null,
+            ),
           ),
           const Spacer(),
-          if (selected) const Icon(Icons.arrow_right)
+          if (selected) const Icon(FluentIcons.chevron_right_24_regular, color: Color(0xFF0EA5E9))
         ]),
       );
+
+      if (selected) {
+        content = Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF2A2A2E) : const Color(0xFFF0F4F8),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          height: 58,
+          child: content,
+        );
+      } else {
+        content = Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A1E).withValues(alpha: 0.5) : const Color(0xFFF0F4F8),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          height: 58,
+          child: content,
+        );
+      }
 
       return Padding(
         padding: enableTwoViews
             ? const EdgeInsets.fromLTRB(8, 0, 8, 0)
             : EdgeInsets.zero,
         child: InkWell(
+          splashColor: Colors.white.withValues(alpha: 0.06),
+          highlightColor: Colors.white.withValues(alpha: 0.04),
           onTap: () {
             if (enableTwoViews) {
               setState(() => currentPage = id);
@@ -225,7 +244,7 @@ class _SettingsPageState extends State<SettingsPage> {
             }
           },
           child: content,
-        ).paddingVertical(4),
+        ),
       );
     }
 
@@ -261,7 +280,6 @@ class _SettingsPageState extends State<SettingsPage> {
       4 => const AppSettings(),
       5 => const NetworkSettings(),
       6 => const AboutSettings(),
-      7 => const DebugPage(),
       _ => throw UnimplementedError()
     };
   }
@@ -276,6 +294,7 @@ class _SettingsDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
+      color: Theme.of(context).colorScheme.surface,
       child: _buildPage(),
     );
   }
@@ -289,7 +308,6 @@ class _SettingsDetailPage extends StatelessWidget {
       4 => const AppSettings(),
       5 => const NetworkSettings(),
       6 => const AboutSettings(),
-      7 => const DebugPage(),
       _ => throw UnimplementedError()
     };
   }

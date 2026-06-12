@@ -131,7 +131,7 @@ class _AppbarState extends State<Appbar> {
             color: _scrolledUnder
                 ? (Theme.of(context).brightness == Brightness.light
                     ? Colors.white.withValues(alpha: 0.5)
-                    : Colors.white.withValues(alpha: 0.08))
+                    : const Color(0xFF2A2A2E))
                 : Colors.transparent,
             width: 0.5,
           ),
@@ -139,7 +139,7 @@ class _AppbarState extends State<Appbar> {
         boxShadow: _scrolledUnder
             ? [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: const Color(0xFFE8E8E8),
                   blurRadius: 4,
                   offset: const Offset(0, 1),
                 ),
@@ -263,7 +263,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
               color: overlapsContent
                   ? (Theme.of(context).brightness == Brightness.light
                       ? Colors.white.withValues(alpha: 0.5)
-                      : Colors.white.withValues(alpha: 0.08))
+                      : const Color(0xFF2A2A2E))
                   : Colors.transparent,
               width: 0.5,
             ),
@@ -271,7 +271,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
           boxShadow: overlapsContent
               ? [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: const Color(0xFFE8E8E8),
                     blurRadius: 4,
                     offset: const Offset(0, 1),
                   ),
@@ -441,16 +441,17 @@ class _AppTabBarState extends State<AppTabBar> {
       key: tabBarKey,
       height: _kTabHeight,
       width: double.infinity,
-      decoration: widget.withUnderLine
-          ? BoxDecoration(
-              border: Border(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: widget.withUnderLine
+            ? const Border(
                 bottom: BorderSide(
-                  color: context.colorScheme.outlineVariant,
-                  width: 0.6,
+                  color: Color(0xFF0EA5E9),
+                  width: 1.5,
                 ),
-              ),
-            )
-          : null,
+              )
+            : null,
+      ),
       child: widget.tabs.isEmpty ? const SizedBox() : child,
     );
   }

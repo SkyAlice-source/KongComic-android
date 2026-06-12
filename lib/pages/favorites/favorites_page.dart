@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -74,13 +75,15 @@ class _FavoritesPageState extends State<FavoritesPage> {
         && !LocalFavoritesManager().existsFolder(folder!)) {
       folder = null;
     }
+    // 默认显示"全部"文件夹
+    folder ??= _localAllFolderLabel;
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     return IconTheme(
-      data: IconThemeData(color: Theme.of(context).colorScheme.secondary),
+      data: const IconThemeData(color: Color(0xFF4A90E2)),
       child: Stack(
         children: [
           AnimatedPositioned(
@@ -88,7 +91,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
             top: 0,
             bottom: 0,
             duration: const Duration(milliseconds: 200),
-            child: (const _LeftBar()).fixWidth(_kLeftBarWidth),
+            child: Container(
+              width: _kLeftBarWidth,
+              color: Theme.of(context).colorScheme.surface,
+              child: const _LeftBar(),
+            ),
           ),
           Positioned(
             top: 0,

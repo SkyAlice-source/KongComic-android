@@ -201,6 +201,7 @@ class _LogsPageState extends State<LogsPage> {
         ? Log.logs
         : Log.logs.where((log) => log.level.name == logLevelToShow).toList();
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: Appbar(
         title: Text("Logs".tl),
         actions: [
@@ -327,7 +328,6 @@ class _LogsPageState extends State<LogsPage> {
                     },
                     child: Text("Copy".tl),
                   ),
-                  const Divider(),
                 ],
               ),
             ),

@@ -30,23 +30,12 @@ class BlurEffect extends StatelessWidget {
             ? Colors.white
             : Colors.black);
 
-    return ClipRRect(
-      borderRadius: borderRadius ?? BorderRadius.zero,
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(
-          sigmaX: blur,
-          sigmaY: blur,
-          tileMode: TileMode.mirror,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: effectiveTintColor.withValues(alpha: tintOpacity),
-            borderRadius: borderRadius,
-            border: border,
-          ),
-          child: child,
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        border: border,
       ),
+      child: child,
     );
   }
 }

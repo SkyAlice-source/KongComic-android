@@ -119,7 +119,7 @@ class _GlassContainerState extends State<GlassContainer>
     final brightness = Theme.of(context).brightness;
 
     Widget glassChild = ClipRRect(
-      borderRadius: effectiveBorderRadius,
+      borderRadius: effectiveBorderRadius ,
       clipBehavior: widget.clipBehavior,
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(
@@ -132,7 +132,7 @@ class _GlassContainerState extends State<GlassContainer>
           brightness: brightness,
           opacity: widget.opacity,
           tintColor: widget.tintColor,
-          borderRadius: effectiveBorderRadius,
+          borderRadius: effectiveBorderRadius ,
           border: effectiveBorder,
           boxShadow: effectiveShadow,
           width: widget.width,
@@ -239,8 +239,7 @@ class _LiquidGlassSurface extends AnimatedWidget {
   }
 }
 
-
-/// M3 Expressive 悬浮底部导航栏（pill 造型，独立浮动）
+/// Glass bottom navigation bar with frosted glass effect
 class GlassBottomBar extends StatelessWidget {
   final List<Widget> children;
   final double height;
@@ -253,41 +252,18 @@ class GlassBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      blurStrength: 40,
-      opacity: 0.10,
-      borderRadius: BorderRadius.circular(28),
-      border: Border.all(
-        color: Theme.of(context).brightness == Brightness.light
-            ? Colors.white.withValues(alpha: 0.7)
-            : Colors.white.withValues(alpha: 0.12),
-        width: 0.3,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.08),
-          blurRadius: 16,
-          spreadRadius: -1,
-          offset: const Offset(0, 6),
-        ),
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.03),
-          blurRadius: 6,
-          spreadRadius: -2,
-          offset: const Offset(0, 2),
-        ),
-      ],
-      width: double.infinity,
+    return SizedBox(
       height: height,
+      width: double.infinity,
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: children,
       ),
     );
   }
 }
 
-
-/// iOS 26 Liquid Glass 侧边栏
+/// iOS 26 Liquid Glass sidebar
 class GlassSideBar extends StatelessWidget {
   final Widget child;
   final double width;
@@ -326,8 +302,7 @@ class GlassSideBar extends StatelessWidget {
   }
 }
 
-
-/// iOS 26 Liquid Glass 卡片
+/// Card that adapts: dark mode = frosted glass, light mode = blue gradient + white edge
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -350,23 +325,96 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveBorderRadius = borderRadius ?? BorderRadius.circular(16);
 
-    Widget card = GlassContainer(
-      blurStrength: blurStrength,
-      opacity: opacity,
-      borderRadius: effectiveBorderRadius,
-      border: GlassContainer.iosBorder(context),
-      boxShadow: GlassContainer.liquidShadow(context),
-      padding: padding ?? const EdgeInsets.all(0),
-      child: onTap != null
-          ? InkWell(
-              borderRadius: effectiveBorderRadius,
-              onTap: onTap,
-              child: child,
-            )
-          : child,
-    );
+    Widget card;
+    if (isDark) {
+      card = ClipRRect(
+        borderRadius: effectiveBorderRadius ,
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: padding ?? const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E1E),
+              borderRadius: effectiveBorderRadius ,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.06),
+                width: 0.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0EA5E9).withValues(alpha: 0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.30),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: onTap != null
+                ? InkWell(
+                    borderRadius: effectiveBorderRadius ,
+                    onTap: onTap,
+                    splashColor: Colors.white.withValues(alpha: 0.08),
+                    highlightColor: Colors.white.withValues(alpha: 0.04),
+                    child: child,
+                  )
+                : child,
+          ),
+        ),
+      );
+    } else {
+      card = ClipRRect(
+        borderRadius: effectiveBorderRadius ,
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: padding ?? const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: effectiveBorderRadius ,
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF0EA5E9).withValues(alpha: 0.12),
+                  const Color(0xFF0EA5E9).withValues(alpha: 0.04),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: const Color(0xFF0EA5E9).withValues(alpha: 0.2),
+                width: 0.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0EA5E9).withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: onTap != null
+                ? InkWell(
+                    borderRadius: effectiveBorderRadius ,
+                    onTap: onTap,
+                    splashColor: Colors.white.withValues(alpha: 0.08),
+                    highlightColor: Colors.white.withValues(alpha: 0.04),
+                    child: child,
+                  )
+                : child,
+          ),
+        ),
+      );
+    }
 
     if (margin != null) {
       card = Padding(padding: margin!, child: card);
@@ -376,8 +424,7 @@ class GlassCard extends StatelessWidget {
   }
 }
 
-
-/// iOS 26 Liquid Glass AppBar 包装器
+/// iOS 26 Liquid Glass AppBar wrapper
 class GlassAppBarWrapper extends StatelessWidget {
   final Widget child;
   final double blurStrength;

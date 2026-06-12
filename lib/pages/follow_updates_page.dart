@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import 'package:flutter/material.dart';
 import 'package:kong_comic/components/components.dart';
@@ -71,7 +72,7 @@ class _FollowUpdatesWidgetState
                       child: Text('Follow Updates'.tl, style: ts.s18),
                     ),
                     const Spacer(),
-                    const Icon(Icons.arrow_right),
+                    const Icon(FluentIcons.chevron_right_24_regular, color: Color(0xFF0EA5E9)),
                   ],
                 ),
               ).paddingHorizontal(16),

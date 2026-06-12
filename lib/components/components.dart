@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:kong_comic/pages/search_page.dart';
 import 'package:syntax_highlight/syntax_highlight.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/app_page_route.dart';

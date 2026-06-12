@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/pages/categories_page.dart';
-import 'package:kong_comic/pages/search_page.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
@@ -68,23 +68,23 @@ class _MainPageState extends State<MainPage> {
       paneItems: [
         PaneItemEntry(
           label: 'Home'.tl,
-          icon: Icons.home_outlined,
-          activeIcon: Icons.home,
+          icon: FluentIcons.home_24_regular,
+          activeIcon: FluentIcons.home_24_regular,
         ),
         PaneItemEntry(
           label: 'Favorites'.tl,
-          icon: Icons.local_activity_outlined,
-          activeIcon: Icons.local_activity,
+          icon: FluentIcons.bookmark_24_regular,
+          activeIcon: FluentIcons.bookmark_24_regular,
         ),
         PaneItemEntry(
           label: 'Explore'.tl,
-          icon: Icons.explore_outlined,
-          activeIcon: Icons.explore,
+          icon: FluentIcons.book_compass_24_regular,
+          activeIcon: FluentIcons.book_compass_24_regular,
         ),
         PaneItemEntry(
           label: 'Categories'.tl,
-          icon: Icons.category_outlined,
-          activeIcon: Icons.category,
+          icon: FluentIcons.apps_24_regular,
+          activeIcon: FluentIcons.apps_24_regular,
         ),
       ],
       onPageChanged: (i) {
@@ -93,16 +93,9 @@ class _MainPageState extends State<MainPage> {
         });
       },
       paneActions: [
-        if(index != 0)
-          PaneActionEntry(
-            icon: Icons.search,
-            label: "Search".tl,
-            onTap: () {
-              to(() => const SearchPage(), preventDuplicate: true);
-            },
-          ),
+
         PaneActionEntry(
-          icon: Icons.settings,
+          icon: FluentIcons.settings_24_regular,
           label: "Settings".tl,
           onTap: () {
             to(() => const SettingsPage(), preventDuplicate: true);

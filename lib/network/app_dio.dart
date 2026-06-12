@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
-import 'package:rhttp/rhttp.dart' as rhttp;
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/cache.dart';
@@ -175,44 +176,6 @@ class AppDio with DioMixin {
 }
 
 class RHttpAdapter implements HttpClientAdapter {
-  Future<rhttp.ClientSettings> get settings async {
-    var proxy = await getProxy();
-
-    return rhttp.ClientSettings(
-      proxySettings: proxy == null
-          ? const rhttp.ProxySettings.noProxy()
-          : rhttp.ProxySettings.proxy(proxy),
-      redirectSettings: const rhttp.RedirectSettings.limited(5),
-      timeoutSettings: const rhttp.TimeoutSettings(
-        connectTimeout: Duration(seconds: 15),
-        keepAliveTimeout: Duration(seconds: 60),
-        keepAlivePing: Duration(seconds: 30),
-      ),
-      throwOnStatusCode: false,
-      dnsSettings: rhttp.DnsSettings.static(overrides: _getOverrides()),
-      tlsSettings: rhttp.TlsSettings(
-        sni: appdata.settings['sni'] != false,
-        verifyCertificates: appdata.settings['ignoreBadCertificate'] != true,
-      ),
-    );
-  }
-
-  static Map<String, List<String>> _getOverrides() {
-    if (!appdata.settings['enableDnsOverrides'] == true) {
-      return {};
-    }
-    var config = appdata.settings["dnsOverrides"];
-    var result = <String, List<String>>{};
-    if (config is Map) {
-      for (var entry in config.entries) {
-        if (entry.key is String && entry.value is String) {
-          result[entry.key] = [entry.value];
-        }
-      }
-    }
-    return result;
-  }
-
   @override
   void close({bool force = false}) {}
 
@@ -220,40 +183,58 @@ class RHttpAdapter implements HttpClientAdapter {
   Future<ResponseBody> fetch(
     RequestOptions options,
     Stream<Uint8List>? requestStream,
-    Future<void>? cancelFuture,
+    Future? cancelFuture,
   ) async {
-    if (options.headers['User-Agent'] == null &&
-        options.headers['user-agent'] == null) {
+    if (!options.headers.keys.any((e) => e.toLowerCase() == 'user-agent')) {
       options.headers['User-Agent'] = "kong_comic/v${App.version}";
     }
 
-    var res = await rhttp.Rhttp.request(
-      method: rhttp.HttpMethod(options.method),
-      url: options.uri.toString(),
-      settings: await settings,
-      expectBody: rhttp.HttpExpectBody.stream,
-      body: requestStream == null ? null : rhttp.HttpBody.stream(requestStream),
-      headers: rhttp.HttpHeaders.rawMap(
-        Map.fromEntries(
-          options.headers.entries.map(
-            (e) => MapEntry(e.key, e.value.toString().trim()),
-          ),
-        ),
-      ),
-    );
-    if (res is! rhttp.HttpStreamResponse) {
-      throw Exception("Invalid response type: ${res.runtimeType}");
+    final proxy = await getProxy();
+    final uri = options.uri;
+    final client = HttpClient();
+
+    client.findProxy = (_) {
+      if (proxy != null) return 'PROXY $proxy';
+      return 'DIRECT';
+    };
+
+    client.badCertificateCallback =
+        (X509Certificate cert, String host, int port) {
+      return appdata.settings['ignoreBadCertificate'] == true;
+    };
+
+    client.connectionTimeout = const Duration(seconds: 15);
+
+    final request = await client.openUrl(options.method, uri);
+
+    options.headers.forEach((key, value) {
+      if (value != null) {
+        request.headers.set(key, value.toString());
+      }
+    });
+
+    if (requestStream != null) {
+        await request.addStream(requestStream);
     }
-    var headers = <String, List<String>>{};
-    for (var entry in res.headers) {
-      var key = entry.$1.toLowerCase();
-      headers[key] ??= [];
-      headers[key]!.add(entry.$2);
-    }
+
+    cancelFuture?.then((_) => request.abort());
+
+    final response = await request.close();
+
+    final headers = <String, List<String>>{};
+    response.headers.forEach((name, values) {
+      headers[name.toLowerCase()] = values;
+    });
+
     return ResponseBody(
-      res.body,
-      res.statusCode,
-      statusMessage: _getStatusMessage(res.statusCode),
+      response.cast<Uint8List>().transform(
+        StreamTransformer.fromHandlers(handleDone: (sink) {
+          client.close();
+          sink.close();
+        }),
+      ),
+      response.statusCode,
+      statusMessage: _getStatusMessage(response.statusCode),
       isRedirect: false,
       headers: headers,
     );
@@ -261,21 +242,10 @@ class RHttpAdapter implements HttpClientAdapter {
 
   static String _getStatusMessage(int statusCode) {
     return switch (statusCode) {
-      200 => "OK",
-      201 => "Created",
-      202 => "Accepted",
-      204 => "No Content",
-      206 => "Partial Content",
-      301 => "Moved Permanently",
-      302 => "Found",
-      400 => "Invalid Status Code 400: The Request is invalid.",
-      401 => "Invalid Status Code 401: The Request is unauthorized.",
-      403 =>
-        "Invalid Status Code 403: No permission to access the resource. Check your account or network.",
-      404 => "Invalid Status Code 404: Not found.",
-      429 =>
-        "Invalid Status Code 429: Too many requests. Please try again later.",
-      _ => "Invalid Status Code $statusCode",
+      200 => 'OK',
+      404 => 'Not Found',
+      500 => 'Internal Server Error',
+      _ => 'Unknown',
     };
   }
 }

@@ -49,6 +49,7 @@ class ComicTile extends StatelessWidget {
 
   final int? heroID;
 
+
   void _onTap() {
     if (onTap != null) {
       onTap!();
@@ -1626,7 +1627,7 @@ class _SMClipper extends CustomClipper<Rect> {
 
 class SimpleComicTile extends StatelessWidget {
   const SimpleComicTile(
-      {super.key, required this.comic, this.onTap, this.withTitle = false, this.heroID});
+      {super.key, required this.comic, this.onTap, this.withTitle = false, this.heroID, this.heroRadius = 8});
 
   final Comic comic;
 
@@ -1635,6 +1636,8 @@ class SimpleComicTile extends StatelessWidget {
   final bool withTitle;
 
   final int? heroID;
+
+  final double heroRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -1654,7 +1657,7 @@ class SimpleComicTile extends StatelessWidget {
       width: 98,
       height: 136,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(heroRadius),
         color: Theme.of(context).colorScheme.secondaryContainer,
       ),
       clipBehavior: Clip.antiAlias,

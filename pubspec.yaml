@@ -6,14 +6,13 @@ version: 1.6.4+164
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
-  flutter: 3.41.4
+  flutter: 3.44.0
 
 dependencies:
   flutter:
     sdk: flutter
   path_provider: any
   intl: any
-  window_manager: ^0.5.1
   sqlite3: ^2.7.4
   sqlite3_flutter_libs: ^0.5.30
   flutter_qjs:
@@ -39,39 +38,24 @@ dependencies:
       path: packages/scrollable_positioned_list
   flutter_reorderable_grid_view: ^5.4.0
   uuid: ^4.5.1
-  desktop_webview_window:
-    git:
-      url: https://github.com/venera-app/flutter_desktop_webview
-      path: packages/desktop_webview_window
-      ref: 7801fc582ecf5a7351632887891ecf309a7b2583
-  flutter_inappwebview:
-    git:
-      url: https://github.com/venera-app/flutter_inappwebview
-      path: flutter_inappwebview
-      ref: 3ef899b3db57c911b080979f1392253b835f98ab
   app_links: ^7.0.0
   sliver_tools: ^0.2.12
   flutter_file_dialog: ^3.0.3
-  file_selector: ^1.1.0
   zip_flutter: ^0.0.13
   lodepng_flutter:
     git:
       url: https://github.com/venera-app/lodepng_flutter
       ref: ac7d05dde32e8d728102a9ff66e6b55f05d94ba1
-  rhttp: ^0.15.1
   webdav_client:
     git:
       url: https://github.com/venera-app/webdav_client
       ref: 2f669c98fb81cff1c64fee93466a1475c77e4273
-  battery_plus: ^7.0.0
   local_auth: ^3.0.1
   flutter_saf:
     git: 
       url: https://github.com/venera-app/flutter_saf
       ref: fe182cdf40e5fa6230f451bc1d643b860f610d13
   dynamic_color: ^1.8.1
-  shimmer_animation: ^2.1.0
-  flutter_memory_info: ^0.0.3
   syntax_highlight: ^0.4.0
   flutter_7zip:
     git:
@@ -81,15 +65,27 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   yaml: ^3.1.3
-  enough_convert: ^1.6.0
+  cached_network_image: ^3.4.0
+  file_selector: ^1.1.0
+  battery_plus: ^7.0.0
+  flutter_memory_info: ^0.0.3
+  desktop_webview_window:
+    git:
+      url: https://github.com/venera-app/flutter_desktop_webview
+      path: packages/desktop_webview_window
+      ref: 7801fc582ecf5a7351632887891ecf309a7b2583
+  shimmer_animation: ^2.1.0
+  flutter_inappwebview: ^6.1.5
+  window_manager: ^0.5.1
   display_mode: ^0.0.2
+  fluentui_system_icons: ^1.1.273
+  enough_convert: ^1.6.0
   flutter_staggered_grid_view: ^0.7.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  flutter_to_arch: ^1.0.1
   flutter_to_debian: 
     git:
       url: https://github.com/venera-app/flutter_to_debian.git
@@ -106,12 +102,3 @@ flutter:
     - assets/opencc.txt
 # fonts:
 
-flutter_to_arch:
-  name: Venera
-  icon: debian/gui/venera.png
-  categories: Utility
-  keywords: Flutter;comic;images;
-  url: https://github.com/venera-app/venera
-  depends:
-    - gtk3
-    - webkit2gtk-4.1

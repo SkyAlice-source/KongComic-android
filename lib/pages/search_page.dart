@@ -32,6 +32,7 @@ class _SearchPageState extends State<SearchPage> {
   late List<String> searchSources;
 
   String searchTarget = "";
+  final _searchTextController = TextEditingController();
 
   SearchPageData get currentSearchPageData =>
       ComicSource.find(searchTarget)!.searchPageData!;
@@ -227,21 +228,21 @@ class _SearchPageState extends State<SearchPage> {
     if (searchSources.isEmpty) {
       return buildEmpty();
     }
-    return Scaffold(
-      body: SmoothCustomScrollView(
-        slivers: buildSlivers().toList(),
-      ),
+    return Column(
+      children: [
+        const Spacer(flex: 2),
+        _buildBottomSearchBar(),
+        Expanded(
+          flex: 4,
+          child: SmoothCustomScrollView(
+            slivers: buildSlivers().toList(),
+          ),
+        ),
+      ],
     );
   }
 
   Iterable<Widget> buildSlivers() sync* {
-    yield SliverSearchBar(
-      controller: controller,
-      onChanged: (s) {
-        findSuggestions();
-      },
-      focusNode: focusNode,
-    );
     if (suggestions.isNotEmpty) {
       yield buildSuggestions(context);
     } else {
@@ -502,6 +503,76 @@ class _SearchPageState extends State<SearchPage> {
       ],
     );
   }
+
+  Widget _buildBottomSearchBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 42,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(21),
+                color: isDark
+                    ? const Color(0xFF1E1E1E)
+                    : const Color(0xFFF0F4F8),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF333333)
+                      : const Color(0xFF0EA5E9).withValues(alpha: 0.3),
+                  width: 0.5,
+                ),
+              ),
+              child: TextField(
+                controller: _searchTextController,
+                decoration: InputDecoration(
+                  hintText: 'Search'.tl,
+                  hintStyle: TextStyle(
+                    color: isDark ? Colors.grey.shade500 : const Color(0xFF8E8E93),
+                    fontSize: 15,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+                textInputAction: TextInputAction.search,
+                onSubmitted: (text) {
+                  if (text.isNotEmpty) search(text);
+                },
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () {
+              final text = _searchTextController.text;
+              if (text.isNotEmpty) search(text);
+            },
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF0EA5E9),
+              ),
+              child: const Icon(Icons.search, color: Colors.white, size: 20),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
 }
 
 class SearchOptionWidget extends StatelessWidget {

@@ -16,23 +16,20 @@ class _AboutSettingsState extends State<AboutSettings> {
       slivers: [
         SliverAppbar(title: Text("About".tl)),
         SizedBox(
-          height: 112,
+          height: 120,
           width: double.infinity,
           child: Center(
-            child: Container(
-              width: 112,
-              height: 112,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(136),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: const Image(
-                image: AssetImage("assets/app_icon.png"),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Image.asset(
+                "assets/app_icon.png",
+                width: 96,
+                height: 96,
                 filterQuality: FilterQuality.medium,
               ),
             ),
           ),
-        ).paddingTop(16).toSliver(),
+        ).paddingTop(20).toSliver(),
         Column(
           children: [
             const SizedBox(height: 8),
@@ -65,20 +62,8 @@ class _AboutSettingsState extends State<AboutSettings> {
           title: "Check for updates on startup".tl,
           settingKey: "checkUpdateOnStart",
         ).toSliver(),
-        ListTile(
-          title: const Text("Github"),
-          trailing: const Icon(Icons.open_in_new),
-          onTap: () {
-            launchUrlString("https://github.com/SkyAlice-source/kongman-android");
-          },
-        ).toSliver(),
-        ListTile(
-          title: const Text("Telegram"),
-          trailing: const Icon(Icons.open_in_new),
-          onTap: () {
-            launchUrlString("https://t.me/kongcomic");
-          },
-        ).toSliver(),
+
+
       ],
     );
   }
@@ -117,7 +102,7 @@ Future<void> checkUpdateUi([bool showMessageIfNoUpdate = true, bool delay = fals
                   onPressed: () {
                     Navigator.pop(context);
                     launchUrlString(
-                        "https://github.com/SkyAlice-source/kongman-android/releases");
+                        "");
                   },
                   child: Text("Update".tl),
                 ),

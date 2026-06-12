@@ -109,6 +109,7 @@ class _PopUpWidgetScaffoldState extends State<PopUpWidgetScaffold> {
   @override
   Widget build(BuildContext context) {
     return Material(
+      color: Theme.of(context).colorScheme.surface,
       child: Column(
         children: [
           GlassAppBarWrapper(

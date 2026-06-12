@@ -137,7 +137,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       'blue' => Colors.blue,
       'yellow' => Colors.yellow,
       'cyan' => Colors.cyan,
-      _ => Colors.blue,
+      _ => const Color(0xFF4A90E2),
     };
   }
 
@@ -150,7 +150,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     String? font;
     List<String>? fallback;
     if (App.isLinux || App.isWindows) {
-      font = 'Noto Sans CJK';
+      font = 'Noto Sans SC';
       fallback = [
         'Segoe UI',
         'Noto Sans SC',
@@ -162,6 +162,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         'sans-serif'
       ];
     }
+    final surfaceColor = brightness == Brightness.light
+        ? const Color(0xFFF5F7FA)
+        : const Color(0xFF121212);
     return ThemeData(
       colorScheme: SeedColorScheme.fromSeeds(
         primaryKey: primary,
@@ -169,6 +172,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         tertiaryKey: tertiary,
         brightness: brightness,
         tones: FlexTones.vividBackground(brightness),
+      ).copyWith(
+        surface: surfaceColor,
+        surfaceContainerLowest: surfaceColor,
+        surfaceContainerLow: surfaceColor,
+        surfaceContainer: surfaceColor,
+        surfaceContainerHigh: surfaceColor,
+        surfaceContainerHighest: surfaceColor,
+        surfaceTint: Colors.transparent,
+      ),
+      scaffoldBackgroundColor: surfaceColor,
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.transparent,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
       ),
       fontFamily: font,
       fontFamilyFallback: fallback,
@@ -298,17 +316,18 @@ class _SystemUiProvider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var brightness = Theme.of(context).brightness;
+    var surface = Theme.of(context).colorScheme.surface;
     SystemUiOverlayStyle systemUiStyle;
     if (brightness == Brightness.light) {
       systemUiStyle = SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent,
+        statusBarColor: surface,
+        systemNavigationBarColor: surface,
         systemNavigationBarIconBrightness: Brightness.dark,
       );
     } else {
       systemUiStyle = SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent,
+        statusBarColor: surface,
+        systemNavigationBarColor: surface,
         systemNavigationBarIconBrightness: Brightness.light,
       );
     }

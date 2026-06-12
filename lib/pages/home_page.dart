@@ -1,3 +1,9 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/pages/categories_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -15,7 +21,6 @@ import 'package:kong_comic/pages/downloading_page.dart';
 import 'package:kong_comic/pages/follow_updates_page.dart';
 import 'package:kong_comic/pages/history_page.dart';
 import 'package:kong_comic/pages/image_favorites_page/image_favorites_page.dart';
-import 'package:kong_comic/pages/search_page.dart';
 import 'package:kong_comic/utils/data_sync.dart';
 import 'package:kong_comic/utils/import_comic.dart';
 import 'package:kong_comic/utils/tags_translation.dart';
@@ -28,1068 +33,269 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var widget = SmoothCustomScrollView(
-      slivers: [
-        SliverPadding(padding: EdgeInsets.only(top: context.padding.top)),
-        const _SearchBar(),
-        const _SyncDataWidget(),
-        const _History(),
-        const _Local(),
-        const FollowUpdatesWidget(),
-        const _ComicSourceWidget(),
-        const ImageFavorites(),
-        SliverPadding(padding: EdgeInsets.only(top: context.padding.bottom)),
-      ],
+    var widget = LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight;
+        final bannerHeight = (availableHeight - 380).clamp(260.0, 420.0);
+        return _BannerProvider(
+          bannerHeight: bannerHeight,
+          child: SmoothCustomScrollView(
+            slivers: [
+              SliverPadding(padding: EdgeInsets.only(top: context.padding.top)),
+              _Banner(height: bannerHeight),
+              const _ReadingStats(),
+              SliverToBoxAdapter(child: const _HomeCapsules()),
+              const _BottomModules(),
+              SliverPadding(padding: EdgeInsets.only(top: context.padding.bottom)),
+            ],
+          ),
+        );
+      },
     );
     return context.width > changePoint ? widget.paddingHorizontal(8) : widget;
   }
 }
 
-class _SearchBar extends StatelessWidget {
-  const _SearchBar();
+class _BannerProvider extends InheritedWidget {
+  final double bannerHeight;
+  const _BannerProvider({required this.bannerHeight, required super.child});
+  static _BannerProvider of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_BannerProvider>()!;
+  @override bool updateShouldNotify(_BannerProvider old) => old.bannerHeight != bannerHeight;
+}
 
+class _Banner extends StatefulWidget {
+  final double height;
+  const _Banner({this.height = 360});
   @override
-  Widget build(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: GlassContainer(
-        blurStrength: 0,
-        opacity: 0.10,
-        borderRadius: BorderRadius.circular(32),
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        height: App.isMobile ? 52 : 46,
-        width: double.infinity,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(32),
-          onTap: () {
-            context.to(() => const SearchPage());
-          },
-          child: Row(
-            children: [
-              const SizedBox(width: 16),
-              const Icon(Icons.search),
-              const SizedBox(width: 8),
-              Text('Search'.tl, style: ts.s16),
-              const Spacer(),
-            ],
-          ),
-        ),
-      ),
-    );
+  State<_Banner> createState() => _BannerState();
+}
+
+class _BannerState extends State<_Banner> {
+  int _currentIndex = 0;
+  Timer? _timer;
+  List<FavoriteItem> _comics = [];
+  void _loadComics() {
+    final folders = LocalFavoritesManager().folderNames;
+    final comics = <FavoriteItem>[];
+    for (final folder in folders) {
+      if (comics.length >= 7) break;
+      for (final c in LocalFavoritesManager().getFolderComics(folder)) { if (comics.length >= 7) break; comics.add(c); }
+    }
+    if (mounted) setState(() => _comics = comics);
   }
-}
-
-class _SyncDataWidget extends StatefulWidget {
-  const _SyncDataWidget();
-
-  @override
-  State<_SyncDataWidget> createState() => _SyncDataWidgetState();
-}
-
-class _SyncDataWidgetState extends State<_SyncDataWidget>
-    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    DataSync().addListener(update);
-    WidgetsBinding.instance.addObserver(this);
-    lastCheck = DateTime.now();
+    // No PageController needed
+    _loadComics(); LocalFavoritesManager().addListener(_loadComics); _startTimer();
   }
-
-  void update() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    DataSync().removeListener(update);
-    WidgetsBinding.instance.removeObserver(this);
-  }
-
-  late DateTime lastCheck;
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
-      if (DateTime.now().difference(lastCheck) > const Duration(minutes: 10)) {
-        lastCheck = DateTime.now();
-        DataSync().downloadData();
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Widget child;
-    if (!DataSync().isEnabled) {
-      child = const SliverPadding(padding: EdgeInsets.zero);
-    } else if (DataSync().isUploading || DataSync().isDownloading) {
-      child = SliverToBoxAdapter(
-        child: GlassCard(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: ListTile(
-            leading: const Icon(Icons.sync),
-            title: Text('Syncing Data'.tl),
-            trailing: const CircularProgressIndicator(strokeWidth: 2)
-                .fixWidth(18)
-                .fixHeight(18),
-          ),
-        ),
-      );
-    } else {
-      child = SliverToBoxAdapter(
-        child: GlassCard(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: ListTile(
-            leading: const Icon(Icons.sync),
-            title: Text('Sync Data'.tl),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (DataSync().lastError != null)
-                  InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () {
-                      showDialogMessage(
-                        App.rootContext,
-                        "Error".tl,
-                        DataSync().lastError!,
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            color: Colors.red,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 4),
-                          Text('Error'.tl, style: ts.s12),
-                        ],
-                      ),
-                    ),
-                  ).paddingRight(4),
-                IconButton(
-                  icon: const Icon(Icons.cloud_upload_outlined),
-                  onPressed: () async {
-                    DataSync().uploadData();
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.cloud_download_outlined),
-                  onPressed: () async {
-                    DataSync().downloadData();
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-    return SliverAnimatedPaintExtent(
-      duration: const Duration(milliseconds: 200),
-      child: child,
-    );
-  }
-}
-
-class _History extends StatefulWidget {
-  const _History();
-
-  @override
-  State<_History> createState() => _HistoryState();
-}
-
-class _HistoryState extends State<_History> {
-  late List<History> history;
-  late int count;
-
-  void onHistoryChange() {
-    if (mounted) {
-      setState(() {
-        history = HistoryManager().getRecent();
-        count = HistoryManager().count();
-      });
-    }
-  }
-
-  @override
-  void initState() {
-    history = HistoryManager().getRecent();
-    count = HistoryManager().count();
-    HistoryManager().addListener(onHistoryChange);
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    HistoryManager().removeListener(onHistoryChange);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: GlassCard(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        onTap: () {
-          context.to(() => const HistoryPage());
-        },
-        child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 56,
-                child: Row(
-                  children: [
-                    Center(
-                      child: Text('History'.tl, style: ts.s18),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(count.toString(), style: ts.s12),
-                    ),
-                    const Spacer(),
-                    const Icon(Icons.arrow_right),
-                  ],
-                ),
-              ).paddingHorizontal(16),
-              if (history.isNotEmpty)
-                SizedBox(
-                  height: 136,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: history.length,
-                    itemBuilder: (context, index) {
-                      final heroID = history[index].id.hashCode;
-                      return SimpleComicTile(
-                        comic: history[index],
-                        heroID: heroID,
-                        onTap: () {
-                          context.to(
-                            () => ComicPage(
-                              id: history[index].id,
-                              sourceKey: history[index].type.sourceKey,
-                              cover: history[index].cover,
-                              title: history[index].title,
-                              heroID: heroID,
-                            ),
-                          );
-                        },
-                      ).paddingHorizontal(8).paddingVertical(2);
-                    },
-                  ),
-                ).paddingHorizontal(8).paddingBottom(16),
-            ],
-          ),
-      ),
-    );
-  }
-}
-
-class _Local extends StatefulWidget {
-  const _Local();
-
-  @override
-  State<_Local> createState() => _LocalState();
-}
-
-class _LocalState extends State<_Local> {
-  late List<LocalComic> local;
-  late int count;
-
-  void onLocalComicsChange() {
-    setState(() {
-      local = LocalManager().getRecent();
-      count = LocalManager().count;
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || _comics.length < 2) return;
+      setState(() { _currentIndex = (_currentIndex + 1) % _comics.length; _startTimer(); });
     });
   }
-
-  @override
-  void initState() {
-    local = LocalManager().getRecent();
-    count = LocalManager().count;
-    LocalManager().addListener(onLocalComicsChange);
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    LocalManager().removeListener(onLocalComicsChange);
-    super.dispose();
-  }
+  @override void dispose() { _timer?.cancel(); LocalFavoritesManager().removeListener(_loadComics); super.dispose(); }
+  void _navigateToComic(FavoriteItem c) { context.to(() => ComicPage(id: c.id, sourceKey: c.type.comicSource?.key ?? '', cover: c.coverPath, title: c.name)); }
 
   @override
   Widget build(BuildContext context) {
+    if (_comics.length < 3) return const SliverToBoxAdapter(child: SizedBox());
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sw = MediaQuery.of(context).size.width;
+    final cardW = sw * 0.45;
     return SliverToBoxAdapter(
-      child: GlassCard(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        onTap: () {
-          context.to(() => const LocalComicsPage());
-        },
-        child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 56,
-                child: Row(
-                  children: [
-                    Center(
-                      child: Text('Local'.tl, style: ts.s18),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(count.toString(), style: ts.s12),
-                    ),
-                    const Spacer(),
-                    const Icon(Icons.arrow_right),
-                  ],
-                ),
-              ).paddingHorizontal(16),
-              if (local.isNotEmpty)
-                SizedBox(
-                  height: 136,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: local.length,
-                    itemBuilder: (context, index) {
-                      final heroID = local[index].id.hashCode;
-                      return SimpleComicTile(
-                        comic: local[index],
-                        heroID: heroID,
-                        onTap: () {
-                          context.to(
-                            () => ComicPage(
-                              id: local[index].id,
-                              sourceKey: local[index].sourceKey,
-                              cover: local[index].cover,
-                              title: local[index].title,
-                              heroID: heroID,
-                            ),
-                          );
-                        },
-                      ).paddingHorizontal(8).paddingVertical(2);
-                    },
-                  ),
-                ).paddingHorizontal(8),
-              Row(
-                children: [
-                  if (LocalManager().downloadingTasks.isNotEmpty)
-                    Button.outlined(
-                      child: Row(
-                        children: [
-                          if (LocalManager().downloadingTasks.first.isPaused)
-                            const Icon(Icons.pause_circle_outline, size: 18)
-                          else
-                            const _AnimatedDownloadingIcon(),
-                          const SizedBox(width: 8),
-                          Text("@a Tasks".tlParams({
-                            'a': LocalManager().downloadingTasks.length,
-                          })),
-                        ],
-                      ),
-                      onPressed: () {
-                        showPopUpWidget(context, const DownloadingPage());
-                      },
-                    ),
-                  const Spacer(),
-                  Button.filled(
-                    onPressed: import,
-                    child: Text("Import".tl),
-                  ),
-                ],
-              ).paddingHorizontal(16).paddingVertical(8),
-            ],
-          ),
-      ),
-    );
-  }
-
-  void import() {
-    showDialog(
-      barrierDismissible: false,
-      context: App.rootContext,
-      builder: (context) {
-        return const _ImportComicsWidget();
-      },
-    );
-  }
-}
-
-class _ImportComicsWidget extends StatefulWidget {
-  const _ImportComicsWidget();
-
-  @override
-  State<_ImportComicsWidget> createState() => _ImportComicsWidgetState();
-}
-
-class _ImportComicsWidgetState extends State<_ImportComicsWidget> {
-  int type = 0;
-
-  bool loading = false;
-
-  var key = GlobalKey();
-
-  var height = 200.0;
-
-  var folders = LocalFavoritesManager().folderNames;
-
-  String? selectedFolder;
-
-  bool copyToLocalFolder = true;
-
-  bool cancelled = false;
-
-  @override
-  void dispose() {
-    loading = false;
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    String info = [
-      "Select a directory which contains the comic files.".tl,
-      "Select a directory which contains the comic directories.".tl,
-      "Select an archive file (cbz, zip, 7z, cb7)".tl,
-      "Select a directory which contains multiple archive files.".tl,
-      "Select an EhViewer database and a download folder.".tl,
-      "Scan the current local path and restore the local database.".tl,
-    ][type];
-    List<String> importMethods = [
-      "Single Comic".tl,
-      "Multiple Comics".tl,
-      "An archive file".tl,
-      "Multiple archive files".tl,
-      "EhViewer downloads".tl,
-      "Restore local downloads".tl,
-    ];
-
-    return ContentDialog(
-      dismissible: !loading,
-      title: "Import Comics".tl,
-      content: loading
-          ? SizedBox(
-              width: 600,
-              height: height,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            )
-          : RadioGroup<int>(
-              groupValue: type,
-              onChanged: (value) {
-                setState(() {
-                  type = value ?? type;
-                  if (type == 5) {
-                    selectedFolder = null;
-                  }
-                });
+      child: SizedBox(height: widget.height,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            // Decorative stacked cards (background)
+            ..._buildStackedCards(isDark, cardW, sw),
+            // Main card with in-place replacement (AnimatedSwitcher)
+            GestureDetector(
+              onHorizontalDragEnd: (details) {
+                if (details.velocity.pixelsPerSecond.dx > 80) {
+                  final prev = (_currentIndex - 1 + _comics.length) % _comics.length;
+                  setState(() { _currentIndex = prev; _startTimer(); });
+                } else if (details.velocity.pixelsPerSecond.dx < -80) {
+                  final next = (_currentIndex + 1) % _comics.length;
+                  setState(() { _currentIndex = next; _startTimer(); });
+                }
               },
-              child: Column(
-                key: key,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(width: 600),
-                  ...List.generate(importMethods.length, (index) {
-                    return RadioListTile<int>(
-                      title: Text(importMethods[index]),
-                      value: index,
-                    );
-                  }),
-                  if (type != 4 && type != 5)
-                    ListTile(
-                      title: Text("Add to favorites".tl),
-                      trailing: Select(
-                        current: selectedFolder,
-                        values: folders,
-                        minWidth: 112,
-                        onTap: (v) {
-                          setState(() {
-                            selectedFolder = folders[v];
-                          });
-                        },
-                      ),
-                    ).paddingHorizontal(8),
-                  if (!App.isIOS &&
-                      !App.isMacOS &&
-                      type != 2 &&
-                      type != 3 &&
-                      type != 5)
-                    CheckboxListTile(
-                        enabled: true,
-                        title: Text("Copy to app local path".tl),
-                        value: copyToLocalFolder,
-                        onChanged: (v) {
-                          setState(() {
-                            copyToLocalFolder = !copyToLocalFolder;
-                          });
-                        }).paddingHorizontal(8),
-                  const SizedBox(height: 8),
-                  Text(info).paddingHorizontal(24),
-                ],
-              ),
-          ),
-      actions: [
-        Button.text(
-          child: Row(
-            children: [
-              Icon(
-                Icons.help_outline,
-                size: 18,
-                color: context.colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text("help".tl),
-            ],
-          ),
-          onPressed: () {
-            launchUrlString(
-                "https://github.com/venera-app/venera/blob/master/doc/import_comic.md");
-          },
-        ).fixWidth(90).paddingRight(8),
-        Button.filled(
-          isLoading: loading,
-          onPressed: selectAndImport,
-          child: Text("Select".tl),
-        )
-      ],
-    );
-  }
-
-  void selectAndImport() async {
-    height = key.currentContext!.size!.height;
-
-    setState(() {
-      loading = true;
-    });
-    var importer = ImportComic(
-        selectedFolder: selectedFolder, copyToLocal: copyToLocalFolder);
-    var result = switch (type) {
-      0 => await importer.directory(true),
-      1 => await importer.directory(false),
-      2 => await importer.cbz(),
-      3 => await importer.multipleCbz(),
-      4 => await importer.ehViewer(),
-      5 => await importer.localDownloads(),
-      int() => true,
-    };
-    if (result) {
-      context.pop();
-    } else {
-      setState(() {
-        loading = false;
-      });
-    }
-  }
-}
-
-class _ComicSourceWidget extends StatefulWidget {
-  const _ComicSourceWidget();
-
-  @override
-  State<_ComicSourceWidget> createState() => _ComicSourceWidgetState();
-}
-
-class _ComicSourceWidgetState extends State<_ComicSourceWidget> {
-  late List<String> comicSources;
-
-  void onComicSourceChange() {
-    setState(() {
-      comicSources = ComicSource.all().map((e) => e.name).toList();
-    });
-  }
-
-  @override
-  void initState() {
-    comicSources = ComicSource.all().map((e) => e.name).toList();
-    ComicSourceManager().addListener(onComicSourceChange);
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    ComicSourceManager().removeListener(onComicSourceChange);
-    super.dispose();
-  }
-
-  int get _availableUpdates {
-    int c = 0;
-    ComicSourceManager().availableUpdates.forEach((key, version) {
-      var source = ComicSource.find(key);
-      if (source != null) {
-        if (compareSemVer(version, source.version)) {
-          c++;
-        }
-      }
-    });
-    return c;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: GlassCard(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        onTap: () {
-          context.to(() => const ComicSourcePage());
-        },
-        child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 56,
-                child: Row(
-                  children: [
-                    Center(
-                      child: Text('Comic Source'.tl, style: ts.s18),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child:
-                          Text(comicSources.length.toString(), style: ts.s12),
-                    ),
-                    const Spacer(),
-                    const Icon(Icons.arrow_right),
-                  ],
-                ),
-              ).paddingHorizontal(16),
-              if (comicSources.isNotEmpty)
-                SizedBox(
-                  width: double.infinity,
-                  child: Wrap(
-                    runSpacing: 8,
-                    spacing: 8,
-                    children: comicSources.map((e) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color:
-                              Theme.of(context).colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(e),
-                      );
-                    }).toList(),
-                  ).paddingHorizontal(16).paddingBottom(16),
-                ),
-              if (_availableUpdates > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: context.colorScheme.outlineVariant,
-                      width: 0.6,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.update,
-                        color: context.colorScheme.primary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "@c updates".tlParams({
-                          'c': _availableUpdates,
-                        }),
-                        style: ts.withColor(context.colorScheme.primary),
-                      ),
-                    ],
-                  ),
-                )
-                    .toAlign(Alignment.centerLeft)
-                    .paddingHorizontal(16)
-                    .paddingBottom(8),
-            ],
-          ),
-      ),
-    );
-  }
-}
-
-class _AnimatedDownloadingIcon extends StatefulWidget {
-  const _AnimatedDownloadingIcon();
-
-  @override
-  State<_AnimatedDownloadingIcon> createState() =>
-      __AnimatedDownloadingIconState();
-}
-
-class __AnimatedDownloadingIconState extends State<_AnimatedDownloadingIcon>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      lowerBound: -1,
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Container(
-          width: 18,
-          height: 18,
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-                width: 2,
-              ),
-            ),
-          ),
-          clipBehavior: Clip.hardEdge,
-          child: Transform.translate(
-            offset: Offset(0, 18 * _controller.value),
-            child: Icon(
-              Icons.arrow_downward,
-              size: 16,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class ImageFavorites extends StatefulWidget {
-  const ImageFavorites({super.key});
-
-  @override
-  State<ImageFavorites> createState() => _ImageFavoritesState();
-}
-
-class _ImageFavoritesState extends State<ImageFavorites> {
-  ImageFavoritesComputed? imageFavoritesCompute;
-
-  int displayType = 0;
-
-  void refreshImageFavorites() async {
-    try {
-      imageFavoritesCompute =
-          await ImageFavoriteManager.computeImageFavorites();
-      if (mounted) {
-        setState(() {});
-      }
-    } catch (e, stackTrace) {
-      Log.error("Unhandled Exception", e.toString(), stackTrace);
-    }
-  }
-
-  @override
-  void initState() {
-    refreshImageFavorites();
-    ImageFavoriteManager().addListener(refreshImageFavorites);
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    ImageFavoriteManager().removeListener(refreshImageFavorites);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    bool hasData =
-        imageFavoritesCompute != null && !imageFavoritesCompute!.isEmpty;
-    return SliverToBoxAdapter(
-      child: GlassCard(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        onTap: () {
-          context.to(
-            () => const ImageFavoritesPage()
-          );
-        },
-        child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 56,
-                child: Row(
-                  children: [
-                    Center(
-                      child: Text('Image Favorites'.tl, style: ts.s18),
-                    ),
-                    if (hasData)
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color:
-                              Theme.of(context).colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          imageFavoritesCompute!.count.toString(),
-                          style: ts.s12,
-                        ),
-                      ),
-                    const Spacer(),
-                    const Icon(Icons.arrow_right),
-                  ],
-                ),
-              ).paddingHorizontal(16),
-              if (hasData)
-                Row(
-                  children: [
-                    const Spacer(),
-                    buildTypeButton(0, "Tags".tl),
-                    const Spacer(),
-                    buildTypeButton(1, "Authors".tl),
-                    const Spacer(),
-                    buildTypeButton(2, "Comics".tl),
-                    const Spacer(),
-                  ],
-                ),
-              if (hasData) const SizedBox(height: 8),
-              if (hasData)
-                buildChart(switch (displayType) {
-                  0 => imageFavoritesCompute!.tags,
-                  1 => imageFavoritesCompute!.authors,
-                  2 => imageFavoritesCompute!.comics,
-                  _ => [],
-                })
-                    .paddingHorizontal(16)
-                    .paddingBottom(16),
-            ],
-          ),
-      ),
-    );
-  }
-
-  Widget buildTypeButton(int type, String text) {
-    const radius = 24.0;
-    return InkWell(
-      borderRadius: BorderRadius.circular(radius),
-      onTap: () async {
-        setState(() {
-          displayType = type;
-        });
-        await Future.delayed(const Duration(milliseconds: 20));
-        var scrollController = ScrollState.of(context).controller;
-        scrollController.animateTo(
-          scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.ease,
-        );
-      },
-      child: AnimatedContainer(
-        width: 96,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color:
-              displayType == type ? context.colorScheme.primaryContainer : null,
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-          borderRadius: BorderRadius.circular(radius),
-        ),
-        duration: const Duration(milliseconds: 200),
-        child: Center(
-          child: Text(
-            text,
-            style: ts.s16,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildChart(List<TextWithCount> data) {
-    if (data.isEmpty) {
-      return const SizedBox();
-    }
-    var maxCount = data.map((e) => e.count).reduce((a, b) => a > b ? a : b);
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: 164,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          key: ValueKey(displayType),
-          children: data.map((e) {
-            return _ChartLine(
-              text: e.text,
-              count: e.count,
-              maxCount: maxCount,
-              enableTranslation: displayType != 2,
-              onTap: (text) {
-                context.to(
-                  () => ImageFavoritesPage(initialKeyword: text),
-                );
-              },
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-}
-
-class _ChartLine extends StatefulWidget {
-  const _ChartLine({
-    required this.text,
-    required this.count,
-    required this.maxCount,
-    required this.enableTranslation,
-    this.onTap,
-  });
-
-  final String text;
-
-  final int count;
-
-  final int maxCount;
-
-  final bool enableTranslation;
-
-  final void Function(String text)? onTap;
-
-  @override
-  State<_ChartLine> createState() => __ChartLineState();
-}
-
-class __ChartLineState extends State<_ChartLine>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-      value: 0,
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    var text = widget.text;
-    var enableTranslation =
-        App.locale.countryCode == 'CN' && widget.enableTranslation;
-    if (enableTranslation) {
-      text = text.translateTagsToCN;
-    }
-    if (widget.enableTranslation && text.contains(':')) {
-      text = text.split(':').last;
-    }
-    return Row(
-      children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(4),
-          onTap: () {
-            widget.onTap?.call(widget.text);
-          },
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          )
-              .paddingHorizontal(4)
-              .toAlign(Alignment.centerLeft)
-              .fixWidth(context.width > 600 ? 120 : 80)
-              .fixHeight(double.infinity),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: LayoutBuilder(builder: (context, constrains) {
-            var width = constrains.maxWidth * widget.count / widget.maxCount;
-            return AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                return Container(
-                  width: width * _controller.value,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(2),
-                    gradient: LinearGradient(
-                      colors: context.isDarkMode
-                          ? [
-                              Colors.blue.shade800,
-                              Colors.blue.shade500,
-                            ]
-                          : [
-                              Colors.blue.shade300,
-                              Colors.blue.shade600,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(scale: animation, child: child),
+                  );
+                },
+                child: SizedBox(
+                  key: ValueKey(_currentIndex),
+                  width: cardW,
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: () => _navigateToComic(_comics[_currentIndex]),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
+                              BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(-4, 0)),
+                              BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(4, 0)),
                             ],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ClipRRect(borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              decoration: BoxDecoration(border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0), borderRadius: BorderRadius.circular(12)),
+                              child: ClipRRect(borderRadius: BorderRadius.circular(10),
+                                child: SizedBox(height: cardW * 1.4, child: _buildCover(_comics[_currentIndex])),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(padding: const EdgeInsets.only(top: 4),
+                          child: Text(_comics[_currentIndex].name, style: const TextStyle(color: Colors.black87, fontSize: 12, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+                        ),
+                      ]),
                     ),
                   ),
-                ).toAlign(Alignment.centerLeft);
-              },
-            );
-          }),
+                ),
+              ),
+            ),
+
+          ],
         ),
-        const SizedBox(width: 8),
-        Text(
-          widget.count.toString(),
-          style: ts.s12,
-        ).fixWidth(context.width > 600 ? 60 : 30),
-      ],
-    ).fixHeight(28);
+      ).paddingVertical(2).paddingBottom(8),
+    );
+  }
+
+  List<Widget> _buildStackedCards(bool isDark, double cardW, double sw) {
+    final items = <Widget>[];
+    final overlap = cardW * 0.50;
+    for (final layer in [-2, -1, 2, 1]) {
+      int idx = (_currentIndex + layer) % _comics.length;
+      if (idx < 0) idx += _comics.length;
+      final comic = _comics[idx];
+      final scale = (1.0 - layer.abs() * 0.08).clamp(0.75, 0.95);
+      final topOff = layer.abs() * 6.0;
+final opacity = 1.0;
+      final pos = sw * 0.5 + layer * overlap - cardW * 0.5;
+      items.add(Positioned(
+        left: pos, top: topOff, width: cardW,
+        child: Transform.scale(scale: scale,
+          child: Opacity(
+            opacity: opacity,
+            child: ClipRRect(borderRadius: BorderRadius.circular(10),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
+                    BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(-4, 0)),
+                    BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(4, 0)),
+                  ],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ClipRRect(borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(height: cardW * 1.4, child: _buildCover(comic)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+    }
+    return items;
+  }
+
+  Widget _buildCover(FavoriteItem comic) {
+    if (comic.coverPath.startsWith('http')) {
+      return CachedNetworkImage(imageUrl: comic.coverPath, fit: BoxFit.cover, filterQuality: FilterQuality.medium, placeholder: (_, __) => const SizedBox(), errorWidget: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40)));
+    }
+    return Image(image: FileImage(File(comic.coverPath)), fit: BoxFit.cover, filterQuality: FilterQuality.medium, errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40)));
   }
 }
+
+class _ReadingStats extends StatelessWidget {
+  const _ReadingStats();
+  @override
+  Widget build(BuildContext context) {
+    final f = LocalFavoritesManager().totalComics; final h = HistoryManager().length; final d = Theme.of(context).brightness == Brightness.dark;
+    return SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 6), child: Row(children: [
+      Expanded(child: _ModuleCapsule(icon: FluentIcons.bookmark_24_regular, label: "Favorites".tl, value: "$f", isDark: d, onTap: () => NaviPane.of(context).updatePage(1))),
+      const SizedBox(width: 10),
+      Expanded(child: _ModuleCapsule(icon: FluentIcons.history_24_regular, label: "Read".tl, value: "$h", isDark: d, onTap: () => NaviPane.of(context).updatePage(2))),
+    ])));
+  }
+}
+
+class _HomeCapsules extends StatefulWidget {
+  const _HomeCapsules();
+  @override State<_HomeCapsules> createState() => _HomeCapsulesState();
+}
+class _HomeCapsulesState extends State<_HomeCapsules> {
+  int _updateCount = 0;
+  String? get folder => appdata.settings["followUpdatesFolder"];
+  void _refresh() {
+    if (!mounted) return;
+    setState(() { if (folder == null) _updateCount = 0; else if (LocalFavoritesManager().folderNames.contains(folder)) _updateCount = LocalFavoritesManager().countUpdates(folder!); else _updateCount = 0; });
+  }
+  @override void initState() { super.initState(); _refresh(); LocalFavoritesManager().addListener(_refresh); }
+  @override void dispose() { LocalFavoritesManager().removeListener(_refresh); super.dispose(); }
+  @override Widget build(BuildContext context) {
+    final d = Theme.of(context).brightness == Brightness.dark; final hc = HistoryManager().length; final lc = LocalManager().count;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 6), child: Row(children: [
+        Expanded(child: _ModuleCapsule(icon: FluentIcons.arrow_sync_24_regular, label: "Follow Updates".tl, value: _updateCount > 0 ? "$_updateCount" : null, isDark: d, onTap: () => context.to(() => const FollowUpdatesPage()))),
+        const SizedBox(width: 10),
+        Expanded(child: _ModuleCapsule(icon: FluentIcons.clock_24_regular, label: "History".tl, value: "$hc", isDark: d, onTap: () => context.to(() => const HistoryPage()))),
+      ])),
+      Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 6), child: Row(children: [
+        Expanded(child: _ModuleCapsule(icon: FluentIcons.apps_24_regular, label: "Categories".tl, isDark: d, onTap: () => context.to(() => const CategoriesPage()))),
+        const SizedBox(width: 10),
+        Expanded(child: _ModuleCapsule(icon: FluentIcons.folder_24_regular, label: "Local".tl, value: "$lc", isDark: d, onTap: () => context.to(() => const LocalComicsPage()))),
+      ])),
+    ]);
+  }
+}
+
+class _BottomModules extends StatelessWidget {
+  const _BottomModules();
+  @override Widget build(BuildContext context) {
+    final d = Theme.of(context).brightness == Brightness.dark; final cc = ComicSource.all().length;
+    return SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 6), child: Row(children: [
+      Expanded(child: _ModuleCapsule(icon: FluentIcons.image_24_regular, label: "Image Favorites".tl, isDark: d, onTap: () => context.to(() => const ImageFavoritesPage()))),
+      const SizedBox(width: 10),
+      Expanded(child: _ModuleCapsule(icon: FluentIcons.apps_24_regular, label: "Comic Source".tl, value: "$cc", isDark: d, onTap: () => context.to(() => const ComicSourcePage()))),
+    ])));
+  }
+}
+
+class _ModuleCapsule extends StatelessWidget {
+  final IconData icon; final String label; final String? value; final bool isDark; final VoidCallback? onTap;
+  const _ModuleCapsule({required this.icon, required this.label, this.value, required this.isDark, this.onTap});
+  @override Widget build(BuildContext context) {
+    return GestureDetector(onTap: onTap,
+      child: Container(padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(colors: isDark ? [const Color(0xFF1A1A1E).withValues(alpha: 0.7), const Color(0xFF1A1A1E).withValues(alpha: 0.4)] : [const Color(0xFF0EA5E9).withValues(alpha: 0.12), const Color(0xFF0EA5E9).withValues(alpha: 0.04)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFF0EA5E9).withValues(alpha: 0.2), width: 0.5),
+          boxShadow: [BoxShadow(color: isDark ? Colors.black.withValues(alpha: 0.25) : const Color(0xFF0EA5E9).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Row(children: [
+          Icon(icon, size: 32, color: isDark ? const Color(0xFFDDDDDD) : const Color(0xFF0EA5E9)),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: TextStyle(fontSize: 16, color: isDark ? Colors.white.withValues(alpha: 0.7) : const Color(0xFF333333)))),
+          if (value != null) Text(value!, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: isDark ? const Color(0xFFDDDDDD) : const Color(0xFF0EA5E9))),
+        ]),
+      ),
+    );
+  }
+}
+
