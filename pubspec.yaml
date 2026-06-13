@@ -17,7 +17,7 @@ dependencies:
   sqlite3_flutter_libs: ^0.5.30
   flutter_qjs:
     git:
-      url: https://github.com/venera-app/flutter_qjs
+      url: https://github.com/SkyAlice-source/flutter_qjs
       ref: 8feae95df7fb00455df129ad7a0dfec1d0e8d8e4
   crypto: ^3.0.6
   dio: ^5.9.2
@@ -44,7 +44,7 @@ dependencies:
   zip_flutter: ^0.0.13
   lodepng_flutter:
     git:
-      url: https://github.com/venera-app/lodepng_flutter
+      url: https://github.com/SkyAlice-source/lodepng_flutter
       ref: ac7d05dde32e8d728102a9ff66e6b55f05d94ba1
   webdav_client:
     git:
@@ -53,13 +53,13 @@ dependencies:
   local_auth: ^3.0.1
   flutter_saf:
     git: 
-      url: https://github.com/venera-app/flutter_saf
+      url: https://github.com/SkyAlice-source/flutter_saf
       ref: fe182cdf40e5fa6230f451bc1d643b860f610d13
   dynamic_color: ^1.8.1
   syntax_highlight: ^0.4.0
   flutter_7zip:
     git:
-      url: https://github.com/venera-app/flutter_7zip
+      url: https://github.com/SkyAlice-source/flutter_7zip
       ref: b33344797f1d2469339e0e1b75f5f954f1da224c
   flex_seed_scheme: ^4.0.1
   flutter_localizations:
@@ -101,4 +101,3 @@ flutter:
     - assets/tags_tw.json
     - assets/opencc.txt
 # fonts:
-
