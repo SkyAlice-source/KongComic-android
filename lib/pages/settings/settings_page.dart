@@ -20,6 +20,7 @@ import 'package:kong_comic/utils/data_sync.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'package:yaml/yaml.dart';
+import 'package:kong_comic/utils/import_comic.dart';
 
 part 'reader.dart';
 part 'explore_settings.dart';
@@ -29,6 +30,8 @@ part 'local_favorites.dart';
 part 'app.dart';
 part 'about.dart';
 part 'network.dart';
+part 'download.dart';
+part 'import_settings.dart';
 part 'debug.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -53,6 +56,8 @@ class _SettingsPageState extends State<SettingsPage> {
     "Appearance",
     "Local Favorites",
     "APP",
+    "Download",
+    "Import",
     "Network",
     "About"
   ];
@@ -63,6 +68,8 @@ class _SettingsPageState extends State<SettingsPage> {
     FluentIcons.color_24_regular,
     FluentIcons.bookmark_multiple_24_regular,
     FluentIcons.apps_24_regular,
+    Icons.file_download,
+    FluentIcons.arrow_import_24_regular,
     FluentIcons.globe_24_regular,
     FluentIcons.info_24_regular,
   ];
@@ -278,8 +285,10 @@ class _SettingsPageState extends State<SettingsPage> {
       2 => const AppearanceSettings(),
       3 => const LocalFavoritesSettings(),
       4 => const AppSettings(),
-      5 => const NetworkSettings(),
-      6 => const AboutSettings(),
+      5 => const DownloadSettings(),
+      6 => const ImportSettings(),
+      7 => const NetworkSettings(),
+      8 => const AboutSettings(),
       _ => throw UnimplementedError()
     };
   }
@@ -306,8 +315,10 @@ class _SettingsDetailPage extends StatelessWidget {
       2 => const AppearanceSettings(),
       3 => const LocalFavoritesSettings(),
       4 => const AppSettings(),
-      5 => const NetworkSettings(),
-      6 => const AboutSettings(),
+      5 => const DownloadSettings(),
+      6 => const ImportSettings(),
+      7 => const NetworkSettings(),
+      8 => const AboutSettings(),
       _ => throw UnimplementedError()
     };
   }

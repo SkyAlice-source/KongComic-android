@@ -408,6 +408,24 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       _chapter++;
     }
 
+    // Package downloaded chapters as CBZ if enabled
+    if (appdata.settings['saveAsCbz'] == true && comic!.chapters != null) {
+      for (var chapterId in (chapters ?? comic!.chapters!.allChapters.keys)) {
+        var chapterDir = Directory(FilePath.join(
+          path!,
+          LocalManager.getChapterDirectoryName(chapterId),
+        ));
+        if (!chapterDir.existsSync()) continue;
+        var cbzFile = File("${chapterDir.path}.cbz");
+        try {
+          await ZipFile.compressFolderAsync(chapterDir.path, cbzFile.path, 4);
+          chapterDir.deleteSync(recursive: true);
+        } catch (e, s) {
+          Log.error("Download", "Failed to package chapter as CBZ: $e\n$s");
+        }
+      }
+    }
+
     LocalManager().completeTask(this);
     stopRecorder();
   }

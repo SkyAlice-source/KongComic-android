@@ -339,7 +339,7 @@ class _GalleryModeState extends State<_GalleryMode>
                   context,
                   startIndex + 1,
                 ),
-                fit: BoxFit.contain,
+                fit: _getImageFit(),
                 errorBuilder: (_, error, s, retry) {
                   return NetworkError(message: error.toString(), retry: retry);
                 },
@@ -409,6 +409,20 @@ class _GalleryModeState extends State<_GalleryMode>
     );
   }
 
+  BoxFit _getImageFit() {
+    var mode = appdata.settings['imageFitMode'] ?? 'contain';
+    switch (mode) {
+      case 'fitWidth':
+        return BoxFit.fitWidth;
+      case 'fitHeight':
+        return BoxFit.fitHeight;
+      case 'cover':
+        return BoxFit.cover;
+      default:
+        return BoxFit.contain;
+    }
+  }
+
   Widget buildPageImages(List<String> images, int startIndex) {
     Axis axis = (reader.mode == ReaderMode.galleryTopToBottom)
         ? Axis.vertical
@@ -432,7 +446,7 @@ class _GalleryModeState extends State<_GalleryMode>
               context,
               startIndex + 1,
             ),
-            fit: BoxFit.contain,
+            fit: null, // use reader setting
             alignment: axis == Axis.vertical
                 ? Alignment.bottomCenter
                 : Alignment.centerRight,
@@ -449,7 +463,7 @@ class _GalleryModeState extends State<_GalleryMode>
               context,
               startIndex + 2,
             ),
-            fit: BoxFit.contain,
+            fit: null, // use reader setting
             alignment: axis == Axis.vertical
                 ? Alignment.topCenter
                 : Alignment.centerLeft,
@@ -469,7 +483,7 @@ class _GalleryModeState extends State<_GalleryMode>
         return Expanded(
           child: ComicImage(
             image: imageProvider,
-            fit: BoxFit.contain,
+            fit: null, // use reader setting
             onInit: (state) => imageStates.add(state),
             onDispose: (state) => imageStates.remove(state),
           ),
@@ -679,6 +693,10 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   late List<bool> cached;
 
+  Timer? _autoScrollTimer;
+  bool _autoScrolling = false;
+  bool get autoScrolling => _autoScrolling;
+
   int get preCacheCount => appdata.settings["preloadImageCount"];
 
   /// Whether the user was scrolling the page.
@@ -718,15 +736,54 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   @override
   void dispose() {
+    _autoScrollTimer?.cancel();
     itemPositionsListener.itemPositions.removeListener(onPositionChanged);
     super.dispose();
+  }
+
+  void toggleAutoScroll() {
+    if (_autoScrolling) {
+      _autoScrollTimer?.cancel();
+      _autoScrolling = false;
+    } else {
+      _startAutoScroll();
+    }
+  }
+
+  void _startAutoScroll() {
+    var speed = appdata.settings['autoScrollSpeed'] ?? 5;
+    var pixelsPerTick = speed <= 10 ? speed * 0.5 : (speed - 10) * 2.0 + 5;
+    if (speed <= 0) return;
+    _autoScrolling = true;
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(Duration(milliseconds: (1000 / speed).round()), (_) {
+      if (!mounted || !_autoScrolling) {
+        _autoScrollTimer?.cancel();
+        return;
+      }
+      try {
+        var newOffset = scrollController.offset + pixelsPerTick;
+        scrollController.jumpTo(newOffset);
+      } catch (_) {}
+    });
   }
 
   void onPositionChanged() {
     if (itemPositionsListener.itemPositions.value.isEmpty) {
       return;
     }
-    var page = itemPositionsListener.itemPositions.value.first.index;
+    var positions = itemPositionsListener.itemPositions.value;
+    // Find the item closest to viewport center
+    var page = positions.first.index;
+    var bestDist = double.infinity;
+    for (var pos in positions) {
+      var center = (pos.itemLeadingEdge + pos.itemTrailingEdge) / 2;
+      var dist = (center - 0.5).abs();
+      if (dist < bestDist) {
+        bestDist = dist;
+        page = pos.index;
+      }
+    }
     page = page.clamp(1, reader.maxPage);
     if (page != reader.page) {
       reader.setPage(page);
@@ -854,12 +911,40 @@ class _ContinuousModeState extends State<_ContinuousMode>
       reverse: reader.mode == ReaderMode.continuousRightToLeft,
       physics: isCTRLPressed || _isMouseScrolling || disableScroll
           ? const NeverScrollableScrollPhysics()
-          : isZoomedIn
-          ? const ClampingScrollPhysics()
-          : const BouncingScrollPhysics(),
+          : const ClampingScrollPhysics(),
       itemBuilder: (context, index) {
-        if (index == 0 || index == reader.maxPage + 1) {
+        if (index == 0) {
           return const SizedBox();
+        }
+        // Chapter transition page
+        if (index == reader.maxPage + 1) {
+          var hasNextChapter = reader.chapter < reader.maxChapter;
+          if (!hasNextChapter) return const SizedBox();
+          var nextChapterTitle = reader.widget.chapters?.titles.elementAtOrNull(reader.chapter);
+          return SizedBox(
+            height: 200,
+            child: Material(
+              color: context.colorScheme.surface,
+              child: InkWell(
+                onTap: () => reader.toNextChapter(),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_forward_ios, size: 32, color: context.colorScheme.primary),
+                      const SizedBox(height: 12),
+                      Text("Next Chapter".tl, style: ts.s18),
+                      if (nextChapterTitle != null && nextChapterTitle.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text(nextChapterTitle, style: ts.s14, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
         }
         double? width, height;
         if (reader.mode == ReaderMode.continuousLeftToRight ||
@@ -878,7 +963,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
             image: image,
             width: width,
             height: height,
-            fit: BoxFit.contain,
+            fit: null, // use reader setting
             onInit: (state) => imageStates.add(state),
             onDispose: (state) => imageStates.remove(state),
           ),

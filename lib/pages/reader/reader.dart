@@ -42,6 +42,7 @@ import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'package:kong_comic/utils/volume.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
@@ -596,10 +597,36 @@ abstract mixin class _ReaderLocation {
   /// Flag to indicate that the page should jump to the last page after images are loaded.
   bool _jumpToLastPageOnLoad = false;
 
+  // Reading time tracking
+  int _pageStartTime = 0;
+  int _pagesRead = 0;
+  int _totalReadingTime = 0;
+
+  void startPageTimer() {
+    _pageStartTime = DateTime.now().millisecondsSinceEpoch;
+  }
+
+  void stopPageTimer() {
+    if (_pageStartTime > 0) {
+      _totalReadingTime += DateTime.now().millisecondsSinceEpoch - _pageStartTime;
+      _pagesRead++;
+      _pageStartTime = 0;
+    }
+  }
+
+  int get estimatedRemainingSeconds {
+    if (_pagesRead < 3 || _totalReadingTime <= 0) return -1;
+    var avgMsPerPage = _totalReadingTime ~/ _pagesRead;
+    var remainingPages = maxPage - page;
+    return (avgMsPerPage * remainingPages) ~/ 1000;
+  }
+
   int get page => _page;
 
   set page(int value) {
+    stopPageTimer();
     _page = value;
+    startPageTimer();
     onPageChanged();
   }
 

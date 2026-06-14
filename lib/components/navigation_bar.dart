@@ -264,29 +264,27 @@ class NaviPaneState extends State<NaviPane>
   }
 
   Widget buildTop() {
-    return GlassAppBarWrapper(
-      scrolledUnder: false,
-      child: Container(
-        padding: const EdgeInsets.only(left: 16, right: 16),
-        height: _kTopBarHeight,
-        width: double.infinity,
-        child: Row(
-          children: [
-            Text(
-              widget.paneItems[currentPage].label,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const Spacer(),
-            for (var action in widget.paneActions)
-              Tooltip(
-                message: action.label,
-                child: IconButton(
-                  icon: Icon(action.icon),
-                  onPressed: action.onTap,
-                ),
+    return Container(
+      color: Theme.of(context).colorScheme.surface,
+      padding: const EdgeInsets.only(left: 16, right: 16),
+      height: _kTopBarHeight,
+      width: double.infinity,
+      child: Row(
+        children: [
+          Text(
+            widget.paneItems[currentPage].label,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const Spacer(),
+          for (var action in widget.paneActions)
+            Tooltip(
+              message: action.label,
+              child: IconButton(
+                icon: Icon(action.icon),
+                onPressed: action.onTap,
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -511,8 +509,8 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
       child: Transform.scale(
         scale: 1.0 + (0.1 * value),
         child: Container(
-          width: 52,
-          height: 52,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isActive
@@ -523,7 +521,7 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
             widget.enabled
                 ? widget.entry.activeIcon
                 : widget.entry.icon,
-            size: 24 + (4 * value),
+            size: 22 + (2 * value),
             color: isActive ? activeColor : inactiveColor,
           ),
         ),
@@ -653,22 +651,28 @@ class _NaviMainViewState extends State<_NaviMainView> {
   @override
   Widget build(BuildContext context) {
     var shouldShowAppBar = state.controller.value < 2;
-    return Column(
+    return Stack(
       children: [
-        if (shouldShowAppBar) state.buildTop().paddingTop(context.padding.top),
-        Expanded(
-          child: MediaQuery.removePadding(
-            context: context,
-            removeTop: shouldShowAppBar,
-            child: AnimatedSwitcher(
-              duration: _fastAnimationDuration,
-              child: state.buildMainViewContent(),
+        Column(
+          children: [
+            if (shouldShowAppBar) state.buildTop().paddingTop(context.padding.top),
+            Expanded(
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: shouldShowAppBar,
+                child: AnimatedSwitcher(
+                  duration: _fastAnimationDuration,
+                  child: state.buildMainViewContent(),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
         if (shouldShowAppBar)
-          Padding(
-            padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
             child: state.buildBottom(),
           ),
       ],

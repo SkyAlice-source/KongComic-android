@@ -45,19 +45,19 @@ class _MainPageState extends State<MainPage> {
   }
 
   final _pages = [
-    const HomePage(),
-    const FavoritesPage(
-      key: PageStorageKey('favorites'),
-    ),
-    const ExplorePage(
-      key: PageStorageKey('explore'),
-    ),
     const CategoriesPage(
       key: PageStorageKey('categories'),
     ),
+    const FavoritesPage(
+      key: PageStorageKey('favorites'),
+    ),
+    const HomePage(),
+    const ExplorePage(
+      key: PageStorageKey('explore'),
+    ),
   ];
 
-  var index = 0;
+  var index = 2; // Home tab (index 2)
 
   @override
   Widget build(BuildContext context) {
@@ -67,9 +67,9 @@ class _MainPageState extends State<MainPage> {
       navigatorKey: _navigatorKey!,
       paneItems: [
         PaneItemEntry(
-          label: 'Home'.tl,
-          icon: FluentIcons.home_24_regular,
-          activeIcon: FluentIcons.home_24_regular,
+          label: 'Categories'.tl,
+          icon: FluentIcons.apps_24_regular,
+          activeIcon: FluentIcons.apps_24_regular,
         ),
         PaneItemEntry(
           label: 'Favorites'.tl,
@@ -77,14 +77,14 @@ class _MainPageState extends State<MainPage> {
           activeIcon: FluentIcons.bookmark_24_regular,
         ),
         PaneItemEntry(
+          label: 'Home'.tl,
+          icon: FluentIcons.home_24_regular,
+          activeIcon: FluentIcons.home_24_regular,
+        ),
+        PaneItemEntry(
           label: 'Explore'.tl,
           icon: FluentIcons.book_compass_24_regular,
           activeIcon: FluentIcons.book_compass_24_regular,
-        ),
-        PaneItemEntry(
-          label: 'Categories'.tl,
-          icon: FluentIcons.apps_24_regular,
-          activeIcon: FluentIcons.apps_24_regular,
         ),
       ],
       onPageChanged: (i) {

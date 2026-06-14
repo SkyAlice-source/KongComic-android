@@ -100,22 +100,28 @@ class _AppSettingsState extends State<AppSettings> {
           title: "Export App Data".tl,
           callback: () async {
             var controller = showLoadingDialog(context);
-            var file = await exportAppData(false);
-            await saveFile(filename: "data.kongcomic", file: file);
-            controller.close();
+            try {
+              var file = await exportAppData(false);
+              await saveFile(filename: "data.kongcomic", file: file);
+            } catch (e, s) {
+              Log.error("Export data", e.toString(), s);
+              context.showMessage(message: "Failed to export data".tl);
+            } finally {
+              controller.close();
+            }
           },
           actionTitle: 'Export'.tl,
         ).toSliver(),
         _CallbackSetting(
           title: "Import App Data".tl,
           callback: () async {
-            var controller = showLoadingDialog(context);
-            var file = await selectFile(ext: ['KongComic', 'picadata']);
+            var file = await selectFile(ext: ['KongComic', 'venera', 'picadata']);
             if (file != null) {
+              var controller = showLoadingDialog(context);
               var cacheFile =
                   File(FilePath.join(App.cachePath, "import_data_temp"));
-              await file.saveTo(cacheFile.path);
               try {
+                await file.saveTo(cacheFile.path);
                 if (file.name.endsWith('picadata')) {
                   await importPicaData(cacheFile);
                 } else {
@@ -125,11 +131,11 @@ class _AppSettingsState extends State<AppSettings> {
                 Log.error("Import data", e.toString(), s);
                 context.showMessage(message: "Failed to import data".tl);
               } finally {
+                controller.close();
                 cacheFile.deleteIgnoreError();
                 App.forceRebuild();
               }
             }
-            controller.close();
           },
           actionTitle: 'Import'.tl,
         ).toSliver(),

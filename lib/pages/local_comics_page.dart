@@ -9,6 +9,7 @@ import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/downloading_page.dart';
 import 'package:kong_comic/pages/favorites/favorites_page.dart';
 import 'package:kong_comic/utils/cbz.dart';
+import 'package:kong_comic/utils/import_comic.dart';
 import 'package:kong_comic/utils/epub.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/pdf.dart';
@@ -225,6 +226,51 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
           },
         ),
       ),
+      Tooltip(
+        message: "Import".tl,
+        child: IconButton(
+          icon: const Icon(Icons.add_box_outlined),
+          onPressed: () async {
+            var result = await showModalBottomSheet(
+              context: context,
+              builder: (ctx) => SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.archive_outlined),
+                      title: Text("Import CBZ / ZIP / 7Z".tl),
+                      onTap: () => Navigator.pop(ctx, 'cbz'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.folder_zip_outlined),
+                      title: Text("Import archives from folder".tl),
+                      subtitle: Text("Batch import .cbz/.zip/.7z files".tl),
+                      onTap: () => Navigator.pop(ctx, 'multiCbz'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.folder_outlined),
+                      title: Text("Import image folders".tl),
+                      subtitle: Text("Import folders containing images as comics".tl),
+                      onTap: () => Navigator.pop(ctx, 'folder'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+            if (result == 'cbz') {
+              await const ImportComic().cbz();
+              setState(() {});
+            } else if (result == 'multiCbz') {
+              await const ImportComic().multipleCbz();
+              setState(() {});
+            } else if (result == 'folder') {
+              await const ImportComic().directory(false);
+              setState(() {});
+            }
+          },
+        ),
+      ),
     ];
 
     var body = Scaffold(
@@ -379,8 +425,8 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
     await showDialog(
       context: App.rootContext,
       builder: (context) {
-        bool removeComicFile = true;
-        bool removeFavoriteAndHistory = true;
+        bool removeComicFile = false;
+        bool removeFavoriteAndHistory = false;
         return StatefulBuilder(builder: (context, state) {
           return ContentDialog(
             title: "Delete".tl,
@@ -489,7 +535,10 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
           cacheDir,
           sanitizeFileName(comic.title, maxLength: 100) + ext,
         );
-        await export(comic, fileName);
+        await export(comic, fileName).timeout(
+          const Duration(minutes: 5),
+          onTimeout: () => throw Exception("Export timed out for: ${comic.title}"),
+        );
         current++;
         if (comics.length > 1) {
           loadingController
@@ -543,7 +592,10 @@ Future<void> openComicFolder(LocalComic comic) async {
   try {
     final folderPath = comic.baseDir;
 
-    if (App.isWindows) {
+    if (App.isAndroid) {
+      App.rootContext.showMessage(message: "Not supported on this platform".tl);
+      return;
+    } else if (App.isWindows) {
       await Process.run('explorer', [folderPath]);
     } else if (App.isMacOS) {
       await Process.run('open', [folderPath]);

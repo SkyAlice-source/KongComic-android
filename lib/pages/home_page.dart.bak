@@ -104,70 +104,79 @@ class _BannerState extends State<_Banner> {
     if (_comics.length < 3) return const SliverToBoxAdapter(child: SizedBox());
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sw = MediaQuery.of(context).size.width;
-    final cardW = sw * 0.54;
+    final cardW = sw * 0.45;
     return SliverToBoxAdapter(
       child: SizedBox(height: widget.height,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.topCenter,
+        child: Column(
           children: [
-            // Decorative stacked cards (background)
-            ..._buildStackedCards(isDark, cardW, sw),
-            // Main card with in-place replacement (AnimatedSwitcher)
-            Positioned(top: 0, child: GestureDetector(
-              onHorizontalDragEnd: (details) {
-                if (details.velocity.pixelsPerSecond.dx > 80) {
-                  final prev = (_currentIndex - 1 + _comics.length) % _comics.length;
-                  setState(() { _currentIndex = prev; _startTimer(); });
-                } else if (details.velocity.pixelsPerSecond.dx < -80) {
-                  final next = (_currentIndex + 1) % _comics.length;
-                  setState(() { _currentIndex = next; _startTimer(); });
-                }
-              },
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(scale: animation, child: child),
-                  );
-                },
-                child: SizedBox(
-                  key: ValueKey(_currentIndex),
-                  width: cardW,
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: () => _navigateToComic(_comics[_currentIndex]),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
-                              BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(-4, 0)),
-                              BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(4, 0)),
-                            ],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ClipRRect(borderRadius: BorderRadius.circular(12),
+            // "Continue Reading" section header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  Text("Continue Reading".tl, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.colorScheme.onSurface)),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => NaviPane.of(context).updatePage(2),
+                    child: Text("View all".tl, style: TextStyle(fontSize: 13, color: context.colorScheme.primary)),
+                  ),
+                ],
+              ),
+            ),
+            // Horizontal scrolling cards
+            Expanded(
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _comics.length,
+                itemBuilder: (context, index) {
+                  final comic = _comics[index];
+                  final cardWidth = sw * 0.38;
+                  return GestureDetector(
+                    onTap: () => _navigateToComic(comic),
+                    child: Container(
+                      width: cardWidth,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Cover image
+                          Expanded(
                             child: Container(
-                              decoration: BoxDecoration(border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0), borderRadius: BorderRadius.circular(12)),
-                              child: ClipRRect(borderRadius: BorderRadius.circular(10),
-                                child: SizedBox(height: cardW * 1.4, child: _buildCover(_comics[_currentIndex])),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.1), blurRadius: 4, offset: const Offset(0, 2)),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: context.colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: _buildCover(comic),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        Padding(padding: const EdgeInsets.only(top: 4),
-                          child: Text(_comics[_currentIndex].name, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
-                        ),
-                      ]),
+                          // Title
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              comic.name,
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: context.colorScheme.onSurface),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
-            ),
             ),
           ],
         ),
@@ -177,13 +186,15 @@ class _BannerState extends State<_Banner> {
 
   List<Widget> _buildStackedCards(bool isDark, double cardW, double sw) {
     final items = <Widget>[];
-    final overlap = cardW * 0.30;
-    for (final layer in [-2, -1, 2, 1]) {
+    final overlap = cardW * 0.50;
+    final layers = [-2, -1, 1, 2];
+    for (final layer in layers) {
       int idx = (_currentIndex + layer) % _comics.length;
       if (idx < 0) idx += _comics.length;
       final comic = _comics[idx];
-      final scale = 1.0 - layer.abs() * 0.1;
-      final topOff = layer.abs() * 2.0;
+      final scale = (1.0 - layer.abs() * 0.08).clamp(0.75, 0.95);
+      // Cards further from center appear higher (visually stacked behind)
+      final topOff = layer.abs() * 8.0;
 final opacity = 1.0;
       final pos = sw * 0.5 + layer * overlap - cardW * 0.5;
       items.add(Positioned(

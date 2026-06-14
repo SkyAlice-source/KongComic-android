@@ -179,6 +179,24 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
           useDeviceSettings: useDeviceSpecificSettings,
         ).toSliver(),
+        SelectSetting(
+          title: "Tap Zone Layout".tl,
+          settingKey: "tapZoneLayout",
+          optionTranslation: {
+            "default": "Default (30% edges)".tl,
+            "leftRight": "Left & Right".tl,
+            "rightOnly": "Right side only".tl,
+            "leftOnly": "Left side only".tl,
+            "edge": "Edge (15% edges)".tl,
+          },
+          onChanged: () {
+            setState(() {});
+            widget.onChanged?.call("tapZoneLayout");
+          },
+          comicId: isEnabledSpecificSettings ? widget.comicId : null,
+          comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+          useDeviceSettings: useDeviceSpecificSettings,
+        ).toSliver(),
         _SwitchSetting(
           title: "Page animation".tl,
           settingKey: "enablePageAnimation",
@@ -228,6 +246,13 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           comicId: isEnabledSpecificSettings ? widget.comicId : null,
           comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
           useDeviceSettings: useDeviceSpecificSettings,
+        ).toSliver(),
+        _SliderSetting(
+          title: "Auto scroll speed".tl,
+          settingsIndex: "autoScrollSpeed",
+          interval: 1,
+          min: 0,
+          max: 50,
         ).toSliver(),
         SliverAnimatedVisibility(
           visible: appdata.settings['readerMode']!.startsWith('gallery'),
@@ -334,6 +359,23 @@ class _ReaderSettingsState extends State<ReaderSettings> {
             useDeviceSettings: useDeviceSpecificSettings,
           ),
         ),
+        SelectSetting(
+          title: "Image Fit Mode".tl,
+          settingKey: "imageFitMode",
+          optionTranslation: {
+            "contain": "Fit screen".tl,
+            "fitWidth": "Fit width".tl,
+            "fitHeight": "Fit height".tl,
+            "cover": "Fill screen".tl,
+          },
+          onChanged: () {
+            setState(() {});
+            widget.onChanged?.call("imageFitMode");
+          },
+          comicId: isEnabledSpecificSettings ? widget.comicId : null,
+          comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+          useDeviceSettings: useDeviceSpecificSettings,
+        ).toSliver(),
         _SwitchSetting(
           title: 'Limit image width'.tl,
           subtitle: 'When using Continuous(Top to Bottom) mode'.tl,
@@ -371,6 +413,33 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           settingKey: "showSystemStatusBar",
           onChanged: () {
             widget.onChanged?.call("showSystemStatusBar");
+          },
+          comicId: isEnabledSpecificSettings ? widget.comicId : null,
+          comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+          useDeviceSettings: useDeviceSpecificSettings,
+        ).toSliver(),
+        _SwitchSetting(
+          title: "Keep screen on".tl,
+          settingKey: "keepScreenOn",
+          onChanged: () {
+            setState(() {});
+            widget.onChanged?.call("keepScreenOn");
+          },
+          comicId: isEnabledSpecificSettings ? widget.comicId : null,
+          comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+          useDeviceSettings: useDeviceSpecificSettings,
+        ).toSliver(),
+        SelectSetting(
+          title: "Screen orientation".tl,
+          settingKey: "screenOrientation",
+          optionTranslation: {
+            "unspecified": "Follow system".tl,
+            "portrait": "Portrait".tl,
+            "landscape": "Landscape".tl,
+          },
+          onChanged: () {
+            setState(() {});
+            widget.onChanged?.call("screenOrientation");
           },
           comicId: isEnabledSpecificSettings ? widget.comicId : null,
           comicSource: isEnabledSpecificSettings ? widget.comicSource : null,

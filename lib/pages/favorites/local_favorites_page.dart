@@ -283,7 +283,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
           SliverAppbar(
             style: context.width < changePoint
                 ? AppbarStyle.shadow
-                : AppbarStyle.blur,
+                : AppbarStyle.shadow,
             leading: Tooltip(
               message: "Folders".tl,
               child: context.width <= _kTwoPanelChangeWidth
@@ -489,7 +489,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
           SliverAppbar(
             style: context.width < changePoint
                 ? AppbarStyle.shadow
-                : AppbarStyle.blur,
+                : AppbarStyle.shadow,
             leading: Tooltip(
               message: "Cancel".tl,
               child: IconButton(
@@ -528,6 +528,30 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                     icon: Icons.flip,
                     text: "Invert Selection".tl,
                     onClick: invertSelection),
+                MenuEntry(
+                    icon: Icons.favorite_border,
+                    text: "Remove from favorites".tl,
+                    onClick: () {
+                      for (var c in selectedComics.keys) {
+                        var fav = c as FavoriteItem;
+                        if (isAllFolder) {
+                          // In All view, find which folder the comic belongs to
+                          for (var f in LocalFavoritesManager().folderNames) {
+                            var folderComics = LocalFavoritesManager().getFolderComics(f);
+                            if (folderComics.any((fc) => fc.id == fav.id && fc.type.value == fav.type.value)) {
+                              LocalFavoritesManager().deleteComicWithId(f, fav.id, fav.type);
+                              break;
+                            }
+                          }
+                        } else {
+                          LocalFavoritesManager().deleteComicWithId(widget.folder, fav.id, fav.type);
+                        }
+                      }
+                      setState(() {
+                        multiSelectMode = false;
+                        selectedComics.clear();
+                      });
+                    }),
                 if (!isAllFolder)
                   MenuEntry(
                       icon: Icons.delete_outline,
@@ -598,7 +622,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
           SliverAppbar(
             style: context.width < changePoint
                 ? AppbarStyle.shadow
-                : AppbarStyle.blur,
+                : AppbarStyle.shadow,
             leading: Tooltip(
               message: "Cancel".tl,
               child: IconButton(

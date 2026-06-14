@@ -42,16 +42,19 @@ class ImportComic {
     var picker = DirectoryPicker();
     var dir = await picker.pickDirectory(directAccess: true);
     if (dir != null) {
-      var files = (await dir.list().toList()).whereType<File>().toList();
-      const supportedExtensions = ['cbz', 'zip', '7z', 'cb7'];
-      files.removeWhere((e) => !supportedExtensions.contains(e.extension));
+      var entries = await dir.list().toList();
       Map<String?, List<LocalComic>> imported = {};
       var controller = showLoadingDialog(App.rootContext, allowCancel: false);
       var comics = <LocalComic>[];
-      for (var file in files) {
+      for (var entry in entries) {
+        if (entry is! File) continue;
+        var name = entry.name.toLowerCase();
+        if (!name.endsWith('.cbz') && !name.endsWith('.zip') && 
+            !name.endsWith('.7z') && !name.endsWith('.cb7')) continue;
         try {
-          var comic = await CBZ.import(file);
+          var comic = await CBZ.import(entry);
           comics.add(comic);
+          controller.setMessage("${"Imported".tl}: ${comic.title}");
         } catch (e, s) {
           Log.error("Import Comic", e.toString(), s);
         }
@@ -172,6 +175,8 @@ class ImportComic {
       return false;
     }
     Map<String?, List<LocalComic>> imported = {selectedFolder: []};
+    var controller = showLoadingDialog(App.rootContext,
+        message: "Scanning comics...".tl, allowCancel: false, withProgress: true);
     try {
       if (single) {
         var result = await _checkSingleComic(path);
@@ -179,23 +184,54 @@ class ImportComic {
           imported[selectedFolder]!.add(result);
         } else {
           App.rootContext.showMessage(message: "Invalid Comic".tl);
+          controller.close();
           return false;
         }
       } else {
-        await for (var entry in path.list()) {
+        List<FileSystemEntity> entries;
+        try {
+          entries = await path.list().toList();
+        } catch (_) {
+          controller.setMessage("Cannot access directory".tl);
+          controller.close();
+          return false;
+        }
+        var totalEntries = entries.length;
+        var processed = 0;
+        for (var entry in entries) {
+          processed++;
+          controller.setProgress(processed / totalEntries);
           if (entry is Directory) {
+            controller.setMessage("${"Importing".tl}: ${entry.name}");
             var result = await _checkSingleComic(entry);
             if (result != null) {
               imported[selectedFolder]!.add(result);
             }
           }
         }
+        controller.setProgress(null);
+        // If no subdirectories found, try root folder itself
+        if (imported[selectedFolder]!.isEmpty) {
+          var result = await _checkSingleComic(path);
+          if (result != null) {
+            imported[selectedFolder]!.add(result);
+          }
+        }
+        // If still nothing, show message
+        if (imported[selectedFolder]!.isEmpty) {
+          App.rootContext.showMessage(message: "No valid comics found".tl);
+          controller.close();
+          return false;
+        }
       }
+      controller.close();
+      return registerComics(imported, false);
     } catch (e, s) {
       Log.error("Import Comic", e.toString(), s);
       App.rootContext.showMessage(message: e.toString());
+      controller.close();
+      return false;
     }
-    return registerComics(imported, copyToLocal);
   }
 
   Future<bool> localDownloads() async {
@@ -257,17 +293,17 @@ class ImportComic {
     var chapters = <String>[];
     var coverPath = ''; // relative path to the cover image
     var fileList = <String>[];
-    await for (var entry in directory.list()) {
+    List<FileSystemEntity> dirEntries;
+    try {
+      dirEntries = await directory.list().toList();
+    } catch (_) {
+      return null; // Cannot access directory
+    }
+    for (var entry in dirEntries) {
       if (entry is Directory) {
         hasChapters = true;
         chapters.add(entry.name);
-        await for (var file in entry.list()) {
-          if (file is Directory) {
-            Log.info("Import Comic",
-                "Invalid Chapter: ${entry.name}\nA directory is found in the chapter directory.");
-            return null;
-          }
-        }
+                await _collectImagesRecursive(entry, fileList);
       } else if (entry is File) {
         const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'jpe'];
         if (imageExtensions.contains(entry.extension)) {
@@ -388,6 +424,24 @@ class ImportComic {
     return result;
   }
 
+  /// Recursively collect image files from a directory (including subdirectories)
+  Future<void> _collectImagesRecursive(Directory dir, List<String> fileList) async {
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'jpe'];
+    try {
+      await for (var entry in dir.list()) {
+        if (entry is File) {
+          if (imageExtensions.contains(entry.extension)) {
+            fileList.add(entry.name);
+          }
+        } else if (entry is Directory) {
+          await _collectImagesRecursive(entry, fileList);
+        }
+      }
+    } catch (_) {
+      // Skip directories that can't be listed
+    }
+  }
+
   Future<bool> registerComics(
       Map<String?, List<LocalComic>> importedComics, bool copy) async {
     try {
@@ -418,6 +472,7 @@ class ImportComic {
           message: "Imported @a comics".tlParams({
         'a': importedCount,
       }));
+      App.forceRebuild();
     } catch (e, s) {
       App.rootContext.showMessage(message: "Failed to register comics".tl);
       Log.error("Import Comic", e.toString(), s);

@@ -33,10 +33,12 @@ Future<File> exportAppData([bool sync = true]) async {
     zipFile.addFile("local_favorite.db", localFavoriteFile);
     zipFile.addFile("appdata.json", appdata);
     zipFile.addFile("cookie.db", cookies);
-    for (var file
-        in Directory(FilePath.join(dataPath, "comic_source")).listSync()) {
-      if (file is File) {
-        zipFile.addFile("comic_source/${file.name}", file.path);
+    var comicSourceDir = FilePath.join(dataPath, "comic_source");
+    if (Directory(comicSourceDir).existsSync()) {
+      for (var file in Directory(comicSourceDir).listSync()) {
+        if (file is File) {
+          zipFile.addFile("comic_source/${file.name}", file.path);
+        }
       }
     }
     zipFile.close();

@@ -14,6 +14,7 @@ import 'package:kong_comic/pages/reader/reader.dart';
 import 'package:kong_comic/utils/io.dart';
 
 import 'app.dart';
+import 'appdata.dart';
 import 'history.dart';
 
 class LocalComic with HistoryMixin implements Comic {
@@ -204,21 +205,23 @@ class LocalManager with ChangeNotifier {
     if (!await newDir.exists()) {
       return "Directory does not exist";
     }
-    if (!await newDir.list().isEmpty) {
+    // Check if the directory is empty
+    try {
+      if (await newDir.list().isEmpty == false) {
+        return "Directory is not empty";
+      }
+    } catch (_) {
       return "Directory is not empty";
     }
     try {
-      await copyDirectoryIsolate(
-        directory,
-        newDir,
-      );
+      await copyDirectoryIsolate(directory, newDir);
+      await directory.deleteContents(recursive: true);
       await File(FilePath.join(App.dataPath, 'local_path'))
           .writeAsString(newPath);
     } catch (e, s) {
       Log.error("IO", e, s);
       return e.toString();
     }
-    await directory.deleteContents(recursive: true);
     path = newPath;
     _checkNoMedia();
     return null;
@@ -406,6 +409,25 @@ class LocalManager with ChangeNotifier {
   }
 
   List<LocalComic> search(String keyword) {
+    // Support search prefixes: src:xxx, id:xxx
+    if (keyword.startsWith('src:')) {
+      var sourceKey = keyword.substring(4);
+      final res = _db.select('''
+        SELECT * FROM comics
+        WHERE comic_type = ?
+        ORDER BY created_at DESC;
+      ''', [sourceKey.hashCode]);
+      return res.map((row) => LocalComic.fromRow(row)).toList();
+    }
+    if (keyword.startsWith('id:')) {
+      var comicId = keyword.substring(3);
+      final res = _db.select('''
+        SELECT * FROM comics
+        WHERE id = ?
+        ORDER BY created_at DESC;
+      ''', [comicId]);
+      return res.map((row) => LocalComic.fromRow(row)).toList();
+    }
     final res = _db.select('''
       SELECT * FROM comics
       WHERE title LIKE ? OR tags LIKE ? OR subtitle LIKE ?
@@ -549,6 +571,84 @@ class LocalManager with ChangeNotifier {
         Log.error("LocalManager", "Failed to restore downloading tasks: $e");
       }
     }
+  }
+
+  /// Get all comics in a category
+  List<LocalComic> getComicsByCategory(String category, LocalSortType sort) {
+    var allComics = getComics(sort);
+    var categories = appdata.settings['comicCategories'] as Map? ?? {};
+    var comicIds = (categories[category] as List? ?? [])
+        .map((e) => e.toString()).toSet();
+    return allComics.where((c) => comicIds.contains(c.id)).toList();
+  }
+
+  /// Add a comic to a category
+  void addToCategory(String comicId, String category) {
+    var categories = Map<String, dynamic>.from(
+        appdata.settings['comicCategories'] as Map? ?? {});
+    var list = List<String>.from(categories[category] as List? ?? []);
+    if (!list.contains(comicId)) {
+      list.add(comicId);
+    }
+    categories[category] = list;
+    appdata.settings['comicCategories'] = categories;
+    appdata.saveData();
+    notifyListeners();
+  }
+
+  /// Remove a comic from a category
+  void removeFromCategory(String comicId, String category) {
+    var categories = Map<String, dynamic>.from(
+        appdata.settings['comicCategories'] as Map? ?? {});
+    var list = List<String>.from(categories[category] as List? ?? []);
+    list.remove(comicId);
+    if (list.isEmpty) {
+      categories.remove(category);
+    } else {
+      categories[category] = list;
+    }
+    appdata.settings['comicCategories'] = categories;
+    appdata.saveData();
+    notifyListeners();
+  }
+
+  /// Get all category names
+  List<String> getCategories() {
+    var categories = appdata.settings['comicCategories'] as Map? ?? {};
+    return categories.keys.cast<String>().toList();
+  }
+
+  /// Rename a category
+  void renameCategory(String oldName, String newName) {
+    var categories = Map<String, dynamic>.from(
+        appdata.settings['comicCategories'] as Map? ?? {});
+    categories[newName] = categories[oldName];
+    categories.remove(oldName);
+    appdata.settings['comicCategories'] = categories;
+    appdata.saveData();
+    notifyListeners();
+  }
+
+  /// Delete a category
+  void deleteCategory(String name) {
+    var categories = Map<String, dynamic>.from(
+        appdata.settings['comicCategories'] as Map? ?? {});
+    categories.remove(name);
+    appdata.settings['comicCategories'] = categories;
+    appdata.saveData();
+    notifyListeners();
+  }
+
+  /// Get categories for a specific comic
+  List<String> getComicCategories(String comicId) {
+    var categories = appdata.settings['comicCategories'] as Map? ?? {};
+    var result = <String>[];
+    for (var entry in categories.entries) {
+      if ((entry.value as List).contains(comicId)) {
+        result.add(entry.key);
+      }
+    }
+    return result;
   }
 
   void addTask(DownloadTask task) {

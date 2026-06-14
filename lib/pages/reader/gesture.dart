@@ -14,11 +14,10 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
 
   static const _kDoubleTapMaxTime = Duration(milliseconds: 200);
 
-  static const _kLongPressMinTime = Duration(milliseconds: 250);
+  static const _kLongPressMinTime = Duration(milliseconds: 500);
 
   static const _kDoubleTapMaxDistanceSquared = 20.0 * 20.0;
 
-  static const _kTapToTurnPagePercent = 0.3;
 
   final _dragListeners = <_DragListener>[];
 
@@ -204,27 +203,39 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
     } else if (context.readerScaffold.isOpen) {
       context.readerScaffold.openOrClose();
     } else {
-      // Don't open toolbar on chapter comments page
       if (reader.isOnChapterCommentsPage) {
         return;
       }
       if (appdata.settings.getReaderSetting(
           reader.cid, reader.type.sourceKey, 'enableTapToTurnPages')) {
-        bool isLeft = false, isRight = false, isTop = false, isBottom = false;
+        final layout = appdata.settings['tapZoneLayout'] ?? 'default';
         final width = context.width;
         final height = context.height;
         final x = location.dx;
         final y = location.dy;
-        if (x < width * _kTapToTurnPagePercent) {
-          isLeft = true;
-        } else if (x > width * (1 - _kTapToTurnPagePercent)) {
-          isRight = true;
+        
+        bool isLeft = false, isRight = false, isTop = false, isBottom = false;
+        
+        switch (layout) {
+          case 'leftRight':
+            isLeft = x < width * 0.3;
+            isRight = x > width * 0.7;
+          case 'rightOnly':
+            isRight = x > width * 0.5;
+          case 'leftOnly':
+            isLeft = x < width * 0.5;
+          case 'edge':
+            isLeft = x < width * 0.15;
+            isRight = x > width * 0.85;
+            isTop = y < height * 0.15;
+            isBottom = y > height * 0.85;
+          default: // 'default'
+            isLeft = x < width * 0.3;
+            isRight = x > width * 0.7;
+            isTop = y < height * 0.3;
+            isBottom = y > height * 0.85;
         }
-        if (y < height * _kTapToTurnPagePercent) {
-          isTop = true;
-        } else if (y > height * (1 - _kTapToTurnPagePercent)) {
-          isBottom = true;
-        }
+        
         bool isCenter = false;
         var prev = () => context.reader.toPrevPage();
         var next = () => context.reader.toNextPage();
@@ -325,6 +336,7 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
 
   void onLongPressedUp(Offset location) {
     context.reader._imageViewController?.handleLongPressUp(location);
+    _showImageActions(location);
   }
 
   void onLongPressedDown(Offset location) {
@@ -342,13 +354,44 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
   @override
   Object? get key => "reader_gesture";
 
+  void _showImageActions(Offset location) {
+    showMenuX(
+      context,
+      location,
+      [
+        if (!reader.isLoading)
+          MenuEntry(
+            icon: Icons.download_outlined,
+            text: "Save Image".tl,
+            onClick: () => saveImage(location),
+          ),
+        if (!reader.isLoading)
+          MenuEntry(
+            icon: Icons.share,
+            text: "Share".tl,
+            onClick: () async {
+              var image = await reader._imageViewController?.getImageByOffset(location);
+              if (image != null) {
+                var filetype = detectFileType(image);
+                var page = reader.page;
+                var ep = reader.chapter;
+                var name = reader.widget.name;
+                Share.shareFile(data: image, filename: "${name}_EP${ep}_P${page}${filetype.ext}", mime: filetype.mime);
+              }
+            },
+          ),
+
+      ],
+    );
+  }
+
   void copyImage(Offset location) async {
     var controller = reader._imageViewController;
     var image = await controller!.getImageByOffset(location);
     if (image != null) {
       writeImageToClipboard(image);
     } else {
-      context.showMessage(message: "No Image");
+      context.showMessage(message: "No Image".tl.tl);
     }
   }
 
@@ -357,9 +400,12 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
     var image = await controller!.getImageByOffset(location);
     if (image != null) {
       var filetype = detectFileType(image);
-      saveFile(filename: "image${filetype.ext}", data: image);
+      var page = reader.page;
+      var ep = reader.chapter;
+      var name = reader.widget.name;
+      saveFile(filename: "${name}_EP${ep}_P${page}${filetype.ext}", data: image);
     } else {
-      context.showMessage(message: "No Image");
+      context.showMessage(message: "No Image".tl.tl);
     }
   }
 }

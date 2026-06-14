@@ -112,8 +112,8 @@ class _PopUpWidgetScaffoldState extends State<PopUpWidgetScaffold> {
       color: Theme.of(context).colorScheme.surface,
       child: Column(
         children: [
-          GlassAppBarWrapper(
-            scrolledUnder: !top,
+          Container(
+            color: Theme.of(context).colorScheme.surface,
             child: Container(
               height: 56 + context.padding.top,
               padding: EdgeInsets.only(top: context.padding.top),

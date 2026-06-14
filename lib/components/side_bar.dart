@@ -89,22 +89,23 @@ class SideBarRoute<T> extends PopupRoute<T> {
 
     final sideBarWidth = math.min(width, MediaQuery.of(context).size.width);
 
-    body = GlassContainer(
-      blurStrength: 25,
-      opacity: 0.20,
-      borderRadius: showSideBar
-          ? const BorderRadius.horizontal(left: Radius.circular(16))
-          : BorderRadius.zero,
-      border: showSideBar
-          ? Border(
-              left: BorderSide(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? Colors.white.withValues(alpha: 0.5)
-                    : Colors.white.withValues(alpha: 0.08),
-                width: 0.5,
-              ),
-            )
-          : null,
+    body = Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: showSideBar
+            ? const BorderRadius.horizontal(left: Radius.circular(16))
+            : BorderRadius.zero,
+        border: showSideBar
+            ? Border(
+                left: BorderSide(
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.white.withValues(alpha: 0.5)
+                      : Colors.white.withValues(alpha: 0.08),
+                  width: 0.5,
+                ),
+              )
+            : null,
+      ),
       constraints: BoxConstraints(maxWidth: sideBarWidth),
       height: MediaQuery.of(context).size.height,
       padding: EdgeInsets.fromLTRB(

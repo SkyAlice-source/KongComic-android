@@ -137,7 +137,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       'blue' => Colors.blue,
       'yellow' => Colors.yellow,
       'cyan' => Colors.cyan,
-      _ => const Color(0xFF4A90E2),
+      'system' => Colors.blue,
+      _ => Colors.blue,
     };
   }
 
@@ -175,18 +176,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ).copyWith(
         surface: surfaceColor,
         surfaceContainerLowest: surfaceColor,
-        surfaceContainerLow: surfaceColor,
-        surfaceContainer: surfaceColor,
-        surfaceContainerHigh: surfaceColor,
-        surfaceContainerHighest: surfaceColor,
+        surfaceContainerLow: brightness == Brightness.light
+            ? const Color(0xFFF0F0F0)
+            : const Color(0xFF1E1E1E),
+        surfaceContainer: brightness == Brightness.light
+            ? const Color(0xFFE8E8E8)
+            : const Color(0xFF2A2A2A),
+        surfaceContainerHigh: brightness == Brightness.light
+            ? const Color(0xFFE0E0E0)
+            : const Color(0xFF333333),
+        surfaceContainerHighest: brightness == Brightness.light
+            ? const Color(0xFFD4D4D4)
+            : const Color(0xFF3D3D3D),
         surfaceTint: Colors.transparent,
       ),
       scaffoldBackgroundColor: surfaceColor,
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: Colors.transparent,
+        backgroundColor: null,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
+        backgroundColor: null,
       ),
       fontFamily: font,
       fontFamilyFallback: fallback,
@@ -316,19 +325,20 @@ class _SystemUiProvider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var brightness = Theme.of(context).brightness;
-    var surface = Theme.of(context).colorScheme.surface;
     SystemUiOverlayStyle systemUiStyle;
     if (brightness == Brightness.light) {
       systemUiStyle = SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: surface,
-        systemNavigationBarColor: surface,
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
+        systemStatusBarContrastEnforced: false,
       );
     } else {
       systemUiStyle = SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: surface,
-        systemNavigationBarColor: surface,
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.light,
+        systemStatusBarContrastEnforced: false,
       );
     }
     return AnnotatedRegion<SystemUiOverlayStyle>(

@@ -137,7 +137,11 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
               throw "setting is not allowed to be saved";
             }
             var data = message["data"];
-            var source = ComicSource.find(key)!;
+            var source = ComicSource.find(key);
+            if (source == null) {
+              Log.error("JsEngine", "Source not found for save_data: $key");
+              return null;
+            }
             source.data[dataKey] = data;
             source.saveData();
           case 'delete_data':
@@ -165,12 +169,21 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
           case "load_setting":
             String key = message["key"];
             String settingKey = message["setting_key"];
-            var source = ComicSource.find(key)!;
-            return source.data["settings"]?[settingKey] ??
-                source.settings?[settingKey]!['default'] ??
-                (throw "Setting not found: $settingKey");
+            var source = ComicSource.find(key);
+            if (source == null) {
+              Log.error("JsEngine", "Source not found: $key");
+              return null;
+            }
+            var setting = source.data["settings"]?[settingKey] ??
+                source.settings?[settingKey]?['default'];
+            if (setting == null) {
+              Log.error("JsEngine", "Setting not found: $settingKey for source: $key");
+              return null;
+            }
+            return setting;
           case "isLogged":
-            return ComicSource.find(message["key"])!.isLogged;
+            var loggedSource = ComicSource.find(message["key"]);
+            return loggedSource?.isLogged ?? false;
           // temporary solution for [setTimeout] function
           // TODO: implement [setTimeout] in quickjs project
           case "delay":

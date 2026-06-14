@@ -240,10 +240,17 @@ LoadingDialogController showLoadingDialog(
         };
         return ContentDialog(
           title: controller._message ?? 'Loading',
-          content: LinearProgressIndicator(
-            value: controller._progress,
-            backgroundColor: context.colorScheme.surfaceContainer,
-          ).paddingHorizontal(16).paddingVertical(16),
+          content: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: controller._progress,
+                minHeight: 14,
+                backgroundColor: context.colorScheme.surfaceContainer,
+              ),
+            ),
+          ),
           actions: [
             FilledButton(
               onPressed: allowCancel

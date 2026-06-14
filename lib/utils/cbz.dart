@@ -107,11 +107,21 @@ abstract class CBZ {
     if (old != null) {
       throw Exception('Comic with name ${metaData.title} already exists');
     }
-    var files = cache.listSync().whereType<File>().toList();
-    files.removeWhere((e) {
-      var ext = e.path.split('.').last;
-      return !['jpg', 'jpeg', 'png', 'webp', 'gif', 'jpe'].contains(ext);
-    });
+    var files = <File>[];
+    // Recursively collect images from all subdirectories
+    void collectImages(Directory dir) {
+      for (var entity in dir.listSync()) {
+        if (entity is File) {
+          var ext = entity.path.split('.').last;
+          if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'jpe'].contains(ext)) {
+            files.add(entity);
+          }
+        } else if (entity is Directory) {
+          collectImages(entity);
+        }
+      }
+    }
+    collectImages(cache);
     if (files.isEmpty) {
       cache.deleteSync(recursive: true);
       throw Exception('No images found in the archive');

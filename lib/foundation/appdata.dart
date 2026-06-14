@@ -194,14 +194,17 @@ class Settings with ChangeNotifier {
     'readerScreenPicNumberForPortrait': 1, // 1 - 5
     'enableTapToTurnPages': true,
     'reverseTapToTurnPages': false,
+    'tapZoneLayout': 'default',
     'enablePageAnimation': true,
     'language': 'system', // system, zh-CN, zh-TW, en-US
     'cacheSize': 2048, // in MB
     'downloadThreads': 5,
+    'saveAsCbz': true,
     'enableLongPressToZoom': true,
     'longPressZoomPosition': "press", // press, center
     'checkUpdateOnStart': false,
     'limitImageWidth': true,
+    'imageFitMode': 'contain',
     'webdav': [], // empty means not configured
     "disableSyncFields": "", // "field1, field2, ..."
     'dataVersion': 0,
@@ -227,6 +230,9 @@ class Settings with ChangeNotifier {
     'enableDoubleTapToZoom': true,
     'reverseChapterOrder': false,
     'showSystemStatusBar': false,
+    'keepScreenOn': true,
+    'screenOrientation': 'unspecified',
+    'autoScrollSpeed': 5,
     'comicSpecificSettings': <String, Map<String, dynamic>>{},
     'deviceSpecificSettings': <String, Map<String, dynamic>>{},
     'deviceId': '',

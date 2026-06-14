@@ -349,7 +349,7 @@ packages:
       path: "."
       ref: b33344797f1d2469339e0e1b75f5f954f1da224c
       resolved-ref: b33344797f1d2469339e0e1b75f5f954f1da224c
-      url: "https://github.com/venera-app/flutter_7zip"
+      url: "https://github.com/SkyAlice-source/flutter_7zip"
     source: git
     version: "0.0.1"
   flutter_cache_manager:
@@ -467,7 +467,7 @@ packages:
       path: "."
       ref: "8feae95df7fb00455df129ad7a0dfec1d0e8d8e4"
       resolved-ref: "8feae95df7fb00455df129ad7a0dfec1d0e8d8e4"
-      url: "https://github.com/venera-app/flutter_qjs"
+      url: "https://github.com/SkyAlice-source/flutter_qjs"
     source: git
     version: "0.3.7"
   flutter_reorderable_grid_view:
@@ -484,7 +484,7 @@ packages:
       path: "."
       ref: fe182cdf40e5fa6230f451bc1d643b860f610d13
       resolved-ref: fe182cdf40e5fa6230f451bc1d643b860f610d13
-      url: "https://github.com/venera-app/flutter_saf"
+      url: "https://github.com/SkyAlice-source/flutter_saf"
     source: git
     version: "0.0.1"
   flutter_staggered_grid_view:
@@ -664,7 +664,7 @@ packages:
       path: "."
       ref: ac7d05dde32e8d728102a9ff66e6b55f05d94ba1
       resolved-ref: ac7d05dde32e8d728102a9ff66e6b55f05d94ba1
-      url: "https://github.com/venera-app/lodepng_flutter"
+      url: "https://github.com/SkyAlice-source/lodepng_flutter"
     source: git
     version: "0.0.1"
   logging:
@@ -739,6 +739,22 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.2.0"
+  package_info_plus:
+    dependency: transitive
+    description:
+      name: package_info_plus
+      sha256: "468c26b4254ab01979fa5e4a98cb343ea3631b9acee6f21028997419a80e1a20"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "9.0.1"
+  package_info_plus_platform_interface:
+    dependency: transitive
+    description:
+      name: package_info_plus_platform_interface
+      sha256: "202a487f08836a592a6bd4f901ac69b3a8f146af552bbd14407b6b41e1c3f086"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "3.2.1"
   path:
     dependency: "direct main"
     description:
@@ -1178,6 +1194,22 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "15.2.0"
+  wakelock_plus:
+    dependency: "direct main"
+    description:
+      name: wakelock_plus
+      sha256: ddf3db70eaa10c37558ff817519b85d527dbd21034fd5d8e1c2e85f31588f1c1
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.5.2"
+  wakelock_plus_platform_interface:
+    dependency: transitive
+    description:
+      name: wakelock_plus_platform_interface
+      sha256: b13f99e992e7ae6a152e16c5559d3c07ff445b13330192662494e614ca3e7d7b
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.5.1"
   web:
     dependency: transitive
     description:

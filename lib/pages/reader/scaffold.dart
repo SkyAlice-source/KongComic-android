@@ -93,14 +93,51 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     if (rotation != null) {
       SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     }
+    // Apply keep screen on
+    if (appdata.settings['keepScreenOn'] == true) {
+      WakelockPlus.enable();
+    }
+    // Apply screen orientation
+    _applyScreenOrientation();
     super.initState();
     Future.delayed(const Duration(milliseconds: 200), addDragListener);
   }
 
   @override
   void dispose() {
+    WakelockPlus.disable();
+    // Restore orientation to follow system
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     sliderFocus.dispose();
     super.dispose();
+  }
+
+  void _applyScreenOrientation() {
+    var orientation = appdata.settings['screenOrientation'] ?? 'unspecified';
+    switch (orientation) {
+      case 'portrait':
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+        ]);
+      case 'landscape':
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      default:
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+    }
   }
 
   void openOrClose() {
@@ -176,7 +213,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       child: Container(
         padding: EdgeInsets.only(top: context.padding.top),
         decoration: BoxDecoration(
-          color: context.colorScheme.surface.toOpacity(0.92),
+          color: context.colorScheme.surface,
           border: Border(
             bottom: BorderSide(
               color: Colors.grey.toOpacity(0.5),
@@ -476,6 +513,24 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             onPressed: openChapterDrawer,
           ),
         ),
+      if (context.reader.mode.key.startsWith('continuous'))
+        Tooltip(
+          message: "Auto Scroll".tl,
+          child: IconButton(
+            icon: Icon(
+              context.reader._imageViewController != null &&
+                      (context.reader._imageViewController as dynamic)._autoScrolling == true
+                  ? Icons.pause_circle_outline
+                  : Icons.play_circle_outline,
+            ),
+            onPressed: () {
+              if (context.reader._imageViewController != null) {
+                (context.reader._imageViewController as dynamic)
+                    .toggleAutoScroll();
+              }
+            },
+          ),
+        ),
       Tooltip(
         message: "Save Image".tl,
         child: IconButton(
@@ -555,7 +610,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     return BlurEffect(
       child: Container(
         decoration: BoxDecoration(
-          color: context.colorScheme.surface.toOpacity(0.92),
+          color: context.colorScheme.surface,
           border: isOpen
               ? Border(
                   top: BorderSide(
@@ -607,9 +662,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       epName = "${epName.substring(0, 8)}...";
     }
     var pageText = "${context.reader.page}/${context.reader.maxPage}";
+    var remaining = context.reader.estimatedRemainingSeconds;
+    var timeText = remaining > 0 ? "  ~${(remaining / 60).ceil()}${"min".tl}" : "";
     var text = context.reader.widget.chapters != null
-        ? "$epName : $pageText"
-        : pageText;
+        ? "$epName : $pageText$timeText"
+        : "$pageText$timeText";
 
     return Positioned(
       bottom: 13,

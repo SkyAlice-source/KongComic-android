@@ -38,6 +38,24 @@ class _AboutSettingsState extends State<AboutSettings> {
               style: const TextStyle(fontSize: 16),
             ),
             Text("KongComic is a free and open-source comic reader.".tl),
+            const SizedBox(height: 12),
+            const Divider(height: 1).paddingHorizontal(16),
+            const SizedBox(height: 12),
+            Text(
+              "Special Thanks".tl,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            GestureDetector(
+              onTap: () => launchUrlString("https://github.com/venera-app/venera"),
+              child: Text(
+                "Based on Venera, thanks to the original project.".tl,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
             const SizedBox(height: 8),
           ],
         ).toSliver(),

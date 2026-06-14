@@ -25,7 +25,7 @@ class _MenuRoute<T> extends PopupRoute<T> {
   @override
   Widget buildPage(BuildContext context, Animation<double> animation,
       Animation<double> secondaryAnimation) {
-    var width = entries.first.icon == null ? 216.0 : 242.0;
+    var width = entries.first.icon == null ? 140.0 : 160.0;
     final size = MediaQuery.of(context).size;
     var left = location.dx;
     if (left < 10) {
@@ -46,7 +46,7 @@ class _MenuRoute<T> extends PopupRoute<T> {
           top: top,
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(20),
               border: context.brightness == Brightness.dark
                   ? Border.all(color: context.colorScheme.outlineVariant)
                   : null,
@@ -59,10 +59,10 @@ class _MenuRoute<T> extends PopupRoute<T> {
               ],
             ),
             child: BlurEffect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(20),
               child: Material(
                 color: context.colorScheme.surface.toOpacity(0.92),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(20),
                 child: Container(
                   width: width,
                   padding:
@@ -83,7 +83,7 @@ class _MenuRoute<T> extends PopupRoute<T> {
 
   Widget buildEntry(MenuEntry entry, BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(20),
       onTap: () {
         Navigator.of(context).pop();
         entry.onClick();
@@ -102,7 +102,7 @@ class _MenuRoute<T> extends PopupRoute<T> {
                 ),
               const SizedBox(width: 12),
               Text(
-                  entry.text,
+                  entry.text, overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: entry.color)
               ),
             ],

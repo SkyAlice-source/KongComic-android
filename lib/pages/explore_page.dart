@@ -100,8 +100,11 @@ class _ExplorePageState extends State<ExplorePage>
         color: Colors.transparent,
         child: FloatingActionButton(
           key: const Key("FAB"),
-          onPressed: refresh,
-          child: const Icon(Icons.refresh),
+          onPressed: () {
+            String currentPageId = pages[controller.index];
+            GlobalState.find<_SingleExplorePageState>(currentPageId).toTop();
+          },
+          child: const Icon(Icons.arrow_upward),
         ),
       );
 
@@ -207,7 +210,7 @@ class _ExplorePageState extends State<ExplorePage>
         ),
         Positioned(
           right: 16,
-          bottom: 16,
+          bottom: 90,
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 150),
             reverseDuration: const Duration(milliseconds: 150),

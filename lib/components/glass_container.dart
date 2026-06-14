@@ -239,25 +239,86 @@ class _LiquidGlassSurface extends AnimatedWidget {
   }
 }
 
-/// Glass bottom navigation bar with frosted glass effect
+/// Glass bottom navigation bar with frosted glass effect.
+/// Floating capsule style — rounded, with margin, extends into system nav area for immersive feel.
 class GlassBottomBar extends StatelessWidget {
   final List<Widget> children;
   final double height;
+  final bool edgeToEdge;
+  final EdgeInsetsGeometry margin;
 
   const GlassBottomBar({
     super.key,
     required this.children,
     this.height = 56,
+    this.edgeToEdge = true,
+    this.margin = const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      width: double.infinity,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: children,
+    final bottomPad = edgeToEdge
+        ? MediaQuery.of(context).padding.bottom
+        : 0.0;
+    final totalHeight = height + bottomPad;
+    final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: margin,
+      child: SizedBox(
+        height: totalHeight,
+        width: double.infinity,
+        child: Container(
+          decoration: BoxDecoration(
+            color:
+                isDark
+                    ? const Color(0xFF1C1C1E).withValues(alpha: 0.85)
+                    : Colors.white.withValues(alpha: 0.90),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(
+              color:
+                  isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.06),
+              width: 0.4,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                blurRadius: 20,
+                spreadRadius: -4,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color:
+                    isDark
+                        ? Colors.transparent
+                        : Colors.white.withValues(alpha: 0.5),
+                blurRadius: 12,
+                spreadRadius: -2,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: bottomPad,
+                ),
+                child: SizedBox(
+                  height: height,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: children,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

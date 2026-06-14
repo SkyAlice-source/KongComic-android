@@ -279,6 +279,20 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
     _isListeningToStream = false;
   }
 
+  BoxFit _getImageFit() {
+    var mode = appdata.settings['imageFitMode'] ?? 'contain';
+    switch (mode) {
+      case 'fitWidth':
+        return BoxFit.fitWidth;
+      case 'fitHeight':
+        return BoxFit.fitHeight;
+      case 'cover':
+        return BoxFit.cover;
+      default:
+        return BoxFit.contain;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_lastException != null) {
@@ -379,7 +393,7 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
           color: widget.color,
           opacity: widget.opacity,
           colorBlendMode: widget.colorBlendMode,
-          fit: widget.fit,
+          fit: widget.fit ?? _getImageFit(),
           alignment: widget.alignment,
           repeat: widget.repeat,
           centerSlice: widget.centerSlice,

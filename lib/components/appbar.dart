@@ -6,7 +6,7 @@ class Appbar extends StatefulWidget implements PreferredSizeWidget {
     this.leading,
     this.actions,
     this.backgroundColor,
-    this.style = AppbarStyle.blur,
+    this.style = AppbarStyle.shadow,
     super.key,
   });
 
@@ -165,7 +165,7 @@ class SliverAppbar extends StatelessWidget {
     this.leading,
     this.actions,
     this.radius = 0,
-    this.style = AppbarStyle.blur,
+    this.style = AppbarStyle.shadow,
   });
 
   final Widget? leading;
@@ -215,7 +215,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     this.actions,
     required this.topPadding,
     this.radius = 0,
-    this.style = AppbarStyle.blur,
+    this.style = AppbarStyle.shadow,
   });
 
   @override
