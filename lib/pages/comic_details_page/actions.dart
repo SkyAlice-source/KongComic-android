@@ -125,7 +125,16 @@ abstract mixin class _ComicPageActions {
   void continueRead() {
     var ep = history?.ep ?? 1;
     var page = history?.page ?? 1;
-    var group = history?.group ?? 1;
+    var group = history?.group;
+    // 确保集数在有效范围内
+    if (ep < 1) ep = 1;
+    if (page < 1) page = 1;
+    if (comic.chapters != null) {
+      if (ep > comic.chapters!.length) ep = comic.chapters!.length;
+      if (group != null && (group < 1 || group > comic.chapters!.groupCount)) {
+        group = null;
+      }
+    }
     read(ep, page, group);
   }
 

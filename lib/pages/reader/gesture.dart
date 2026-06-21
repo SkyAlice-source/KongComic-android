@@ -39,9 +39,7 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
   void initState() {
     _tapGestureRecognizer = TapGestureRecognizer()
       ..onTapUp = onTapUp
-      ..onSecondaryTapUp = (details) {
-        onSecondaryTapUp(details.globalPosition);
-      };
+      ..onSecondaryTapUp = (details) {};
     super.initState();
     context.readerScaffold._gestureDetectorState = this;
     reader = context.reader;
@@ -73,8 +71,7 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
         Future.delayed(_kLongPressMinTime, () {
           if (_lastTapPointer == event.pointer && fingers == 1) {
             if (_lastTapMoveDistance!.distanceSquared < 20.0 * 20.0) {
-              onLongPressedDown(event.position);
-              _longPressInProgress = true;
+              // long press but menu removed
             } else {
               _dragInProgress = true;
               for (var dragListener in _dragListeners) {
@@ -97,9 +94,6 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
       },
       onPointerUp: (event) {
         fingers--;
-        if (_longPressInProgress) {
-          onLongPressedUp(event.position);
-        }
         if (_dragInProgress) {
           for (var dragListener in _dragListeners) {
             dragListener.onEnd?.call();
@@ -111,9 +105,6 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
       },
       onPointerCancel: (event) {
         fingers--;
-        if (_longPressInProgress) {
-          onLongPressedUp(event.position);
-        }
         if (_dragInProgress) {
           for (var dragListener in _dragListeners) {
             dragListener.onEnd?.call();
@@ -155,8 +146,6 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
 
   Offset? _lastTapMoveDistance;
 
-  bool _longPressInProgress = false;
-
   bool _dragInProgress = false;
 
   bool get _enableDoubleTapToZoom =>
@@ -166,10 +155,6 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
     if (event.globalPosition == Offset.zero &&
         event.localPosition == Offset.zero) {
       _previousEvent = null;
-      return;
-    }
-    if (_longPressInProgress) {
-      _longPressInProgress = false;
       return;
     }
     final location = event.globalPosition;
@@ -285,64 +270,6 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
     context.reader._imageViewController?.handleDoubleTap(location);
   }
 
-  void onSecondaryTapUp(Offset location) {
-    showMenuX(
-      context,
-      location,
-      [
-        MenuEntry(
-          icon: Icons.settings,
-          text: "Settings".tl,
-          onClick: () {
-            context.readerScaffold.openSetting();
-          },
-        ),
-        MenuEntry(
-          icon: Icons.menu,
-          text: "Chapters".tl,
-          onClick: () {
-            context.readerScaffold.openChapterDrawer();
-          },
-        ),
-        MenuEntry(
-          icon: Icons.fullscreen,
-          text: "Fullscreen".tl,
-          onClick: () {
-            context.reader.fullscreen();
-          },
-        ),
-        MenuEntry(
-          icon: Icons.exit_to_app,
-          text: "Exit".tl,
-          onClick: () {
-            context.pop();
-          },
-        ),
-        if (App.isDesktop && !reader.isLoading)
-          MenuEntry(
-            icon: Icons.copy,
-            text: "Copy Image".tl,
-            onClick: () => copyImage(location),
-          ),
-        if (!reader.isLoading)
-          MenuEntry(
-            icon: Icons.download_outlined,
-            text: "Save Image".tl,
-            onClick: () => saveImage(location),
-          ),
-      ],
-    );
-  }
-
-  void onLongPressedUp(Offset location) {
-    context.reader._imageViewController?.handleLongPressUp(location);
-    _showImageActions(location);
-  }
-
-  void onLongPressedDown(Offset location) {
-    context.reader._imageViewController?.handleLongPressDown(location);
-  }
-
   void addDragListener(_DragListener listener) {
     _dragListeners.add(listener);
   }
@@ -353,37 +280,6 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
 
   @override
   Object? get key => "reader_gesture";
-
-  void _showImageActions(Offset location) {
-    showMenuX(
-      context,
-      location,
-      [
-        if (!reader.isLoading)
-          MenuEntry(
-            icon: Icons.download_outlined,
-            text: "Save Image".tl,
-            onClick: () => saveImage(location),
-          ),
-        if (!reader.isLoading)
-          MenuEntry(
-            icon: Icons.share,
-            text: "Share".tl,
-            onClick: () async {
-              var image = await reader._imageViewController?.getImageByOffset(location);
-              if (image != null) {
-                var filetype = detectFileType(image);
-                var page = reader.page;
-                var ep = reader.chapter;
-                var name = reader.widget.name;
-                Share.shareFile(data: image, filename: "${name}_EP${ep}_P${page}${filetype.ext}", mime: filetype.mime);
-              }
-            },
-          ),
-
-      ],
-    );
-  }
 
   void copyImage(Offset location) async {
     var controller = reader._imageViewController;

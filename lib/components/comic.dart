@@ -159,43 +159,58 @@ class ComicTile extends StatelessWidget {
         Positioned.fill(
           child: child,
         ),
-        Positioned(
-          left: type == 'detailed' ? 16 : 6,
-          top: 8,
-          child: Container(
-            height: 24,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Row(
-              children: [
-                if (isFavorite)
-                  Container(
-                    height: 24,
-                    width: 24,
-                    color: Colors.green,
-                    child: const Icon(
-                      Icons.bookmark_rounded,
-                      size: 16,
-                      color: Colors.white,
+        if (isFavorite || history != null)
+          Positioned(
+            left: type == 'detailed' ? 16 : 6,
+            top: 8,
+            child: Container(
+              height: 24,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                color: Colors.black.toOpacity(0.6),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isFavorite)
+                    Container(
+                      height: 24,
+                      width: 24,
+                      color: Colors.green.toOpacity(0.85),
+                      child: const Icon(
+                        Icons.bookmark_rounded,
+                        size: 15,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                if (history != null)
-                  Container(
-                    height: 24,
-                    color: Colors.blue.toOpacity(0.9),
-                    constraints: const BoxConstraints(minWidth: 24),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: CustomPaint(
-                      painter:
-                          _ReadingHistoryPainter(history.page, history.maxPage),
+                  if (history != null)
+                    Container(
+                      height: 24,
+                      color: Colors.blue.toOpacity(0.85),
+                      constraints: const BoxConstraints(minWidth: 22),
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      alignment: Alignment.center,
+                      child: Text(
+                        history.group != null
+                            ? "${history.group}-${history.ep}"
+                            : history.readEpisode.length > 1
+                                ? "${history.ep}/${history.readEpisode.length}"
+                                : "${history.ep}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  )
-              ],
+                ],
+              ),
             ),
           ),
-        )
       ],
     );
   }
@@ -655,81 +670,6 @@ class _ComicDescription extends StatelessWidget {
         )
       ],
     );
-  }
-}
-
-class _ReadingHistoryPainter extends CustomPainter {
-  final int page;
-  final int? maxPage;
-
-  const _ReadingHistoryPainter(this.page, this.maxPage);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (maxPage == null) {
-      // 在中央绘制page
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: "$page",
-          style: TextStyle(
-            fontSize: size.width * 0.8,
-            color: Colors.white,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(
-          canvas,
-          Offset((size.width - textPainter.width) / 2,
-              (size.height - textPainter.height) / 2));
-    } else if (page == maxPage) {
-      // 在中央绘制勾
-      final paint = Paint()
-        ..color = Colors.white
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke;
-      canvas.drawLine(Offset(size.width * 0.2, size.height * 0.5),
-          Offset(size.width * 0.45, size.height * 0.75), paint);
-      canvas.drawLine(Offset(size.width * 0.45, size.height * 0.75),
-          Offset(size.width * 0.85, size.height * 0.3), paint);
-    } else {
-      // 在左上角绘制page, 在右下角绘制maxPage
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: "$page",
-          style: TextStyle(
-            fontSize: size.width * 0.8,
-            color: Colors.white,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(canvas, const Offset(0, 0));
-      final textPainter2 = TextPainter(
-        text: TextSpan(
-          text: "/$maxPage",
-          style: TextStyle(
-            fontSize: size.width * 0.5,
-            color: Colors.white,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter2.layout();
-      textPainter2.paint(
-          canvas,
-          Offset(size.width - textPainter2.width,
-              size.height - textPainter2.height));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return oldDelegate is! _ReadingHistoryPainter ||
-        oldDelegate.page != page ||
-        oldDelegate.maxPage != maxPage;
   }
 }
 

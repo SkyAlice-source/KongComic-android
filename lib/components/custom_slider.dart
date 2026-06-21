@@ -114,7 +114,7 @@ class _CustomSliderState extends State<CustomSlider> {
     final colorScheme = Theme.of(context).colorScheme;
     final theme = _SliderDefaultsM3(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+      padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
       child: widget.max - widget.min > 0 ? LayoutBuilder(
         builder: (context, constraints) => MouseRegion(
           cursor: SystemMouseCursors.click,
@@ -140,78 +140,69 @@ class _CustomSliderState extends State<CustomSlider> {
               widget.onChanged.call((dx / gap).round() * gapValue + widget.min);
             },
             child: SizedBox(
-              height: 24,
+              height: 32,
               child: Center(
                 child: SizedBox(
-                  height: 24,
+                  height: 32,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
+                      // 背景轨道
                       Positioned.fill(
                         child: Center(
                           child: Container(
                             width: double.infinity,
-                            height: 6,
+                            height: 28,
                             decoration: BoxDecoration(
                                 color: theme.inactiveTrackColor,
-                                borderRadius: const BorderRadius.all(Radius.circular(10))
-                            ),
+                                borderRadius: const BorderRadius.all(Radius.circular(14))),
                           ),
                         ),
                       ),
-                      if(constraints.maxWidth / widget.divisions > 10)
-                        Positioned.fill(
-                          child: Row(
-                            children: (){
-                              var res = <Widget>[];
-                              for(int i = 0; i<widget.divisions-1; i++){
-                                res.add(const Spacer());
-                                res.add(Container(
-                                  width: 4,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.surface.withRed(10),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ));
-                              }
-                              res.add(const Spacer());
-                              return res;
-                            }.call(),
-                          ),
-                        ),
-                        Positioned(
-                          top: 0,
-                          bottom: 0,
-                          left: widget.reversed ? null : 0,
-                          right: widget.reversed ? 0 : null,
-                          child: Center(
-                            child: Container(
-                              width: constraints.maxWidth * ((value - widget.min) / (widget.max - widget.min)),
-                              height: 8,
-                              decoration: BoxDecoration(
-                                  color: theme.activeTrackColor,
-                                  borderRadius: const BorderRadius.all(Radius.circular(10))
-                              ),
-                            ),
-                          )
-                        ),
+                      // 激活轨道
                       Positioned(
                         top: 0,
                         bottom: 0,
-                        left: widget.reversed ? null : constraints.maxWidth * ((value - widget.min) / (widget.max - widget.min))-11,
-                        right: !widget.reversed ? null : constraints.maxWidth * ((value - widget.min) / (widget.max - widget.min))-11,
-                        child: Center(
+                        left: widget.reversed ? null : 0,
+                        right: widget.reversed ? 0 : null,
+                        child: Align(
+                          alignment: widget.reversed ? Alignment.centerRight : Alignment.centerLeft,
                           child: Container(
-                            width: 22,
-                            height: 22,
+                            width: constraints.maxWidth * ((value - widget.min) / (widget.max - widget.min)),
+                            height: 28,
                             decoration: BoxDecoration(
-                              color: theme.activeTrackColor,
-                              shape: BoxShape.circle,
-                            ),
+                                color: theme.activeTrackColor,
+                                borderRadius: const BorderRadius.all(Radius.circular(14))),
                           ),
                         ),
-                      )
+                      ),
+                      // 文字覆盖层
+                      Positioned.fill(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            children: [
+                              Text(
+                                "页数 ${value.toInt()}/${widget.max.toInt()}",
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                "阅读进度 ${(widget.max > 0 ? (value / widget.max * 100).toInt() : 0)}%",
+                                style: TextStyle(
+                                  color: colorScheme.onSurface.withValues(alpha: 0.8),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

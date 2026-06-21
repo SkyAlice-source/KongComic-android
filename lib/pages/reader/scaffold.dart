@@ -14,7 +14,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
 
   static const kTopBarHeight = 56.0;
 
-  static const kBottomBarHeight = 105.0;
+  static const kBottomBarHeight = 125.0;
 
   bool get isOpen => _isOpen;
 
@@ -635,20 +635,24 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   var sliderFocus = FocusNode();
 
   Widget buildSlider() {
-    // Clamp page to maxPage (excluding chapter comments page)
     final displayPage = context.reader.page.clamp(1, context.reader.maxPage);
-    return CustomSlider(
-      focusNode: sliderFocus,
-      value: displayPage.toDouble(),
-      min: 1,
-      max: context.reader.maxPage
-          .clamp(displayPage, 1 << 16)
-          .toDouble(),
-      reversed: isReversed,
-      divisions: (context.reader.maxPage - 1).clamp(2, 1 << 16),
-      onChanged: (i) {
-        context.reader.toPage(i.toInt());
-      },
+    final maxPage = context.reader.maxPage;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: SizedBox(
+        height: 48,
+        child: CustomSlider(
+          focusNode: sliderFocus,
+          value: displayPage.toDouble(),
+          min: 1,
+          max: maxPage.clamp(displayPage, 1 << 16).toDouble(),
+          reversed: isReversed,
+          divisions: (maxPage - 1).clamp(2, 1 << 16),
+          onChanged: (i) {
+            context.reader.toPage(i.toInt());
+          },
+        ),
+      ),
     );
   }
 
@@ -731,15 +735,20 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   }
 
   void share() async {
-    var result = await selectImageToData();
-    if (result == null) {
-      return;
+    try {
+      var result = await selectImageToData();
+      if (result == null) {
+        return;
+      }
+      var (imageIndex, data) = result;
+      var fileType = detectFileType(data);
+      var filename =
+          "${context.reader.widget.name}_EP${context.reader.chapter}_P${imageIndex + 1}${fileType.ext}";
+      Share.shareFile(data: data, filename: filename, mime: fileType.mime);
+    } catch (e) {
+      // fallback: 分享文字
+      Share.shareText(context.reader.widget.name);
     }
-    var (imageIndex, data) = result;
-    var fileType = detectFileType(data);
-    var filename =
-        "${context.reader.widget.name}_EP${context.reader.chapter}_P${imageIndex + 1}${fileType.ext}";
-    Share.shareFile(data: data, filename: filename, mime: fileType.mime);
   }
 
   void openSetting() {
@@ -956,13 +965,24 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       return null;
     }
     var imageKey = context.reader.images![i];
-    Uint8List data;
+    Uint8List? data;
     if (imageKey.startsWith("file://")) {
-      data = await File(imageKey.substring(7)).readAsBytes();
+      try {
+        data = await File(imageKey.substring(7)).readAsBytes();
+      } catch (_) {}
     } else {
-      data = await (await CacheManager().findCache(
-        "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
-      ))!.readAsBytes();
+      // 尝试从缓存获取
+      try {
+        var cache = await CacheManager().findCache(
+          "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
+        );
+        if (cache != null) {
+          data = await cache.readAsBytes();
+        }
+      } catch (_) {}
+    }
+    if (data == null) {
+      return null;
     }
     return (i, data);
   }

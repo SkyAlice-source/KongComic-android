@@ -77,6 +77,28 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   bool isDownloaded = false;
 
+  DownloadTask? _downloadTask;
+
+  void _findDownloadTask() {
+    var target = LocalManager().downloadingTasks.cast<DownloadTask?>().firstWhere(
+      (t) =>
+          t != null &&
+          t.id == widget.id &&
+          t.comicType == ComicType.fromKey(widget.sourceKey),
+      orElse: () => null,
+    );
+    if (target != _downloadTask) {
+      _downloadTask?.removeListener(_onDownloadProgress);
+      _downloadTask = target;
+      _downloadTask?.addListener(_onDownloadProgress);
+    }
+  }
+
+  void _onDownloadProgress() {
+    _findDownloadTask();
+    if (mounted) setState(() {});
+  }
+
   bool showFAB = false;
 
   @override
@@ -128,12 +150,15 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   @override
   void initState() {
     scrollController.addListener(onScroll);
+    LocalManager().addListener(_onDownloadProgress);
     super.initState();
   }
 
   @override
   void dispose() {
     scrollController.removeListener(onScroll);
+    LocalManager().removeListener(_onDownloadProgress);
+    _downloadTask?.removeListener(_onDownloadProgress);
     super.dispose();
   }
 
@@ -443,59 +468,132 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 ),
               ],
             ).paddingHorizontal(16).paddingVertical(8),
-          if (history != null)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: context.colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.history, color: context.useTextColor(Colors.teal)),
-                  const SizedBox(width: 8),
-                  Builder(
-                    builder: (context) {
-                      bool haveChapter = comic.chapters != null;
-                      var page = history!.page;
-                      var ep = history!.ep;
-                      var group = history!.group;
-                      String text;
-                      if (haveChapter) {
-                        var epName = "E$ep";
-                        String? groupName;
-                        try {
-                          if (group == null) {
-                            epName = comic.chapters!.titles.elementAt(
-                              math.min(ep - 1, comic.chapters!.length - 1),
-                            );
-                          } else {
-                            groupName = comic.chapters!.groups.elementAt(
-                              group - 1,
-                            );
-                            epName = comic.chapters!
-                                .getGroupByIndex(group - 1)
-                                .values
-                                .elementAt(ep - 1);
-                          }
-                        } catch (e) {
-                          // ignore
+          if (history != null && history!.maxPage != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                height: 44,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: continueRead,
+                      borderRadius: BorderRadius.circular(22),
+                      child: LayoutBuilder(builder: (context, constraints) {
+                    final readPct = (history!.page / history!.maxPage!).clamp(0.0, 1.0);
+                    // 构建集数文字
+                    bool haveChapter = comic.chapters != null;
+                    var page = history!.page;
+                    var ep = history!.ep;
+                    var group = history!.group;
+                    String epText;
+                    if (haveChapter) {
+                      var epName = "E$ep";
+                      String? groupName;
+                      try {
+                        if (group == null) {
+                          epName = comic.chapters!.titles.elementAt(
+                            math.min(ep - 1, comic.chapters!.length - 1),
+                          );
+                        } else {
+                          groupName = comic.chapters!.groups.elementAt(group - 1);
+                          epName = comic.chapters!
+                              .getGroupByIndex(group - 1).values.elementAt(ep - 1);
                         }
-                        text = groupName == null
-                            ? "${"Last Reading".tl}: $epName P$page"
-                            : "${"Last Reading".tl}: $groupName $epName P$page";
-                      } else {
-                        text = "${"Last Reading".tl}: P$page";
-                      }
-                      return Text(text);
-                    },
-                  ),
-                  const SizedBox(width: 4),
-                ],
+                      } catch (e) {}
+                      epText = groupName == null
+                          ? "${"Last Reading".tl}: $epName"
+                          : "$groupName $epName";
+                    } else {
+                      epText = "${"Last Reading".tl}";
+                    }
+                    return Stack(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          height: double.infinity,
+                          color: context.colorScheme.surfaceContainerHighest,
+                        ),
+                        FractionallySizedBox(
+                          widthFactor: readPct,
+                          child: Container(
+                            color: context.colorScheme.primary,
+                          ),
+                        ),
+                        Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                epText,
+                                style: TextStyle(
+                                  color: context.colorScheme.onSurface,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                "阅读进度 ${(readPct * 100).toInt()}%  P$page/${history!.maxPage}",
+                                style: TextStyle(
+                                  color: context.colorScheme.onSurface.withValues(alpha: 0.8),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
               ),
-            ).toAlign(Alignment.centerLeft),
+              ),
+            ),
+            ).paddingVertical(3),
+          if (_downloadTask != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                height: 22,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: LayoutBuilder(builder: (context, constraints) {
+                    final dlPct = _downloadTask!.progress.clamp(0.0, 1.0);
+                    return Stack(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          height: double.infinity,
+                          color: context.colorScheme.surfaceContainerHighest,
+                        ),
+                        FractionallySizedBox(
+                          widthFactor: dlPct,
+                          child: Container(
+                            color: context.colorScheme.tertiary,
+                          ),
+                        ),
+                        Center(
+                          child: Text(
+                            "下载 ${(dlPct * 100).toInt()}%",
+                            style: TextStyle(
+                              color: context.colorScheme.onPrimary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+              ),
+            ).paddingVertical(3),
           const Divider(),
         ],
       ).paddingTop(16),

@@ -297,6 +297,10 @@ class LocalManager with ChangeNotifier {
     }
     _checkPathValidation();
     _checkNoMedia();
+    // 保存有效路径，避免下次启动路径错误
+    try {
+      File(FilePath.join(App.dataPath, 'local_path')).writeAsString(path);
+    } catch (_) {}
     await ComicSourceManager().ensureInit();
     restoreDownloadingTasks();
   }

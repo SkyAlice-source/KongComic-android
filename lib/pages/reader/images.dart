@@ -1267,8 +1267,9 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   @override
   bool handleOnTap(Offset location) {
+    // 拖动后清除滚动标记，允许中间点击开关菜单
     if (delayedIsScrolling) {
-      return true;
+      delayedIsScrolling = false;
     }
     return false;
   }

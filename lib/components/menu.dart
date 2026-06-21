@@ -25,7 +25,7 @@ class _MenuRoute<T> extends PopupRoute<T> {
   @override
   Widget buildPage(BuildContext context, Animation<double> animation,
       Animation<double> secondaryAnimation) {
-    var width = entries.first.icon == null ? 140.0 : 160.0;
+    var width = entries.first.icon == null ? 160.0 : 180.0;
     final size = MediaQuery.of(context).size;
     var left = location.dx;
     if (left < 10) {
@@ -101,9 +101,11 @@ class _MenuRoute<T> extends PopupRoute<T> {
                   color: entry.color
                 ),
               const SizedBox(width: 12),
-              Text(
+              Expanded(
+                child: Text(
                   entry.text, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: entry.color)
+                  style: TextStyle(color: entry.color),
+                ),
               ),
             ],
           ),

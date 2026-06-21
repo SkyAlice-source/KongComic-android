@@ -686,6 +686,7 @@ abstract mixin class _ReaderLocation {
       final hasAnimation = enablePageAnimation(cid, type);
       if (hasAnimation) {
         _pendingPage = page;
+        _animationCount = 0; // 重置计数，防止拖动时动画取消导致卡死
         _animationCount++;
         update();
         _imageViewController!.animateToPage(page).then((_) {
@@ -694,6 +695,14 @@ abstract mixin class _ReaderLocation {
             _pendingPage = null;
           }
           update();
+        });
+        // 超时保险：3秒后强制清除动画标记
+        Future.delayed(const Duration(seconds: 3), () {
+          if (_animationCount > 0) {
+            _animationCount = 0;
+            _pendingPage = null;
+            update();
+          }
         });
       } else {
         this.page = page;

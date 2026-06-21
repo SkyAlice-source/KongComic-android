@@ -76,12 +76,20 @@ class _BannerState extends State<_Banner> {
   List<FavoriteItem> _comics = [];
   void _loadComics() {
     final folders = LocalFavoritesManager().folderNames;
-    final comics = <FavoriteItem>[];
+    final all = <FavoriteItem>[];
     for (final folder in folders) {
-      if (comics.length >= 7) break;
-      for (final c in LocalFavoritesManager().getFolderComics(folder)) { if (comics.length >= 7) break; comics.add(c); }
+      all.addAll(LocalFavoritesManager().getFolderComics(folder));
     }
-    if (mounted) setState(() => _comics = comics);
+    all.shuffle();
+    final comics = all.take(7).toList();
+    if (mounted) {
+      setState(() {
+        _comics = comics;
+        if (_currentIndex >= _comics.length) {
+          _currentIndex = _comics.isEmpty ? 0 : _comics.length - 1;
+        }
+      });
+    }
   }
   @override
   void initState() {
@@ -101,7 +109,20 @@ class _BannerState extends State<_Banner> {
 
   @override
   Widget build(BuildContext context) {
-    if (_comics.length < 3) return const SliverToBoxAdapter(child: SizedBox());
+    if (_comics.isEmpty) return const SliverToBoxAdapter(child: SizedBox());
+    if (_comics.length < 3) {
+      // Show single card centered when fewer than 3 comics
+      return SliverToBoxAdapter(child: SizedBox(
+        height: widget.height,
+        child: Stack(alignment: Alignment.topCenter, children: [
+          GestureDetector(
+            onTap: () => _navigateToComic(_comics[_currentIndex]),
+            child: _buildSingleCard(context, _comics[_currentIndex]),
+          ),
+        ]),
+      ).paddingVertical(2).paddingBottom(8));
+    }
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sw = MediaQuery.of(context).size.width;
     final cardW = sw * 0.54;
@@ -140,29 +161,7 @@ class _BannerState extends State<_Banner> {
                   child: Center(
                     child: GestureDetector(
                       onTap: () => _navigateToComic(_comics[_currentIndex]),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
-                              BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(-4, 0)),
-                              BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(4, 0)),
-                            ],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ClipRRect(borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              decoration: BoxDecoration(border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0), borderRadius: BorderRadius.circular(12)),
-                              child: ClipRRect(borderRadius: BorderRadius.circular(10),
-                                child: SizedBox(height: cardW * 1.4, child: _buildCover(_comics[_currentIndex])),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Padding(padding: const EdgeInsets.only(top: 4),
-                          child: Text(_comics[_currentIndex].name, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
-                        ),
-                      ]),
+                      child: _buildSingleCard(context, _comics[_currentIndex], width: cardW),
                     ),
                   ),
                 ),
@@ -214,27 +213,74 @@ final opacity = 1.0;
     return items;
   }
 
+  Widget _buildSingleCard(BuildContext context, FavoriteItem comic, {double? width}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sw = MediaQuery.of(context).size.width;
+    final cardW = width ?? sw * 0.54;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
+            BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(-4, 0)),
+            BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(4, 0)),
+          ],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ClipRRect(borderRadius: BorderRadius.circular(12),
+          child: Container(
+            decoration: BoxDecoration(border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0), borderRadius: BorderRadius.circular(12)),
+            child: ClipRRect(borderRadius: BorderRadius.circular(10),
+              child: SizedBox(width: cardW, height: cardW * 1.4, child: _buildCover(comic)),
+            ),
+          ),
+        ),
+      ),
+      Padding(padding: const EdgeInsets.only(top: 4),
+        child: Text(comic.name, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+      ),
+    ]);
+  }
+
   Widget _buildCover(FavoriteItem comic) {
     if (comic.coverPath.startsWith('http')) {
-      return CachedNetworkImage(imageUrl: comic.coverPath, fit: BoxFit.cover, filterQuality: FilterQuality.medium, placeholder: (_, __) => const SizedBox(), errorWidget: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40)));
+      return CachedNetworkImage(
+        imageUrl: comic.coverPath,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
+        placeholder: (_, __) => const SizedBox(),
+        errorWidget: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40)),
+      );
     }
-    return Image(image: FileImage(File(comic.coverPath)), fit: BoxFit.cover, filterQuality: FilterQuality.medium, errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40)));
+    return Image(
+      image: FileImage(File(comic.coverPath)),
+      fit: BoxFit.cover,
+      filterQuality: FilterQuality.high,
+      errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40)),
+    );
   }
 }
 
-class _ReadingStats extends StatelessWidget {
+class _ReadingStats extends StatefulWidget {
   const _ReadingStats();
+  @override State<_ReadingStats> createState() => _ReadingStatsState();
+}
+class _ReadingStatsState extends State<_ReadingStats> {
+  int _favorites = 0;
+  int _localCount = 0;
+  void _refresh() { if (!mounted) return; setState(() { _favorites = LocalFavoritesManager().totalComics; _localCount = LocalManager().count; }); }
+  @override void initState() { super.initState(); _refresh(); LocalFavoritesManager().addListener(_refresh); LocalManager().addListener(_refresh); }
+  @override void dispose() { LocalFavoritesManager().removeListener(_refresh); LocalManager().removeListener(_refresh); super.dispose(); }
   @override
   Widget build(BuildContext context) {
-    final f = LocalFavoritesManager().totalComics; final h = HistoryManager().length; final d = Theme.of(context).brightness == Brightness.dark;
+    final d = Theme.of(context).brightness == Brightness.dark;
     return SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 6), child: Row(children: [
-      Expanded(child: _ModuleCapsule(icon: FluentIcons.bookmark_24_regular, label: "Favorites".tl, value: "$f", isDark: d, onTap: () => NaviPane.of(context).updatePage(1))),
+      Expanded(child: _ModuleCapsule(icon: FluentIcons.apps_24_regular, label: "Categories".tl, isDark: d, onTap: () => context.to(() => const CategoriesPage()))),
       const SizedBox(width: 10),
-      Expanded(child: _ModuleCapsule(icon: FluentIcons.history_24_regular, label: "Read".tl, value: "$h", isDark: d, onTap: () => NaviPane.of(context).updatePage(2))),
+      Expanded(child: _ModuleCapsule(icon: FluentIcons.bookmark_24_regular, label: "Favorites".tl, value: "$_favorites", isDark: d, onTap: () => NaviPane.of(context).updatePage(1))),
     ])));
   }
 }
-
 class _HomeCapsules extends StatefulWidget {
   const _HomeCapsules();
   @override State<_HomeCapsules> createState() => _HomeCapsulesState();
@@ -246,8 +292,8 @@ class _HomeCapsulesState extends State<_HomeCapsules> {
     if (!mounted) return;
     setState(() { if (folder == null) _updateCount = 0; else if (LocalFavoritesManager().folderNames.contains(folder)) _updateCount = LocalFavoritesManager().countUpdates(folder!); else _updateCount = 0; });
   }
-  @override void initState() { super.initState(); _refresh(); LocalFavoritesManager().addListener(_refresh); }
-  @override void dispose() { LocalFavoritesManager().removeListener(_refresh); super.dispose(); }
+  @override void initState() { super.initState(); _refresh(); LocalFavoritesManager().addListener(_refresh); LocalManager().addListener(_refresh); HistoryManager().addListener(_refresh); }
+  @override void dispose() { LocalFavoritesManager().removeListener(_refresh); LocalManager().removeListener(_refresh); HistoryManager().removeListener(_refresh); super.dispose(); }
   @override Widget build(BuildContext context) {
     final d = Theme.of(context).brightness == Brightness.dark; final hc = HistoryManager().length; final lc = LocalManager().count;
     return Column(mainAxisSize: MainAxisSize.min, children: [
@@ -257,7 +303,13 @@ class _HomeCapsulesState extends State<_HomeCapsules> {
         Expanded(child: _ModuleCapsule(icon: FluentIcons.clock_24_regular, label: "History".tl, value: "$hc", isDark: d, onTap: () => context.to(() => const HistoryPage()))),
       ])),
       Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 6), child: Row(children: [
-        Expanded(child: _ModuleCapsule(icon: FluentIcons.apps_24_regular, label: "Categories".tl, isDark: d, onTap: () => context.to(() => const CategoriesPage()))),
+        Expanded(child: _ModuleCapsule(icon: FluentIcons.arrow_download_24_regular, label: "Download".tl, value: "$lc", isDark: d, onTap: () {
+          if (LocalManager().downloadingTasks.isNotEmpty) {
+            context.to(() => const DownloadingPage());
+          } else {
+            context.to(() => const LocalComicsPage());
+          }
+        })),
         const SizedBox(width: 10),
         Expanded(child: _ModuleCapsule(icon: FluentIcons.folder_24_regular, label: "Local".tl, value: "$lc", isDark: d, onTap: () => context.to(() => const LocalComicsPage()))),
       ])),
