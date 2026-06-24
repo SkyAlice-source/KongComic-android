@@ -19,7 +19,10 @@ jobs:
           channel: 'stable'
 
       - name: Restore dependencies
-        run: flutter pub get
+        run: |
+          unset FLUTTER_STORAGE_BASE_URL
+          unset PUB_HOSTED_URL
+          flutter pub get
 
       # 设置签名：从 GitHub Secrets 还原 keystore 和 key.properties
       - name: Setup signing
@@ -31,10 +34,16 @@ jobs:
           echo "storeFile=../kongcomic-release.jks" >> android/key.properties
 
       - name: Build release APKs
-        run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+        run: |
+          unset FLUTTER_STORAGE_BASE_URL
+          unset PUB_HOSTED_URL
+          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
 
       - name: Build universal APK
-        run: flutter build apk --release --android-skip-build-dependency-validation
+        run: |
+          unset FLUTTER_STORAGE_BASE_URL
+          unset PUB_HOSTED_URL
+          flutter build apk --release --android-skip-build-dependency-validation
 
       # 重命名 APK
       - name: Rename APKs
