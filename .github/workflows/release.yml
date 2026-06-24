@@ -27,11 +27,16 @@ jobs:
       # 设置签名：从 GitHub Secrets 还原 keystore 和 key.properties
       - name: Setup signing
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/kongcomic-release.jks
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-          echo "storeFile=../kongcomic-release.jks" >> android/key.properties
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/kongcomic-release.jks 2>/dev/null || echo "Warning: Failed to decode keystore"
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+            echo "storeFile=../kongcomic-release.jks" >> android/key.properties
+            echo "Signing configured"
+          else
+            echo "No signing secrets found, building without signing"
+          fi
 
       - name: Build release APKs
         run: |
