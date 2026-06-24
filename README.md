@@ -1,6 +1,6 @@
 # KongComic
 
-> 基于 [venera-app/venera](https://github.com/venera-app/venera) 由 AI (Reasonix Code) 深度修改二次开发
+> 基于 [venera-app/venera](https://github.com/venera-app/venera) 由 AI (Reasonix) 深度修改的漫画阅读器
 
 [![flutter](https://img.shields.io/badge/flutter-3.44.0-blue)](https://flutter.dev/)
 [![License](https://img.shields.io/github/license/SkyAlice-source/KongComic-android)](LICENSE)
@@ -9,80 +9,65 @@
 
 ## 📖 简介
 
-KongComic 是一款漫画阅读器，支持本地漫画和网络漫画源。本仓库由 **Reasonix Code (AI Agent)** 自动生成大量修改，是对 [Venera](https://github.com/venera-app/venera) 项目的 Android 专属二次开发版本。
-
-衷心感谢 [Venera](https://github.com/venera-app/venera) 项目（[@wgh136](https://github.com/wgh136)）提供的优秀基础。
+KongComic 是一款漫画阅读器，支持多源搜索、本地收藏、在线阅读。基于 [Venera](https://github.com/venera-app/venera) 项目由 AI 深度二次开发。
 
 ---
 
-## ✨ AI 修改内容
+## ✨ 主要特性
 
-### 🎨 UI 全面翻新
+### 🏠 主页
 
-| 模块 | 修改内容 |
-|------|---------|
-| **首页 Banner** | 层叠式卡片轮播，PageView + AnimatedSwitcher 原位缩放淡入淡出 |
-| **统计胶囊** | 毛玻璃渐变胶囊，图标+标签+数字布局；Download 显示本地数量，智能跳转下载页/本地页 |
-| **底部导航栏** | 完全透明背景，线性图标 + 圆形蓝色选中态 |
-| **胶囊模块** | 追更/历史/分类/本地/图片收藏/漫画源统一胶囊样式 |
-| **搜索页** | 搜索栏居中，底部导航栏固定 |
-
-### 🖼 Banner 卡片
-
-- 层叠展示：中心完整显示，左右 2 层 50% 重叠
-- 三方向阴影 + 白色发光边框
-- 页漫比例 1:1.4，自适应高度
-- 随机从全部收藏抽取最多 7 本，不再固定取前面几个
-
-### 📖 阅读器优化
-
-| 功能 | 说明 |
+| 模块 | 说明 |
 |------|------|
-| **进度条** | 粗圆条 28px，内部显示「页数 x/y」+「阅读进度 x%」，两端圆润 |
-| **菜单修复** | 拖动进度条后中点点击可正常开关菜单，不再卡死 |
-| **分享** | 图片获取失败自动降级为文字分享 |
-| **长按菜单** | 已移除 |
+| **Banner 卡片轮播** | 层叠式卡片展示，随机从收藏抽取，4 秒自动切换，左右滑动 |
+| **漫画信息区** | 漫画名（固定三行高度）+ 作者 + 阅读进度 + 共X集 + 更新时间 + 「立即阅读」按钮 |
+| **功能入口** | 追更 / 本地 / 图片收藏 / 漫画源 — 统一圆角矩形卡片，数字圆形底色 |
 
-### 🏠 漫画详情页
+### 🗺 导航
 
-- **阅读进度条 + 上次阅读合并**：44px 全圆角进度条，内嵌两行文字（章节名 + 阅读进度百分比）
-- **可点击跳转**：点击进度条直接进入继续阅读
-- **文字自适应**：`onSurface` 颜色，亮暗主题自动切换
+- **底部导航栏**：分类 / 收藏 / 主页 / 发现 / 历史
+- 选中态：紫色圆角胶囊 + 紫色图标 + 加粗文字
+- 非选中态：灰色图标 + 灰色文字
+- 底部全宽圆角卡片 + `surface` 底色，无白条
 
-### 🏷 角标优化
+### 🔍 搜索
 
-- 漫画卡片左上角角标：页码 → **集数/已读集数**
-- 数字大小一致，位置居中，自动适应多位数
+- 多源搜索 + 聚合搜索（多选源）
+- ID 直接跳转（匹配源 ID 格式自动打开漫画页）
+- 搜索建议标签类型颜色区分
+- 实时标签建议（300ms 防抖）
+- 搜索历史 Chip 流（可逐条删除）
 
-### ⚡ 性能优化
+### 📚 设置
 
-- **移除 rhttp**：用 Dart 原生 HttpClient 替代 Rust 网络库
-- **CachedNetworkImage**：图片缓存
-- **AnimatedBuilder** 局部重建
-- **LayoutBuilder** 自适应高度
-- **PageView** 消除手势冲突
+- **9 个分类**：阅读器设置 / 外观设置 / 浏览设置 / 收藏管理 / 网络设置 / 下载设置 / 导入设置 / 通用设置 / 关于
+- 按使用频率排序
+- 左侧导航：图标 + 粗标题 + 细副标题
+- 子页面标题已中文化
 
-### 🔧 代码清理
+### 🎨 UI 设计
 
-- 隐藏 Debug / GitHub / Telegram 页面
-- 移除设置页分割线
-- 移除 1300+ 行死代码
-- 毛玻璃效果改为实色背景
-- 状态栏 + 导航栏改为实色
-- 移除阅读器长按弹出菜单
+- **Geist 风格**：扁平化、1px 边框、6px 圆角、字重层级
+- **图标库**：HugeIcons（5000+ 线性图标），替换了全部 FluentIcons / Material Icons
+- **双主题**：亮色 / 暗色，颜色值跟随 `colorScheme`
+- **硬编码蓝色全部替换**：`#0EA5E9` / `#4A90E2` / `#1A365D` → `cs.primary`
 
-### 📦 依赖
+### 📖 阅读器
 
-| 操作 | 包 |
-|------|----|
-| 移除 | flutter_to_arch, flutter_to_debian, file_selector, battery_plus, flutter_memory_info |
-| 添加 | cached_network_image |
+- 触摸翻页（左右 30% 翻页，中间 40% 弹菜单）
+- 进度条文字双色（ShaderMask 覆盖区白色 / 未覆盖区深色）
+- 自动轮播定时器
+
+### 📦 自定义封面
+
+- 漫画详情页可手动更换封面（本地图片）
+- 封面数据持久化存储
 
 ---
 
 ## 🔧 构建
 
-### 本地构建（国内网络）
+### 构建命令
 
 ```bash
 # 清除镜像环境变量，使用 Google 官方源
@@ -93,12 +78,36 @@ flutter pub get
 flutter build apk --debug --android-skip-build-dependency-validation
 ```
 
-> **注意：** 系统环境变量 `FLUTTER_STORAGE_BASE_URL` 和 `PUB_HOSTED_URL` 可能指向国内镜像（`storage.flutter-io.cn` / `pub.flutter-io.cn`），不稳定时需 unset。`--android-skip-build-dependency-validation` 跳过 Gradle/AGP 版本检查。
-
 ### 输出
 
 ```
 build/app/outputs/flutter-apk/app-debug.apk
+```
+
+### 依赖
+
+| 包 | 用途 |
+|----|------|
+| `hugeicons` | 图标库（5000+ 线性图标） |
+| `flex_seed_scheme` | Material 3 颜色方案生成 |
+| `cached_network_image` | 图片缓存 |
+| `fluentui_system_icons` | 少量遗留图标（逐步替换中） |
+
+---
+
+## 🧩 项目结构
+
+```
+lib/
+├── components/       # UI 组件（导航栏、卡片、按钮、菜单等）
+├── foundation/        # 基础库（主题、数据、工具类）
+├── pages/            # 页面
+│   ├── comic_details_page/  # 漫画详情
+│   ├── favorites/           # 收藏
+│   ├── reader/              # 阅读器
+│   ├── settings/            # 设置
+│   └── ...
+└── utils/            # 工具（翻译、IO 等）
 ```
 
 ---
@@ -106,7 +115,7 @@ build/app/outputs/flutter-apk/app-debug.apk
 ## 🙏 致谢
 
 - [Venera](https://github.com/venera-app/venera) — 原项目 [@wgh136](https://github.com/wgh136)
-- [Reasonix Code](https://reasonix.ai) — AI 编程助手
+- [Reasonix](https://reasonix.ai) — AI 编程助手
 - 所有开源依赖的维护者
 
 ---
