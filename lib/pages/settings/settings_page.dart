@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:kong_comic/components/components.dart';
@@ -51,29 +52,40 @@ class _SettingsPageState extends State<SettingsPage> {
   bool get enableTwoViews => context.width > 720;
 
   final categories = <String>[
-    "Explore",
-    "Reading",
-    "Appearance",
-    "Local Favorites",
-    "APP",
-    "Download",
-    "Import",
-    "Network",
-    "About"
+    "阅读器设置",
+    "外观设置",
+    "浏览设置",
+    "收藏管理",
+    "网络设置",
+    "下载设置",
+    "导入设置",
+    "通用设置",
+    "关于"
   ];
 
-  final icons = <IconData>[
-    FluentIcons.compass_northwest_24_regular,
-    FluentIcons.book_24_regular,
-    FluentIcons.color_24_regular,
-    FluentIcons.bookmark_multiple_24_regular,
-    FluentIcons.apps_24_regular,
-    Icons.file_download,
-    FluentIcons.arrow_import_24_regular,
-    FluentIcons.globe_24_regular,
-    FluentIcons.info_24_regular,
+  final icons = <Widget>[
+    HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedColorPicker, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedCompass01, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedBookmark01, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedAppStore, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 24),
   ];
 
+  final subtitles = <String>[
+    "阅读模式、翻页、缩放",
+    "主题、语言、字体",
+    "发现页、搜索、首页",
+    "本地与网络收藏管理",
+    "代理、DNS、源列表",
+    "下载任务与缓存",
+    "漫画导入设置",
+    "数据同步、授权、JS引擎",
+    "版本、致谢",
+  ];
   @override
   void initState() {
     currentPage = widget.initialPage;
@@ -165,7 +177,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Tooltip(
                 message: "Back",
                 child: IconButton(
-                  icon: const Icon(FluentIcons.arrow_left_24_regular),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 22),
                   onPressed: context.pop,
                 ),
               ),
@@ -175,7 +187,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Text(
                 "Settings".tl,
                 style: ts.s20,
-              )
+              ),
             ]),
           ),
           const SizedBox(
@@ -190,59 +202,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget buildCategories() {
-    Widget buildItem(String name, int id) {
+    Widget buildItem(String name, String subtitle, int id) {
       final bool selected = id == currentPage;
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-
-      Widget content = Container(
-        height: 58,
-        padding: const EdgeInsets.fromLTRB(16, 0, 12, 0),
-        child: Row(children: [
-          Icon(icons[id], color: isDark
-              ? (selected ? const Color(0xFF0EA5E9) : Colors.white.withValues(alpha: 0.7))
-              : const Color(0xFF0EA5E9), size: 22),
-          const SizedBox(width: 14),
-          Text(
-            name,
-            style: ts.s16.copyWith(
-              color: selected
-                  ? (isDark ? Colors.white : const Color(0xFF1A365D))
-                  : (isDark ? Colors.white.withValues(alpha: 0.7) : null),
-              fontWeight: selected ? FontWeight.w600 : null,
-            ),
-          ),
-          const Spacer(),
-          if (selected) const Icon(FluentIcons.chevron_right_24_regular, color: Color(0xFF0EA5E9))
-        ]),
-      );
-
-      if (selected) {
-        content = Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF2A2A2E) : const Color(0xFFF0F4F8),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          height: 58,
-          child: content,
-        );
-      } else {
-        content = Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1A1E).withValues(alpha: 0.5) : const Color(0xFFF0F4F8),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          height: 58,
-          child: content,
-        );
-      }
+      final cs = Theme.of(context).colorScheme;
 
       return Padding(
-        padding: enableTwoViews
-            ? const EdgeInsets.fromLTRB(8, 0, 8, 0)
-            : EdgeInsets.zero,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: InkWell(
-          splashColor: Colors.white.withValues(alpha: 0.06),
-          highlightColor: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(12),
           onTap: () {
             if (enableTwoViews) {
               setState(() => currentPage = id);
@@ -250,15 +217,58 @@ class _SettingsPageState extends State<SettingsPage> {
               context.to(() => _SettingsDetailPage(pageIndex: id));
             }
           },
-          child: content,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selected ? cs.primary.withValues(alpha: 0.3) : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                HugeIcon(icon: (icons[id] as HugeIcon).icon, color: selected ? cs.primary : cs.onSurfaceVariant, size: 24),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: selected ? cs.onSurface : cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowRight01,
+                  color: selected ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
 
     return ListView.builder(
-      padding: EdgeInsets.zero,
+      padding: EdgeInsets.only(top: 8, bottom: MediaQuery.of(context).padding.bottom + 16),
       itemCount: categories.length,
-      itemBuilder: (context, index) => buildItem(categories[index].tl, index),
+      itemBuilder: (context, index) => buildItem(categories[index], subtitles[index], index),
     );
   }
 
@@ -280,14 +290,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildSettingsContent(int pageIndex) {
     return switch (pageIndex) {
-      0 => const ExploreSettings(),
-      1 => const ReaderSettings(),
-      2 => const AppearanceSettings(),
+      0 => const ReaderSettings(),
+      1 => const AppearanceSettings(),
+      2 => const ExploreSettings(),
       3 => const LocalFavoritesSettings(),
-      4 => const AppSettings(),
+      4 => const NetworkSettings(),
       5 => const DownloadSettings(),
       6 => const ImportSettings(),
-      7 => const NetworkSettings(),
+      7 => const AppSettings(),
       8 => const AboutSettings(),
       _ => throw UnimplementedError()
     };
@@ -310,14 +320,14 @@ class _SettingsDetailPage extends StatelessWidget {
 
   Widget _buildPage() {
     return switch (pageIndex) {
-      0 => const ExploreSettings(),
-      1 => const ReaderSettings(),
-      2 => const AppearanceSettings(),
+      0 => const ReaderSettings(),
+      1 => const AppearanceSettings(),
+      2 => const ExploreSettings(),
       3 => const LocalFavoritesSettings(),
-      4 => const AppSettings(),
+      4 => const NetworkSettings(),
       5 => const DownloadSettings(),
       6 => const ImportSettings(),
-      7 => const NetworkSettings(),
+      7 => const AppSettings(),
       8 => const AboutSettings(),
       _ => throw UnimplementedError()
     };

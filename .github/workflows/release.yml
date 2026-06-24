@@ -1,0 +1,54 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # 推送 v1.0.0, v1.1.0 等 tag 时触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.1'
+          channel: 'stable'
+
+      - name: Restore dependencies
+        run: flutter pub get
+
+      # 设置签名：从 GitHub Secrets 还原 keystore 和 key.properties
+      - name: Setup signing
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/kongcomic-release.jks
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=../kongcomic-release.jks" >> android/key.properties
+
+      - name: Build release APKs
+        run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+
+      - name: Build universal APK
+        run: flutter build apk --release --android-skip-build-dependency-validation
+
+      # 重命名 APK
+      - name: Rename APKs
+        run: |
+          VERSION=$(grep 'flutter.versionName' android/local.properties | cut -d'=' -f2)
+          mkdir -p release-artifacts
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "release-artifacts/KongComic-${VERSION}-arm64-v8a.apk"
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "release-artifacts/KongComic-${VERSION}-armeabi-v7a.apk"
+          mv build/app/outputs/flutter-apk/app-x86_64-release.apk "release-artifacts/KongComic-${VERSION}-x86_64.apk"
+          mv build/app/outputs/flutter-apk/app-release.apk "release-artifacts/KongComic-${VERSION}-universal.apk"
+
+      # 上传到 GitHub Release
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/*
+          generate_release_notes: true

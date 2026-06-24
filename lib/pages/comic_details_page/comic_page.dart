@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:hugeicons/hugeicons.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,7 @@ import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/consts.dart';
+import 'package:kong_comic/foundation/custom_cover.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/image_provider/cached_image.dart';
@@ -508,6 +510,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                     } else {
                       epText = "${"Last Reading".tl}";
                     }
+                    final textColor = Colors.white;
                     return Stack(
                       children: [
                         Container(
@@ -528,9 +531,15 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                               Text(
                                 epText,
                                 style: TextStyle(
-                                  color: context.colorScheme.onSurface,
+                                  color: textColor,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
+                                  shadows: const [
+                                    Shadow(
+                                      color: Colors.black54,
+                                      blurRadius: 3,
+                                    ),
+                                  ],
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -539,9 +548,15 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                               Text(
                                 "阅读进度 ${(readPct * 100).toInt()}%  P$page/${history!.maxPage}",
                                 style: TextStyle(
-                                  color: context.colorScheme.onSurface.withValues(alpha: 0.8),
+                                  color: textColor.withValues(alpha: 0.85),
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
+                                  shadows: const [
+                                    Shadow(
+                                      color: Colors.black54,
+                                      blurRadius: 3,
+                                    ),
+                                  ],
                                 ),
                                 maxLines: 1,
                               ),
@@ -672,12 +687,12 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
             onSecondaryTapDown: (details) {
               showMenuX(context, details.globalPosition, [
                 MenuEntry(
-                  icon: Icons.remove_red_eye,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedEye, size: 18),
                   text: "View".tl,
                   onClick: onTap,
                 ),
                 MenuEntry(
-                  icon: Icons.copy,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
                   text: "Copy".tl,
                   onClick: () {
                     Clipboard.setData(ClipboardData(text: text));

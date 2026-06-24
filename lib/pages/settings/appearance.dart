@@ -12,7 +12,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("Appearance".tl)),
+        SliverAppbar(title: Text("外观设置")),
         SelectSetting(
           title: "Theme Mode".tl,
           settingKey: "theme_mode",

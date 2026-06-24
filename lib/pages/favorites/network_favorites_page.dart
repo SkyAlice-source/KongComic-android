@@ -125,7 +125,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
           ),
           MenuButton(entries: [
             MenuEntry(
-              icon: Icons.sync,
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
               text: "Convert to local".tl,
               onClick: () {
                 importNetworkFolder(widget.data.key, 9999999, null, null);
@@ -161,7 +161,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
       menuBuilder: (comic) {
         return [
           MenuEntry(
-            icon: Icons.delete_outline,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
             text: "Remove".tl,
             onClick: () async {
               var res = await _deleteComic(
@@ -556,7 +556,7 @@ class _FavoriteFolder extends StatelessWidget {
         actions: [
           MenuButton(entries: [
             MenuEntry(
-              icon: Icons.sync,
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
               text: "Convert to local".tl,
               onClick: () {
                 importNetworkFolder(data.key, 9999999, title, folderID);
@@ -576,7 +576,7 @@ class _FavoriteFolder extends StatelessWidget {
       menuBuilder: (comic) {
         return [
           MenuEntry(
-            icon: Icons.delete_outline,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
             text: "Remove".tl,
             onClick: () async {
               var res = await _deleteComic(

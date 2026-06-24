@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
@@ -115,7 +116,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
   Widget buildMultiSelectMenu() {
     return MenuButton(entries: [
       MenuEntry(
-        icon: Icons.delete_outline,
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
         text: "Delete".tl,
         onClick: () {
           deleteComics(selectedComics.keys.toList()).then((value) {
@@ -129,7 +130,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
         },
       ),
       MenuEntry(
-        icon: Icons.favorite_border,
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 18),
         text: "Add to favorites".tl,
         onClick: () {
           addFavorite(selectedComics.keys.toList());
@@ -137,7 +138,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
       ),
       if (selectedComics.length == 1)
         MenuEntry(
-          icon: Icons.folder_open,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: 18),
           text: "Open Folder".tl,
           onClick: () {
             openComicFolder(selectedComics.keys.first);
@@ -145,7 +146,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
         ),
       if (selectedComics.length == 1)
         MenuEntry(
-          icon: Icons.chrome_reader_mode_outlined,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
           text: "View Detail".tl,
           onClick: () {
             context.to(() => ComicPage(
@@ -371,14 +372,14 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
             menuBuilder: (c) {
               return [
                 MenuEntry(
-                  icon: Icons.folder_open,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: 18),
                   text: "Open Folder".tl,
                   onClick: () {
                     openComicFolder(c as LocalComic);
                   },
                 ),
                 MenuEntry(
-                  icon: Icons.delete,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
                   text: "Delete".tl,
                   onClick: () {
                     deleteComics([c as LocalComic]).then((value) {
@@ -484,21 +485,21 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
   List<MenuEntry> exportActions(List<LocalComic> comics) {
     return [
       MenuEntry(
-        icon: Icons.outbox_outlined,
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 18),
         text: "Export as cbz".tl,
         onClick: () {
           exportComics(comics, CBZ.export, ".cbz");
         },
       ),
       MenuEntry(
-        icon: Icons.picture_as_pdf_outlined,
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedFile01, size: 18),
         text: "Export as pdf".tl,
         onClick: () async {
           exportComics(comics, createPdfFromComicIsolate, ".pdf");
         },
       ),
       MenuEntry(
-        icon: Icons.import_contacts_outlined,
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
         text: "Export as epub".tl,
         onClick: () async {
           exportComics(comics, createEpubWithLocalComic, ".epub");

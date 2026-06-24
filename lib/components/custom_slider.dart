@@ -185,7 +185,7 @@ class _CustomSliderState extends State<CustomSlider> {
                               Text(
                                 "页数 ${value.toInt()}/${widget.max.toInt()}",
                                 style: TextStyle(
-                                  color: colorScheme.onSurface,
+                                  color: colorScheme.onPrimary,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -194,7 +194,7 @@ class _CustomSliderState extends State<CustomSlider> {
                               Text(
                                 "阅读进度 ${(widget.max > 0 ? (value / widget.max * 100).toInt() : 0)}%",
                                 style: TextStyle(
-                                  color: colorScheme.onSurface.withValues(alpha: 0.8),
+                                  color: colorScheme.onPrimary.withValues(alpha: 0.8),
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                 ),

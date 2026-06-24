@@ -3,9 +3,9 @@ part of 'components.dart';
 class PaneItemEntry {
   String label;
 
-  IconData icon;
+  Widget icon;
 
-  IconData activeIcon;
+  Widget activeIcon;
 
   PaneItemEntry({
     required this.label,
@@ -17,7 +17,7 @@ class PaneItemEntry {
 class PaneActionEntry {
   String label;
 
-  IconData icon;
+  Widget icon;
 
   VoidCallback onTap;
 
@@ -264,27 +264,28 @@ class NaviPaneState extends State<NaviPane>
   }
 
   Widget buildTop() {
-    return Container(
-      color: Theme.of(context).colorScheme.surface,
-      padding: const EdgeInsets.only(left: 16, right: 16),
-      height: _kTopBarHeight,
-      width: double.infinity,
-      child: Row(
-        children: [
-          Text(
-            widget.paneItems[currentPage].label,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const Spacer(),
-          for (var action in widget.paneActions)
-            Tooltip(
-              message: action.label,
-              child: IconButton(
-                icon: Icon(action.icon),
-                onPressed: action.onTap,
-              ),
+    return Material(
+      child: Container(
+        padding: const EdgeInsets.only(left: 16, right: 16),
+        height: _kTopBarHeight,
+        width: double.infinity,
+        child: Row(
+          children: [
+            Text(
+              widget.paneItems[currentPage].label,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-        ],
+            const Spacer(),
+            for (var action in widget.paneActions)
+              Tooltip(
+                message: action.label,
+                child: IconButton(
+                  icon: action.icon,
+                  onPressed: action.onTap,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -305,7 +306,6 @@ class NaviPaneState extends State<NaviPane>
             ),
           );
         }),
-        const _SearchNavButton(),
       ],
     );
   }
@@ -313,41 +313,49 @@ class NaviPaneState extends State<NaviPane>
   Widget buildLeft() {
     final value = controller.value;
     const paddingHorizontal = 12.0;
-    final sideBarWidth =
-        _kFoldedSideBarWidth +
-        (_kSideBarWidth - _kFoldedSideBarWidth) * ((value - 2).clamp(0, 1));
-    return GlassSideBar(
-      width: sideBarWidth,
-      child: Padding(
+    return Material(
+      child: Container(
+        width:
+            _kFoldedSideBarWidth +
+            (_kSideBarWidth - _kFoldedSideBarWidth) * ((value - 2).clamp(0, 1)),
+        height: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: paddingHorizontal),
+        decoration: BoxDecoration(
+          border: Border(
+            right: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+              width: 1.0,
+            ),
+          ),
+        ),
         child: Column(
           children: [
             const SizedBox(height: 16),
             SizedBox(height: MediaQuery.of(context).padding.top),
-          ...List<Widget>.generate(
-            widget.paneItems.length,
-            (index) => _SideNaviWidget(
-              enabled: currentPage == index,
-              entry: widget.paneItems[index],
-              showTitle: value == 3,
-              onTap: () {
-                updatePage(index);
-              },
-              key: ValueKey(index),
+            ...List<Widget>.generate(
+              widget.paneItems.length,
+              (index) => _SideNaviWidget(
+                enabled: currentPage == index,
+                entry: widget.paneItems[index],
+                showTitle: value == 3,
+                onTap: () {
+                  updatePage(index);
+                },
+                key: ValueKey(index),
+              ),
             ),
-          ),
-          const Spacer(),
-          ...List<Widget>.generate(
-            widget.paneActions.length,
-            (index) => _PaneActionWidget(
-              entry: widget.paneActions[index],
-              showTitle: value == 3,
-              key: ValueKey(index + widget.paneItems.length),
+            const Spacer(),
+            ...List<Widget>.generate(
+              widget.paneActions.length,
+              (index) => _PaneActionWidget(
+                entry: widget.paneActions[index],
+                showTitle: value == 3,
+                key: ValueKey(index + widget.paneItems.length),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
@@ -373,7 +381,7 @@ class _SideNaviWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final icon = Icon(enabled ? entry.activeIcon : entry.icon);
+    final icon = enabled ? entry.activeIcon : entry.icon;
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
@@ -408,7 +416,7 @@ class _PaneActionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = Icon(entry.icon);
+    final icon = entry.icon;
     return InkWell(
       onTap: entry.onTap,
       borderRadius: BorderRadius.circular(12),
@@ -500,31 +508,42 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
 
   Widget buildContent() {
     final value = controller.value;
+    final colorScheme = Theme.of(context).colorScheme;
     final isActive = widget.enabled;
-    final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
-    final activeColor = isDark ? const Color(0xFFDDDDDD) : const Color(0xFF0EA5E9);
-    final inactiveColor = isDark ? const Color(0xFF888888) : const Color(0xFF6C7B8A);
+    final icon = isActive ? widget.entry.activeIcon : widget.entry.icon;
+    final activeClr = colorScheme.primary;
+    final inactiveClr = colorScheme.onSurfaceVariant;
 
-    return Center(
-      child: Transform.scale(
-        scale: 1.0 + (0.1 * value),
-        child: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isActive
-                ? activeColor.withValues(alpha: 0.12 * value)
-                : Colors.transparent,
+    return SizedBox(
+      height: 44,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            height: 24,
+            padding: EdgeInsets.symmetric(horizontal: 8 + value * 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: isActive ? activeClr.withValues(alpha: 0.12 * value) : Colors.transparent,
+            ),
+            child: ColorFiltered(
+              colorFilter: ColorFilter.mode(
+                isActive ? activeClr : inactiveClr,
+                BlendMode.srcIn,
+              ),
+              child: SizedBox(width: 18, height: 18, child: icon),
+            ),
           ),
-          child: Icon(
-            widget.enabled
-                ? widget.entry.activeIcon
-                : widget.entry.icon,
-            size: 22 + (2 * value),
-            color: isActive ? activeColor : inactiveColor,
+          const SizedBox(height: 2),
+          Text(
+            widget.entry.label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              color: isActive ? activeClr : inactiveClr.withValues(alpha: 0.7),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -651,46 +670,25 @@ class _NaviMainViewState extends State<_NaviMainView> {
   @override
   Widget build(BuildContext context) {
     var shouldShowAppBar = state.controller.value < 2;
-    return Stack(
+    return Column(
       children: [
-        Column(
-          children: [
-            if (shouldShowAppBar) state.buildTop().paddingTop(context.padding.top),
-            Expanded(
-              child: MediaQuery.removePadding(
-                context: context,
-                removeTop: shouldShowAppBar,
-                child: AnimatedSwitcher(
-                  duration: _fastAnimationDuration,
-                  child: state.buildMainViewContent(),
-                ),
-              ),
+        if (shouldShowAppBar) state.buildTop().paddingTop(context.padding.top),
+        Expanded(
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: shouldShowAppBar,
+            child: AnimatedSwitcher(
+              duration: _fastAnimationDuration,
+              child: state.buildMainViewContent(),
             ),
-          ],
+          ),
         ),
         if (shouldShowAppBar)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+          Container(
+            color: Theme.of(context).colorScheme.surface,
             child: state.buildBottom(),
           ),
       ],
-    );
-  }
-}
-
-class _SearchNavButton extends StatelessWidget {
-  const _SearchNavButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: GestureDetector(
-        onTap: () { App.mainNavigatorKey?.currentContext?.to(() => const SearchPage()); },
-        child: const Icon(FluentIcons.search_24_regular, size: 26, color: Color(0xFF0EA5E9)),
-      ),
     );
   }
 }

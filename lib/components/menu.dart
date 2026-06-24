@@ -95,11 +95,7 @@ class _MenuRoute<T> extends PopupRoute<T> {
           child: Row(
             children: [
               if (entry.icon != null)
-                Icon(
-                  entry.icon,
-                  size: 18,
-                  color: entry.color
-                ),
+                entry.icon!,
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -130,7 +126,7 @@ class _MenuRoute<T> extends PopupRoute<T> {
 
 class MenuEntry {
   final String text;
-  final IconData? icon;
+  final Widget? icon;
   final Color? color;
   final void Function() onClick;
 

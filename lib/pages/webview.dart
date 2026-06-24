@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:hugeicons/hugeicons.dart';
 import 'dart:convert';
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
@@ -134,19 +135,19 @@ class _AppWebviewState extends State<AppWebview> {
               Offset(context.width, context.padding.top),
               [
                 MenuEntry(
-                  icon: Icons.open_in_browser,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedBrowser, size: 18),
                   text: "Open in browser".tl,
                   onClick: () async =>
                       launchUrlString((await controller?.getUrl())!.toString()),
                 ),
                 MenuEntry(
-                  icon: Icons.copy,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
                   text: "Copy link".tl,
                   onClick: () async => Clipboard.setData(ClipboardData(
                       text: (await controller?.getUrl())!.toString())),
                 ),
                 MenuEntry(
-                  icon: Icons.refresh,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                   text: "Reload".tl,
                   onClick: () => controller?.reload(),
                 ),

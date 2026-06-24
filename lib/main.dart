@@ -163,9 +163,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         'sans-serif'
       ];
     }
-    final surfaceColor = brightness == Brightness.light
-        ? const Color(0xFFF5F7FA)
-        : const Color(0xFF121212);
     return ThemeData(
       colorScheme: SeedColorScheme.fromSeeds(
         primaryKey: primary,
@@ -174,29 +171,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         brightness: brightness,
         tones: FlexTones.vividBackground(brightness),
       ).copyWith(
-        surface: surfaceColor,
-        surfaceContainerLowest: surfaceColor,
-        surfaceContainerLow: brightness == Brightness.light
-            ? const Color(0xFFF0F0F0)
-            : const Color(0xFF1E1E1E),
-        surfaceContainer: brightness == Brightness.light
-            ? const Color(0xFFE8E8E8)
-            : const Color(0xFF2A2A2A),
-        surfaceContainerHigh: brightness == Brightness.light
-            ? const Color(0xFFE0E0E0)
-            : const Color(0xFF333333),
-        surfaceContainerHighest: brightness == Brightness.light
-            ? const Color(0xFFD4D4D4)
-            : const Color(0xFF3D3D3D),
         surfaceTint: Colors.transparent,
       ),
-      scaffoldBackgroundColor: surfaceColor,
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: null,
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: null,
-      ),
+      scaffoldBackgroundColor: brightness == Brightness.light
+          ? const Color(0xFFF5F7FA)
+          : const Color(0xFF121212),
       fontFamily: font,
       fontFamilyFallback: fallback,
     );

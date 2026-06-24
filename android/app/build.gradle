@@ -5,7 +5,7 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
-ext.abiCodes = ["armeabi-v7a": 1, "arm64-v8a": 2]
+ext.abiCodes = ["armeabi-v7a": 1, "arm64-v8a": 2, "x86_64": 3]
 
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file("local.properties")
@@ -50,7 +50,7 @@ android {
     splits{
         abi {
             reset()
-            include 'armeabi-v7a', 'arm64-v8a'
+            include 'armeabi-v7a', 'arm64-v8a', 'x86_64'
             enable true
             universalApk true
         }
@@ -98,7 +98,7 @@ android {
             minifyEnabled true
             shrinkResources true
             ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a"
+                abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
             }
             if (keystoreProperties['storeFile'] != null) {
                 signingConfig signingConfigs.release
@@ -106,7 +106,7 @@ android {
         }
         debug {
             ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a"
+                abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
             }
             if (keystoreProperties['storeFile'] != null) {
                 signingConfig signingConfigs.debug
@@ -119,13 +119,13 @@ android {
             def abi = output.getFilter(com.android.build.OutputFile.ABI)
             if (variant.buildType.name == "release") {
                 if (abi != null) {
-                    outputFileName = "kongman-${variant.versionName}-${abi}.apk"
+                    outputFileName = "KongComic-${variant.versionName}-${abi}.apk"
                     def abiVersionCode = project.ext.abiCodes.get(abi)
                     if (abiVersionCode != null) {
                         versionCodeOverride = variant.versionCode * 10 + abiVersionCode
                     }
                 } else {
-                    outputFileName = "kongman-${variant.versionName}.apk"
+                    outputFileName = "KongComic-${variant.versionName}-universal.apk"
                     versionCodeOverride = variant.versionCode * 10
                 }
             } else if (variant.buildType.name == "debug") {

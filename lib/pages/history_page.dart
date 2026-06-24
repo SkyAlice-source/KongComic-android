@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
@@ -294,14 +295,14 @@ class _HistoryPageState extends State<HistoryPage> {
               menuBuilder: (c) {
                 return [
                   MenuEntry(
-                    icon: Icons.refresh,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                     text: 'Refresh Info'.tl,
                     onClick: () {
                       _refreshHistory(c as History);
                     },
                   ),
                   MenuEntry(
-                    icon: Icons.remove,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
                     text: 'Remove'.tl,
                     color: context.colorScheme.error,
                     onClick: () {

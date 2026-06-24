@@ -48,3 +48,6 @@ add_translation.py
 
 */*/generated_*
 */*/Generated*
+# Signing
+android/key.properties
+android/*.jks

@@ -219,7 +219,7 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
       Offset(context.width, context.padding.top),
       [
         MenuEntry(
-          icon: Icons.image_outlined,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
           text: "Save Image".tl,
           onClick: () async {
             var temp = images[currentPage];
@@ -231,7 +231,7 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
           },
         ),
         MenuEntry(
-          icon: Icons.menu_book_outlined,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
           text: "Read".tl,
           onClick: () async {
             var comic = widget.comic;

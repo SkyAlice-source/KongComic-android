@@ -12,7 +12,7 @@ class _ImportSettingsState extends State<ImportSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("Import".tl)),
+        SliverAppbar(title: Text("导入设置")),
 
         _CallbackSetting(
           title: "Import CBZ / ZIP / 7Z".tl,

@@ -12,7 +12,7 @@ class _AppSettingsState extends State<AppSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("App".tl)),
+        SliverAppbar(title: Text("通用设置")),
         _SettingPartTitle(
           title: "Data".tl,
           icon: Icons.storage,

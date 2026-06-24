@@ -541,7 +541,12 @@
     "Title copied": "标题已复制",
     "Continue Reading": "继续阅读",
     "View all": "查看全部",
-    "Directory does not exist": "目录不存在"
+    "Directory does not exist": "目录不存在",
+    "Change Cover": "更换封面",
+    "Restore Default Cover": "恢复默认封面",
+    "Cover changed": "封面已更换",
+    "Cover restored": "封面已恢复",
+    "ALL": "全部"
   },
   "zh_TW": {
     "Home": "首頁",
@@ -1086,6 +1091,11 @@
     "Continue Reading": "繼續閱讀",
     "View all": "查看全部",
     "目錄不存在": "目錄不存在",
-    "Directory does not exist": "目錄不存在"
+    "Directory does not exist": "目錄不存在",
+    "Change Cover": "更換封面",
+    "Restore Default Cover": "恢復默認封面",
+    "Cover changed": "封面已更換",
+    "Cover restored": "封面已恢復",
+    "ALL": "全部"
   }
 }

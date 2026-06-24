@@ -29,10 +29,18 @@ Future<File> exportAppData([bool sync = true]) async {
     var localFavoriteFile = FilePath.join(dataPath, "local_favorite.db");
     var appdata = FilePath.join(dataPath, sync ? "syncdata.json" : "appdata.json");
     var cookies = FilePath.join(dataPath, "cookie.db");
+    var coversDir = FilePath.join(dataPath, "covers");
     zipFile.addFile("history.db", historyFile);
     zipFile.addFile("local_favorite.db", localFavoriteFile);
     zipFile.addFile("appdata.json", appdata);
     zipFile.addFile("cookie.db", cookies);
+    if (Directory(coversDir).existsSync()) {
+      for (var file in Directory(coversDir).listSync()) {
+        if (file is File) {
+          zipFile.addFile("covers/${file.name}", file.path);
+        }
+      }
+    }
     var comicSourceDir = FilePath.join(dataPath, "comic_source");
     if (Directory(comicSourceDir).existsSync()) {
       for (var file in Directory(comicSourceDir).listSync()) {
@@ -94,6 +102,20 @@ Future<void> importAppData(File file, [bool checkVersion = false]) async {
       SingleInstanceCookieJar.instance =
           SingleInstanceCookieJar(FilePath.join(App.dataPath, "cookie.db"))
             ..init();
+    }
+    // 恢复自定义封面
+    var coversDir = FilePath.join(cacheDirPath, "covers");
+    if (Directory(coversDir).existsSync()) {
+      var targetCoversDir = FilePath.join(App.dataPath, "covers");
+      if (!Directory(targetCoversDir).existsSync()) {
+        Directory(targetCoversDir).createSync();
+      }
+      for (var file in Directory(coversDir).listSync()) {
+        if (file is File) {
+          var targetPath = FilePath.join(targetCoversDir, file.name);
+          await file.copy(targetPath);
+        }
+      }
     }
     var comicSourceDir = FilePath.join(cacheDirPath, "comic_source");
     if (Directory(comicSourceDir).existsSync()) {

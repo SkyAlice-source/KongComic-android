@@ -12,7 +12,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("Network".tl)),
+        SliverAppbar(title: Text("网络设置")),
         _PopupWindowSetting(
           title: "Proxy".tl,
           builder: () => const _ProxySettingView(),

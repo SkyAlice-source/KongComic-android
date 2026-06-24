@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/pages/categories_page.dart';
+import 'package:kong_comic/pages/history_page.dart';
+import 'package:kong_comic/pages/search_page.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
@@ -55,6 +57,9 @@ class _MainPageState extends State<MainPage> {
     const ExplorePage(
       key: PageStorageKey('explore'),
     ),
+    const HistoryPage(
+      key: PageStorageKey('history'),
+    ),
   ];
 
   var index = 2; // Home tab (index 2)
@@ -68,23 +73,28 @@ class _MainPageState extends State<MainPage> {
       paneItems: [
         PaneItemEntry(
           label: 'Categories'.tl,
-          icon: FluentIcons.apps_24_regular,
-          activeIcon: FluentIcons.apps_24_regular,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDashboardCircle, size: 22),
+          activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedDashboardCircle, size: 22),
         ),
         PaneItemEntry(
           label: 'Favorites'.tl,
-          icon: FluentIcons.bookmark_24_regular,
-          activeIcon: FluentIcons.bookmark_24_regular,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedBookmark01, size: 22),
+          activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedBookmark01, size: 22),
         ),
         PaneItemEntry(
           label: 'Home'.tl,
-          icon: FluentIcons.home_24_regular,
-          activeIcon: FluentIcons.home_24_regular,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedHome02, size: 22),
+          activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedHome02, size: 22),
         ),
         PaneItemEntry(
           label: 'Explore'.tl,
-          icon: FluentIcons.book_compass_24_regular,
-          activeIcon: FluentIcons.book_compass_24_regular,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCompass01, size: 22),
+          activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedCompass01, size: 22),
+        ),
+        PaneItemEntry(
+          label: 'History'.tl,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 22),
+          activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 22),
         ),
       ],
       onPageChanged: (i) {
@@ -93,9 +103,15 @@ class _MainPageState extends State<MainPage> {
         });
       },
       paneActions: [
-
         PaneActionEntry(
-          icon: FluentIcons.settings_24_regular,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 22),
+          label: "Search".tl,
+          onTap: () {
+            to(() => const SearchPage(), preventDuplicate: true);
+          },
+        ),
+        PaneActionEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 22),
           label: "Settings".tl,
           onTap: () {
             to(() => const SettingsPage(), preventDuplicate: true);

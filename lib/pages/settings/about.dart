@@ -14,7 +14,7 @@ class _AboutSettingsState extends State<AboutSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("About".tl)),
+        SliverAppbar(title: Text("关于")),
         SizedBox(
           height: 120,
           width: double.infinity,

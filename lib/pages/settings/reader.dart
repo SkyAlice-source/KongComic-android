@@ -98,7 +98,7 @@ class _ReaderSettingsState extends State<ReaderSettings> {
 
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("Reading".tl)),
+        SliverAppbar(title: Text("阅读器设置")),
         if (comicId != null && sourceKey != null)
           SliverMainAxisGroup(
             slivers: [

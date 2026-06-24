@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/image_provider/cached_image.dart';
@@ -215,14 +216,14 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
                     MenuButton(
                       entries: [
                         MenuEntry(
-                          icon: Icons.close,
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                           text: "Cancel".tl,
                           onClick: () {
                             widget.task.cancel();
                           },
                         ),
                         MenuEntry(
-                          icon: Icons.vertical_align_top,
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedAlignTop, size: 18),
                           text: "Move To First".tl,
                           onClick: () {
                             LocalManager().moveToFirst(widget.task);

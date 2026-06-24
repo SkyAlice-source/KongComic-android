@@ -6,7 +6,7 @@ class Appbar extends StatefulWidget implements PreferredSizeWidget {
     this.leading,
     this.actions,
     this.backgroundColor,
-    this.style = AppbarStyle.shadow,
+    this.style = AppbarStyle.blur,
     super.key,
   });
 
@@ -77,13 +77,10 @@ class _AppbarState extends State<Appbar> {
 
   @override
   Widget build(BuildContext context) {
-    final double effectiveBlur = _scrolledUnder ? 22 : 0;
-    final double effectiveOpacity = _scrolledUnder ? 0.25 : 0.12;
-    
     var content = Container(
       decoration: BoxDecoration(
         color: widget.backgroundColor ??
-            GlassContainer.glassColor(context, effectiveOpacity),
+            context.colorScheme.surface.toOpacity(0.86),
       ),
       height: _kAppBarHeight + context.padding.top,
       child: Row(
@@ -122,31 +119,7 @@ class _AppbarState extends State<Appbar> {
         child: content,
       );
     } else {
-      return GlassContainer(
-        blurStrength: effectiveBlur,
-        opacity: effectiveOpacity,
-        borderRadius: BorderRadius.zero,
-        border: Border(
-          bottom: BorderSide(
-            color: _scrolledUnder
-                ? (Theme.of(context).brightness == Brightness.light
-                    ? Colors.white.withValues(alpha: 0.5)
-                    : const Color(0xFF2A2A2E))
-                : Colors.transparent,
-            width: 0.5,
-          ),
-        ),
-        boxShadow: _scrolledUnder
-            ? [
-                BoxShadow(
-                  color: const Color(0xFFE8E8E8),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ]
-            : [],
-        width: double.infinity,
-        height: _kAppBarHeight + context.padding.top,
+      return BlurEffect(
         child: content,
       );
     }
@@ -165,7 +138,7 @@ class SliverAppbar extends StatelessWidget {
     this.leading,
     this.actions,
     this.radius = 0,
-    this.style = AppbarStyle.shadow,
+    this.style = AppbarStyle.blur,
   });
 
   final Widget? leading;
@@ -215,7 +188,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     this.actions,
     required this.topPadding,
     this.radius = 0,
-    this.style = AppbarStyle.shadow,
+    this.style = AppbarStyle.blur,
   });
 
   @override
@@ -254,30 +227,13 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
     if (style == AppbarStyle.blur) {
       return SizedBox.expand(
-        child: GlassContainer(
-          blurStrength: 22,
-          opacity: 0.20,
-          borderRadius: BorderRadius.circular(radius),
-          border: Border(
-            bottom: BorderSide(
-              color: overlapsContent
-                  ? (Theme.of(context).brightness == Brightness.light
-                      ? Colors.white.withValues(alpha: 0.5)
-                      : const Color(0xFF2A2A2E))
-                  : Colors.transparent,
-              width: 0.5,
-            ),
+        child: BlurEffect(
+          child: Material(
+            color: context.colorScheme.surface.toOpacity(0.86),
+            elevation: 0,
+            borderRadius: BorderRadius.circular(radius),
+            child: body,
           ),
-          boxShadow: overlapsContent
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFE8E8E8),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ]
-              : [],
-          child: body,
         ),
       );
     } else {
@@ -441,17 +397,16 @@ class _AppTabBarState extends State<AppTabBar> {
       key: tabBarKey,
       height: _kTabHeight,
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: widget.withUnderLine
-            ? const Border(
+      decoration: widget.withUnderLine
+          ? BoxDecoration(
+              border: Border(
                 bottom: BorderSide(
-                  color: Color(0xFF0EA5E9),
-                  width: 1.5,
+                  color: context.colorScheme.outlineVariant,
+                  width: 0.6,
                 ),
-              )
-            : null,
-      ),
+              ),
+            )
+          : null,
       child: widget.tabs.isEmpty ? const SizedBox() : child,
     );
   }
@@ -805,18 +760,18 @@ class _SliverSearchBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return GlassContainer(
-      blurStrength: overlapsContent ? 22 : 0,
-      opacity: 0.15,
-      borderRadius: BorderRadius.zero,
-      border: Border(
-        bottom: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+    return Container(
+      height: _kAppBarHeight + topPadding,
+      width: double.infinity,
+      padding: EdgeInsets.only(top: topPadding),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
         ),
       ),
-      width: double.infinity,
-      height: _kAppBarHeight + topPadding,
-      padding: EdgeInsets.only(top: topPadding),
       child: Row(
         children: [
           const SizedBox(width: 8),
@@ -912,18 +867,17 @@ class _SearchBarState extends State<AppSearchBar> with _SearchBarMixin {
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
-    return GlassContainer(
-      blurStrength: 0,
-      opacity: 0.12,
-      borderRadius: BorderRadius.zero,
-      border: Border(
-        bottom: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+    return Container(
+      height: _kAppBarHeight + topPadding,
+      width: double.infinity,
+      padding: EdgeInsets.only(top: topPadding),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
         ),
       ),
-      width: double.infinity,
-      height: _kAppBarHeight + topPadding,
-      padding: EdgeInsets.only(top: topPadding),
       child: Row(
         children: [
           const SizedBox(width: 8),

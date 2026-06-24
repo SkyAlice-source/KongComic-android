@@ -251,8 +251,8 @@ class GlassBottomBar extends StatelessWidget {
     super.key,
     required this.children,
     this.height = 56,
-    this.edgeToEdge = true,
-    this.margin = const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+    this.edgeToEdge = false,
+    this.margin = const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
   });
 
   @override
@@ -270,16 +270,14 @@ class GlassBottomBar extends StatelessWidget {
         width: double.infinity,
         child: Container(
           decoration: BoxDecoration(
-            color:
-                isDark
-                    ? const Color(0xFF1C1C1E).withValues(alpha: 0.85)
-                    : Colors.white.withValues(alpha: 0.90),
+            color: isDark
+                ? const Color(0xFF1C1C1E)
+                : Colors.white,
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color:
-                  isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.06),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.06),
               width: 0.4,
             ),
             boxShadow: [
@@ -290,31 +288,24 @@ class GlassBottomBar extends StatelessWidget {
                 offset: const Offset(0, 4),
               ),
               BoxShadow(
-                color:
-                    isDark
-                        ? Colors.transparent
-                        : Colors.white.withValues(alpha: 0.5),
+                color: isDark
+                    ? Colors.transparent
+                    : Colors.white.withValues(alpha: 0.5),
                 blurRadius: 12,
                 spreadRadius: -2,
                 offset: const Offset(0, -2),
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: bottomPad,
-                ),
-                child: SizedBox(
-                  height: height,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: children,
-                  ),
-                ),
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: bottomPad,
+            ),
+            child: SizedBox(
+              height: height,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: children,
               ),
             ),
           ),
@@ -337,25 +328,21 @@ class GlassSideBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      blurStrength: 40,
-      opacity: 0.08,
-      borderRadius: BorderRadius.zero,
-      border: Border(
-        right: BorderSide(
-          color: Theme.of(context).brightness == Brightness.light
-              ? Colors.white.withValues(alpha: 0.6)
-              : Colors.white.withValues(alpha: 0.08),
-          width: 0.3,
+    final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF000000)
+            : const Color(0xFFF5F5F5),
+        border: Border(
+          right: BorderSide(
+            color: isDark
+                ? const Color(0xFF222222)
+                : const Color(0xFFE8E8E8),
+            width: 1.0,
+          ),
         ),
       ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.02),
-          blurRadius: 10,
-          offset: const Offset(1, 0),
-        ),
-      ],
       width: width,
       height: double.infinity,
       child: child,

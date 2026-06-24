@@ -12,7 +12,7 @@ class _ExploreSettingsState extends State<ExploreSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("Explore".tl)),
+        SliverAppbar(title: Text("浏览设置")),
         SelectSetting(
           title: "Display mode of comic tile".tl,
           settingKey: "comicDisplayMode",
@@ -89,13 +89,13 @@ class _ExploreSettingsState extends State<ExploreSettings> {
           },
         ).toSliver(),
         SelectSetting(
-          title: "Initial Page".tl,
+          title: "初始页面",
           settingKey: "initialPage",
           optionTranslation: {
-            '0': "Home Page".tl,
-            '1': "Favorites Page".tl,
-            '2': "Explore Page".tl,
-            '3': "Categories Page".tl,
+            '0': "分类",
+            '1': "收藏",
+            '2': "主页",
+            '3': "发现",
           },
         ).toSliver(),
         SelectSetting(

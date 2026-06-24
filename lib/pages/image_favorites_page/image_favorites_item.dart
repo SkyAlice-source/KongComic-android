@@ -72,21 +72,21 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
       location,
       [
         MenuEntry(
-          icon: Icons.chrome_reader_mode_outlined,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
           text: 'Details'.tl,
           onClick: () {
             goComicInfo(widget.imageFavoritesComic);
           },
         ),
         MenuEntry(
-          icon: Icons.copy,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
           text: 'Copy Title'.tl,
           onClick: () {
             copyTitle();
           },
         ),
         MenuEntry(
-          icon: Icons.select_all,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
           text: 'Select All'.tl,
           onClick: () {
             for (var ele in widget.imageFavoritesComic.images) {
@@ -95,7 +95,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
           },
         ),
         MenuEntry(
-          icon: Icons.read_more,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedBookOpen01, size: 18),
           text: 'Photo View'.tl,
           onClick: () {
             goPhotoView(widget.imageFavoritesComic.images.first);

@@ -320,7 +320,7 @@ abstract mixin class _ComicPageActions {
         ),
         [
           MenuEntry(
-            icon: Icons.copy,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
             text: "Copy Title".tl,
             onClick: () {
               Clipboard.setData(ClipboardData(text: comic.title));
@@ -328,16 +328,29 @@ abstract mixin class _ComicPageActions {
             },
           ),
           MenuEntry(
-            icon: Icons.copy_rounded,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
             text: "Copy ID".tl,
             onClick: () {
               Clipboard.setData(ClipboardData(text: comic.id));
               context.showMessage(message: "Copied".tl);
             },
           ),
+          MenuEntry(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
+            text: CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id)
+                ? "Change Cover".tl
+                : "Change Cover".tl,
+            onClick: () => _changeCover(context),
+          ),
+          if (CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id))
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+              text: "Restore Default Cover".tl,
+              onClick: () => _restoreCover(context),
+            ),
           if (comic.url != null)
             MenuEntry(
-              icon: Icons.link,
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
               text: "Copy URL".tl,
               onClick: () {
                 Clipboard.setData(ClipboardData(text: comic.url!));
@@ -346,13 +359,38 @@ abstract mixin class _ComicPageActions {
             ),
           if (comic.url != null)
             MenuEntry(
-              icon: Icons.open_in_browser,
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedBrowser, size: 18),
               text: "Open in Browser".tl,
               onClick: () {
                 launchUrlString(comic.url!);
               },
             ),
         ]);
+  }
+
+  Future<void> _changeCover(BuildContext context) async {
+    final file = await selectFile(ext: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp']);
+    if (file == null) return;
+
+    final success = await CustomCoverManager.setCustomCover(
+      comic.sourceKey,
+      comic.id,
+      file.path,
+    );
+    if (success) {
+      if (context.mounted) {
+        context.showMessage(message: "Cover changed".tl);
+      }
+      update();
+    }
+  }
+
+  Future<void> _restoreCover(BuildContext context) async {
+    await CustomCoverManager.removeCustomCover(comic.sourceKey, comic.id);
+    if (context.mounted) {
+      context.showMessage(message: "Cover restored".tl);
+    }
+    update();
   }
 
   void showComments() {

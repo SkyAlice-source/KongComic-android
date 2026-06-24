@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
@@ -31,13 +31,14 @@ class _SearchPageState extends State<SearchPage> {
 
   late List<String> searchSources;
 
-  String searchTarget = "";
+  Set<String> _selectedSources = {};
   final _searchTextController = TextEditingController();
+  Timer? _debounceTimer;
+
+  bool get _isAggregated => _selectedSources.length > 1;
 
   SearchPageData get currentSearchPageData =>
-      ComicSource.find(searchTarget)!.searchPageData!;
-
-  bool aggregatedSearch = false;
+      ComicSource.find(_selectedSources.first)!.searchPageData!;
 
   var focusNode = FocusNode();
 
@@ -48,18 +49,37 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void search([String? text]) {
-    if (aggregatedSearch) {
+    final keyword = text ?? controller.text;
+
+    // ID 直接跳转：匹配某个源的 ID 格式则直接打开漫画页
+    for (var source in ComicSource.all()) {
+      if (source.idMatcher?.hasMatch(keyword) ?? false) {
+        context.to(() => ComicPage(
+          sourceKey: source.key,
+          id: keyword,
+        )).then((_) => update());
+        return;
+      }
+    }
+
+    if (_selectedSources.isEmpty) return;
+
+    if (_isAggregated) {
       context
           .to(
-            () => AggregatedSearchPage(keyword: text ?? controller.text)
+            () => AggregatedSearchPage(
+              keyword: keyword,
+              sourceKeys: _selectedSources.toList(),
+            )
           )
           .then((_) => update());
     } else {
+      final singleSource = _selectedSources.first;
       context
           .to(
             () => SearchResultPage(
-              text: text ?? controller.text,
-              sourceKey: searchTarget,
+              text: keyword,
+              sourceKey: singleSource,
               options: options,
             )
           )
@@ -103,7 +123,7 @@ class _SearchPageState extends State<SearchPage> {
       }
     }
 
-    if (!ComicSource.find(searchTarget)!.enableTagsSuggestions) {
+    if (!ComicSource.find(_selectedSources.first)!.enableTagsSuggestions) {
       update();
       return;
     }
@@ -150,13 +170,14 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     findSearchSources();
+    _selectedSources = searchSources.take(1).toSet();
     var defaultSearchTarget = appdata.settings['defaultSearchTarget'];
-    if (defaultSearchTarget == "_aggregated_") {
-      aggregatedSearch = true;
-    } else if (defaultSearchTarget != null &&
-        searchSources.contains(defaultSearchTarget)) {
-      searchTarget = defaultSearchTarget;
+    if (defaultSearchTarget is String && searchSources.contains(defaultSearchTarget)) {
+      _selectedSources = {defaultSearchTarget};
+    } else if (defaultSearchTarget == "_aggregated_") {
+      _selectedSources = searchSources.toSet();
     }
+    useDefaultOptions();
     controller = SearchBarController(
       onSearch: search,
     );
@@ -167,6 +188,8 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void dispose() {
     focusNode.dispose();
+    _searchTextController.dispose();
+    _debounceTimer?.cancel();
     appdata.settings.removeListener(updateSearchSourcesIfNeeded);
     super.dispose();
   }
@@ -184,8 +207,10 @@ class _SearchPageState extends State<SearchPage> {
       }
     }
     searchSources = sources;
-    if (!searchSources.contains(searchTarget)) {
-      searchTarget = searchSources.firstOrNull ?? "";
+    // 移除不再存在的源
+    _selectedSources.removeWhere((s) => !searchSources.contains(s));
+    if (_selectedSources.isEmpty && searchSources.isNotEmpty) {
+      _selectedSources = {searchSources.first};
     }
   }
 
@@ -228,17 +253,22 @@ class _SearchPageState extends State<SearchPage> {
     if (searchSources.isEmpty) {
       return buildEmpty();
     }
-    return Column(
-      children: [
-        const Spacer(flex: 2),
-        _buildBottomSearchBar(),
-        Expanded(
-          flex: 4,
-          child: SmoothCustomScrollView(
-            slivers: buildSlivers().toList(),
-          ),
+    return MediaQuery.removeViewInsets(
+      context: context,
+      removeBottom: true,
+      child: RepaintBoundary(
+        child: Column(
+          children: [
+            _buildTopSearchBar(),
+            _buildSourceRow(),
+            Expanded(
+              child: SmoothCustomScrollView(
+                slivers: buildSlivers().toList(),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -246,64 +276,154 @@ class _SearchPageState extends State<SearchPage> {
     if (suggestions.isNotEmpty) {
       yield buildSuggestions(context);
     } else {
-      yield buildSearchTarget();
       yield SliverAnimatedPaintExtent(
         duration: const Duration(milliseconds: 200),
         child: buildSearchOptions(),
       );
-      yield _SearchHistory(search);
+      if (appdata.searchHistory.isNotEmpty) {
+        yield _SearchHistory(search);
+      } else {
+        yield _EmptySearchHint();
+      }
     }
   }
 
-  Widget buildSearchTarget() {
-    var sources = searchSources.map((e) => ComicSource.find(e)!).toList();
-    return SliverToBoxAdapter(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.search),
-              title: Text("Search in".tl),
-              trailing: IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: manageSearchSources,
-              ),
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: sources.map((e) {
-                return OptionChip(
-                  text: e.name,
-                  isSelected: searchTarget == e.key || aggregatedSearch,
+  Widget _buildSourceRow() {
+    final sources = searchSources.map((e) => ComicSource.find(e)!).toList();
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: cs.outlineVariant, width: 0.5),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                // ALL 全选按钮
+                GestureDetector(
                   onTap: () {
-                    if (aggregatedSearch) return;
                     setState(() {
-                      searchTarget = e.key;
+                      final allSelected = _selectedSources.length == searchSources.length;
+                      if (allSelected) {
+                        _selectedSources = {searchSources.first};
+                      } else {
+                        _selectedSources = searchSources.toSet();
+                      }
                       useDefaultOptions();
                     });
                   },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _selectedSources.length == searchSources.length
+                          ? cs.primaryContainer
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _selectedSources.length == searchSources.length
+                            ? cs.primary.withValues(alpha: 0.3)
+                            : cs.outlineVariant,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.swap_horiz,
+                          size: 14,
+                          color: _selectedSources.length == searchSources.length
+                              ? cs.primary
+                              : cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "ALL".tl,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: _selectedSources.length == searchSources.length
+                                ? cs.onPrimaryContainer
+                                : cs.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                ...sources.map((source) {
+                final isSelected = _selectedSources.contains(source.key);
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (isSelected) {
+                        if (_selectedSources.length > 1) {
+                          _selectedSources.remove(source.key);
+                        }
+                      } else {
+                        _selectedSources.add(source.key);
+                      }
+                      if (_selectedSources.length == 1) {
+                        useDefaultOptions();
+                      }
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isSelected ? cs.primaryContainer : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isSelected
+                            ? cs.primary.withValues(alpha: 0.3)
+                            : cs.outlineVariant,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isSelected ? Icons.check_circle : Icons.circle_outlined,
+                          size: 14,
+                          color: isSelected ? cs.primary : cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          source.name,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                            color: isSelected ? cs.onPrimaryContainer : cs.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               }).toList(),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text("Aggregated Search".tl),
-              leading: Checkbox(
-                value: aggregatedSearch,
-                onChanged: (value) {
-                  setState(() {
-                    aggregatedSearch = value ?? false;
-                  });
-                },
+            ],
+          ),
+        ),
+        Tooltip(
+            message: "Manage Sources".tl,
+            child: IconButton(
+              icon: Icon(Icons.tune, size: 18),
+              onPressed: manageSearchSources,
+              visualDensity: VisualDensity.compact,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(32, 32),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -314,7 +434,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget buildSearchOptions() {
-    if (aggregatedSearch) {
+    if (_isAggregated) {
       return const SliverToBoxAdapter(child: SizedBox());
     }
 
@@ -336,7 +456,7 @@ class _SearchPageState extends State<SearchPage> {
           options[i] = value;
           update();
         },
-        sourceKey: searchTarget,
+        sourceKey: _selectedSources.first,
       ));
     }
 
@@ -379,7 +499,7 @@ class _SearchPageState extends State<SearchPage> {
         controller.text =
             controller.text.replaceLast(words[words.length - 1], "");
       }
-      final source = ComicSource.find(searchTarget);
+      final source = ComicSource.find(_selectedSources.first);
       String insert;
       if (source?.onTagSuggestionSelected != null) {
         insert = source!.onTagSuggestionSelected!(type?.name ?? '', text);
@@ -394,9 +514,23 @@ class _SearchPageState extends State<SearchPage> {
       focusNode.requestFocus();
     }
 
-    bool showMethod = MediaQuery.of(context).size.width < 600;
+    bool showMethod = context.width < 600;
     bool showTranslation = App.locale.languageCode == "zh";
     Widget buildItem(Pair<String, TranslationType> value) {
+      final cs = Theme.of(context).colorScheme;
+      final typeColors = <TranslationType, Color>{
+        TranslationType.female: const Color(0xFFE91E63),
+        TranslationType.male: const Color(0xFF2196F3),
+        TranslationType.parody: const Color(0xFF9C27B0),
+        TranslationType.character: const Color(0xFFFF9800),
+        TranslationType.artist: const Color(0xFF4CAF50),
+        TranslationType.group: const Color(0xFF00BCD4),
+        TranslationType.cosplayer: const Color(0xFFFF5722),
+        TranslationType.language: const Color(0xFF607D8B),
+        TranslationType.mixed: const Color(0xFF795548),
+        TranslationType.other: cs.onSurfaceVariant,
+      };
+      final typeColor = typeColors[value.right] ?? cs.onSurfaceVariant;
       if (value.left == "**URL**") {
         return ListTile(
           leading: const Icon(Icons.link),
@@ -445,11 +579,19 @@ class _SearchPageState extends State<SearchPage> {
       var subTitle = TagsTranslation.translationTagWithNamespace(
           value.left, value.right.name);
       return ListTile(
+        leading: Container(
+          width: 6,
+          height: 24,
+          decoration: BoxDecoration(
+            color: typeColor,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Expanded(
-              child: Text(value.left),
+              child: Text(value.left, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             if (!showMethod)
               const SizedBox(
@@ -468,13 +610,18 @@ class _SearchPageState extends State<SearchPage> {
         subtitle: (showMethod && showTranslation) ? Text(subTitle) : null,
         trailing: Text(
           value.right.name,
-          style: const TextStyle(fontSize: 13),
+          style: TextStyle(
+            fontSize: 12,
+            color: typeColor,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         onTap: () => onSelected(value.left, value.right),
       );
     }
 
-    return SliverMainAxisGroup(
+    return RepaintBoundary(
+      child: SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
           child: ListTile(
@@ -501,52 +648,79 @@ class _SearchPageState extends State<SearchPage> {
           ),
         ),
       ],
-    );
+    ));
   }
 
-  Widget _buildBottomSearchBar() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildTopSearchBar() {
+    final cs = Theme.of(context).colorScheme;
+    final topPad = MediaQuery.of(context).padding.top;
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+      padding: EdgeInsets.fromLTRB(12, 12 + topPad, 12, 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-
+        color: cs.surface,
       ),
       child: Row(
         children: [
           Expanded(
             child: Container(
-              height: 42,
+              height: 40,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(21),
-                color: isDark
-                    ? const Color(0xFF1E1E1E)
-                    : const Color(0xFFF0F4F8),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0xFF333333)
-                      : const Color(0xFF0EA5E9).withValues(alpha: 0.3),
-                  width: 0.5,
-                ),
+                borderRadius: BorderRadius.circular(20),
+                color: cs.surfaceContainerLow,
               ),
+              clipBehavior: Clip.antiAlias,
               child: TextField(
+                focusNode: focusNode,
                 controller: _searchTextController,
                 decoration: InputDecoration(
                   hintText: 'Search'.tl,
                   hintStyle: TextStyle(
-                    color: isDark ? Colors.grey.shade500 : const Color(0xFF8E8E93),
-                    fontSize: 15,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    fontSize: 14,
                   ),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  suffixIcon: ListenableBuilder(
+                    listenable: _searchTextController,
+                    builder: (context, _) {
+                      return _searchTextController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear, size: 16, color: cs.onSurfaceVariant),
+                              onPressed: () {
+                                _searchTextController.clear();
+                                suggestions.clear();
+                                setState(() {});
+                              },
+                              visualDensity: VisualDensity.compact,
+                            )
+                          : const SizedBox(width: 0);
+                    },
+                  ),
                 ),
                 style: TextStyle(
-                  fontSize: 15,
-                  color: isDark ? Colors.white : Colors.black,
+                  fontSize: 14,
+                  color: cs.onSurface,
                 ),
                 textInputAction: TextInputAction.search,
+                keyboardType: TextInputType.text,
                 onSubmitted: (text) {
-                  if (text.isNotEmpty) search(text);
+                  if (text.isNotEmpty) {
+                    suggestions.clear();
+                    search(text);
+                  }
+                },
+                onChanged: (_) {
+                  _debounceTimer?.cancel();
+                  _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+                    if (_searchTextController.text.isNotEmpty) {
+                      findSuggestions();
+                    } else {
+                      suggestions.clear();
+                      update();
+                    }
+                  });
                 },
               ),
             ),
@@ -555,16 +729,19 @@ class _SearchPageState extends State<SearchPage> {
           GestureDetector(
             onTap: () {
               final text = _searchTextController.text;
-              if (text.isNotEmpty) search(text);
+              if (text.isNotEmpty) {
+                suggestions.clear();
+                search(text);
+              }
             },
             child: Container(
-              width: 42,
-              height: 42,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF0EA5E9),
+                borderRadius: BorderRadius.circular(20),
+                color: cs.primary,
               ),
-              child: const Icon(Icons.search, color: Colors.white, size: 20),
+              child: Icon(Icons.arrow_forward, color: cs.onPrimary, size: 18),
             ),
           ),
         ],
@@ -594,184 +771,198 @@ class SearchOptionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(option.label.ts(sourceKey)),
-        ),
-        if (option.type == 'select')
-          Wrap(
-            runSpacing: 8,
-            spacing: 8,
-            children: option.options.entries.map((e) {
-              return OptionChip(
-                text: e.value.ts(sourceKey),
-                isSelected: value == e.key,
-                onTap: () {
-                  onChanged(e.key);
-                },
-              );
-            }).toList(),
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              option.label.ts(sourceKey),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
           ),
-        if (option.type == 'multi-select')
-          Wrap(
-            runSpacing: 8,
-            spacing: 8,
-            children: option.options.entries.map((e) {
-              return OptionChip(
-                text: e.value.ts(sourceKey),
-                isSelected: (jsonDecode(value) as List).contains(e.key),
-                onTap: () {
-                  var list = jsonDecode(value) as List;
-                  if (list.contains(e.key)) {
-                    list.remove(e.key);
-                  } else {
-                    list.add(e.key);
-                  }
-                  onChanged(jsonEncode(list));
-                },
-              );
-            }).toList(),
-          ),
-        if (option.type == 'dropdown')
-          Select(
-            current: option.options[value],
-            values: option.options.values.toList(),
-            onTap: (index) {
-              onChanged(option.options.keys.elementAt(index));
-            },
-            minWidth: 96,
-          )
-      ],
+          if (option.type == 'select' || option.type == 'multi-select')
+            Wrap(
+              runSpacing: 6,
+              spacing: 6,
+              children: option.options.entries.map((e) {
+                final isSelected = option.type == 'select'
+                    ? value == e.key
+                    : (jsonDecode(value) as List).contains(e.key);
+                return GestureDetector(
+                  onTap: () {
+                    if (option.type == 'select') {
+                      onChanged(e.key);
+                    } else {
+                      var list = jsonDecode(value) as List;
+                      if (list.contains(e.key)) {
+                        list.remove(e.key);
+                      } else {
+                        list.add(e.key);
+                      }
+                      onChanged(jsonEncode(list));
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isSelected ? cs.primaryContainer : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isSelected
+                            ? cs.primary.withValues(alpha: 0.3)
+                            : cs.outlineVariant,
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      e.value.ts(sourceKey),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isSelected ? cs.onPrimaryContainer : cs.onSurface,
+                        fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          if (option.type == 'dropdown')
+            Select(
+              current: option.options[value],
+              values: option.options.values.toList(),
+              onTap: (index) {
+                onChanged(option.options.keys.elementAt(index));
+              },
+              minWidth: 96,
+            )
+        ],
+      ),
     );
   }
 }
 
-class _SearchHistory extends StatefulWidget {
+class _SearchHistory extends StatelessWidget {
   const _SearchHistory(this.search);
 
   final void Function(String) search;
 
   @override
-  State<_SearchHistory> createState() => _SearchHistoryState();
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final history = appdata.searchHistory;
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.history, size: 18, color: cs.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Text(
+                  "Search History".tl,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                if (history.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      appdata.clearSearchHistory();
+                    },
+                    child: Text(
+                      "Clear".tl,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: history.map((item) {
+                return GestureDetector(
+                  onTap: () => search(item),
+                  onLongPress: () {
+                    appdata.removeSearchHistory(item);
+                    appdata.saveData();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: cs.outlineVariant, width: 1),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            item,
+                            style: TextStyle(fontSize: 13, color: cs.onSurface),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () {
+                            appdata.removeSearchHistory(item);
+                            appdata.saveData();
+                          },
+                          child: Icon(Icons.close, size: 14, color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _SearchHistoryState extends State<_SearchHistory> {
+class _EmptySearchHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (index == 0) {
-            return const SizedBox(
-              height: 16,
-            );
-          }
-          if (index == 1) {
-            return ListTile(
-              leading: const Icon(Icons.history),
-              contentPadding: EdgeInsets.zero,
-              title: Text("Search History".tl),
-              trailing: Flyout(
-                flyoutBuilder: (context) {
-                  return FlyoutContent(
-                    title: "Clear Search History".tl,
-                    actions: [
-                      FilledButton(
-                        child: Text("Clear".tl),
-                        onPressed: () {
-                          appdata.clearSearchHistory();
-                          context.pop();
-                          setState(() {});
-                        },
-                      )
-                    ],
-                  );
-                },
-                child: Builder(
-                  builder: (context) {
-                    return Tooltip(
-                      message: "Clear".tl,
-                      child: IconButton(
-                        icon: const Icon(Icons.clear_all),
-                        onPressed: () {
-                          context
-                              .findAncestorStateOfType<FlyoutState>()!
-                              .show();
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            );
-          }
-          return buildItem(index - 2);
-        },
-        childCount: 2 + appdata.searchHistory.length,
-      ),
-    ).sliverPaddingHorizontal(16);
-  }
-
-  Widget buildItem(int index) {
-    void showMenu(Offset offset) {
-      showMenuX(
-        context,
-        offset,
-        [
-          MenuEntry(
-            icon: Icons.copy,
-            text: 'Copy'.tl,
-            onClick: () {
-              Clipboard.setData(
-                  ClipboardData(text: appdata.searchHistory[index]));
-            },
-          ),
-          MenuEntry(
-            icon: Icons.delete,
-            text: 'Delete'.tl,
-            onClick: () {
-              appdata.removeSearchHistory(appdata.searchHistory[index]);
-              appdata.saveData();
-              setState(() {});
-            },
-          ),
-        ],
-      );
-    }
-
-    return Builder(builder: (context) {
-      return InkWell(
-        onTap: () {
-          widget.search(appdata.searchHistory[index]);
-        },
-        onLongPress: () {
-          var renderBox = context.findRenderObject() as RenderBox;
-          var offset = renderBox.localToGlobal(Offset.zero);
-          showMenu(Offset(
-            offset.dx + renderBox.size.width / 2 - 121,
-            offset.dy + renderBox.size.height - 8,
-          ));
-        },
-        onSecondaryTapUp: (details) {
-          showMenu(details.globalPosition);
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            // color: context.colorScheme.surfaceContainer,
-            border: Border(
-              left: BorderSide(
-                color: context.colorScheme.outlineVariant,
-                width: 2,
+    final cs = Theme.of(context).colorScheme;
+    return SliverFillRemaining(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search, size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+            const SizedBox(height: 12),
+            Text(
+              "Start typing to search".tl,
+              style: TextStyle(
+                fontSize: 15,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
               ),
             ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Text(appdata.searchHistory[index], style: ts.s14),
+          ],
         ),
-      ).paddingBottom(8).paddingHorizontal(4);
-    });
+      ),
+    );
   }
 }

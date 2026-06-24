@@ -1,6 +1,12 @@
 part of 'components.dart';
 
 ImageProvider? _findImageProvider(Comic comic) {
+  // 自定义封面优先
+  final customPath = CustomCoverManager.getCustomCoverPath(comic.sourceKey, comic.id);
+  if (customPath != null && File(customPath).existsSync()) {
+    return FileImage(File(customPath));
+  }
+
   ImageProvider image;
   if (comic is LocalComic) {
     image = LocalComicImageProvider(comic);
@@ -93,7 +99,7 @@ class ComicTile extends StatelessWidget {
       location,
       [
         MenuEntry(
-          icon: Icons.chrome_reader_mode_outlined,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
           text: 'Details'.tl,
           onClick: () {
             App.mainNavigatorKey?.currentContext?.to(
@@ -107,7 +113,7 @@ class ComicTile extends StatelessWidget {
           },
         ),
         MenuEntry(
-          icon: Icons.copy,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
           text: 'Copy Title'.tl,
           onClick: () {
             Clipboard.setData(ClipboardData(text: comic.title));
@@ -115,14 +121,14 @@ class ComicTile extends StatelessWidget {
           },
         ),
         MenuEntry(
-          icon: Icons.stars_outlined,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18),
           text: 'Add to favorites'.tl,
           onClick: () {
             addFavorite([comic]);
           },
         ),
         MenuEntry(
-          icon: Icons.block,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
           text: 'Block'.tl,
           onClick: () => block(context),
         ),
@@ -192,11 +198,9 @@ class ComicTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 5),
                       alignment: Alignment.center,
                       child: Text(
-                        history.group != null
-                            ? "${history.group}-${history.ep}"
-                            : history.readEpisode.length > 1
-                                ? "${history.ep}/${history.readEpisode.length}"
-                                : "${history.ep}",
+                        history.maxPage != null && history.maxPage! > 0
+                            ? "${(history.page * 100 / history.maxPage!).clamp(0, 100).toInt()}%"
+                            : "${history.ep}",
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -220,7 +224,10 @@ class ComicTile extends StatelessWidget {
     if (image == null) {
       return const SizedBox();
     }
+    // 自定义封面变化时强制重建 AnimatedImage
+    final customKey = CustomCoverManager.getCustomCoverPath(comic.sourceKey, comic.id);
     return AnimatedImage(
+      key: ValueKey(customKey ?? '${comic.sourceKey}_${comic.id}'),
       image: image,
       fit: BoxFit.cover,
       width: double.infinity,
@@ -1586,6 +1593,7 @@ class SimpleComicTile extends StatelessWidget {
     Widget child = image == null
         ? const SizedBox()
         : AnimatedImage(
+            key: ValueKey(_findImageProvider(comic).hashCode),
             image: image,
             width: double.infinity,
             height: double.infinity,

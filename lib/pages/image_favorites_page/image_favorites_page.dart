@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -130,7 +131,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
   Widget buildMultiSelectMenu() {
     return MenuButton(entries: [
       MenuEntry(
-        icon: Icons.delete_outline,
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
         text: "Delete".tl,
         onClick: () {
           ImageFavoriteManager()

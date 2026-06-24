@@ -8,9 +8,11 @@ import "package:kong_comic/pages/search_result_page.dart";
 import "package:kong_comic/utils/translations.dart";
 
 class AggregatedSearchPage extends StatefulWidget {
-  const AggregatedSearchPage({super.key, required this.keyword});
+  const AggregatedSearchPage({super.key, required this.keyword, this.sourceKeys});
 
   final String keyword;
+
+  final List<String>? sourceKeys;
 
   @override
   State<AggregatedSearchPage> createState() => _AggregatedSearchPageState();
@@ -29,11 +31,19 @@ class _AggregatedSearchPageState extends State<AggregatedSearchPage> {
         .where((e) => e.searchPageData != null)
         .map((e) => e.key)
         .toList();
-    var settings = appdata.settings['searchSources'] as List;
     var sources = <String>[];
-    for (var source in settings) {
-      if (all.contains(source)) {
-        sources.add(source);
+    if (widget.sourceKeys != null) {
+      for (var source in widget.sourceKeys!) {
+        if (all.contains(source)) {
+          sources.add(source);
+        }
+      }
+    } else {
+      var settings = appdata.settings['searchSources'] as List;
+      for (var source in settings) {
+        if (all.contains(source)) {
+          sources.add(source);
+        }
       }
     }
     this.sources = sources.map((e) => ComicSource.find(e)!).toList();
@@ -90,7 +100,7 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
     with AutomaticKeepAliveClientMixin {
   bool isLoading = true;
 
-  static const _kComicHeight = 162.0;
+  static const _kComicHeight = 164.0;
 
   get _comicWidth => _kComicHeight * 0.7;
 

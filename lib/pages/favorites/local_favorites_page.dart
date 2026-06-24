@@ -390,7 +390,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                 MenuButton(
                   entries: [
                     MenuEntry(
-                      icon: Icons.edit_outlined,
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
                       text: "Rename".tl,
                       onClick: () {
                         showInputDialog(
@@ -414,7 +414,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                       },
                     ),
                     MenuEntry(
-                      icon: Icons.reorder,
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
                       text: "Reorder".tl,
                       onClick: () {
                         context.to(
@@ -436,7 +436,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                       },
                     ),
                     MenuEntry(
-                      icon: Icons.upload_file,
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 18),
                       text: "Export".tl,
                       onClick: () {
                         var json = LocalFavoritesManager().folderToJson(
@@ -449,7 +449,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                       },
                     ),
                     MenuEntry(
-                      icon: Icons.update,
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                       text: "Update Comics Info".tl,
                       onClick: () {
                         updateComicsInfo(widget.folder).then((newComics) {
@@ -462,7 +462,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                       },
                     ),
                     MenuEntry(
-                      icon: Icons.delete_outline,
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
                       text: "Delete Folder".tl,
                       color: context.colorScheme.error,
                       onClick: () {
@@ -508,28 +508,28 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
               MenuButton(entries: [
                 if (!isAllFolder)
                   MenuEntry(
-                      icon: Icons.drive_file_move,
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMove, size: 18),
                       text: "Move to folder".tl,
                       onClick: () => favoriteOption('move')),
                 if (!isAllFolder)
                   MenuEntry(
-                      icon: Icons.copy,
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
                       text: "Copy to folder".tl,
                       onClick: () => favoriteOption('add')),
                 MenuEntry(
-                    icon: Icons.select_all,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
                     text: "Select All".tl,
                     onClick: selectAll),
                 MenuEntry(
-                    icon: Icons.deselect,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
                     text: "Deselect".tl,
                     onClick: _cancel),
                 MenuEntry(
-                    icon: Icons.flip,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedFlipHorizontal, size: 18),
                     text: "Invert Selection".tl,
                     onClick: invertSelection),
                 MenuEntry(
-                    icon: Icons.favorite_border,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 18),
                     text: "Remove from favorites".tl,
                     onClick: () {
                       for (var c in selectedComics.keys) {
@@ -554,7 +554,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                     }),
                 if (!isAllFolder)
                   MenuEntry(
-                      icon: Icons.delete_outline,
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
                       text: "Delete Comic".tl,
                       color: context.colorScheme.error,
                       onClick: () {
@@ -570,13 +570,13 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                         );
                       }),
                 MenuEntry(
-                  icon: Icons.download,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
                   text: "Download".tl,
                   onClick: downloadSelected,
                 ),
                 if (selectedComics.length == 1)
                   MenuEntry(
-                    icon: Icons.copy,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
                     text: "Copy Title".tl,
                     onClick: () {
                       Clipboard.setData(
@@ -591,7 +591,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                   ),
                 if (selectedComics.length == 1)
                   MenuEntry(
-                    icon: Icons.chrome_reader_mode_outlined,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
                     text: "Read".tl,
                     onClick: () {
                       final c = selectedComics.keys.first as FavoriteItem;
@@ -604,7 +604,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                   ),
                 if (selectedComics.length == 1)
                   MenuEntry(
-                    icon: Icons.arrow_forward_ios,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
                     text: "Jump to Detail".tl,
                     onClick: () {
                       final c = selectedComics.keys.first as FavoriteItem;
@@ -666,7 +666,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
               return [
                 if (!isAllFolder)
                   MenuEntry(
-                    icon: Icons.delete,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
                     text: "Delete".tl,
                     onClick: () {
                       LocalFavoritesManager().deleteComicWithId(
@@ -677,7 +677,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                     },
                   ),
                 MenuEntry(
-                  icon: Icons.check,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
                   text: "Select".tl,
                   onClick: () {
                     setState(() {
@@ -695,7 +695,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                   },
                 ),
                 MenuEntry(
-                  icon: Icons.download,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
                   text: "Download".tl,
                   onClick: () {
                     downloadComic(c as FavoriteItem);
@@ -706,7 +706,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                 ),
                 if (appdata.settings["onClickFavorite"] == "viewDetail")
                   MenuEntry(
-                    icon: Icons.menu_book_outlined,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
                     text: "Read".tl,
                     onClick: () {
                       App.mainNavigatorKey?.currentContext?.to(

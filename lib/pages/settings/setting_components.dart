@@ -733,16 +733,16 @@ class _SettingPartTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     return SliverToBoxAdapter(
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         child: Row(
           children: [
-            Icon(icon, color: isDark ? Colors.white.withValues(alpha: 0.8) : const Color(0xFF4A90E2), size: 22),
+            Icon(icon, color: cs.primary, size: 22),
             const SizedBox(width: 12),
             Text(title, style: ts.s18.copyWith(
-              color: isDark ? Colors.white : const Color(0xFF1A365D),
+              color: cs.onSurface,
             )),
           ],
         ),

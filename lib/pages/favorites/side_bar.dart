@@ -130,7 +130,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
           MenuButton(
             entries: [
               MenuEntry(
-                icon: Icons.add,
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
                 text: 'Create Folder'.tl,
                 onClick: () {
                   newFolder().then((value) {
@@ -141,7 +141,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
                 },
               ),
               MenuEntry(
-                icon: Icons.reorder,
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
                 text: 'Sort'.tl,
                 onClick: () {
                   sortFolders().then((value) {
