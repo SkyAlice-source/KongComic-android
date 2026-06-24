@@ -546,7 +546,20 @@
     "Restore Default Cover": "恢复默认封面",
     "Cover changed": "封面已更换",
     "Cover restored": "封面已恢复",
-    "ALL": "全部"
+    "ALL": "全部",
+    "Reader Settings": "阅读器设置",
+    "Appearance": "外观",
+    "Local Favorites": "收藏管理",
+    "APP": "通用设置",
+    "Reading mode, page turning, zoom": "阅读模式、翻页、缩放",
+    "Theme, language, font": "主题、语言、字体",
+    "Discover, search, home": "发现页、搜索、首页",
+    "Local and network favorites": "本地与网络收藏管理",
+    "Proxy, DNS, sources": "代理、DNS、源列表",
+    "Download tasks and cache": "下载任务与缓存",
+    "Comic import": "漫画导入设置",
+    "Data sync, auth, JS engine": "数据同步、授权、JS引擎",
+    "Version, credits": "版本、致谢"
   },
   "zh_TW": {
     "Home": "首頁",
@@ -1096,6 +1109,19 @@
     "Restore Default Cover": "恢復默認封面",
     "Cover changed": "封面已更換",
     "Cover restored": "封面已恢復",
-    "ALL": "全部"
+    "ALL": "全部",
+    "Reader Settings": "閱讀器設置",
+    "Appearance": "外觀",
+    "Local Favorites": "收藏管理",
+    "APP": "通用設置",
+    "Reading mode, page turning, zoom": "閱讀模式、翻頁、縮放",
+    "Theme, language, font": "主題、語言、字體",
+    "Discover, search, home": "發現頁、搜索、首頁",
+    "Local and network favorites": "本地與網絡收藏管理",
+    "Proxy, DNS, sources": "代理、DNS、源列表",
+    "Download tasks and cache": "下載任務與緩存",
+    "Comic import": "漫畫導入設置",
+    "Data sync, auth, JS engine": "數據同步、授權、JS引擎",
+    "Version, credits": "版本、致謝"
   }
 }

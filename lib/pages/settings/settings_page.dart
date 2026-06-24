@@ -52,15 +52,15 @@ class _SettingsPageState extends State<SettingsPage> {
   bool get enableTwoViews => context.width > 720;
 
   final categories = <String>[
-    "阅读器设置",
-    "外观设置",
-    "浏览设置",
-    "收藏管理",
-    "网络设置",
-    "下载设置",
-    "导入设置",
-    "通用设置",
-    "关于"
+    "Reader Settings".tl,
+    "Appearance".tl,
+    "Explore".tl,
+    "Local Favorites".tl,
+    "Network".tl,
+    "Download".tl,
+    "Import".tl,
+    "APP".tl,
+    "About".tl
   ];
 
   final icons = <Widget>[
@@ -76,15 +76,15 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   final subtitles = <String>[
-    "阅读模式、翻页、缩放",
-    "主题、语言、字体",
-    "发现页、搜索、首页",
-    "本地与网络收藏管理",
-    "代理、DNS、源列表",
-    "下载任务与缓存",
-    "漫画导入设置",
-    "数据同步、授权、JS引擎",
-    "版本、致谢",
+    "Reading mode, page turning, zoom".tl,
+    "Theme, language, font".tl,
+    "Discover, search, home".tl,
+    "Local and network favorites".tl,
+    "Proxy, DNS, sources".tl,
+    "Download tasks and cache".tl,
+    "Comic import".tl,
+    "Data sync, auth, JS engine".tl,
+    "Version, credits".tl,
   ];
   @override
   void initState() {
