@@ -299,10 +299,12 @@ Future<FileSelectResult?> selectFile({required List<String> ext}) async {
       if (xFile == null) return null;
       file = FileSelectResult(xFile.path);
     }
-    if (!ext.contains(file.path.split(".").last)) {
-      App.rootContext.showMessage(
-        message: "Invalid file type: ${file.path.split(".").last}",
-      );
+    if (file == null || !ext.any((e) => file!.path.toLowerCase().endsWith(".$e"))) {
+      if (file != null) {
+        App.rootContext.showMessage(
+          message: "Invalid file type: ${file.path.split(".").last}",
+        );
+      }
       return null;
     }
     return file;

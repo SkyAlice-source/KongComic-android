@@ -115,7 +115,7 @@ class _AppSettingsState extends State<AppSettings> {
         _CallbackSetting(
           title: "Import App Data".tl,
           callback: () async {
-            var file = await selectFile(ext: ['KongComic', 'venera', 'picadata']);
+            var file = await selectFile(ext: ['kongcomic', 'venera', 'picadata']);
             if (file != null) {
               var controller = showLoadingDialog(context);
               var cacheFile =
