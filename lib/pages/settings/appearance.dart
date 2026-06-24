@@ -42,6 +42,19 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
             App.forceRebuild();
           },
         ).toSliver(),
+        SelectSetting(
+          title: "Language".tl,
+          settingKey: "language",
+          optionTranslation: {
+            "system": "跟随系统",
+            "zh-CN": "简体中文",
+            "zh-TW": "繁體中文",
+            "en-US": "English",
+          },
+          onChanged: () async {
+            App.forceRebuild();
+          },
+        ).toSliver(),
       ],
     );
   }
