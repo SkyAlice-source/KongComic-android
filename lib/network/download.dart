@@ -409,19 +409,38 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
     }
 
     // Package downloaded chapters as CBZ if enabled
-    if (appdata.settings['saveAsCbz'] == true && comic!.chapters != null) {
-      for (var chapterId in (chapters ?? comic!.chapters!.allChapters.keys)) {
-        var chapterDir = Directory(FilePath.join(
-          path!,
-          LocalManager.getChapterDirectoryName(chapterId),
-        ));
-        if (!chapterDir.existsSync()) continue;
-        var cbzFile = File("${chapterDir.path}.cbz");
-        try {
-          await ZipFile.compressFolderAsync(chapterDir.path, cbzFile.path, 4);
-          chapterDir.deleteSync(recursive: true);
-        } catch (e, s) {
-          Log.error("Download", "Failed to package chapter as CBZ: $e\n$s");
+    if (appdata.settings['saveAsCbz'] == true) {
+      if (comic!.chapters != null) {
+        // 多章节模式：每个章节文件夹打包为单独的 .cbz
+        for (var chapterId in (chapters ?? comic!.chapters!.allChapters.keys)) {
+          var chapterDir = Directory(FilePath.join(
+            path!,
+            LocalManager.getChapterDirectoryName(chapterId),
+          ));
+          if (!chapterDir.existsSync()) continue;
+          var cbzFile = File("${chapterDir.path}.cbz");
+          try {
+            await ZipFile.compressFolderAsync(chapterDir.path, cbzFile.path, 4);
+            if (appdata.settings['deleteFolderAfterCbz'] == true) {
+              chapterDir.deleteSync(recursive: true);
+            }
+          } catch (e, s) {
+            Log.error("Download", "Failed to package chapter as CBZ: $e\n$s");
+          }
+        }
+      } else {
+        // 单章节模式（单行本）：整个下载目录打包为一个 .cbz
+        var dir = Directory(path!);
+        if (dir.existsSync()) {
+          var cbzFile = File("${dir.path}.cbz");
+          try {
+            await ZipFile.compressFolderAsync(dir.path, cbzFile.path, 4);
+            if (appdata.settings['deleteFolderAfterCbz'] == true) {
+              dir.deleteSync(recursive: true);
+            }
+          } catch (e, s) {
+            Log.error("Download", "Failed to package single chapter as CBZ: $e\n$s");
+          }
         }
       }
     }

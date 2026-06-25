@@ -18,6 +18,11 @@ class _DownloadSettingsState extends State<DownloadSettings> {
           subtitle: "Package each chapter as .cbz file after download".tl,
           settingKey: 'saveAsCbz',
         ).toSliver(),
+        _SwitchSetting(
+          title: "Delete folder after CBZ packaging".tl,
+          subtitle: "Keep only the .cbz file, remove the original folder".tl,
+          settingKey: 'deleteFolderAfterCbz',
+        ).toSliver(),
         _SliderSetting(
           title: "Download Threads".tl,
           settingsIndex: 'downloadThreads',
