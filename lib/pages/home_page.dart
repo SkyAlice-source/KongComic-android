@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/pages/categories_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:sliver_tools/sliver_tools.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
@@ -12,10 +16,16 @@ import 'package:kong_comic/foundation/custom_cover.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/local.dart';
+import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/comic_source_page.dart';
+import 'package:kong_comic/pages/downloading_page.dart';
 import 'package:kong_comic/pages/follow_updates_page.dart';
+import 'package:kong_comic/pages/history_page.dart';
 import 'package:kong_comic/pages/image_favorites_page/image_favorites_page.dart';
+import 'package:kong_comic/utils/data_sync.dart';
+import 'package:kong_comic/utils/import_comic.dart';
+import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 import 'local_comics_page.dart';
@@ -59,6 +69,7 @@ class _HomePageState extends State<HomePage> {
 class _BannerProvider extends InheritedWidget {
   final double bannerHeight;
   const _BannerProvider({required this.bannerHeight, required super.child});
+  static _BannerProvider of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_BannerProvider>()!;
   @override bool updateShouldNotify(_BannerProvider old) => old.bannerHeight != bannerHeight;
 }
 
@@ -341,9 +352,9 @@ class _HomeCapsulesState extends State<_HomeCapsules> {
     final lc = LocalManager().count;
     return SliverToBoxAdapter(child: Column(children: [
       Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), child: Row(children: [
-        Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 20), label: "追更".tl, value: _updateCount > 0 ? "$_updateCount" : null, onTap: () => context.to(() => const FollowUpdatesPage()))),
+        Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 20), label: "Follow Updates".tl, value: _updateCount > 0 ? "$_updateCount" : null, onTap: () => context.to(() => const FollowUpdatesPage()))),
         const SizedBox(width: 10),
-        Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 20), label: "本地".tl, value: "$lc", onTap: () => context.to(() => const LocalComicsPage()))),
+        Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 20), label: "Local".tl, value: "$lc", onTap: () => context.to(() => const LocalComicsPage()))),
       ])),
     ]));
   }
@@ -354,9 +365,9 @@ class _BottomModules extends StatelessWidget {
   @override Widget build(BuildContext context) {
     final cc = ComicSource.all().length;
     return SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), child: Row(children: [
-      Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 20), label: "图片收藏".tl, onTap: () => context.to(() => const ImageFavoritesPage()))),
+      Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 20), label: "Image Favorites".tl, onTap: () => context.to(() => const ImageFavoritesPage()))),
       const SizedBox(width: 10),
-      Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedAppStore, size: 20), label: "漫画源".tl, value: "$cc", onTap: () => context.to(() => const ComicSourcePage()))),
+      Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedAppStore, size: 20), label: "Comic Source".tl, value: "$cc", onTap: () => context.to(() => const ComicSourcePage()))),
     ])));
   }
 }

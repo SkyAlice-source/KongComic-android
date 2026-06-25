@@ -205,6 +205,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         tertiary = light.tertiary;
       }
       return MaterialApp(
+        key: ValueKey(appdata.settings['language'] ?? 'system'),
         title: "KongComic",
         home: home,
         debugShowCheckedModeBanner: false,

@@ -213,12 +213,12 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
             isLeft = x < width * 0.15;
             isRight = x > width * 0.85;
             isTop = y < height * 0.15;
-            isBottom = y > height * 0.85;
+            isBottom = y > height * 0.7;
           default: // 'default'
-            isLeft = x < width * 0.25;
-            isRight = x > width * 0.75;
-            isTop = y < height * 0.25;
-            isBottom = y > height * 0.85;
+            isLeft = x < width * 0.3;
+            isRight = x > width * 0.7;
+            isTop = y < height * 0.3;
+            isBottom = y > height * 0.7;
         }
         
         bool isCenter = false;

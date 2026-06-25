@@ -514,25 +514,22 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
     final activeClr = colorScheme.primary;
     final inactiveClr = colorScheme.onSurfaceVariant;
 
-    return SizedBox(
-      height: 44,
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isActive ? activeClr.withValues(alpha: 0.12 * value) : Colors.transparent,
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            height: 24,
-            padding: EdgeInsets.symmetric(horizontal: 8 + value * 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: isActive ? activeClr.withValues(alpha: 0.12 * value) : Colors.transparent,
+          ColorFiltered(
+            colorFilter: ColorFilter.mode(
+              isActive ? activeClr : inactiveClr,
+              BlendMode.srcIn,
             ),
-            child: ColorFiltered(
-              colorFilter: ColorFilter.mode(
-                isActive ? activeClr : inactiveClr,
-                BlendMode.srcIn,
-              ),
-              child: SizedBox(width: 18, height: 18, child: icon),
-            ),
+            child: SizedBox(width: 18, height: 18, child: icon),
           ),
           const SizedBox(height: 2),
           Text(

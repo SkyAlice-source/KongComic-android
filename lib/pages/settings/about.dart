@@ -47,12 +47,23 @@ class _AboutSettingsState extends State<AboutSettings> {
             ),
             const SizedBox(height: 4),
             GestureDetector(
-              onTap: () => launchUrlString("https://github.com/venera-app/venera"),
+              onTap: () => launchUrlString("https://github.com/SkyAlice-source/KongComic-android"),
               child: Text(
-                "Based on Venera, thanks to the original project.".tl,
+                "KongComic - 基于 Venera 二次开发".tl,
                 style: TextStyle(
                   fontSize: 13,
                   color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            GestureDetector(
+              onTap: () => launchUrlString("https://github.com/SkyAlice-source/KongComic-android"),
+              child: Text(
+                "Documentation language follows system settings".tl,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
@@ -89,7 +100,7 @@ class _AboutSettingsState extends State<AboutSettings> {
 
 Future<bool> checkUpdate() async {
   var res = await AppDio()
-      .get("https://cdn.jsdelivr.net/gh/venera-app/venera@master/pubspec.yaml");
+      .get("https://cdn.jsdelivr.net/gh/SkyAlice-source/KongComic-android@master/pubspec.yaml");
   if (res.statusCode == 200) {
     var data = loadYaml(res.data);
     if (data["version"] != null) {
@@ -120,7 +131,7 @@ Future<void> checkUpdateUi([bool showMessageIfNoUpdate = true, bool delay = fals
                   onPressed: () {
                     Navigator.pop(context);
                     launchUrlString(
-                        "");
+                        "https://github.com/SkyAlice-source/KongComic-android/releases");
                   },
                   child: Text("Update".tl),
                 ),
