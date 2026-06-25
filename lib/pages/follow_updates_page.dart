@@ -183,7 +183,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ListTile(
-              leading: Icon(Icons.info_outline),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 18),
               title: Text("Not Configured".tl),
             ),
             Text(
@@ -217,7 +217,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ListTile(
-              leading: Icon(Icons.stars_outlined),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18),
               title: Text(folder!),
             ),
             Text(
@@ -267,7 +267,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.update),
+                HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                 const SizedBox(width: 8),
                 Text(
                   "Updates".tl,
@@ -276,7 +276,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
                 const Spacer(),
                 if (updatedComics.isNotEmpty)
                   IconButton(
-                    icon: Icon(Icons.clear_all),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
                     onPressed: () {
                       showConfirmDialog(
                         context: App.rootContext,
@@ -356,7 +356,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.list),
+                HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
                 const SizedBox(width: 8),
                 Text(
                   "All Comics".tl,

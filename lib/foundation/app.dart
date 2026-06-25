@@ -99,12 +99,15 @@ class _App {
 
   Function? _forceRebuildHandler;
 
+  static VoidCallback? onLanguageChange;
+
   void registerForceRebuild(Function handler) {
     _forceRebuildHandler = handler;
   }
 
   void forceRebuild() {
     _forceRebuildHandler?.call();
+    onLanguageChange?.call();
   }
 }
 

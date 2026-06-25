@@ -104,7 +104,7 @@ class _ExplorePageState extends State<ExplorePage>
             String currentPageId = pages[controller.index];
             GlobalState.find<_SingleExplorePageState>(currentPageId).toTop();
           },
-          child: const Icon(Icons.arrow_upward),
+          child: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
         ),
       );
 
@@ -152,7 +152,7 @@ class _ExplorePageState extends State<ExplorePage>
         tabs: pages.map((e) => buildTab(e)).toList(),
         controller: controller,
         actionButton: TabActionButton(
-          icon: const Icon(Icons.add),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
           text: "Add".tl,
           onPressed: addPage,
         ),

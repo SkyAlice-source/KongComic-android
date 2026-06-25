@@ -14,59 +14,33 @@ class _AboutSettingsState extends State<AboutSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("关于")),
+        SliverAppbar(title: Text("About".tl)),
         SizedBox(
-          height: 120,
+          height: 112,
           width: double.infinity,
           child: Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Image.asset(
-                "assets/app_icon.png",
-                width: 96,
-                height: 96,
+            child: Container(
+              width: 112,
+              height: 112,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(136),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: const Image(
+                image: AssetImage("assets/app_icon.png"),
                 filterQuality: FilterQuality.medium,
               ),
             ),
           ),
-        ).paddingTop(20).toSliver(),
+        ).paddingTop(16).toSliver(),
         Column(
           children: [
             const SizedBox(height: 8),
-            Text(
-              "V${App.version}",
-              style: const TextStyle(fontSize: 16),
+            const Text(
+              "V1.0.0",
+              style: TextStyle(fontSize: 16),
             ),
             Text("KongComic is a free and open-source comic reader.".tl),
-            const SizedBox(height: 12),
-            const Divider(height: 1).paddingHorizontal(16),
-            const SizedBox(height: 12),
-            Text(
-              "Special Thanks".tl,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            GestureDetector(
-              onTap: () => launchUrlString("https://github.com/SkyAlice-source/KongComic-android"),
-              child: Text(
-                "KongComic - 基于 Venera 二次开发".tl,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            GestureDetector(
-              onTap: () => launchUrlString("https://github.com/SkyAlice-source/KongComic-android"),
-              child: Text(
-                "Documentation language follows system settings".tl,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
             const SizedBox(height: 8),
           ],
         ).toSliver(),
@@ -91,8 +65,13 @@ class _AboutSettingsState extends State<AboutSettings> {
           title: "Check for updates on startup".tl,
           settingKey: "checkUpdateOnStart",
         ).toSliver(),
-
-
+        ListTile(
+          title: const Text("GitHub"),
+          trailing: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 20),
+          onTap: () {
+            launchUrlString("https://github.com/SkyAlice-source/KongComic-android");
+          },
+        ).toSliver(),
       ],
     );
   }

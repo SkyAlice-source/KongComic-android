@@ -191,7 +191,7 @@ class _DoubleLineSelectSettingsState extends State<_DoubleLineSelectSettings> {
           if (widget.help != null)
             Button.icon(
               size: 18,
-              icon: const Icon(Icons.help_outline),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),
               onPressed: () {
                 showDialog(
                   context: context,
@@ -215,7 +215,7 @@ class _DoubleLineSelectSettingsState extends State<_DoubleLineSelectSettings> {
         ],
       ),
       subtitle: Text(widget.optionTranslation[value] ?? "None"),
-      trailing: const Icon(Icons.arrow_drop_down),
+      trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
       onTap: () {
         var renderBox = context.findRenderObject() as RenderBox;
         var offset = renderBox.localToGlobal(Offset.zero);
@@ -322,7 +322,7 @@ class _EndSelectorSelectSettingState extends State<_EndSelectorSelectSetting> {
           if (widget.help != null)
             Button.icon(
               size: 18,
-              icon: const Icon(Icons.help_outline),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),
               onPressed: () {
                 showDialog(
                   context: context,
@@ -488,7 +488,7 @@ class _PopupWindowSetting extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       title: Text(title),
-      trailing: const Icon(FluentIcons.chevron_right_24_regular),
+      trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
       onTap: () {
         showPopUpWidget(App.rootContext, builder());
       },
@@ -582,7 +582,7 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
         if (keys.length < widget.pages.length)
           TextButton.icon(
             label: Text("Add".tl),
-            icon: const Icon(Icons.add),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
             onPressed: showAddDialog,
           ),
       ],
@@ -599,7 +599,7 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
             keys.remove(key);
           });
         },
-        icon: const Icon(Icons.delete_outline),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
       ),
     );
 
@@ -608,7 +608,7 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
       key: Key(key),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [removeButton, const Icon(Icons.drag_handle)],
+        children: [removeButton, HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18)],
       ),
     );
   }
@@ -729,7 +729,7 @@ class _SettingPartTitle extends StatelessWidget {
 
   final String title;
 
-  final IconData icon;
+  final Widget icon;
 
   @override
   Widget build(BuildContext context) {
@@ -739,7 +739,7 @@ class _SettingPartTitle extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         child: Row(
           children: [
-            Icon(icon, color: cs.primary, size: 22),
+            icon,
             const SizedBox(width: 12),
             Text(title, style: ts.s18.copyWith(
               color: cs.onSurface,

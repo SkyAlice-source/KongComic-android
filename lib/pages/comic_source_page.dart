@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'dart:io' as io;
 import 'package:flutter/material.dart';
@@ -218,7 +219,7 @@ class _BodyState extends State<_Body> {
           children: [
             ListTile(
               title: Text("Add comic source".tl),
-              leading: const Icon(Icons.dashboard_customize),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedDashboardCircle, size: 18),
             ),
             TextField(
               decoration: InputDecoration(
@@ -227,7 +228,7 @@ class _BodyState extends State<_Body> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 suffix: IconButton(
                   onPressed: () => handleAddSource(url),
-                  icon: const Icon(Icons.check),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
                 ),
               ),
               onChanged: (value) {
@@ -240,7 +241,7 @@ class _BodyState extends State<_Body> {
               runSpacing: 8,
               children: [
                 FilledButton.tonalIcon(
-                  icon: Icon(Icons.article_outlined),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSourceCode, size: 18),
                   label: Text("Comic Source list".tl),
                   onPressed: () {
                     showPopUpWidget(
@@ -250,12 +251,12 @@ class _BodyState extends State<_Body> {
                   },
                 ),
                 FilledButton.tonalIcon(
-                  icon: Icon(Icons.file_open_outlined),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedFile01, size: 18),
                   label: Text("Use a config file".tl),
                   onPressed: _selectFile,
                 ),
                 FilledButton.tonalIcon(
-                  icon: Icon(Icons.help_outline),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),
                   label: Text("Help".tl),
                   onPressed: help,
                 ),
@@ -417,7 +418,7 @@ class _ComicSourceListState extends State<_ComicSourceList> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ListTile(
-                  leading: Icon(Icons.source_outlined),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedSourceCode, size: 18),
                   title: Text("Repo URL".tl),
                 ),
                 TextField(
@@ -474,7 +475,7 @@ class _ComicSourceListState extends State<_ComicSourceList> {
 
         var key = json![index]["key"];
         var action = currentKey.contains(key)
-            ? const Icon(Icons.check, size: 20).paddingRight(8)
+            ? HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 20).paddingRight(8)
             : Button.filled(
                 child: Text("Add".tl),
                 onPressed: () async {
@@ -720,7 +721,7 @@ class _CheckUpdatesButtonState extends State<_CheckUpdatesButton> {
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : Icon(Icons.update),
+          : HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
       label: Text("Check updates".tl),
       onPressed: check,
     );
@@ -855,21 +856,21 @@ class _SliverComicSourceState extends State<_SliverComicSource> {
                   message: "Edit".tl,
                   child: IconButton(
                     onPressed: () => widget.edit(source),
-                    icon: const Icon(Icons.edit_note),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
                   ),
                 ),
                 Tooltip(
                   message: "Update".tl,
                   child: IconButton(
                     onPressed: () => widget.update(source),
-                    icon: const Icon(Icons.update),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                   ),
                 ),
                 Tooltip(
                   message: "Delete".tl,
                   child: IconButton(
                     onPressed: () => widget.delete(source),
-                    icon: const Icon(Icons.delete),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
                   ),
                 ),
               ],
@@ -968,7 +969,7 @@ class _SliverComicSourceState extends State<_SliverComicSource> {
               overflow: TextOverflow.ellipsis,
             ),
             trailing: IconButton(
-              icon: const Icon(Icons.edit),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
               onPressed: () {
                 showInputDialog(
                   context: context,
@@ -1004,7 +1005,7 @@ class _SliverComicSourceState extends State<_SliverComicSource> {
     if (!logged) {
       yield ListTile(
         title: Text("Log in".tl),
-        trailing: const Icon(FluentIcons.chevron_right_24_regular),
+        trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
         onTap: () async {
           await context.to(
             () => _LoginPage(config: source.account!, source: source),
@@ -1055,7 +1056,7 @@ class _SliverComicSourceState extends State<_SliverComicSource> {
                   dimension: 24,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.refresh),
+              : HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
         );
       }
       yield ListTile(
@@ -1067,7 +1068,7 @@ class _SliverComicSourceState extends State<_SliverComicSource> {
           ComicSourceManager().notifyStateChange();
           setState(() {});
         },
-        trailing: const Icon(Icons.logout),
+        trailing: HugeIcon(icon: HugeIcons.strokeRoundedLogout01, size: 18),
       );
     }
   }
@@ -1148,7 +1149,7 @@ class _LoginPageState extends State<_LoginPage> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.error_outline),
+                      HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 18),
                       const SizedBox(width: 8),
                       Text("Login with password is disabled".tl),
                     ],
@@ -1179,7 +1180,7 @@ class _LoginPageState extends State<_LoginPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.link),
+                        HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
                         const SizedBox(width: 8),
                         Text("Create Account".tl),
                       ],
@@ -1198,7 +1199,7 @@ class _LoginPageState extends State<_LoginPage> {
       if (username.isEmpty || password.isEmpty) {
         showToast(
           message: "Cannot be empty".tl,
-          icon: const Icon(Icons.error_outline),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 18),
           context: context,
         );
         return;

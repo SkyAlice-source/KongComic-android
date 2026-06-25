@@ -185,15 +185,15 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
   Widget build(BuildContext context) {
     List<Widget> selectActions = [
       IconButton(
-          icon: const Icon(Icons.select_all),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
           tooltip: "Select All".tl,
           onPressed: selectAll),
       IconButton(
-          icon: const Icon(Icons.deselect),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
           tooltip: "Deselect".tl,
           onPressed: deSelect),
       IconButton(
-          icon: const Icon(Icons.flip),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedFlipHorizontal, size: 18),
           tooltip: "Invert Selection".tl,
           onPressed: invertSelection),
       buildMultiSelectMenu(),
@@ -203,7 +203,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
       Tooltip(
         message: "Search".tl,
         child: IconButton(
-          icon: const Icon(Icons.search),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18),
           onPressed: () {
             setState(() {
               searchMode = true;
@@ -214,14 +214,14 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
       Tooltip(
         message: "Sort".tl,
         child: IconButton(
-          icon: const Icon(Icons.sort),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedSortDescending, size: 18),
           onPressed: sort,
         ),
       ),
       Tooltip(
         message: "Downloading".tl,
         child: IconButton(
-          icon: const Icon(Icons.download),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
           onPressed: () {
             showPopUpWidget(context, const DownloadingPage());
           },
@@ -230,7 +230,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
       Tooltip(
         message: "Import".tl,
         child: IconButton(
-          icon: const Icon(Icons.add_box_outlined),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
           onPressed: () async {
             var result = await showModalBottomSheet(
               context: context,
@@ -239,18 +239,18 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.archive_outlined),
+                      leading: HugeIcon(icon: HugeIcons.strokeRoundedArchive, size: 18),
                       title: Text("Import CBZ / ZIP / 7Z".tl),
                       onTap: () => Navigator.pop(ctx, 'cbz'),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.folder_zip_outlined),
+                      leading: HugeIcon(icon: HugeIcons.strokeRoundedFolderZip, size: 18),
                       title: Text("Import archives from folder".tl),
                       subtitle: Text("Batch import .cbz/.zip/.7z files".tl),
                       onTap: () => Navigator.pop(ctx, 'multiCbz'),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.folder_outlined),
+                      leading: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 18),
                       title: Text("Import image folders".tl),
                       subtitle: Text("Import folders containing images as comics".tl),
                       onTap: () => Navigator.pop(ctx, 'folder'),
@@ -293,8 +293,8 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                     }
                   },
                   icon: multiSelectMode
-                      ? const Icon(Icons.close)
-                      : const Icon(Icons.arrow_back),
+                      ? HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18)
+                      : HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
                 ),
               ),
               title: multiSelectMode
@@ -308,8 +308,8 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                 message: multiSelectMode ? "Cancel".tl : "Cancel".tl,
                 child: IconButton(
                   icon: multiSelectMode
-                      ? const Icon(Icons.close)
-                      : const Icon(Icons.close),
+                      ? HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18)
+                      : HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                   onPressed: () {
                     if (multiSelectMode) {
                       setState(() {
@@ -499,7 +499,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
         },
       ),
       MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedAddressBook, size: 18),
         text: "Export as epub".tl,
         onClick: () async {
           exportComics(comics, createEpubWithLocalComic, ".epub");

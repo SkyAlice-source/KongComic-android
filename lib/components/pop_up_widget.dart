@@ -126,7 +126,7 @@ class _PopUpWidgetScaffoldState extends State<PopUpWidgetScaffold> {
                 Tooltip(
                   message: "Back".tl,
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_back_sharp),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
                     onPressed: () =>
                         context.canPop() ? context.pop() : App.pop(),
                   ),

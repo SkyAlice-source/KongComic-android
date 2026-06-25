@@ -1262,7 +1262,7 @@ class ComicListState extends State<ComicList> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.error_outline),
+                    HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 18),
                     const SizedBox(width: 8),
                     Expanded(child: Text(_error!, maxLines: 3)),
                   ],

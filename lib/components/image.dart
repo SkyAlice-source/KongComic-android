@@ -311,7 +311,7 @@ class _AnimatedImageState extends State<AnimatedImage>
       }
     } else if (_lastException != null) {
       result = const Center(
-        child: Icon(Icons.error),
+        child: HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 18),
       );
 
       if (!widget.excludeFromSemantics) {

@@ -120,8 +120,9 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(
-            Icons.local_activity,
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedActivity01,
+            size: 22,
             color: context.colorScheme.secondary,
           ),
           const SizedBox(width: 12),
@@ -141,7 +142,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
                 },
               ),
               MenuEntry(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
                 text: 'Sort'.tl,
                 onClick: () {
                   sortFolders().then((value) {
@@ -172,15 +173,16 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.cloud,
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedCloud,
+            size: 22,
             color: context.colorScheme.secondary,
           ),
           const SizedBox(width: 12),
           Text("Network".tl),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
             onPressed: () {
               showPopUpWidget(
                 App.rootContext,

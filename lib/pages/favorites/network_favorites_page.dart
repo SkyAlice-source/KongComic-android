@@ -101,7 +101,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
           message: "Folders".tl,
           child: context.width <= _kTwoPanelChangeWidth
               ? IconButton(
-                  icon: const Icon(Icons.menu),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
                   color: context.colorScheme.primary,
                   onPressed: showFolders,
                 )
@@ -115,7 +115,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
           Tooltip(
             message: "Refresh".tl,
             child: IconButton(
-              icon: const Icon(Icons.refresh),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
               onPressed: () {
                 // Force refresh bypassing cache
                 NetworkCacheManager().clear();
@@ -139,7 +139,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
           message: "Folders".tl,
           child: context.width <= _kTwoPanelChangeWidth
               ? IconButton(
-                  icon: const Icon(Icons.menu),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
                   color: context.colorScheme.primary,
                   onPressed: context
                       .findAncestorStateOfType<_FavoritesPageState>()!
@@ -232,7 +232,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         message: "Folders".tl,
         child: context.width <= _kTwoPanelChangeWidth
             ? IconButton(
-                icon: const Icon(Icons.menu),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
                 color: context.colorScheme.primary,
                 onPressed: showFolders,
               )
@@ -249,7 +249,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         message: "Folders".tl,
         child: context.width <= _kTwoPanelChangeWidth
             ? IconButton(
-                icon: const Icon(Icons.menu),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
                 color: context.colorScheme.primary,
                 onPressed: showFolders,
               )
@@ -348,8 +348,8 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text("Create a folder".tl),
-                        const Icon(
-                          Icons.add,
+                        HugeIcon(icon: 
+                          HugeIcons.strokeRoundedAddCircle,
                           size: 18,
                         ),
                       ],
@@ -401,8 +401,8 @@ class _FolderTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: Row(
             children: [
-              Icon(
-                Icons.folder,
+              HugeIcon(icon: 
+                HugeIcons.strokeRoundedFolder01,
                 size: 28,
                 color: Theme.of(context).colorScheme.secondary,
               ),
@@ -421,11 +421,11 @@ class _FolderTile extends StatelessWidget {
               ),
               if (deleteFolder != null)
                 IconButton(
-                  icon: const Icon(Icons.delete_outline),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
                   onPressed: () => onDeleteFolder(context),
                 )
               else
-                const Icon(FluentIcons.chevron_right_24_regular),
+                HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
             ],
           ),
         ),

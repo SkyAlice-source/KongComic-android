@@ -85,7 +85,7 @@ class _CoverViewerState extends State<_CoverViewer> {
             children: [
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
@@ -99,7 +99,7 @@ class _CoverViewerState extends State<_CoverViewer> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.save_alt),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
                 onPressed: _saveCover,
               ),
               const SizedBox(width: 8),

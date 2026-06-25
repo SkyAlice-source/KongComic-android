@@ -181,7 +181,7 @@ class _SearchResultPageState extends State<SearchResultPage> {
     return Tooltip(
       message: "Settings".tl,
       child: IconButton(
-        icon: const Icon(Icons.tune),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
         onPressed: () async {
           if (suggestionOverlay != null) {
             suggestionsController.remove();
@@ -350,12 +350,12 @@ class _SuggestionsState extends State<_Suggestions> {
     return Column(
       children: [
         ListTile(
-          leading: const Icon(Icons.hub_outlined),
+          leading: HugeIcon(icon: HugeIcons.strokeRoundedAiNetwork, size: 18),
           title: Text("Suggestions".tl),
           trailing: Tooltip(
             message: "Clear".tl,
             child: IconButton(
-              icon: const Icon(Icons.clear_all),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
               onPressed: () {
                 widget.controller.suggestions.clear();
                 widget.controller.remove();

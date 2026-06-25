@@ -12,7 +12,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("外观设置")),
+        SliverAppbar(title: Text("Appearance".tl)),
         SelectSetting(
           title: "Theme Mode".tl,
           settingKey: "theme_mode",
@@ -38,7 +38,6 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
             "blue": "Blue".tl,
           },
           onChanged: () async {
-            await App.init();
             App.forceRebuild();
           },
         ).toSliver(),
@@ -46,13 +45,15 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           title: "Language".tl,
           settingKey: "language",
           optionTranslation: {
-            "system": "跟随系统",
+            "system": "System".tl,
             "zh-CN": "简体中文",
             "zh-TW": "繁體中文",
             "en-US": "English",
           },
           onChanged: () async {
             App.forceRebuild();
+            // 关闭设置页后重新打开，让语言立即生效
+            if (context.mounted) Navigator.of(context).pop();
           },
         ).toSliver(),
       ],

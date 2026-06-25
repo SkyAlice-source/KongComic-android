@@ -371,8 +371,8 @@ class _AppScrollBarState extends State<AppScrollBar> {
                         child: Column(
                           children: [
                             const Spacer(),
-                            Icon(Icons.arrow_drop_up, size: 18),
-                            Icon(Icons.arrow_drop_down, size: 18),
+                            HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
+                            HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
                             const Spacer(),
                           ],
                         ).paddingLeft(4),

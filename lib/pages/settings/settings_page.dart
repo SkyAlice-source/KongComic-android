@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -51,7 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   bool get enableTwoViews => context.width > 720;
 
-  final categories = <String>[
+  List<String> _categories() => [
     "Reader Settings".tl,
     "Appearance".tl,
     "Explore".tl,
@@ -75,21 +74,32 @@ class _SettingsPageState extends State<SettingsPage> {
     HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 24),
   ];
 
-  final subtitles = <String>[
+  List<String> _subtitles() => [
     "Reading mode, page turning, zoom".tl,
-    "Theme, language, font".tl,
-    "Discover, search, home".tl,
-    "Local and network favorites".tl,
-    "Proxy, DNS, sources".tl,
-    "Download tasks and cache".tl,
+    "Theme, language".tl,
+    "Comic display, search sources, home".tl,
+    "Local favorites management".tl,
+    "Proxy, DNS".tl,
+    "Download tasks, CBZ packaging".tl,
     "Comic import".tl,
-    "Data sync, auth, JS engine".tl,
-    "Version, credits".tl,
+    "Data sync, auth, cache, storage".tl,
+    "Version, update, GitHub".tl,
   ];
   @override
   void initState() {
     currentPage = widget.initialPage;
+    appdata.settings.addListener(_onSettingsChange);
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    appdata.settings.removeListener(_onSettingsChange);
+    super.dispose();
+  }
+
+  void _onSettingsChange() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -267,8 +277,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return ListView.builder(
       padding: EdgeInsets.only(top: 8, bottom: MediaQuery.of(context).padding.bottom + 16),
-      itemCount: categories.length,
-      itemBuilder: (context, index) => buildItem(categories[index], subtitles[index], index),
+      itemCount: _categories().length,
+      itemBuilder: (context, index) => buildItem(_categories()[index], _subtitles()[index], index),
     );
   }
 

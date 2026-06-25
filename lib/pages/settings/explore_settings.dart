@@ -12,7 +12,7 @@ class _ExploreSettingsState extends State<ExploreSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("浏览设置")),
+        SliverAppbar(title: Text("Explore".tl)),
         SelectSetting(
           title: "Display mode of comic tile".tl,
           settingKey: "comicDisplayMode",
@@ -89,13 +89,13 @@ class _ExploreSettingsState extends State<ExploreSettings> {
           },
         ).toSliver(),
         SelectSetting(
-          title: "初始页面",
+          title: "Initial Page".tl,
           settingKey: "initialPage",
           optionTranslation: {
-            '0': "分类",
-            '1': "收藏",
-            '2': "主页",
-            '3': "发现",
+            '0': "Categories".tl,
+            '1': "Favorites".tl,
+            '2': "Home".tl,
+            '3': "Explore".tl,
           },
         ).toSliver(),
         SelectSetting(
@@ -127,7 +127,7 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
       title: "Keyword blocking".tl,
       tailing: [
         TextButton.icon(
-          icon: const Icon(Icons.add),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
           label: Text("Add".tl),
           onPressed: add,
         ),
@@ -138,7 +138,7 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
           return ListTile(
             title: Text(appdata.settings["blockedWords"][index]),
             trailing: IconButton(
-              icon: const Icon(Icons.close),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
               onPressed: () {
                 appdata.settings["blockedWords"].removeAt(index);
                 appdata.saveData();
@@ -272,7 +272,7 @@ class _ManageBlockingCommentWordViewState extends State<_ManageBlockingCommentWo
       title: "Comment keyword blocking".tl,
       tailing: [
         TextButton.icon(
-          icon: const Icon(Icons.add),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
           label: Text("Add".tl),
           onPressed: add,
         ),
@@ -283,7 +283,7 @@ class _ManageBlockingCommentWordViewState extends State<_ManageBlockingCommentWo
           return ListTile(
             title: Text(appdata.settings["blockedCommentWords"][index]),
             trailing: IconButton(
-              icon: const Icon(Icons.close),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
               onPressed: () {
                 appdata.settings["blockedCommentWords"].removeAt(index);
                 appdata.saveData();

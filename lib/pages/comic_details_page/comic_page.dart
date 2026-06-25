@@ -211,7 +211,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   curve: Curves.ease,
                 );
               },
-              child: const Icon(Icons.arrow_upward),
+              child: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
             )
           : null,
       body: SmoothCustomScrollView(
@@ -314,7 +314,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       actions: [
         IconButton(
           onPressed: showMoreActions,
-          icon: const Icon(Icons.more_horiz),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 18),
         ),
       ],
     );
@@ -393,29 +393,29 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
             children: [
               if (hasHistory && !isMobile)
                 _ActionButton(
-                  icon: const Icon(Icons.menu_book),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
                   text: 'Continue'.tl,
                   onPressed: continueRead,
                   iconColor: context.useTextColor(Colors.yellow),
                 ),
               if (!isMobile || hasHistory)
                 _ActionButton(
-                  icon: const Icon(Icons.play_circle_outline),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedPlayCircle, size: 18),
                   text: 'Start'.tl,
                   onPressed: read,
                   iconColor: context.useTextColor(Colors.orange),
                 ),
               if (!isMobile && !isDownloaded)
                 _ActionButton(
-                  icon: const Icon(Icons.download),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
                   text: 'Download'.tl,
                   onPressed: download,
                   iconColor: context.useTextColor(Colors.cyan),
                 ),
               if (data!.isLiked != null)
                 _ActionButton(
-                  icon: const Icon(Icons.favorite_border),
-                  activeIcon: const Icon(Icons.favorite),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 18),
+                  activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 20),
                   isActive: isLiked,
                   text:
                       ((data!.likesCount != null)
@@ -427,8 +427,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   iconColor: context.useTextColor(Colors.red),
                 ),
               _ActionButton(
-                icon: const Icon(Icons.bookmark_outline_outlined),
-                activeIcon: const Icon(Icons.bookmark),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedBookmark01, size: 20),
+                activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedBookmarkAdd01, size: 20),
                 isActive: isFavorite || isAddToLocalFav,
                 text: 'Favorite'.tl,
                 onPressed: openFavPanel,
@@ -437,13 +437,13 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               ),
               if (comicSource.commentsLoader != null)
                 _ActionButton(
-                  icon: const Icon(Icons.comment),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
                   text: (comic.commentCount ?? 'Comments'.tl).toString(),
                   onPressed: showComments,
                   iconColor: context.useTextColor(Colors.green),
                 ),
               _ActionButton(
-                icon: const Icon(Icons.share),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 18),
                 text: 'Share'.tl,
                 onPressed: share,
                 iconColor: context.useTextColor(Colors.blue),
@@ -546,7 +546,9 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                "阅读进度 ${(readPct * 100).toInt()}%  P$page/${history!.maxPage}",
+                                "Reading progress %s  Page %s".tl
+                                    .replaceFirst("%s", "${(readPct * 100).toInt()}%")
+                                    .replaceFirst("%s", "P$page/${history!.maxPage}"),
                                 style: TextStyle(
                                   color: textColor.withValues(alpha: 0.85),
                                   fontSize: 10,
@@ -595,7 +597,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                         ),
                         Center(
                           child: Text(
-                            "下载 ${(dlPct * 100).toInt()}%",
+                            "Downloading %s".tl.replaceAll("%s", "${(dlPct * 100).toInt()}%"),
                             style: TextStyle(
                               color: context.colorScheme.onPrimary,
                               fontSize: 11,

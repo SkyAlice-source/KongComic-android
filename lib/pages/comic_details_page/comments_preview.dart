@@ -36,7 +36,7 @@ class _CommentsPartState extends State<_CommentsPart> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.chevron_left),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
                   onPressed: () {
                     scrollController.animateTo(
                       scrollController.position.pixels - 340,
@@ -46,7 +46,7 @@ class _CommentsPartState extends State<_CommentsPart> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chevron_right),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
                   onPressed: () {
                     scrollController.animateTo(
                       scrollController.position.pixels + 340,
@@ -80,7 +80,7 @@ class _CommentsPartState extends State<_CommentsPart> {
               ),
               const SizedBox(height: 8),
               _ActionButton(
-                icon: const Icon(Icons.comment),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
                 text: "View more".tl,
                 onPressed: widget.showMore,
                 iconColor: context.useTextColor(Colors.green),

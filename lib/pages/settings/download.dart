@@ -12,7 +12,7 @@ class _DownloadSettingsState extends State<DownloadSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("下载设置")),
+        SliverAppbar(title: Text("Download".tl)),
         _SwitchSetting(
           title: "Save chapters as CBZ".tl,
           subtitle: "Package each chapter as .cbz file after download".tl,

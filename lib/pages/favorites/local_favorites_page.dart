@@ -288,7 +288,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
               message: "Folders".tl,
               child: context.width <= _kTwoPanelChangeWidth
                   ? IconButton(
-                      icon: const Icon(Icons.menu),
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
                       color: context.colorScheme.primary,
                       onPressed: favPage.showFolderSelector,
                     )
@@ -340,7 +340,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                     },
                     child: Builder(builder: (context) {
                       return IconButton(
-                        icon: const Icon(Icons.sync),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                         onPressed: () {
                           Flyout.of(context).show();
                         },
@@ -351,7 +351,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
               Tooltip(
                 message: "Filter".tl,
                 child: IconButton(
-                  icon: const Icon(Icons.sort_rounded),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSortDescending, size: 18),
                   color: readFilterSelect != readFilterList[0]
                       ? context.colorScheme.primaryContainer
                       : null,
@@ -376,7 +376,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
               Tooltip(
                 message: "Search".tl,
                 child: IconButton(
-                  icon: const Icon(Icons.search),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18),
                   onPressed: () {
                     setState(() {
                       keyword = "";
@@ -414,7 +414,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                       },
                     ),
                     MenuEntry(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
                       text: "Reorder".tl,
                       onClick: () {
                         context.to(
@@ -493,7 +493,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
             leading: Tooltip(
               message: "Cancel".tl,
               child: IconButton(
-                icon: const Icon(Icons.close),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                 onPressed: () {
                   setState(() {
                     multiSelectMode = false;
@@ -508,7 +508,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
               MenuButton(entries: [
                 if (!isAllFolder)
                   MenuEntry(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMove, size: 18),
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMove01, size: 18),
                       text: "Move to folder".tl,
                       onClick: () => favoriteOption('move')),
                 if (!isAllFolder)
@@ -626,7 +626,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
             leading: Tooltip(
               message: "Cancel".tl,
               child: IconButton(
-                icon: const Icon(Icons.close),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                 onPressed: () {
                   setState(() {
                     setState(() {
@@ -853,7 +853,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.add, size: 20),
+                                      HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 20),
                                       const SizedBox(width: 4),
                                       Text("New Folder".tl),
                                     ],
@@ -1041,7 +1041,7 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
           Tooltip(
             message: "Information".tl,
             child: IconButton(
-              icon: const Icon(Icons.info_outline),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 18),
               onPressed: () {
                 showInfoDialog(
                   context: context,
@@ -1054,7 +1054,7 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
           Tooltip(
             message: "Reverse".tl,
             child: IconButton(
-              icon: const Icon(Icons.swap_vert),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
               onPressed: () {
                 setState(() {
                   comics = comics.reversed.toList();

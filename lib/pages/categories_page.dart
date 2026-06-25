@@ -118,7 +118,7 @@ class _CategoriesPageState extends State<CategoriesPage>
               return Tab(text: title, key: Key(e));
             }).toList(),
             actionButton: TabActionButton(
-              icon: const Icon(Icons.add),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
               text: "Add".tl,
               onPressed: addPage,
             ),
@@ -227,7 +227,7 @@ class _CategoryPage extends StatelessWidget {
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
           ),
           const Spacer(),
-          IconButton(onPressed: onRefresh, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: onRefresh, icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18)),
         ],
       ),
     );

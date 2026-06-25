@@ -16,8 +16,8 @@ import 'package:kong_comic/utils/ext.dart';
 import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
 
-import 'comic_details_page/comic_page.dart';
-import 'comic_source_page.dart';
+import '../comic_details_page/comic_page.dart';
+import '../comic_source_page.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -253,22 +253,16 @@ class _SearchPageState extends State<SearchPage> {
     if (searchSources.isEmpty) {
       return buildEmpty();
     }
-    return MediaQuery.removeViewInsets(
-      context: context,
-      removeBottom: true,
-      child: RepaintBoundary(
-        child: Column(
-          children: [
-            _buildTopSearchBar(),
-            _buildSourceRow(),
-            Expanded(
-              child: SmoothCustomScrollView(
-                slivers: buildSlivers().toList(),
-              ),
-            ),
-          ],
+    return Column(
+      children: [
+        _buildTopSearchBar(),
+        _buildSourceRow(),
+        Expanded(
+          child: SmoothCustomScrollView(
+            slivers: buildSlivers().toList(),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -514,7 +508,7 @@ class _SearchPageState extends State<SearchPage> {
       focusNode.requestFocus();
     }
 
-    bool showMethod = context.width < 600;
+    bool showMethod = MediaQuery.of(context).size.width < 600;
     bool showTranslation = App.locale.languageCode == "zh";
     Widget buildItem(Pair<String, TranslationType> value) {
       final cs = Theme.of(context).colorScheme;
@@ -620,8 +614,7 @@ class _SearchPageState extends State<SearchPage> {
       );
     }
 
-    return RepaintBoundary(
-      child: SliverMainAxisGroup(
+    return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
           child: ListTile(
@@ -648,14 +641,13 @@ class _SearchPageState extends State<SearchPage> {
           ),
         ),
       ],
-    ));
+    );
   }
 
   Widget _buildTopSearchBar() {
     final cs = Theme.of(context).colorScheme;
-    final topPad = MediaQuery.of(context).padding.top;
     return Container(
-      padding: EdgeInsets.fromLTRB(12, 12 + topPad, 12, 8),
+      padding: EdgeInsets.fromLTRB(12, 12 + MediaQuery.of(context).padding.top, 12, 8),
       decoration: BoxDecoration(
         color: cs.surface,
       ),
@@ -682,6 +674,10 @@ class _SearchPageState extends State<SearchPage> {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 8, right: 4),
+                    child: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18, color: cs.onSurfaceVariant),
+                  ),
                   suffixIcon: ListenableBuilder(
                     listenable: _searchTextController,
                     builder: (context, _) {
@@ -704,7 +700,6 @@ class _SearchPageState extends State<SearchPage> {
                   color: cs.onSurface,
                 ),
                 textInputAction: TextInputAction.search,
-                keyboardType: TextInputType.text,
                 onSubmitted: (text) {
                   if (text.isNotEmpty) {
                     suggestions.clear();

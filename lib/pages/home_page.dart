@@ -260,7 +260,7 @@ final opacity = 1.0;
         image: FileImage(File(customPath)),
         fit: BoxFit.cover,
         filterQuality: FilterQuality.high,
-        errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40)),
+        errorBuilder: (_, __, ___) => const Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 40)),
       );
     }
 
@@ -270,14 +270,14 @@ final opacity = 1.0;
         fit: BoxFit.cover,
         filterQuality: FilterQuality.high,
         placeholder: (_, __) => const SizedBox(),
-        errorWidget: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40)),
+        errorWidget: (_, __, ___) => const Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 40)),
       );
     }
     return Image(
       image: FileImage(File(comic.coverPath)),
       fit: BoxFit.cover,
       filterQuality: FilterQuality.high,
-      errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, size: 40)),
+      errorBuilder: (_, __, ___) => const Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 40)),
     );
   }
 }
@@ -312,11 +312,11 @@ class _ComicInfoSection extends StatelessWidget {
                   style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
             if (progress != null)
               Padding(padding: const EdgeInsets.only(bottom: 4),
-                child: Text("阅读进度 $progress", style: TextStyle(fontSize: 13, color: cs.onSurface))),
-            Text("共 ${history?.maxPage ?? '?'} 集", style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                child: Text("Reading progress %s".tl.replaceAll("%s", progress ?? ""), style: TextStyle(fontSize: 13, color: cs.onSurface))),
+            Text("Total %s chapters".tl.replaceAll("%s", "${history?.maxPage ?? '?'}"), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
             if (updatedTime != null)
               Padding(padding: const EdgeInsets.only(top: 4),
-                child: Text("更新 $updatedTime", style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
+                child: Text("Updated %s".tl.replaceAll("%s", updatedTime), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
             const SizedBox(height: 12),
             SizedBox(width: double.infinity, height: 44,
               child: ElevatedButton(
@@ -325,7 +325,7 @@ class _ComicInfoSection extends StatelessWidget {
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)), elevation: 0),
-                child: Text("立即阅读", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                child: Text("Read Now".tl, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
             ),
           ]),

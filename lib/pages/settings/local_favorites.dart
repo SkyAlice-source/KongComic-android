@@ -12,7 +12,7 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("收藏管理")),
+        SliverAppbar(title: Text("Local Favorites".tl)),
         _SwitchSetting(
           title: "Show local favorites before network favorites".tl,
           settingKey: "localFavoritesFirst",

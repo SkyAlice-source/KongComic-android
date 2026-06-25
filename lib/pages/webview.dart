@@ -128,7 +128,7 @@ class _AppWebviewState extends State<AppWebview> {
       Tooltip(
         message: "More",
         child: IconButton(
-          icon: const Icon(Icons.more_horiz),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 18),
           onPressed: () {
             showMenuX(
               context,

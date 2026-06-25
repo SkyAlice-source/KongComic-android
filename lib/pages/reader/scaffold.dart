@@ -261,14 +261,14 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                 Tooltip(
                   message: "Chapter Comments".tl,
                   child: IconButton(
-                    icon: const Icon(Icons.comment),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 20),
                     onPressed: openChapterComments,
                   ),
                 ),
               Tooltip(
                 message: "Settings".tl,
                 child: IconButton(
-                  icon: const Icon(Icons.settings),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 20),
                   onPressed: openSetting,
                 ),
               ),
@@ -437,7 +437,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       Tooltip(
         message: "Collect the image".tl,
         child: IconButton(
-          icon: Icon(isLiked() ? Icons.favorite : Icons.favorite_border),
+          icon: HugeIcon(icon: isLiked() ? HugeIcons.strokeRoundedHeartAdd : HugeIcons.strokeRoundedHeartAdd, size: 20),
           onPressed: addImageFavorite,
         ),
       ),
@@ -445,7 +445,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         Tooltip(
           message: "${"Full Screen".tl}(F12)",
           child: IconButton(
-            icon: const Icon(Icons.fullscreen),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowExpand01, size: 20),
             onPressed: () {
               context.reader.fullscreen();
             },
@@ -457,11 +457,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           child: IconButton(
             icon: () {
               if (rotation == null) {
-                return const Icon(Icons.screen_rotation);
+                return HugeIcon(icon: HugeIcons.strokeRounded3dRotate, size: 20);
               } else if (rotation == false) {
-                return const Icon(Icons.screen_lock_portrait);
+                return HugeIcon(icon: HugeIcons.strokeRoundedAiLock, size: 20);
               } else {
-                return const Icon(Icons.screen_lock_landscape);
+                return HugeIcon(icon: HugeIcons.strokeRoundedAiLock, size: 20);
               }
             }.call(),
             onPressed: () {
@@ -494,8 +494,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         message: "Auto Page Turning".tl,
         child: IconButton(
           icon: context.reader.autoPageTurningTimer != null
-              ? const Icon(Icons.timer)
-              : const Icon(Icons.timer_sharp),
+              ? HugeIcon(icon: HugeIcons.strokeRoundedAlarmClock, size: 20)
+              : HugeIcon(icon: HugeIcons.strokeRoundedAlarmClock, size: 20),
           onPressed: () {
             context.reader.autoPageTurning(
               context.reader.cid,
@@ -509,7 +509,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         Tooltip(
           message: "Chapters".tl,
           child: IconButton(
-            icon: const Icon(Icons.library_books),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 20),
             onPressed: openChapterDrawer,
           ),
         ),
@@ -517,11 +517,12 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         Tooltip(
           message: "Auto Scroll".tl,
           child: IconButton(
-            icon: Icon(
+            icon: HugeIcon(icon:
               context.reader._imageViewController != null &&
                       (context.reader._imageViewController as dynamic)._autoScrolling == true
-                  ? Icons.pause_circle_outline
-                  : Icons.play_circle_outline,
+                  ? HugeIcons.strokeRoundedPause
+                  : HugeIcons.strokeRoundedPlay,
+              size: 20,
             ),
             onPressed: () {
               if (context.reader._imageViewController != null) {
@@ -534,13 +535,13 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       Tooltip(
         message: "Save Image".tl,
         child: IconButton(
-          icon: const Icon(Icons.download),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 20),
           onPressed: saveCurrentImage,
         ),
       ),
       Tooltip(
         message: "Share".tl,
-        child: IconButton(icon: const Icon(Icons.share), onPressed: share),
+        child: IconButton(icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 20), onPressed: share),
       ),
     ];
 
@@ -560,7 +561,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                     : context.reader.chapter < context.reader.maxChapter
                     ? context.reader.toNextChapter()
                     : context.reader.toPage(context.reader.maxPage),
-                icon: const Icon(Icons.first_page),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedBackward01, size: 20),
               ),
               Expanded(child: buildSlider()),
               IconButton.filledTonal(
@@ -571,7 +572,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                     : context.reader.chapter > 1
                     ? context.reader.toPrevChapter()
                     : context.reader.toPage(1),
-                icon: const Icon(Icons.last_page),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedForward01, size: 20),
               ),
               const SizedBox(width: 8),
             ],
@@ -1259,7 +1260,7 @@ class _SelectImageOverlayContentState
             child: Row(
               children: [
                 const SizedBox(width: 8),
-                const Icon(Icons.info_outline),
+                HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 20),
                 const SizedBox(width: 16),
                 Text(
                   "Click to select an image".tl,

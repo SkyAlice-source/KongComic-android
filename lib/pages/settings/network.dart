@@ -12,7 +12,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("网络设置")),
+        SliverAppbar(title: Text("Network".tl)),
         _PopupWindowSetting(
           title: "Proxy".tl,
           builder: () => const _ProxySettingView(),
@@ -291,7 +291,7 @@ class __DNSOverridesState extends State<_DNSOverrides> {
                       .add((TextEditingController(), TextEditingController()));
                 });
               },
-              icon: const Icon(Icons.add),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
               label: Text("Add".tl),
             ),
           ],
@@ -348,7 +348,7 @@ class __DNSOverridesState extends State<_DNSOverrides> {
             color: context.colorScheme.outlineVariant,
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
             onPressed: () {
               setState(() {
                 overrides.removeAt(index);

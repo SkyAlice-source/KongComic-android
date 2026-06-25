@@ -144,7 +144,7 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                 child: Align(
                   alignment: Alignment.center,
                   child: TextButton.icon(
-                    icon: const Icon(Icons.arrow_drop_down),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
                     onPressed: () {
                       setState(() {
                         showAll = true;
@@ -340,7 +340,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                 child: Align(
                   alignment: Alignment.center,
                   child: TextButton.icon(
-                    icon: const Icon(Icons.arrow_drop_down),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
                     onPressed: () {
                       setState(() {
                         showAll = true;

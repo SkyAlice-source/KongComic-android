@@ -305,7 +305,7 @@ class ContentDialog extends StatelessWidget {
           title != null
               ? Appbar(
             leading: IconButton(
-              icon: const Icon(Icons.close),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
               onPressed: dismissible ? context.pop : null,
             ),
             title: Text(title!),

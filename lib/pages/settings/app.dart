@@ -12,16 +12,16 @@ class _AppSettingsState extends State<AppSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("通用设置")),
+        SliverAppbar(title: Text("APP".tl)),
         _SettingPartTitle(
           title: "Data".tl,
-          icon: Icons.storage,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDatabase, size: 18),
         ),
         ListTile(
           title: Text("Storage Path for local comics".tl),
           subtitle: Text(LocalManager().path, softWrap: false),
           trailing: IconButton(
-            icon: const Icon(Icons.copy),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: LocalManager().path));
               context.showMessage(message: "Path copied to clipboard".tl);
@@ -148,7 +148,7 @@ class _AppSettingsState extends State<AppSettings> {
         ).toSliver(),
         _SettingPartTitle(
           title: "User".tl,
-          icon: Icons.person_outline,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18),
         ),
         SelectSetting(
           title: "Language".tl,
@@ -238,7 +238,7 @@ class _LogsPageState extends State<LogsPage> {
                       ),
                     ]);
               }),
-              icon: const Icon(Icons.filter_list_outlined)
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilterHorizontal, size: 18)
           ),
           IconButton(
               onPressed: () => setState(() {
@@ -267,7 +267,7 @@ class _LogsPageState extends State<LogsPage> {
                       ),
                     ]);
                   }),
-              icon: const Icon(Icons.more_horiz))
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 18))
         ],
       ),
       body: ListView.builder(
@@ -436,7 +436,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                 hintStyle: TextStyle(color: Theme.of(context).hintColor),
                 border: OutlineInputBorder(),
                 suffixIcon: IconButton(
-                  icon: Icon(Icons.help_outline),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -460,7 +460,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                                 Align(
                                   alignment: Alignment.centerRight,
                                   child: IconButton(
-                                    icon: const Icon(Icons.open_in_new),
+                                    icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 18),
                                     onPressed: () {
                                       launchUrlString("https://github.com/venera-app/venera/blob/b08f11f6ac49bd07d34b4fcde233ed07e86efbc9/lib/foundation/appdata.dart#L138");
                                     },
@@ -480,7 +480,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
             ),
             const SizedBox(height: 12),
             ListTile(
-              leading: Icon(Icons.sync),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
               title: Text("Auto Sync Data".tl),
               contentPadding: EdgeInsets.zero,
               trailing: Switch(
@@ -522,7 +522,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline, size: 20),
+                          HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(

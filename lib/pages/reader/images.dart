@@ -931,7 +931,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.arrow_forward_ios, size: 32, color: context.colorScheme.primary),
+                      HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 32, color: context.colorScheme.primary),
                       const SizedBox(height: 12),
                       Text("Next Chapter".tl, style: ts.s18),
                       if (nextChapterTitle != null && nextChapterTitle.isNotEmpty)

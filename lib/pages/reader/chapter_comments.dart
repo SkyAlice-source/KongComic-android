@@ -413,7 +413,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.insert_comment_outlined, size: 16),
+            const HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 16),
             const SizedBox(width: 8),
             Text(widget.comment.replyCount.toString()),
           ],
@@ -475,7 +475,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
                 color: context.useTextColor(Colors.red),
               )
             else
-              const Icon(Icons.favorite_border, size: 16),
+              HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 16),
             const SizedBox(width: 8),
             Text(likes.toString()),
           ],
@@ -550,7 +550,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
         children: [
           Button.icon(
             isLoading: isVotingUp,
-            icon: const Icon(Icons.arrow_upward),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
             size: 18,
             color: upColor,
             onPressed: () => vote(true),
@@ -560,7 +560,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
           const SizedBox(width: 4),
           Button.icon(
             isLoading: isVotingDown,
-            icon: const Icon(Icons.arrow_downward),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
             size: 18,
             color: downColor,
             onPressed: () => vote(false),
@@ -704,14 +704,14 @@ class _EmbeddedChapterCommentsPageState
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
             onPressed: () {
               Navigator.of(context).pop();
             },
             tooltip: "Exit".tl,
           ),
           const SizedBox(width: 4),
-          Icon(Icons.comment, size: 24),
+          HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 24),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

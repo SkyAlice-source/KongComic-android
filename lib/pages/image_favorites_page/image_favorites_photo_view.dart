@@ -189,7 +189,7 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
             children: [
               const SizedBox(width: 8),
               IconButton(
-                icon: Icon(Icons.close),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
@@ -202,7 +202,7 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.more_vert),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreVertical, size: 18),
                 onPressed: showMenu,
               ),
               const SizedBox(width: 8),

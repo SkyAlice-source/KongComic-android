@@ -69,7 +69,7 @@ class Select extends StatelessWidget {
               child: Text(current ?? ' ', style: ts.s14),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.arrow_drop_down, color: context.colorScheme.primary),
+            HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18, color: context.colorScheme.primary),
           ],
         ).padding(const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
       ),
@@ -197,8 +197,8 @@ class AnimatedCheckWidget extends AnimatedWidget {
         child: FractionallySizedBox(
           widthFactor: animation.value,
           child: ClipRRect(
-            child: Icon(
-              Icons.check,
+            child: HugeIcon(icon: 
+              HugeIcons.strokeRoundedCheckmarkCircle01,
               size: iconSize,
               color: Theme.of(context).colorScheme.primary,
             ),

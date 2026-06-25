@@ -400,7 +400,7 @@ class _CommentTileState extends State<_CommentTile> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.insert_comment_outlined, size: 16),
+            HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 16),
             const SizedBox(width: 8),
             Text(widget.comment.replyCount.toString()),
           ],
@@ -464,7 +464,7 @@ class _CommentTileState extends State<_CommentTile> {
                 color: context.useTextColor(Colors.red),
               )
             else
-              const Icon(Icons.favorite_border, size: 16),
+              HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 16),
             const SizedBox(width: 8),
             Text(likes.toString()),
           ],
@@ -541,7 +541,7 @@ class _CommentTileState extends State<_CommentTile> {
         children: [
           Button.icon(
             isLoading: isVotingUp,
-            icon: const Icon(Icons.arrow_upward),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
             size: 18,
             color: upColor,
             onPressed: () => vote(true),
@@ -551,7 +551,7 @@ class _CommentTileState extends State<_CommentTile> {
           const SizedBox(width: 4),
           Button.icon(
             isLoading: isVotingDown,
-            icon: const Icon(Icons.arrow_downward),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
             size: 18,
             color: downColor,
             onPressed: () => vote(false),

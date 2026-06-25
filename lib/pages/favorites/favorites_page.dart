@@ -156,7 +156,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
               message: "Folders".tl,
               child: context.width <= _kTwoPanelChangeWidth
                   ? IconButton(
-                      icon: const Icon(Icons.menu),
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
                       color: context.colorScheme.primary,
                       onPressed: showFolderSelector,
                     )
