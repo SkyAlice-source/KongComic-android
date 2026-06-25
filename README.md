@@ -1,3 +1,5 @@
+[**English**](README.md) | [**中文**](README.zh-CN.md)
+
 # KongComic
 
 > 基于 [Venera](https://github.com/venera-app/venera) 由 AI 深度二次开发
