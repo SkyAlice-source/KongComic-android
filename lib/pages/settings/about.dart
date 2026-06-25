@@ -35,13 +35,13 @@ class _AboutSettingsState extends State<AboutSettings> {
         ).paddingTop(16).toSliver(),
         Column(
           children: [
-            const SizedBox(height: 8),
-            const Text(
-              "V1.0.1",
+            SizedBox(height: 8),
+            Text(
+              App.appVersion,
               style: TextStyle(fontSize: 16),
             ),
             Text("KongComic is a free and open-source comic reader.".tl),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
           ],
         ).toSliver(),
         ListTile(
@@ -66,7 +66,7 @@ class _AboutSettingsState extends State<AboutSettings> {
           settingKey: "checkUpdateOnStart",
         ).toSliver(),
         ListTile(
-          title: const Text("GitHub"),
+          title: Text("GitHub"),
           trailing: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 20),
           onTap: () {
             launchUrlString("https://github.com/SkyAlice-source/KongComic-android");
@@ -83,7 +83,7 @@ Future<bool> checkUpdate() async {
   if (res.statusCode == 200) {
     var data = loadYaml(res.data);
     if (data["version"] != null) {
-      return _compareVersion(data["version"].split("+")[0], App.version);
+      return _compareVersion(data["version"].split("+")[0], App.appVersion);
     }
   }
   return false;

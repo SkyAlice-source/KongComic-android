@@ -91,32 +91,42 @@ class SideBarRoute<T> extends PopupRoute<T> {
 
     body = Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
         borderRadius: showSideBar
             ? const BorderRadius.horizontal(left: Radius.circular(16))
-            : BorderRadius.zero,
-        border: showSideBar
-            ? Border(
-                left: BorderSide(
-                  color: Theme.of(context).brightness == Brightness.light
-                      ? Colors.white.withValues(alpha: 0.5)
-                      : Colors.white.withValues(alpha: 0.08),
-                  width: 0.5,
-                ),
-              )
             : null,
+        color: Theme.of(context).colorScheme.surfaceTint,
+        boxShadow: context.brightness == ui.Brightness.dark ? [
+          BoxShadow(
+            color: Colors.white.withAlpha(50),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ] : null,
       ),
+      clipBehavior: Clip.antiAlias,
       constraints: BoxConstraints(maxWidth: sideBarWidth),
       height: MediaQuery.of(context).size.height,
-      padding: EdgeInsets.fromLTRB(
-          0,
-          0,
-          MediaQuery.of(context).padding.right,
-          addBottomPadding
-              ? MediaQuery.of(context).padding.bottom +
-                  MediaQuery.of(context).viewInsets.bottom
-              : 0),
-      child: body,
+      child: GestureDetector(
+        child: Material(
+          child: ClipRect(
+            clipBehavior: Clip.antiAlias,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(
+                  0,
+                  0,
+                  MediaQuery.of(context).padding.right,
+                  addBottomPadding
+                      ? MediaQuery.of(context).padding.bottom +
+                          MediaQuery.of(context).viewInsets.bottom
+                      : 0),
+              color: useSurfaceTintColor
+                  ? Theme.of(context).colorScheme.surfaceTint.withAlpha(20)
+                  : null,
+              child: body,
+            ),
+          ),
+        ),
+      ),
     );
 
     if (App.isIOS) {
