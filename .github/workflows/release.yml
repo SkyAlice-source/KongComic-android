@@ -68,6 +68,15 @@ jobs:
       # 上传到 GitHub Release
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
+        continue-on-error: true
         with:
           files: release-artifacts/*
           generate_release_notes: true
+
+      # 如果 Release 上传失败，作为 artifact 保存
+      - name: Upload APKs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KongComic-APKs
+          path: release-artifacts/*
