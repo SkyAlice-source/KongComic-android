@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'  # 推送 v1.0.0, v1.1.0 等 tag 时触发
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
