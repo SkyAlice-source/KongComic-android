@@ -79,7 +79,7 @@ class _AboutSettingsState extends State<AboutSettings> {
 
 Future<bool> checkUpdate() async {
   var res = await AppDio()
-      .get("https://cdn.jsdelivr.net/gh/SkyAlice-source/KongComic-android@master/pubspec.yaml");
+      .get("https://raw.githubusercontent.com/SkyAlice-source/KongComic-android/main/pubspec.yaml");
   if (res.statusCode == 200) {
     var data = loadYaml(res.data);
     if (data["version"] != null) {
