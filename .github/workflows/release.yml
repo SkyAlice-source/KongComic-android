@@ -30,22 +30,17 @@ jobs:
 
       - name: Setup signing
         run: |
-          # 在 CI 上用 keytool 生成临时签名密钥
-          # 避免 base64 编解码和文件损坏问题
-          keytool -genkey -v -keystore android/kongcomic-release.jks \
-            -keyalg RSA -keysize 2048 -validity 3650 \
-            -alias kongcomic \
-            -storepass kongcomic123 \
-            -keypass kongcomic123 \
-            -dname "CN=KongComic, OU=KongComic, O=KongComic, L=Unknown, ST=Unknown, C=CN" \
-            2>/dev/null
-          cat > android/key.properties << PROPEOF
-          storePassword=kongcomic123
-          keyPassword=kongcomic123
-          keyAlias=kongcomic
-          storeFile=../kongcomic-release.jks
-          PROPEOF
-          echo "Signing configured (CI-generated keystore)"
+          # 从 GitHub Secrets 还原密钥库（确保证书一致，支持应用更新）
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/kongcomic-release.jks 2>/dev/null && \
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties && \
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties && \
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties && \
+            echo "storeFile=../kongcomic-release.jks" >> android/key.properties && \
+            echo "Signing configured from secrets"
+          else
+            echo "Warning: No signing secrets configured, building without signature"
+          fi
 
       - name: Build release APKs
         run: |
