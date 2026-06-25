@@ -37,7 +37,7 @@ class _AboutSettingsState extends State<AboutSettings> {
           children: [
             const SizedBox(height: 8),
             const Text(
-              "V1.0.0",
+              "V1.0.1",
               style: TextStyle(fontSize: 16),
             ),
             Text("KongComic is a free and open-source comic reader.".tl),
