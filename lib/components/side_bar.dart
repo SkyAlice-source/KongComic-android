@@ -45,26 +45,35 @@ class SideBarRoute<T> extends PopupRoute<T> {
     if (!showBarrier) {
       return const SizedBox.shrink();
     }
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: (event) {
-        if (event.position == Offset.zero) {
-          return;
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        if (dismissible &&
+            details.primaryVelocity != null &&
+            details.primaryVelocity! > 300) {
+          navigator?.maybePop();
         }
-        _barrierSawPointerDown = true;
       },
-      child: ModalBarrier(
-        dismissible: dismissible,
-        onDismiss: dismissible
-            ? () {
-                if (!_barrierSawPointerDown) {
-                  return;
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (event) {
+          if (event.position == Offset.zero) {
+            return;
+          }
+          _barrierSawPointerDown = true;
+        },
+        child: ModalBarrier(
+          dismissible: dismissible,
+          onDismiss: dismissible
+              ? () {
+                  if (!_barrierSawPointerDown) {
+                    return;
+                  }
+                  navigator?.maybePop();
                 }
-                navigator?.maybePop();
-              }
-            : null,
-        color: barrierColor,
-        semanticsLabel: barrierLabel,
+              : null,
+          color: barrierColor,
+          semanticsLabel: barrierLabel,
+        ),
       ),
     );
   }
@@ -107,6 +116,12 @@ class SideBarRoute<T> extends PopupRoute<T> {
       constraints: BoxConstraints(maxWidth: sideBarWidth),
       height: MediaQuery.of(context).size.height,
       child: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          // 右滑关闭侧边栏
+          if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+            navigator?.maybePop();
+          }
+        },
         child: Material(
           child: ClipRect(
             clipBehavior: Clip.antiAlias,
