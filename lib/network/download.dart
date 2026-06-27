@@ -14,10 +14,11 @@ import 'package:kong_comic/network/images.dart';
 import 'package:kong_comic/utils/ext.dart';
 import 'package:kong_comic/utils/file_type.dart';
 import 'package:kong_comic/utils/io.dart';
+import 'package:archive/archive.dart' hide ZipFile;
+import 'package:path/path.dart' as p;
 import 'package:zip_flutter/zip_flutter.dart';
 
 import 'file_downloader.dart';
-
 abstract class DownloadTask with ChangeNotifier {
   /// 0-1
   double get progress;
@@ -412,6 +413,11 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
 
     // Package downloaded chapters as CBZ if enabled
     if (appdata.settings['saveAsCbz'] == true) {
+      // Sanitize the manga title once and use it as the CBZ filename prefix,
+      // matching the "漫画名 + 章节名" naming convention so files stay
+      // recognizable when copied out of the per-comic folder.
+      final mangaName =
+          sanitizeFileName(comic?.title ?? comicTitle ?? "Comic");
       if (comic!.chapters != null) {
         // 多章节模式：每个章节文件夹打包为单独的 .cbz
         for (var chapterId in (chapters ?? comic!.chapters!.allChapters.keys)) {
@@ -420,9 +426,17 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
             LocalManager.getChapterDirectoryName(chapterId),
           ));
           if (!await chapterDir.exists()) continue;
-          var cbzFile = File("${chapterDir.path}.cbz");
+          // allChapters: Map<chapterId, chapterTitle>
+          // 用 .keys 拿到的是 ID（如 1221144），CBZ 名要用人能看懂的章节标题
+          final chapterTitle = comic!.chapters!.allChapters[chapterId] ?? chapterId;
+          final chapterName =
+              LocalManager.getChapterDirectoryName(chapterTitle);
+          final cbzFileName = '$mangaName - $chapterName.cbz';
+          var cbzPath =
+              FilePath.join(p.dirname(chapterDir.path), cbzFileName);
           try {
-            await ZipFile.compressFolderAsync(chapterDir.path, cbzFile.path, 4);
+            final bytes = await _buildCbzFromDir(chapterDir);
+            await _writeCbzBytes(cbzPath, bytes);
             if (appdata.settings['deleteFolderAfterCbz'] == true) {
               await chapterDir.delete(recursive: true);
             }
@@ -434,9 +448,11 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         // 单章节模式（单行本）：整个下载目录打包为一个 .cbz
         var dir = Directory(path!);
         if (await dir.exists()) {
-          var cbzFile = File("${dir.path}.cbz");
+          final cbzFileName = '$mangaName.cbz';
+          var cbzPath = FilePath.join(p.dirname(dir.path), cbzFileName);
           try {
-            await ZipFile.compressFolderAsync(dir.path, cbzFile.path, 4);
+            final bytes = await _buildCbzFromDir(dir);
+            await _writeCbzBytes(cbzPath, bytes);
             if (appdata.settings['deleteFolderAfterCbz'] == true) {
               await dir.delete(recursive: true);
             }
@@ -914,5 +930,53 @@ class ArchiveDownloadTask extends DownloadTask {
       downloadedChapters: [],
       createdAt: DateTime.now(),
     );
+  }
+}
+
+/// Build a CBZ (zip) archive in memory from a directory's contents.
+///
+/// Replaces `ZipFile.compressFolderAsync` which is backed by `dart:io` and
+/// cannot write to SAF tree URIs (e.g. `android://primary:Download/...`).
+/// `archive` is pure Dart, so we can stream bytes in memory and then hand
+/// the result to `AndroidFile.writeAsBytesSync` which knows how to write
+/// into a SAF tree.
+Future<Uint8List> _buildCbzFromDir(Directory dir) async {
+  final archive = Archive();
+
+  void addEntries(Directory d, String prefix) {
+    for (final entity in d.listSync(recursive: false, followLinks: false)) {
+      final name = p.basename(entity.path);
+      final entryPath = prefix.isEmpty ? name : '$prefix/$name';
+      if (entity is File) {
+        final bytes = entity.readAsBytesSync();
+        archive.addFile(ArchiveFile(entryPath, bytes.length, bytes));
+      } else if (entity is Directory) {
+        addEntries(entity, entryPath);
+      }
+    }
+  }
+
+  addEntries(dir, '');
+  final encoded = ZipEncoder().encode(archive);
+  return Uint8List.fromList(encoded);
+}
+
+/// Write a CBZ byte buffer to [cbzPath], routing through AndroidFile so SAF
+/// tree URIs work the same as plain paths.
+Future<void> _writeCbzBytes(String cbzPath, Uint8List bytes) async {
+  final isSaf = cbzPath.startsWith('content://') ||
+      cbzPath.startsWith('android://');
+  if (isSaf) {
+    var safFile = AndroidFile.fromPathSync(cbzPath);
+    if (safFile == null) {
+      // File doesn't exist yet: ensure the parent directory exists in the
+      // SAF tree, then re-resolve so writeAsBytesSync has a valid descriptor.
+      final parent = AndroidDirectory.fromPathSync(p.dirname(cbzPath));
+      parent?.createSync(recursive: true);
+      safFile = AndroidFile.fromPathSync(cbzPath);
+    }
+    safFile?.writeAsBytesSync(bytes);
+  } else {
+    File(cbzPath).writeAsBytesSync(bytes, flush: true);
   }
 }

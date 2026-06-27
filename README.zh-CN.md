@@ -6,7 +6,7 @@
   <a href="https://github.com/SkyAlice-source/KongComic-android/stargazers"><img src="https://img.shields.io/github/stars/SkyAlice-source/KongComic-android" alt="Stars"></a>
   <a href="https://github.com/SkyAlice-source/KongComic-android/releases"><img src="https://img.shields.io/github/v/release/SkyAlice-source/KongComic-android" alt="Release"></a>
   <a href="https://github.com/SkyAlice-source/KongComic-android/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SkyAlice-source/KongComic-android" alt="License"></a>
-  <a href="https://github.com/SkyAlice-source/KongComic-android/blob/main/pubspec.yaml"><img src="https://img.shields.io/badge/version-1.1.0-blue" alt="Version"></a>
+  <a href="https://github.com/SkyAlice-source/KongComic-android/blob/main/pubspec.yaml"><img src="https://img.shields.io/badge/version-1.1.4-blue" alt="Version"></a>
 </p>
 
 <p align="center">基于 <a href="https://github.com/venera-app/venera">Venera</a> 二次开发的漫画阅读器，UI 翻新 + Bug 修复 + 性能优化。</p>
@@ -18,6 +18,25 @@
   <br/>
   <em>主页 — 浅色主题（左）与深色主题（右）</em>
 </div>
+
+---
+
+## ✨ v1.1.4 更新内容
+
+### 🐛 Bug 修复
+- **本地存储迁移崩溃** — `LocalManager.setNewPath` 复制到 SAF 目录不再崩溃；文件写入走 `AndroidFile` 处理 SAF URI（dart:io 的 `File.copySync` 不认 `content://` / `android://`）
+- **CBZ 打包在 SAF 下静默失败** — 用纯 Dart 的 `archive` + `ZipEncoder` 替换 `zip_flutter`（内部走 dart:io `File.open`），CBZ 字节流在内存里构好后用 `AndroidFile.writeAsBytesSync` 写入，普通路径和 SAF 路径都通吃
+- **评论头像 dio 崩溃** — `ImageDownloader.loadThumbnail` 拒绝空 URL；评论渲染处把 `== null` 改为 `== null || isEmpty`（部分源如 zaimanhua 匿名用户用 `""` 而非 `null`）
+- **阅读器电池组件 setState-after-dispose** — `_BatteryWidgetState` 加 `mounted` 检查并在卸载时取消定时器，离开阅读器不再因定时器触发的 setState 崩
+- **评论 / 收藏 / 投票 setState-after-dispose** — 给所有 `await`+`setState` 路径加 `if (!mounted) return;` 守卫
+- **生物认证开关死锁**（已知）— `onChanged: () async` 形参签名是 `VoidCallback`（fire-and-forget），await 不会真等，理论上"开"之后无验证；完全修复需把签名改成 `Future<bool> Function()?`（已记入后续任务）
+
+### 🎨 UI & 体验改进
+- **CBZ 命名优化** — 下载的 `.cbz` 文件名由 `1221144.cbz`（6位 ID）改为 `<漫画名> - <章节名>.cbz`（如 `海贼王 - 第01话.cbz`），复制出漫画文件夹后也能看懂
+
+### 🧹 清理
+- 删除 `dev_dependencies` 里重复的 `archive: any`（正式依赖已有）
+- i18n 审计 — 全部 587 个 zh_CN / zh_TW 键核对完毕，无缺失无空值
 
 ---
 

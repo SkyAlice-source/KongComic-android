@@ -187,6 +187,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
 
   void loadFolders() async {
     var res = await widget.comicSource.favoriteData!.loadFolders!(widget.cid);
+    if (!mounted) return;
     if (res.error) {
       context.showMessage(message: res.errorMessage!);
       setState(() {
@@ -328,6 +329,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
                         .comicSource
                         .favoriteData!
                         .addOrDelFavorite!(widget.cid, '', !isFavorite, null);
+                    if (!mounted) return;
                     if (res.success) {
                       setState(() {
                         localIsFavorite = !isFavorite;
@@ -411,6 +413,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
                           .comicSource
                           .favoriteData!
                           .addOrDelFavorite!(widget.cid, id, !isAdded, null);
+                      if (!mounted) return;
                       if (res.success) {
                         // Invalidate network cache so folders/pages reload with fresh data
                         NetworkCacheManager().clear();

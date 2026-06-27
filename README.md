@@ -4,7 +4,7 @@
 
 [![flutter](https://img.shields.io/badge/flutter-3.44.0-blue)](https://flutter.dev/)
 [![License](https://img.shields.io/github/license/SkyAlice-source/KongComic-android)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.1.0-blue)](https://github.com/SkyAlice-source/KongComic-android/releases)
+[![Version](https://img.shields.io/badge/version-1.1.4-blue)](https://github.com/SkyAlice-source/KongComic-android/releases)
 
 ---
 
@@ -19,6 +19,25 @@ KongComic is a comic reader supporting multi-source search, local favorites, and
   <br/>
   <em>Home page — light theme (left) and dark theme (right)</em>
 </div>
+
+---
+
+## 🆕 What's New in v1.1.4
+
+### 🐛 Bug Fixes
+- **Local storage migration crash (`FileSystemException`)** — `LocalManager.setNewPath` no longer crashes when copying into a SAF directory; file writes now route through `AndroidFile` for SAF URIs (dart:io's `File.copySync` doesn't understand `content://` / `android://`)
+- **CBZ packaging silently failed on SAF** — Replaced `zip_flutter` (which uses dart:io `File.open` internally) with pure-Dart `archive` + `ZipEncoder`; CBZ bytes are built in memory and written via `AndroidFile.writeAsBytesSync`, working on both regular and SAF paths
+- **Comment avatar `dio` crash** — `ImageDownloader.loadThumbnail` now rejects empty URLs; comment renderers check `== null || isEmpty` for `avatar` (some sources like zaimanhua use `""` for anonymous users)
+- **Battery widget `setState` after dispose** — `_BatteryWidgetState._checkBatteryAvailability` and the periodic timer now check `mounted` and cancel on unmount, no more "setState() called after dispose" when leaving the reader
+- **Comments / favorites / vote `setState` after dispose** — Added `if (!mounted) return;` guards to all `await`+`setState` paths in comment like, vote, send, add-favorite and aggregated-search-result loaders
+- **Authorization switch dead-lock** (known) — The biometric check in `onChanged: () async` is fire-and-forget (signature is `VoidCallback`), so the switch can only be opened, never rejected; full fix requires a typed `Future<bool> Function()?` callback (tracked separately)
+
+### 🎨 UI & UX Improvements
+- **CBZ file naming** — Downloaded `.cbz` files now use `<manga title> - <chapter title>.cbz` (e.g. `海贼王 - 第01话.cbz`) instead of the chapter ID; helps when files are exported out of the per-comic folder
+
+### 🧹 Cleanup
+- **Removed duplicate `archive: any`** in `dev_dependencies` (already declared as a normal dependency)
+- **i18n audit** — All 587 zh_CN / zh_TW keys verified; no missing or empty values
 
 ---
 

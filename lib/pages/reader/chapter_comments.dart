@@ -461,6 +461,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
             widget.comment.id!,
             !isLiked,
           );
+          if (!mounted) return;
           if (res.success) {
             isLiked = !isLiked;
             likes += isLiked ? 1 : -1;
@@ -517,6 +518,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
       isUp,
       isCancel,
     );
+    if (!mounted) return;
     if (res.success) {
       if (isCancel) {
         voteStatus = 0;
@@ -864,6 +866,7 @@ class _EmbeddedChapterCommentsPageState
                     textController.text,
                     null,
                   );
+                  if (!mounted) return;
                   if (!b.error) {
                     textController.text = "";
                     setState(() {

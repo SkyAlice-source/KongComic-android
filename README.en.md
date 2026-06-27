@@ -6,7 +6,7 @@
   <a href="https://github.com/SkyAlice-source/KongComic-android/stargazers"><img src="https://img.shields.io/github/stars/SkyAlice-source/KongComic-android" alt="Stars"></a>
   <a href="https://github.com/SkyAlice-source/KongComic-android/releases"><img src="https://img.shields.io/github/v/release/SkyAlice-source/KongComic-android" alt="Release"></a>
   <a href="https://github.com/SkyAlice-source/KongComic-android/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SkyAlice-source/KongComic-android" alt="License"></a>
-  <a href="https://github.com/SkyAlice-source/KongComic-android/blob/main/pubspec.yaml"><img src="https://img.shields.io/badge/version-1.1.0-blue" alt="Version"></a>
+  <a href="https://github.com/SkyAlice-source/KongComic-android/blob/main/pubspec.yaml"><img src="https://img.shields.io/badge/version-1.1.4-blue" alt="Version"></a>
 </p>
 
 <p align="center">Based on <a href="https://github.com/venera-app/venera">Venera</a>, UI overhaul + bug fixes + performance improvements.</p>
@@ -18,6 +18,24 @@
   <br/>
   <em>Home — light theme (left) and dark theme (right)</em>
 </div>
+
+---
+
+## ✨ What's New in v1.1.4
+
+### 🐛 Bug Fixes
+- **Local storage migration crash** — `LocalManager.setNewPath` no longer crashes when copying into a SAF directory; file writes now route through `AndroidFile` for SAF URIs (dart:io's `File.copySync` doesn't understand `content://` / `android://`)
+- **CBZ packaging silently failed on SAF** — Replaced `zip_flutter` (uses dart:io `File.open` internally) with pure-Dart `archive` + `ZipEncoder`; CBZ bytes built in memory and written via `AndroidFile.writeAsBytesSync`
+- **Comment avatar `dio` crash** — `ImageDownloader.loadThumbnail` now rejects empty URLs; comment renderers check `== null || isEmpty` for `avatar`
+- **Battery widget `setState` after dispose** — `_BatteryWidgetState` checks `mounted` and cancels its periodic timer on unmount
+- **Comments / favorites / vote `setState` after dispose** — Added `if (!mounted) return;` guards to all `await`+`setState` paths
+
+### 🎨 UI & UX Improvements
+- **CBZ file naming** — Downloaded `.cbz` files now use `<manga title> - <chapter title>.cbz` instead of the chapter ID
+
+### 🧹 Cleanup
+- Removed duplicate `archive: any` in `dev_dependencies`
+- i18n audit — All 587 zh_CN / zh_TW keys verified
 
 ---
 

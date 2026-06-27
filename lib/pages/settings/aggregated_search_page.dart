@@ -116,6 +116,7 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
         (data.searchOptions ?? []).map((e) => e.defaultValue).toList();
     if (data.loadPage != null) {
       var res = await data.loadPage!(widget.keyword, 1, options);
+      if (!mounted) return;
       if (!res.error) {
         setState(() {
           comics = res.data;
@@ -129,6 +130,7 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
       }
     } else if (data.loadNext != null) {
       var res = await data.loadNext!(widget.keyword, null, options);
+      if (!mounted) return;
       if (!res.error) {
         setState(() {
           comics = res.data;

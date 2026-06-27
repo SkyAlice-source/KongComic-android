@@ -41,7 +41,7 @@ class _AppSettingsState extends State<AppSettings> {
             } else {
               result = await selectDirectory();
             }
-            if (result == null) return;
+            if (result == null || result.isEmpty) return;
             if (!mounted) return;
             final manager = LocalManager();
             final existingCount =
@@ -92,6 +92,7 @@ class _AppSettingsState extends State<AppSettings> {
             );
             await CacheManager().clear();
             loadingDialog.close();
+            if (!mounted) return;
             context.showMessage(message: "Cache cleared".tl);
             setState(() {});
           },

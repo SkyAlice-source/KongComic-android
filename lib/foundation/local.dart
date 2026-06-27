@@ -263,6 +263,13 @@ class LocalManager with ChangeNotifier {
   //            skip collisions, and then wipe the source.
   // Returns null on success, error message string on failure.
   Future<String?> setNewPath(String newPath, {bool overwrite = true}) async {
+    // Reject empty path. Some Android directory pickers return a non-null
+    // entry whose `.path` is `""` when the user backs out without granting
+    // permission; feeding that into `Directory('')` throws
+    // `FileSystemException: Invalid directory., path = ''`.
+    if (newPath.isEmpty) {
+      return "Directory does not exist".tl;
+    }
     // Reject SAF / content URIs: dart:io Directory cannot operate on URIs.
     if (newPath.startsWith('content://') || newPath.startsWith('file://')) {
       return "Please pick a regular file system directory, not a document tree".tl;
@@ -313,8 +320,26 @@ class LocalManager with ChangeNotifier {
               try {
                 if (target.existsSync()) target.deleteSync();
               } catch (_) {}
-              target.parent.createSync(recursive: true);
-              entity.copySync(target.path);
+              if (target.path.startsWith('content://') ||
+                  target.path.startsWith('android://')) {
+                // SAF destination: dart:io's File.copySync does not understand
+                // SAF tree URIs and throws PathNotFoundException. Route the
+                // copy through AndroidFile (which is backed by native
+                // DocumentsContract) so the file is written into the tree.
+                var safFile = AndroidFile.fromPathSync(target.path);
+                safFile ??= (() {
+                  // File does not exist yet. Ensure its parent directory
+                  // exists in the SAF tree, then resolve the file again so
+                  // writeAsBytesSync has a valid descriptor to write to.
+                  final parent = AndroidDirectory.fromPathSync(
+                      p.dirname(target.path));
+                  parent?.createSync(recursive: true);
+                  return AndroidFile.fromPathSync(target.path);
+                })();
+                safFile?.writeAsBytesSync(entity.readAsBytesSync());
+              } else {
+                entity.copySync(target.path);
+              }
             } else if (entity is Directory) {
               if (!target.existsSync()) {
                 target.createSync(recursive: true);

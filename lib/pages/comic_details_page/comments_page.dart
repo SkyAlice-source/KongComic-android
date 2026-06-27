@@ -450,6 +450,7 @@ class _CommentTileState extends State<_CommentTile> {
             widget.comment.id!,
             !isLiked,
           );
+          if (!mounted) return;
           if (res.success) {
             isLiked = !isLiked;
             likes += isLiked ? 1 : -1;
@@ -508,6 +509,7 @@ class _CommentTileState extends State<_CommentTile> {
       isUp,
       isCancel,
     );
+    if (!mounted) return;
     if (res.success) {
       if (isCancel) {
         voteStatus = 0;
