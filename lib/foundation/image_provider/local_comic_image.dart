@@ -1,8 +1,10 @@
 import 'dart:async' show Future;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/utils/io.dart';
+import 'package:path/path.dart' as p;
 import 'base_image_provider.dart';
 import 'local_comic_image.dart' as image_provider;
 
@@ -43,6 +45,33 @@ class LocalComicImageProvider
               break;
             }
           }
+        }
+      }
+    }
+    // Fallback: try app-level covers directory (used after backup restore,
+    // when the original comic directory or per-comic cover file is missing).
+    if (file == null || !await file.exists()) {
+      final coversDir = Directory(p.join(App.dataPath, 'covers'));
+      if (await coversDir.exists()) {
+        // Match patterns: {sourceKey}_{id}.* , {id}.* , cover_{id}.*
+        final candidates = [
+          '${comic.sourceKey}_${comic.id}',
+          comic.id,
+          'cover_${comic.id}',
+          comic.cover,
+        ];
+        for (final prefix in candidates) {
+          if (prefix.isEmpty) continue;
+          await for (var entity in coversDir.list()) {
+            if (entity is File &&
+                entity.name.startsWith(prefix) &&
+                ['jpg', 'jpeg', 'png', 'webp', 'gif']
+                    .contains(p.extension(entity.name).toLowerCase())) {
+              file = entity;
+              break;
+            }
+          }
+          if (file != null) break;
         }
       }
     }
