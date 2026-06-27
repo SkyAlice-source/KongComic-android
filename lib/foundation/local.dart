@@ -12,6 +12,7 @@ import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
 import 'package:kong_comic/utils/io.dart';
+import 'package:kong_comic/utils/translations.dart';
 
 import 'app.dart';
 import 'appdata.dart';
@@ -201,17 +202,32 @@ class LocalManager with ChangeNotifier {
 
   // return error message if failed
   Future<String?> setNewPath(String newPath) async {
-    var newDir = Directory(newPath);
-    if (!await newDir.exists()) {
-      return "Directory does not exist";
+    // Reject SAF / content URIs: dart:io Directory cannot operate on URIs.
+    if (newPath.startsWith('content://') || newPath.startsWith('file://')) {
+      return "Please pick a regular file system directory, not a document tree".tl;
     }
-    // Check if the directory is empty
+    var newDir = Directory(newPath);
+    bool exists;
     try {
-      if (await newDir.list().isEmpty == false) {
-        return "Directory is not empty";
+      exists = await newDir.exists();
+    } catch (e, s) {
+      Log.error("IO", "Failed to stat new path: $e", s);
+      return "Directory does not exist".tl;
+    }
+    if (!exists) {
+      return "Directory does not exist".tl;
+    }
+    // Check if the directory is empty. Use take(1) to avoid waiting on the
+    // whole stream — `Stream.isEmpty` can hang on certain backends and is
+    // more expensive than necessary.
+    try {
+      final first = await newDir.list().take(1).toList();
+      if (first.isNotEmpty) {
+        return "Directory is not empty".tl;
       }
-    } catch (_) {
-      return "Directory is not empty";
+    } catch (e, s) {
+      Log.error("IO", "Failed to list new path: $e", s);
+      return "Directory is not empty".tl;
     }
     try {
       await copyDirectoryIsolate(directory, newDir);

@@ -39,17 +39,20 @@ class _CommentsPageState extends State<CommentsPage> {
   int? maxPage;
   var controller = TextEditingController();
   bool sending = false;
+  bool _isLoadingMore = false;
 
   void firstLoad() async {
     var res = await widget.source.commentsLoader!(
         widget.data.comicId, widget.data.subId, 1, widget.replyComment?.id);
+    if (!mounted) return;
     if (res.error) {
       setState(() {
         _error = res.errorMessage;
         _loading = false;
       });
-    } else if (mounted) {
-      var filteredComments = res.data.where((c) => !_shouldBlockComment(c)).toList();
+    } else {
+      var filteredComments =
+          res.data.where((c) => !_shouldBlockComment(c)).toList();
       setState(() {
         _comments = filteredComments;
         _loading = false;
@@ -59,16 +62,23 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   void loadMore() async {
+    if (_isLoadingMore) return;
+    _isLoadingMore = true;
     var res = await widget.source.commentsLoader!(
       widget.data.comicId,
       widget.data.subId,
       _page + 1,
       widget.replyComment?.id,
     );
+    if (!mounted) {
+      _isLoadingMore = false;
+      return;
+    }
     if (res.error) {
       context.showMessage(message: res.errorMessage ?? "Unknown Error");
     } else {
-      var filteredComments = res.data.where((c) => !_shouldBlockComment(c)).toList();
+      var filteredComments =
+          res.data.where((c) => !_shouldBlockComment(c)).toList();
       setState(() {
         _comments!.addAll(filteredComments);
         _page++;
@@ -77,6 +87,7 @@ class _CommentsPageState extends State<CommentsPage> {
         }
       });
     }
+    _isLoadingMore = false;
   }
 
   @override

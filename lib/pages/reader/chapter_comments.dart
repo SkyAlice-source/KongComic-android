@@ -43,6 +43,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
   int? maxPage;
   var controller = TextEditingController();
   bool sending = false;
+  bool _isLoadingMore = false;
 
   void firstLoad() async {
     var res = await widget.source.chapterCommentsLoader!(
@@ -51,13 +52,15 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
       1,
       widget.replyComment?.id,
     );
+    if (!mounted) return;
     if (res.error) {
       setState(() {
         _error = res.errorMessage;
         _loading = false;
       });
-    } else if (mounted) {
-      var filteredComments = res.data.where((c) => !_shouldBlockComment(c)).toList();
+    } else {
+      var filteredComments =
+          res.data.where((c) => !_shouldBlockComment(c)).toList();
       setState(() {
         _comments = filteredComments;
         _loading = false;
@@ -67,16 +70,23 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
   }
 
   void loadMore() async {
+    if (_isLoadingMore) return;
+    _isLoadingMore = true;
     var res = await widget.source.chapterCommentsLoader!(
       widget.comicId,
       widget.epId,
       _page + 1,
       widget.replyComment?.id,
     );
+    if (!mounted) {
+      _isLoadingMore = false;
+      return;
+    }
     if (res.error) {
       context.showMessage(message: res.errorMessage ?? "Unknown Error");
     } else {
-      var filteredComments = res.data.where((c) => !_shouldBlockComment(c)).toList();
+      var filteredComments =
+          res.data.where((c) => !_shouldBlockComment(c)).toList();
       setState(() {
         _comments!.addAll(filteredComments);
         _page++;
@@ -85,6 +95,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
         }
       });
     }
+    _isLoadingMore = false;
   }
 
   @override
@@ -616,10 +627,13 @@ class _EmbeddedChapterCommentsPageState
   int? maxPage;
   var textController = TextEditingController();
   bool sending = false;
+  bool _isLoadingMore = false;
+  ScrollController? _scrollController;
 
   @override
   void dispose() {
     textController.dispose();
+    _scrollController?.dispose();
     super.dispose();
   }
 
@@ -649,6 +663,8 @@ class _EmbeddedChapterCommentsPageState
   }
 
   void loadMore() async {
+    if (_isLoadingMore) return;
+    _isLoadingMore = true;
     var res = await widget.source.chapterCommentsLoader!(
       widget.comicId,
       widget.epId,
@@ -670,6 +686,7 @@ class _EmbeddedChapterCommentsPageState
         }
       });
     }
+    _isLoadingMore = false;
   }
 
   @override
@@ -756,14 +773,14 @@ class _EmbeddedChapterCommentsPageState
   Widget _buildCommentsList(bool showAvatar) {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final crossAxisCount = isLandscape ? 2 : 1;
-    final scrollController = ScrollController();
+    _scrollController ??= ScrollController();
     
     return Scrollbar(
-      controller: scrollController,
+      controller: _scrollController!,
       thumbVisibility: true,
       thickness: 8,
       child: MasonryGridView.count(
-        controller: scrollController,
+        controller: _scrollController!,
         crossAxisCount: crossAxisCount,
         mainAxisSpacing: 0,
         crossAxisSpacing: 0,
