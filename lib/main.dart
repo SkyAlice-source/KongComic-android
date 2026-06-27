@@ -118,12 +118,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void forceRebuild() {
-    void rebuild(Element el) {
-      el.markNeedsBuild();
-      el.visitChildren(rebuild);
-    }
-
-    (context as Element).visitChildren(rebuild);
     setState(() {});
   }
 

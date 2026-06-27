@@ -200,6 +200,7 @@ class Settings with ChangeNotifier {
     'cacheSize': 2048, // in MB
     'downloadThreads': 5,
     'saveAsCbz': true,
+    'deleteFolderAfterCbz': false,
     'enableLongPressToZoom': true,
     'longPressZoomPosition': "press", // press, center
     'checkUpdateOnStart': false,

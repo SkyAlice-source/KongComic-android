@@ -105,10 +105,13 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                   var key = chapters.ids.elementAt(i);
                   var value = chapters[key]!;
                   bool visited = (history?.readEpisode ?? {}).contains(i + 1);
+                  bool isCurrent = history != null && (i + 1) == history!.ep;
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
                     child: Material(
-                      color: context.colorScheme.surfaceContainer,
+                      color: isCurrent
+                          ? context.colorScheme.primaryContainer
+                          : context.colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
                       child: InkWell(
                         onTap: () => state.read(i + 1),
@@ -122,9 +125,12 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                               textAlign: TextAlign.center,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: visited
-                                    ? context.colorScheme.outline
-                                    : null,
+                                color: isCurrent
+                                    ? context.colorScheme.onPrimaryContainer
+                                    : visited
+                                        ? context.colorScheme.onSurfaceVariant
+                                        : context.colorScheme.onSurface,
+                                fontWeight: isCurrent ? FontWeight.w600 : null,
                               ),
                             ),
                           ),
@@ -297,30 +303,47 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                   String rawIndex = (chapterIndex + 1).toString();
                   String groupedIndex = "${index + 1}-${i + 1}";
                   bool visited = false;
+                  bool isCurrent = false;
                   if (history != null) {
                     visited = history!.readEpisode.contains(groupedIndex) ||
                         history!.readEpisode.contains(rawIndex);
+                    isCurrent = (chapterIndex + 1) == history!.ep;
                   }
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
                     child: Material(
-                      color: context.colorScheme.surfaceContainerLow,
+                      color: isCurrent
+                          ? context.colorScheme.primaryContainer
+                          : context.colorScheme.surfaceContainerLow,
                       borderRadius: BorderRadius.circular(12),
                       child: InkWell(
                         onTap: () => state.read(chapterIndex + 1),
                         borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Center(
-                            child: Text(
-                              value,
-                              maxLines: 1,
-                              textAlign: TextAlign.center,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: visited
-                                    ? context.colorScheme.outline
-                                    : null,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: context.colorScheme.tertiary.withValues(alpha: 0.5),
+                                width: 3,
+                              ),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Center(
+                              child: Text(
+                                value,
+                                maxLines: 1,
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: isCurrent
+                                      ? context.colorScheme.onPrimaryContainer
+                                      : visited
+                                          ? context.colorScheme.onSurfaceVariant
+                                          : context.colorScheme.onSurface,
+                                  fontWeight: isCurrent ? FontWeight.w600 : null,
+                                ),
                               ),
                             ),
                           ),

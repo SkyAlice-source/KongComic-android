@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:display_mode/display_mode.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_saf/flutter_saf.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/cache_manager.dart';
@@ -34,44 +34,69 @@ extension _FutureInit<T> on Future<T> {
 }
 
 Future<void> init() async {
+  // Set up error handling first, before any async work
+  FlutterError.onError = (details) {
+    Log.error("Unhandled Exception", "${details.exception}\n${details.stack}");
+  };
+
+  // Critical path - must complete before UI renders
   await App.init().wait();
   await SingleInstanceCookieJar.createInstance();
   try {
-    var futures = [
+    var criticalFutures = [
       App.initComponents(),
-      SAFTaskWorker().init().wait(),
       AppTranslation.init().wait(),
-      TagsTranslation.readData().wait(),
       JsEngine().init().wait(),
       ComicSourceManager().init().wait(),
-      OpenCC.init(),
     ];
-    await Future.wait(futures);
+    if (App.isAndroid) {
+      // SAF is needed early on Android for file access
+      criticalFutures.add(SAFTaskWorker().init().wait());
+    }
+    await Future.wait(criticalFutures);
   } catch (e, s) {
     Log.error("init", "$e\n$s");
   }
   CacheManager().setLimitSize(appdata.settings['cacheSize']);
   _checkOldConfigs();
-  if (App.isAndroid) {
-    handleLinks();
-    handleTextShare();
-    try {
-      await FlutterDisplayMode.setHighRefreshRate();
-    } catch(e) {
-      Log.error("Display Mode", "Failed to set high refresh rate: $e");
-    }
-  }
-  FlutterError.onError = (details) {
-    Log.error("Unhandled Exception", "${details.exception}\n${details.stack}");
-  };
-  if (App.isWindows) {
-    // Report to the monitor thread that the app is running
-    // https://github.com/venera-app/venera/issues/343
-    Timer.periodic(const Duration(seconds: 1), (_) {
-      const methodChannel = MethodChannel('kong_comic/method_channel');
-      methodChannel.invokeMethod("heartBeat");
+
+  // Non-critical path - schedule to run after the UI is rendered
+  _scheduleDeferredInit();
+}
+
+/// Deferred initialization: runs after the first frame so the UI appears faster.
+void _scheduleDeferredInit() {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    Future(() async {
+      try {
+        var deferredFutures = [
+          TagsTranslation.readData().wait(),
+          OpenCC.init(),
+        ];
+        await Future.wait(deferredFutures);
+      } catch (e, s) {
+        Log.error("deferred init", "$e\n$s");
+      }
+
+      if (App.isAndroid) {
+        handleLinks();
+        handleTextShare();
+        try {
+          await FlutterDisplayMode.setHighRefreshRate();
+        } catch (e) {
+          Log.error("Display Mode", "Failed to set high refresh rate: $e");
+        }
+      }
+      if (App.isWindows) {
+        // Report to the monitor thread that the app is running
+        // https://github.com/venera-app/venera/issues/343
+        Timer.periodic(const Duration(seconds: 1), (_) {
+          const methodChannel = MethodChannel('kong_comic/method_channel');
+          methodChannel.invokeMethod("heartBeat");
+        });
+      }
     });
-  }
+  });
 }
 
 void _checkOldConfigs() {

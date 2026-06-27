@@ -123,12 +123,14 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
           }
         });
       } else if (chapters != null) {
-        for (var c in chapters!) {
-          var dir = Directory(FilePath.join(path!, c));
-          if (dir.existsSync()) {
-            dir.deleteSync(recursive: true);
+        Future.sync(() async {
+          for (var c in chapters!) {
+            var dir = Directory(FilePath.join(path!, c));
+            if (await dir.exists()) {
+              await dir.delete(recursive: true);
+            }
           }
-        }
+        });
       }
     }
   }
@@ -305,7 +307,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         }
         var fileType = detectFileType(data);
         var file = File(FilePath.join(path!, "cover${fileType.ext}"));
-        file.writeAsBytesSync(data);
+        await file.writeAsBytes(data);
         return "file://${file.path}";
       });
       if (res.error) {
@@ -417,12 +419,12 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
             path!,
             LocalManager.getChapterDirectoryName(chapterId),
           ));
-          if (!chapterDir.existsSync()) continue;
+          if (!await chapterDir.exists()) continue;
           var cbzFile = File("${chapterDir.path}.cbz");
           try {
             await ZipFile.compressFolderAsync(chapterDir.path, cbzFile.path, 4);
             if (appdata.settings['deleteFolderAfterCbz'] == true) {
-              chapterDir.deleteSync(recursive: true);
+              await chapterDir.delete(recursive: true);
             }
           } catch (e, s) {
             Log.error("Download", "Failed to package chapter as CBZ: $e\n$s");
@@ -431,12 +433,12 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       } else {
         // 单章节模式（单行本）：整个下载目录打包为一个 .cbz
         var dir = Directory(path!);
-        if (dir.existsSync()) {
+        if (await dir.exists()) {
           var cbzFile = File("${dir.path}.cbz");
           try {
             await ZipFile.compressFolderAsync(dir.path, cbzFile.path, 4);
             if (appdata.settings['deleteFolderAfterCbz'] == true) {
-              dir.deleteSync(recursive: true);
+              await dir.delete(recursive: true);
             }
           } catch (e, s) {
             Log.error("Download", "Failed to package single chapter as CBZ: $e\n$s");

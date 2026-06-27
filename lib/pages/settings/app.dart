@@ -150,19 +150,6 @@ class _AppSettingsState extends State<AppSettings> {
           title: "User".tl,
           icon: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18),
         ),
-        SelectSetting(
-          title: "Language".tl,
-          settingKey: "language",
-          optionTranslation: const {
-            "system": "System",
-            "zh-CN": "简体中文",
-            "zh-TW": "繁體中文",
-            "en-US": "English",
-          },
-          onChanged: () {
-            App.forceRebuild();
-          },
-        ).toSliver(),
         if (!App.isLinux)
           _SwitchSetting(
             title: "Authorization Required".tl,

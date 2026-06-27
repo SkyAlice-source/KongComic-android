@@ -89,14 +89,14 @@ class _DownloadingPageState extends State<DownloadingPage> {
       ),
       child: Row(
         children: [
-          if (first?.isPaused == true)
-            Text(
-              "Paused".tl,
-              style: ts.s18.bold,
-            )
-          else if (first?.isError == true)
+          if (first?.isError == true)
             Text(
               "Error".tl,
+              style: ts.s18.bold,
+            )
+          else if (first?.isPaused == true)
+            Text(
+              "Paused".tl,
               style: ts.s18.bold,
             )
           else

@@ -270,7 +270,7 @@ class HistoryManager with ChangeNotifier {
       _cachedHistoryIds![newItem.id] = true;
     }
     cachedHistories[newItem.id] = newItem;
-    if (cachedHistories.length > 10) {
+    if (cachedHistories.length > 20) {
       cachedHistories.remove(cachedHistories.keys.first);
     }
     notifyListeners();
@@ -299,7 +299,7 @@ class HistoryManager with ChangeNotifier {
       _cachedHistoryIds![newItem.id] = true;
     }
     cachedHistories[newItem.id] = newItem;
-    if (cachedHistories.length > 10) {
+    if (cachedHistories.length > 20) {
       cachedHistories.remove(cachedHistories.keys.first);
     }
     notifyListeners();
@@ -368,7 +368,10 @@ void clearUnfavoritedHistory() {
       return null;
     }
     if (cachedHistories.containsKey(id)) {
-      return cachedHistories[id];
+      // LRU: move accessed item to the end (most recently used)
+      var item = cachedHistories.remove(id)!;
+      cachedHistories[id] = item;
+      return item;
     }
 
     var res = _db.select("""

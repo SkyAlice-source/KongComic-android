@@ -37,9 +37,18 @@ class HomePage extends StatefulWidget {
 }
 class _HomePageState extends State<HomePage> {
   final _currentComic = ValueNotifier<FavoriteItem?>(null);
+  Key _bannerKey = UniqueKey();
 
   @override
   void dispose() { _currentComic.dispose(); super.dispose(); }
+
+  Future<void> _onRefresh() async {
+    setState(() {
+      _bannerKey = UniqueKey();
+    });
+    // Allow the banner to rebuild and load new comics
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,15 +58,18 @@ class _HomePageState extends State<HomePage> {
         final bannerHeight = (availableHeight - 380).clamp(260.0, 420.0);
         return _BannerProvider(
           bannerHeight: bannerHeight,
-          child: SmoothCustomScrollView(
-            slivers: [
-              SliverPadding(padding: EdgeInsets.only(top: context.padding.top)),
-              _Banner(height: bannerHeight, currentComicNotifier: _currentComic),
-              _ComicInfoSection(currentComicNotifier: _currentComic),
-              const _HomeCapsules(),
-              const _BottomModules(),
-              SliverPadding(padding: EdgeInsets.only(top: context.padding.bottom)),
-            ],
+          child: RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: SmoothCustomScrollView(
+              slivers: [
+                SliverPadding(padding: EdgeInsets.only(top: context.padding.top)),
+                _Banner(key: _bannerKey, height: bannerHeight, currentComicNotifier: _currentComic),
+                _ComicInfoSection(currentComicNotifier: _currentComic),
+                const _HomeCapsules(),
+                const _BottomModules(),
+                SliverPadding(padding: EdgeInsets.only(top: context.padding.bottom)),
+              ],
+            ),
           ),
         );
       },
@@ -76,7 +88,7 @@ class _BannerProvider extends InheritedWidget {
 class _Banner extends StatefulWidget {
   final double height;
   final ValueNotifier<FavoriteItem?> currentComicNotifier;
-  const _Banner({this.height = 360, required this.currentComicNotifier});
+  const _Banner({super.key, this.height = 360, required this.currentComicNotifier});
   @override
   State<_Banner> createState() => _BannerState();
 }
@@ -113,7 +125,7 @@ class _BannerState extends State<_Banner> {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _comics.length < 2) return;
-      setState(() { _currentIndex = (_currentIndex + 1) % _comics.length; widget.currentComicNotifier.value = _comics[_currentIndex]; _startTimer(); });
+      setState(() { _currentIndex = (_currentIndex + 1) % _comics.length; widget.currentComicNotifier.value = _comics[_currentIndex]; });
     });
   }
   @override void dispose() { _timer?.cancel(); LocalFavoritesManager().removeListener(_loadComics); super.dispose(); }

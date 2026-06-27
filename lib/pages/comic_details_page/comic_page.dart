@@ -652,7 +652,9 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       VoidCallback? onTap,
       bool isTitle = false,
     }) {
-      Color color;
+      Color bgColor;
+      Color textColor;
+
       if (isTitle) {
         const colors = [
           Colors.blue,
@@ -666,18 +668,26 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
           Colors.lime,
           Colors.yellow,
         ];
-        color = context.useBackgroundColor(colors[(i++) % (colors.length)]);
+        var colorIndex = (i++) % (colors.length);
+        bgColor = context.useBackgroundColor(colors[colorIndex]);
+        textColor = context.useTextColor(colors[colorIndex]);
       } else {
-        color = context.colorScheme.surfaceContainerLow;
+        bgColor = context.colorScheme.primaryContainer;
+        textColor = context.colorScheme.onPrimaryContainer;
       }
 
       final borderRadius = BorderRadius.circular(12);
 
       const padding = EdgeInsets.symmetric(horizontal: 16, vertical: 6);
 
+      Widget textWidget = Text(
+        text,
+        style: TextStyle(color: textColor, fontSize: 13),
+      ).padding(padding);
+
       if (onTap != null) {
         return Material(
-          color: color,
+          color: bgColor,
           borderRadius: borderRadius,
           child: InkWell(
             borderRadius: borderRadius,
@@ -703,13 +713,13 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 ),
               ]);
             },
-            child: Text(text).padding(padding),
+            child: textWidget,
           ),
         );
       } else {
         return Container(
-          decoration: BoxDecoration(color: color, borderRadius: borderRadius),
-          child: Text(text).padding(padding),
+          decoration: BoxDecoration(color: bgColor, borderRadius: borderRadius),
+          child: textWidget,
         );
       }
     }
