@@ -340,7 +340,8 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
                 borderRadius: BorderRadius.circular(18),
                 color: Theme.of(context).colorScheme.secondaryContainer,
               ),
-              child: widget.comment.avatar == null
+              child: (widget.comment.avatar == null ||
+                      widget.comment.avatar!.isEmpty)
                   ? null
                   : AnimatedImage(
                       image: CachedImageProvider(

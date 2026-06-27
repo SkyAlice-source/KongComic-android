@@ -117,7 +117,7 @@ class _CommentWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              if (comment.avatar != null)
+              if (comment.avatar != null && comment.avatar!.isNotEmpty)
                 Container(
                   width: 36,
                   height: 36,

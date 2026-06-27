@@ -18,6 +18,11 @@ class ComicMetaData {
 
   final List<ComicChapter>? chapters;
 
+  /// Total image count across all chapters. Used to write `PageCount` and
+  /// the per-image `Pages` entries in ComicInfo.xml so readers like
+  /// Komga / CDisplay Ex / Kavita know which page is the cover.
+  final int? pageCount;
+
   Map<String, dynamic> toJson() => {
         'title': title,
         'author': author,
@@ -29,6 +34,7 @@ class ComicMetaData {
       : title = json['title'],
         author = json['author'],
         tags = List<String>.from(json['tags']),
+        pageCount = null,
         chapters = json['chapters'] == null
             ? null
             : List<ComicChapter>.from(
@@ -39,6 +45,7 @@ class ComicMetaData {
     required this.author,
     required this.tags,
     this.chapters,
+    this.pageCount,
   });
 }
 
@@ -200,8 +207,10 @@ abstract class CBZ {
     if (cache.existsSync()) cache.deleteSync(recursive: true);
     cache.createSync();
     List<ComicChapter>? chapters;
+    int pageCount = 0;
     if (comic.chapters == null) {
       var images = await LocalManager().getImages(comic.id, comic.comicType, 1);
+      pageCount = images.length;
       int i = 1;
       for (var image in images) {
         var src = File(image.replaceFirst('file://', ''));
@@ -230,6 +239,7 @@ abstract class CBZ {
         );
         chapters.add(chapter);
       }
+      pageCount = allImages.length;
       int i = 1;
       for (var image in allImages) {
         var src = File(image);
@@ -241,14 +251,12 @@ abstract class CBZ {
         i++;
       }
     }
-    var cover = comic.coverFile;
-    await cover.copyMem(
-        FilePath.join(cache.path, 'cover.${cover.path.split('.').last}'));
     final metaData = ComicMetaData(
       title: comic.title,
       author: comic.subtitle,
       tags: comic.tags,
       chapters: chapters,
+      pageCount: pageCount,
     );
     await File(FilePath.join(cache.path, 'metadata.json')).writeAsString(
       jsonEncode(metaData),
@@ -283,18 +291,24 @@ abstract class CBZ {
       buffer.writeln('  <Genre>${_escapeXml(tags.join(', '))}</Genre>');
     }
 
-    if (data.chapters != null && data.chapters!.isNotEmpty) {
-      final chaptersInfo = data.chapters!.map((chapter) =>
-        '${_escapeXml(chapter.title)}: ${chapter.start}-${chapter.end}'
-      ).join('; ');
-      buffer.writeln('  <Notes>Chapters: $chaptersInfo</Notes>');
-    }
-
-    buffer.writeln('  <Manga>Unknown</Manga>');
-    buffer.writeln('  <BlackAndWhite>Unknown</BlackAndWhite>');
-
     final now = DateTime.now();
     buffer.writeln('  <Year>${now.year}</Year>');
+    buffer.writeln('  <Manga>Yes</Manga>');
+    buffer.writeln('  <BlackAndWhite>No</BlackAndWhite>');
+    buffer.writeln('  <LanguageISO>zh</LanguageISO>');
+
+    // Build <Pages> block so Komga / CDisplay Ex / Kavita know which image
+    // is the cover instead of assuming 001.jpg. Image index is 1-based.
+    final pageCount = data.pageCount ?? 0;
+    if (pageCount > 0) {
+      buffer.writeln('  <PageCount>$pageCount</PageCount>');
+      buffer.writeln('  <Pages>');
+      for (var i = 1; i <= pageCount; i++) {
+        final type = i == 1 ? 'FrontCover' : 'Story';
+        buffer.writeln('    <Page Image="$i" Type="$type" />');
+      }
+      buffer.writeln('  </Pages>');
+    }
 
     buffer.writeln('</ComicInfo>');
     return buffer.toString();

@@ -13,7 +13,14 @@ abstract class ImageDownloader {
   static Stream<ImageDownloadProgress> loadThumbnail(
       String url, String? sourceKey,
       [String? cid]) async* {
-    final cacheKey = "$url@$sourceKey${cid != null ? '@$cid' : ''}";
+    // Guard against empty/invalid URLs: the upstream `configs['url'] ?? url`
+    // fallback would otherwise hand dio an empty string and fail with
+    // "No host specified in URI".
+    var effectiveUrl = url;
+    if (effectiveUrl.isEmpty) {
+      throw "Error: Empty image URL.";
+    }
+    final cacheKey = "$effectiveUrl@$sourceKey${cid != null ? '@$cid' : ''}";
     final cache = await CacheManager().findCache(cacheKey);
 
     if (cache != null) {
@@ -28,7 +35,7 @@ abstract class ImageDownloader {
     var configs = <String, dynamic>{};
     if (sourceKey != null) {
       var comicSource = ComicSource.find(sourceKey);
-      configs = comicSource?.getThumbnailLoadingConfig?.call(url) ?? {};
+      configs = comicSource?.getThumbnailLoadingConfig?.call(effectiveUrl) ?? {};
     }
     configs['headers'] ??= {};
     if (configs['headers']['user-agent'] == null &&
@@ -36,7 +43,7 @@ abstract class ImageDownloader {
       configs['headers']['user-agent'] = webUA;
     }
 
-    if (((configs['url'] as String?) ?? url).startsWith('cover.') &&
+    if (((configs['url'] as String?) ?? effectiveUrl).startsWith('cover.') &&
         sourceKey != null) {
       var comicSource = ComicSource.find(sourceKey);
       if(comicSource != null) {
@@ -52,7 +59,10 @@ abstract class ImageDownloader {
       responseType: ResponseType.stream,
     ));
 
-    String requestUrl = configs['url'] ?? url;
+    String requestUrl = configs['url'] ?? effectiveUrl;
+    if (requestUrl.isEmpty) {
+      throw "Error: Empty image URL.";
+    }
     if (requestUrl.startsWith('//')) {
       requestUrl = 'https:$requestUrl';
     }
@@ -123,6 +133,10 @@ abstract class ImageDownloader {
 
   static Stream<ImageDownloadProgress> _loadComicImage(
       String imageKey, String? sourceKey, String cid, String eid) async* {
+    // Guard against empty/invalid image keys (defensive: same as loadThumbnail).
+    if (imageKey.isEmpty) {
+      throw "Error: Empty image URL.";
+    }
     final cacheKey = "$imageKey@$sourceKey@$cid@$eid";
     final cache = await CacheManager().findCache(cacheKey);
 

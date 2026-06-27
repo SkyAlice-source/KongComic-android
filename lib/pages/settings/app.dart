@@ -42,13 +42,33 @@ class _AppSettingsState extends State<AppSettings> {
               result = await selectDirectory();
             }
             if (result == null) return;
+            if (!mounted) return;
+            final manager = LocalManager();
+            final existingCount =
+                await manager.countConflicts(result);
+            bool overwrite = true;
+            if (existingCount > 0) {
+              final choice = await showDialog<_ConflictChoice>(
+                context: context,
+                builder: (ctx) => _StorageConflictDialog(
+                  existingCount: existingCount,
+                  newPath: result!,
+                ),
+              );
+              if (choice == null || choice == _ConflictChoice.cancel) {
+                return;
+              }
+              overwrite = choice == _ConflictChoice.overwrite;
+            }
+            if (!mounted) return;
             var loadingDialog = showLoadingDialog(
               App.rootContext,
               barrierDismissible: false,
               allowCancel: false,
             );
-            var res = await LocalManager().setNewPath(result);
+            var res = await manager.setNewPath(result, overwrite: overwrite);
             loadingDialog.close();
+            if (!mounted) return;
             if (res != null) {
               context.showMessage(message: res);
             } else {
@@ -581,6 +601,82 @@ class _WebdavSettingState extends State<_WebdavSetting> {
           ],
         ).paddingHorizontal(16),
       ),
+    );
+  }
+}
+
+enum _ConflictChoice { overwrite, merge, cancel }
+
+class _StorageConflictDialog extends StatelessWidget {
+  const _StorageConflictDialog({
+    required this.existingCount,
+    required this.newPath,
+  });
+
+  final int existingCount;
+  final String newPath;
+
+  @override
+  Widget build(BuildContext context) {
+    return ContentDialog(
+      title: "Destination is not empty".tl,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "The selected folder already contains %d file(s). How do you want to proceed?"
+                .tl
+                .replaceAll("%d", "$existingCount"),
+          ).paddingBottom(8),
+          Text(
+            newPath,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              color: context.colorScheme.onSurfaceVariant,
+              fontFamily: "monospace",
+            ),
+          ).paddingBottom(12),
+          Text(
+            "Overwrite".tl,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text(
+            "Move your library and replace any files with the same name.".tl,
+            style: TextStyle(
+              fontSize: 12,
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+          ).paddingBottom(8),
+          Text(
+            "Merge".tl,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text(
+            "Move your library and skip files that already exist.".tl,
+            style: TextStyle(
+              fontSize: 12,
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        Button.text(
+          onPressed: () => context.pop(_ConflictChoice.cancel),
+          child: Text("Cancel".tl),
+        ),
+        Button.text(
+          onPressed: () => context.pop(_ConflictChoice.merge),
+          child: Text("Merge".tl),
+        ),
+        Button.filled(
+          onPressed: () => context.pop(_ConflictChoice.overwrite),
+          child: Text("Overwrite".tl),
+        ),
+      ],
     );
   }
 }

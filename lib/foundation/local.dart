@@ -13,6 +13,7 @@ import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/translations.dart';
+import 'package:path/path.dart' as p;
 
 import 'app.dart';
 import 'appdata.dart';
@@ -63,6 +64,31 @@ class LocalComic with HistoryMixin implements Comic {
     required this.downloadedChapters,
     required this.createdAt,
   });
+
+  LocalComic copyWith({
+    String? id,
+    String? title,
+    String? subtitle,
+    List<String>? tags,
+    String? directory,
+    ComicChapters? chapters,
+    String? cover,
+    ComicType? comicType,
+    List<String>? downloadedChapters,
+    DateTime? createdAt,
+  }) =>
+      LocalComic(
+        id: id ?? this.id,
+        title: title ?? this.title,
+        subtitle: subtitle ?? this.subtitle,
+        tags: tags ?? this.tags,
+        directory: directory ?? this.directory,
+        chapters: chapters ?? this.chapters,
+        cover: cover ?? this.cover,
+        comicType: comicType ?? this.comicType,
+        downloadedChapters: downloadedChapters ?? this.downloadedChapters,
+        createdAt: createdAt ?? this.createdAt,
+      );
 
   LocalComic.fromRow(Row row)
       : id = row[0] as String,
@@ -200,8 +226,43 @@ class LocalManager with ChangeNotifier {
     }
   }
 
-  // return error message if failed
-  Future<String?> setNewPath(String newPath) async {
+  /// Returns the number of conflicting files in [newPath] that already exist
+  /// when copying from the current [directory]. Used to prompt the user with
+  /// merge/overwrite/cancel choices before moving.
+  Future<int> countConflicts(String newPath) async {
+    final newDir = Directory(newPath);
+    if (!await newDir.exists()) return 0;
+    int count = 0;
+    try {
+      await Isolate.run(() {
+        overrideIO(() {
+          int walk(Directory d) {
+            int n = 0;
+            for (final entity in d.listSync(recursive: false)) {
+              if (entity is File) {
+                n++;
+              } else if (entity is Directory) {
+                n += walk(entity);
+              }
+            }
+            return n;
+          }
+          count = walk(directory);
+        });
+      });
+    } catch (_) {
+      return 0;
+    }
+    return count;
+  }
+
+  // [overwrite] controls behaviour when [newPath] already contains files:
+  //   true  -> copy all files from current [directory] to [newPath],
+  //            overwriting collisions and then wipe the source.
+  //   false -> only copy files that do not yet exist in [newPath] (merge),
+  //            skip collisions, and then wipe the source.
+  // Returns null on success, error message string on failure.
+  Future<String?> setNewPath(String newPath, {bool overwrite = true}) async {
     // Reject SAF / content URIs: dart:io Directory cannot operate on URIs.
     if (newPath.startsWith('content://') || newPath.startsWith('file://')) {
       return "Please pick a regular file system directory, not a document tree".tl;
@@ -217,20 +278,11 @@ class LocalManager with ChangeNotifier {
     if (!exists) {
       return "Directory does not exist".tl;
     }
-    // Check if the directory is empty. Use take(1) to avoid waiting on the
-    // whole stream — `Stream.isEmpty` can hang on certain backends and is
-    // more expensive than necessary.
-    try {
-      final first = await newDir.list().take(1).toList();
-      if (first.isNotEmpty) {
-        return "Directory is not empty".tl;
-      }
-    } catch (e, s) {
-      Log.error("IO", "Failed to list new path: $e", s);
-      return "Directory is not empty".tl;
+    if (p.equals(directory.path, newDir.path)) {
+      return null;
     }
     try {
-      await copyDirectoryIsolate(directory, newDir);
+      await _copyWithStrategy(directory, newDir, overwrite: overwrite);
       await directory.deleteContents(recursive: true);
       await File(FilePath.join(App.dataPath, 'local_path'))
           .writeAsString(newPath);
@@ -241,6 +293,39 @@ class LocalManager with ChangeNotifier {
     path = newPath;
     _checkNoMedia();
     return null;
+  }
+
+  Future<void> _copyWithStrategy(
+    Directory source,
+    Directory destination, {
+    required bool overwrite,
+  }) async {
+    await Isolate.run(() {
+      overrideIO(() {
+        void walk(Directory src, Directory dst) {
+          for (final entity in src.listSync(recursive: false)) {
+            final name = p.basename(entity.path);
+            final target = Directory(FilePath.join(dst.path, name));
+            if (entity is File) {
+              if (target.existsSync() && !overwrite) {
+                continue;
+              }
+              try {
+                if (target.existsSync()) target.deleteSync();
+              } catch (_) {}
+              target.parent.createSync(recursive: true);
+              entity.copySync(target.path);
+            } else if (entity is Directory) {
+              if (!target.existsSync()) {
+                target.createSync(recursive: true);
+              }
+              walk(entity, target);
+            }
+          }
+        }
+        walk(source, destination);
+      });
+    });
   }
 
   Future<String> findDefaultPath() async {
@@ -388,6 +473,21 @@ class LocalManager with ChangeNotifier {
     final res = _db.select(
       'SELECT * FROM comics WHERE id = ? AND comic_type = ?;',
       [id, comicType.value],
+    );
+    if (res.isEmpty) {
+      return null;
+    }
+    return LocalComic.fromRow(res.first);
+  }
+
+  /// Look up a local comic by its `directory` field. Used to deduplicate
+  /// imports — re-importing a file at the same path should not produce a
+  /// second row in the database.
+  LocalComic? findByDirectory(String directory) {
+    if (directory.isEmpty) return null;
+    final res = _db.select(
+      'SELECT * FROM comics WHERE directory = ? AND comic_type = ? LIMIT 1;',
+      [directory, ComicType.local.value],
     );
     if (res.isEmpty) {
       return null;

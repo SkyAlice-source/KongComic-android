@@ -2,19 +2,21 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:kong_comic/foundation/history.dart';
 
 import 'appdata.dart';
 import 'favorites.dart';
 import 'local.dart';
+import 'log.dart';
 
 export "widget_utils.dart";
 export "context.dart";
 
 class _App {
   final version = "1.6.4";
-  final appVersion = "1.1.1";
+  final appVersion = "1.1.3";
 
   bool get isAndroid => Platform.isAndroid;
 
@@ -96,6 +98,35 @@ class _App {
       favorites.init(),
       local.init(),
     ]);
+  }
+
+  /// Returns the device's primary CPU ABI on Android (e.g. "arm64-v8a",
+  /// "armeabi-v7a", "x86_64"). Returns null on other platforms.
+  /// Reads through the `venera/method_channel` MethodChannel registered in
+  /// MainActivity.kt.
+  Future<String?> getDeviceAbi() async {
+    if (!isAndroid) return null;
+    try {
+      const channel = MethodChannel("venera/method_channel");
+      return await channel.invokeMethod<String>("getDeviceAbi");
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Ask the Android system to install the APK at [path]. The file is shared
+  /// with the installer via a FileProvider configured in AndroidManifest.xml.
+  /// Returns true if the install intent was dispatched; false on error.
+  Future<bool> installApk(String path) async {
+    if (!isAndroid) return false;
+    try {
+      const channel = MethodChannel("venera/method_channel");
+      await channel.invokeMethod<void>("installApk", {"path": path});
+      return true;
+    } catch (e, s) {
+      Log.error("installApk", e.toString(), s);
+      return false;
+    }
   }
 
   Function? _forceRebuildHandler;

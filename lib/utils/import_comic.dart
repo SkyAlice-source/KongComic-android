@@ -449,29 +449,68 @@ class ImportComic {
         importedComics = await _copyComicsToLocalDir(importedComics);
       }
       int importedCount = 0;
+      int updatedCount = 0;
+      int skippedCount = 0;
+      final resolver = LocalManager();
       for (var folder in importedComics.keys) {
         for (var comic in importedComics[folder]!) {
-          var id = LocalManager().findValidId(ComicType.local);
-          LocalManager().add(comic, id);
-          importedCount++;
+          // Dedup by absolute directory path. Re-importing the same file
+          // (or a CBZ exported back over the same path) should update the
+          // existing row instead of producing a new one with a fresh id.
+          final existing = resolver.findByDirectory(comic.directory);
+          if (existing != null) {
+            final merged = comic.copyWith(
+              id: existing.id,
+              downloadedChapters: {
+                ...existing.downloadedChapters,
+                ...comic.downloadedChapters,
+              }.toList(),
+              createdAt: existing.createdAt,
+              cover: existing.cover,
+            );
+            // `add` uses INSERT OR REPLACE keyed on id — passing the
+            // existing id replaces the old row in place.
+            resolver.add(merged, existing.id);
+            updatedCount++;
+          } else {
+            var id = resolver.findValidId(ComicType.local);
+            resolver.add(comic, id);
+            importedCount++;
+          }
           if (folder != null) {
-            LocalFavoritesManager().addComic(
-                folder,
-                FavoriteItem(
-                    id: id,
-                    name: comic.title,
-                    coverPath: comic.cover,
-                    author: comic.subtitle,
-                    type: comic.comicType,
-                    tags: comic.tags,
-                    favoriteTime: comic.createdAt));
+            final existingByDir = resolver.findByDirectory(comic.directory);
+            final id = existingByDir?.id ?? comic.id;
+            // Only add to the named favorite folder once per directory.
+            final alreadyInFolder = LocalFavoritesManager()
+                .find(id, ComicType.local)
+                .contains(folder);
+            if (!alreadyInFolder) {
+              LocalFavoritesManager().addComic(
+                  folder,
+                  FavoriteItem(
+                      id: id,
+                      name: comic.title,
+                      coverPath: comic.cover,
+                      author: comic.subtitle,
+                      type: comic.comicType,
+                      tags: comic.tags,
+                      favoriteTime: comic.createdAt));
+            } else {
+              skippedCount++;
+            }
           }
         }
       }
-      App.rootContext.showMessage(
-          message: "Imported @a comics".tlParams({
-        'a': importedCount,
-      }));
+      if (importedCount > 0) {
+        App.rootContext.showMessage(
+            message: "Imported @a comics".tlParams({'a': importedCount}));
+      } else if (updatedCount > 0) {
+        App.rootContext.showMessage(
+            message: "Updated @a comics".tlParams({'a': updatedCount}));
+      } else if (skippedCount > 0) {
+        App.rootContext.showMessage(
+            message: "No new comics".tlParams({'a': skippedCount}));
+      }
       App.forceRebuild();
     } catch (e, s) {
       App.rootContext.showMessage(message: "Failed to register comics".tl);

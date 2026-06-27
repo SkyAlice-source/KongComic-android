@@ -132,7 +132,19 @@ Future<void> showSideBar(BuildContext context, Widget widget,
     bool dismissible = true,
     double width = 500,
     bool addTopPadding = false}) {
-  return Navigator.of(context).push(
+  // Always push onto the main navigator (NaviPane's inner Navigator) when
+  // available, so the SideBarRoute lives in the same stack as the page that
+  // triggered it. Falling back to the root navigator only happens in single-
+  // Navigator setups. Pushing onto the root navigator from within a NaviPane
+  // page puts the sidebar above the comic details page, so Android's
+  // predictive back gesture has to first commit a pop on the modal-style
+  // SideBarRoute (2-3 swipes) before it can pop the page underneath. The
+  // previous "use nearest Navigator" approach broke callers that pass
+  // `App.rootContext` (e.g. `_ComicPageActions.showComments`) since
+  // `Navigator.of(rootContext)` would still resolve to the root navigator.
+  var navigatorState = App.mainNavigatorKey?.currentState ??
+      App.rootNavigatorKey.currentState!;
+  return navigatorState.push(
     SideBarRoute(
       widget,
       showBarrier: showBarrier,

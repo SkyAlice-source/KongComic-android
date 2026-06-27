@@ -18,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -136,6 +137,24 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                 }
 
+                "getDeviceAbi" -> {
+                    res.success(getDeviceAbi())
+                }
+
+                "installApk" -> {
+                    val path = call.argument<String>("path")
+                    if (path.isNullOrEmpty()) {
+                        res.error("invalid_arguments", "Missing 'path'", null)
+                    } else {
+                        try {
+                            installApk(path)
+                            res.success(null)
+                        } catch (e: Exception) {
+                            res.error("install_failed", e.message, null)
+                        }
+                    }
+                }
+
                 else -> res.notImplemented()
             }
         }
@@ -200,6 +219,34 @@ class MainActivity : FlutterFragmentActivity() {
         } else {
             "No Proxy"
         }
+    }
+
+    /// Return the device's primary ABI, e.g. "arm64-v8a", "armeabi-v7a", "x86_64".
+    /// Falls back to "arm64-v8a" if it cannot be determined.
+    private fun getDeviceAbi(): String {
+        return if (Build.SUPPORTED_ABIS.isNotEmpty()) {
+            Build.SUPPORTED_ABIS[0]
+        } else {
+            @Suppress("DEPRECATION")
+            Build.CPU_ABI
+        }
+    }
+
+    /// Launch the system installer for the given APK file path.
+    /// Uses FileProvider with the applicationId authority to share the file
+    /// as a content URI. Required on Android 7.0+ (N+) and especially Android 13+.
+    private fun installApk(path: String) {
+        val file = File(path)
+        if (!file.exists()) {
+            throw Exception("APK file not found: $path")
+        }
+        val authority = "$packageName.fileprovider"
+        val uri: Uri = FileProvider.getUriForFile(this, authority, file)
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.setDataAndType(uri, "application/vnd.android.package-archive")
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

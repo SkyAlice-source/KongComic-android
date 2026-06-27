@@ -14,13 +14,12 @@ import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/js_engine.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/foundation/log.dart';
-import 'package:kong_comic/network/app_dio.dart';
 import 'package:kong_comic/utils/data.dart';
 import 'package:kong_comic/utils/data_sync.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/translations.dart';
-import 'package:yaml/yaml.dart';
 import 'package:kong_comic/utils/import_comic.dart';
+import 'package:kong_comic/utils/app_update.dart';
 
 part 'reader.dart';
 part 'explore_settings.dart';
