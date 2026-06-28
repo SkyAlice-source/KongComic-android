@@ -82,6 +82,15 @@ class _CodeEditorState extends State<CodeEditor> {
   late Future future;
 
   @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    horizontalScrollController.dispose();
+    verticalScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder(
       future: future,

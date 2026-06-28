@@ -280,6 +280,7 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
 
   @override
   void dispose() {
+    scrollController.dispose();
     appdata.settings.removeListener(onSettingsChanged);
     super.dispose();
   }

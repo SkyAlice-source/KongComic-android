@@ -41,6 +41,12 @@ class _CommentsPageState extends State<CommentsPage> {
   bool sending = false;
   bool _isLoadingMore = false;
 
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
   void firstLoad() async {
     var res = await widget.source.commentsLoader!(
         widget.data.comicId, widget.data.subId, 1, widget.replyComment?.id);

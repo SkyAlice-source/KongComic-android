@@ -732,6 +732,12 @@ class _SliverSearchBarState extends State<SliverSearchBar>
       ),
     );
   }
+
+  @override
+  void dispose() {
+    _editingController.dispose();
+    super.dispose();
+  }
 }
 
 class _SliverSearchBarDelegate extends SliverPersistentHeaderDelegate {
@@ -917,6 +923,12 @@ class _SearchBarState extends State<AppSearchBar> with _SearchBarMixin {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _editingController.dispose();
+    super.dispose();
   }
 }
 

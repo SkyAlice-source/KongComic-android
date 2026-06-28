@@ -17,6 +17,12 @@ class _CommentsPart extends StatefulWidget {
 class _CommentsPartState extends State<_CommentsPart> {
   final scrollController = ScrollController();
 
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
   late List<Comment> comments;
 
   @override

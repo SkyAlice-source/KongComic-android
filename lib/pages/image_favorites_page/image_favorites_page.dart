@@ -125,6 +125,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
   void dispose() {
     ImageFavoriteManager().removeListener(updateImageFavorites);
     scrollController.dispose();
+    controller.dispose();
     super.dispose();
   }
 

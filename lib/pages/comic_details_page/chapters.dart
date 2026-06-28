@@ -229,6 +229,13 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
   }
 
   @override
+  void dispose() {
+    tabController.removeListener(onTabChange);
+    tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(covariant _GroupedComicChapters oldWidget) {
     super.didUpdateWidget(oldWidget);
     setState(() {

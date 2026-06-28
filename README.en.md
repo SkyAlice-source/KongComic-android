@@ -1,45 +1,60 @@
-<h1 align="center">KongComic 🎨</h1>
+# KongComic
 
-<p align="center"><a href="README.md"><b>English</b></a> | <a href="README.zh-CN.md">中文</a></p>
+> A comic reader based on [venera-app/venera](https://github.com/venera-app/venera), deeply modified by AI (Reasonix)
 
-<p align="center">
-  <a href="https://github.com/SkyAlice-source/KongComic-android/stargazers"><img src="https://img.shields.io/github/stars/SkyAlice-source/KongComic-android" alt="Stars"></a>
-  <a href="https://github.com/SkyAlice-source/KongComic-android/releases"><img src="https://img.shields.io/github/v/release/SkyAlice-source/KongComic-android" alt="Release"></a>
-  <a href="https://github.com/SkyAlice-source/KongComic-android/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SkyAlice-source/KongComic-android" alt="License"></a>
-  <a href="https://github.com/SkyAlice-source/KongComic-android/blob/main/pubspec.yaml"><img src="https://img.shields.io/badge/version-1.1.4-blue" alt="Version"></a>
-</p>
+[**English**](README.en.md) | [**中文**](README.md)
 
-<p align="center">Based on <a href="https://github.com/venera-app/venera">Venera</a>, UI overhaul + bug fixes + performance improvements.</p>
+[![flutter](https://img.shields.io/badge/flutter-3.44.0-blue)](https://flutter.dev/)
+[![License](https://img.shields.io/github/license/SkyAlice-source/KongComic-android)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.1.6-blue)](https://github.com/SkyAlice-source/KongComic-android/releases)
+
+---
+
+## 📖 Introduction
+
+KongComic is a comic reader supporting multi-source search, local favorites, and online reading. It is a deep secondary development of the [Venera](https://github.com/venera-app/venera) project by AI.
 
 <div align="center">
   <img src="doc/Screenshot_20260625_030823.png" width="280" alt="Home (light)" />
   &nbsp;&nbsp;
   <img src="doc/Screenshot_20260625_030912.png" width="280" alt="Home (dark)" />
   <br/>
-  <em>Home — light theme (left) and dark theme (right)</em>
+  <em>Home page — light theme (left) and dark theme (right)</em>
 </div>
 
 ---
 
-## ✨ What's New in v1.1.4
+## 🆕 What's New in v1.1.6
 
-### 🐛 Bug Fixes
-- **Local storage migration crash** — `LocalManager.setNewPath` no longer crashes when copying into a SAF directory; file writes now route through `AndroidFile` for SAF URIs (dart:io's `File.copySync` doesn't understand `content://` / `android://`)
-- **CBZ packaging silently failed on SAF** — Replaced `zip_flutter` (uses dart:io `File.open` internally) with pure-Dart `archive` + `ZipEncoder`; CBZ bytes built in memory and written via `AndroidFile.writeAsBytesSync`
-- **Comment avatar `dio` crash** — `ImageDownloader.loadThumbnail` now rejects empty URLs; comment renderers check `== null || isEmpty` for `avatar`
-- **Battery widget `setState` after dispose** — `_BatteryWidgetState` checks `mounted` and cancels its periodic timer on unmount
-- **Comments / favorites / vote `setState` after dispose** — Added `if (!mounted) return;` guards to all `await`+`setState` paths
+### 🧹 Memory Leak Fixes
+- **TextEditingController not disposed** (13 files) — Added proper `dispose()` for all text controllers in StatefulWidgets
+- **ScrollController/PageController not disposed** (7 files) — Added `dispose()` for scroll controllers in explore page, comments preview, favorites, and gallery mode
+- **TabController not disposed** — `_GroupedComicChaptersState` now disposes the tab controller with listener cleanup
+- **Timer.periodic leak** — Added `_timer?.cancel()` to background update checker
+- **StreamSubscription leak** — `app_links` stream subscription now properly cancelled
+
+### 🛡️ ProGuard / R8 Hardening
+- Added `-keepattributes Signature`, `*Annotation*` (Gson serialization)
+- Added Gson keep rules (`TypeAdapterFactory`, `JsonSerializer`, `JsonDeserializer`)
+- Added `leakcanary-android:2.14` for automatic leak detection in debug builds
+
+### ⚡ Build Optimization
+- `org.gradle.parallel=true` — faster builds
+- `org.gradle.caching=true` — build cache enabled
+- **Battery widget `setState` after dispose** — `_BatteryWidgetState._checkBatteryAvailability` and the periodic timer now check `mounted` and cancel on unmount, no more "setState() called after dispose" when leaving the reader
+- **Comments / favorites / vote `setState` after dispose** — Added `if (!mounted) return;` guards to all `await`+`setState` paths in comment like, vote, send, add-favorite and aggregated-search-result loaders
+- **Authorization switch dead-lock** (known) — The biometric check in `onChanged: () async` is fire-and-forget (signature is `VoidCallback`), so the switch can only be opened, never rejected; full fix requires a typed `Future<bool> Function()?` callback (tracked separately)
 
 ### 🎨 UI & UX Improvements
-- **CBZ file naming** — Downloaded `.cbz` files now use `<manga title> - <chapter title>.cbz` instead of the chapter ID
+- **CBZ file naming** — Downloaded `.cbz` files now use `<manga title> - <chapter title>.cbz` (e.g. `海贼王 - 第01话.cbz`) instead of the chapter ID; helps when files are exported out of the per-comic folder
 
 ### 🧹 Cleanup
-- Removed duplicate `archive: any` in `dev_dependencies`
-- i18n audit — All 587 zh_CN / zh_TW keys verified
+- **Removed duplicate `archive: any`** in `dev_dependencies` (already declared as a normal dependency)
+- **i18n audit** — All 587 zh_CN / zh_TW keys verified; no missing or empty values
 
 ---
 
-## ✨ What's New in v1.1.0
+## 🆕 What's New in v1.1.0
 
 ### 🐛 Bug Fixes
 - **Swipe-back gesture restored on side pages** — Removed conflicting `GestureDetector(onHorizontalDragEnd)` from `SideBarRoute`; the fork's custom gesture competed with Android's predictive back, requiring 2–3 swipes to pop. The route now uses Venera's standard click-absorber pattern, swipe-back works on the first attempt (comments, download page, etc.)
@@ -56,7 +71,7 @@
 
 ---
 
-## ✨ What's New in v1.0.5
+## 🆕 What's New in v1.0.5
 
 ### 🚀 Performance & Optimization
 - **Reader image preload concurrency control** — Semaphore limits to 3 concurrent loads, preventing OOM crashes
@@ -80,12 +95,71 @@
 
 ---
 
+## ✨ Features
+
+### 🏠 Home
+- Banner card carousel with auto-switching
+- Comic info panel: title, author, reading progress, total episodes, "Read Now" button
+- Quick access: Follow Updates, Local, Image Favorites, Comic Source
+
+### 🗺 Navigation
+- 5 tabs: Categories / Favorites / Home / Explore / History
+- Active state: purple circle + purple icon + bold text
+- Floating glass bottom bar with rounded corners
+
+### 🔍 Search
+- Multi-source search + aggregated search
+- ID direct jump
+- Tag suggestions with debounce
+- Search history with individual deletion
+
+### 📚 Settings
+- 9 categories: Reader / Appearance / Explore / Favorites / Network / Download / Import / General / About
+- Sorted by usage frequency
+- Language selector (System / Chinese / Traditional Chinese / English)
+
+### 🎨 UI
+- Geist-inspired flat design
+- HugeIcons (5000+ line icons) replacing all FluentIcons/Material Icons
+- Light/Dark dual theme
+
+### 📖 Reader
+- Touch to turn pages (30% left/right zones, 40% center menu)
+- Progress bar with ShaderMask dual-color text
+
+### 📦 Backup & Restore
+- Export/import includes: history, favorites, settings, cookies, source scripts, and custom covers
+
+---
+
 ## 🔧 Build
 
 ```bash
+unset FLUTTER_STORAGE_BASE_URL
+unset PUB_HOSTED_URL
 flutter pub get
-flutter build apk --release --split-per-abi
+flutter build apk --release --android-skip-build-dependency-validation
 ```
+
+Output: `build/app/outputs/flutter-apk/KongComic-{version}-{abi}.apk`
+
+### Architectures
+| APK | Size | Target |
+|-----|------|--------|
+| `arm64-v8a` | ~17 MB | Modern Android phones |
+| `armeabi-v7a` | ~16 MB | Older Android devices |
+| `x86_64` | ~17 MB | Emulators / Tablets |
+| `universal` | ~41 MB | All architectures |
+
+---
+
+## 🙏 Credits
+
+- [Venera](https://github.com/venera-app/venera) — Original project by [@wgh136](https://github.com/wgh136)
+- [Reasonix](https://reasonix.ai) — AI coding assistant
+- All open-source dependency maintainers
+
+---
 
 ## 📄 License
 
