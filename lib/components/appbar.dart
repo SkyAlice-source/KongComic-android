@@ -314,6 +314,7 @@ class _AppTabBarState extends State<AppTabBar> {
 
   @override
   void dispose() {
+    scrollController.dispose();
     super.dispose();
   }
 

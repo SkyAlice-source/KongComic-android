@@ -83,6 +83,12 @@ class _ChaptersViewState extends State<_ChaptersView> {
       ),
     );
   }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 }
 
 class _GroupedChaptersView extends StatefulWidget {
@@ -151,6 +157,13 @@ class _GroupedChaptersViewState extends State<_GroupedChaptersView>
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    tabController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Widget buildGroup(String groupName) {

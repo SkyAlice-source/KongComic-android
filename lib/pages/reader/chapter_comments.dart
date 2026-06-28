@@ -292,6 +292,12 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
       ),
     );
   }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
 }
 
 class _ChapterCommentTile extends StatefulWidget {

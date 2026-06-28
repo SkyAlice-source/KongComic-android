@@ -141,12 +141,13 @@ class _AppSettingsState extends State<AppSettings> {
               var controller = showLoadingDialog(context);
               var cacheFile =
                   File(FilePath.join(App.cachePath, "import_data_temp"));
+              var needRestart = false;
               try {
                 await file.saveTo(cacheFile.path);
                 if (file.name.endsWith('picadata')) {
                   await importPicaData(cacheFile);
                 } else {
-                  await importAppData(cacheFile);
+                  needRestart = await importAppData(cacheFile);
                 }
               } catch (e, s) {
                 Log.error("Import data", e.toString(), s);
@@ -155,6 +156,10 @@ class _AppSettingsState extends State<AppSettings> {
                 controller.close();
                 cacheFile.deleteIgnoreError();
                 App.forceRebuild();
+              }
+              if (needRestart && context.mounted) {
+                context.showMessage(
+                    message: "Restart app to apply download path changes".tl);
               }
             }
           },

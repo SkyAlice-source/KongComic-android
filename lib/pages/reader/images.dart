@@ -656,6 +656,16 @@ class _GalleryModeState extends State<_GalleryMode>
 
     return reader.images![startIndex];
   }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    for (var controller in photoViewControllers.values) {
+      controller.dispose();
+    }
+    keyRepeatTimer?.cancel();
+    super.dispose();
+  }
 }
 
 const Set<PointerDeviceKind> _kTouchLikeDeviceTypes = <PointerDeviceKind>{

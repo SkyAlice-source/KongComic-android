@@ -49,12 +49,23 @@ Future<File> exportAppData([bool sync = true]) async {
         }
       }
     }
+    // 备份 implicitData.json（自定义封面映射等隐式数据）
+    var implicitDataFile = FilePath.join(dataPath, "implicitData.json");
+    if (File(implicitDataFile).existsSync()) {
+      zipFile.addFile("implicitData.json", implicitDataFile);
+    }
+    // 备份 local_path（自定义下载路径）
+    var localPathFile = FilePath.join(dataPath, "local_path");
+    if (File(localPathFile).existsSync()) {
+      zipFile.addFile("local_path", localPathFile);
+    }
     zipFile.close();
   });
   return cacheFile;
 }
 
-Future<void> importAppData(File file, [bool checkVersion = false]) async {
+Future<bool> importAppData(File file, [bool checkVersion = false]) async {
+  var needRestart = false;
   var cacheDirPath = FilePath.join(App.cachePath, 'temp_data');
   var cacheDir = Directory(cacheDirPath);
   if (cacheDir.existsSync()) {
@@ -73,7 +84,7 @@ Future<void> importAppData(File file, [bool checkVersion = false]) async {
       var data = jsonDecode(await appdataFile.readAsString());
       var version = data["settings"]["dataVersion"];
       if (version is int && version <= appdata.settings["dataVersion"]) {
-        return;
+        return false;
       }
     }
     if (await historyFile.exists()) {
@@ -131,6 +142,28 @@ Future<void> importAppData(File file, [bool checkVersion = false]) async {
       }
       await ComicSourceManager().reload();
     }
+    // 恢复 implicitData.json（自定义封面映射等隐式数据）
+    var implicitDataFile = cacheDir.joinFile("implicitData.json");
+    if (await implicitDataFile.exists()) {
+      File(FilePath.join(App.dataPath, "implicitData.json")).deleteIfExistsSync();
+      implicitDataFile.renameSync(FilePath.join(App.dataPath, "implicitData.json"));
+      // 重新加载 implicitData 到内存
+      try {
+        appdata.implicitData = jsonDecode(
+            await File(FilePath.join(App.dataPath, "implicitData.json"))
+                .readAsString());
+      } catch (e) {
+        Log.error("Import Data", "Failed to reload implicit data: $e");
+      }
+    }
+    // 恢复 local_path（自定义下载路径）
+    var localPathFile = cacheDir.joinFile("local_path");
+    if (await localPathFile.exists()) {
+      File(FilePath.join(App.dataPath, "local_path")).deleteIfExistsSync();
+      localPathFile.renameSync(FilePath.join(App.dataPath, "local_path"));
+      needRestart = true;
+    }
+    return needRestart;
   } finally {
     cacheDir.deleteIgnoreError(recursive: true);
   }
