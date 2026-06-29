@@ -3,6 +3,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/foundation/log.dart';
@@ -26,8 +27,6 @@ class LocalComicsPage extends StatefulWidget {
 }
 
 class _LocalComicsPageState extends State<LocalComicsPage> {
-  late List<LocalComic> comics;
-
   late LocalSortType sortType;
 
   String keyword = "";
@@ -38,23 +37,32 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
 
   Map<LocalComic, bool> selectedComics = {};
 
-  void update() {
+  /// Comics currently loaded by the paginated grid.
+  /// Updated via [onLoadedComicsChanged] callback.
+  List<LocalComic> _loadedComics = [];
+
+  /// GlobalKey to access the paginated grid's state for refresh.
+  final _gridKey = GlobalKey<PaginatedSliverGridComicsState>();
+
+  /// Page loader for PaginatedSliverGridComics.
+  Future<List<Comic>> _loadPage(int offset, int limit) async {
     if (keyword.isEmpty) {
-      setState(() {
-        comics = LocalManager().getComics(sortType);
-      });
+      return LocalManager().getComicsPaginated(sortType,
+          limit: limit, offset: offset);
     } else {
-      setState(() {
-        comics = LocalManager().search(keyword);
-      });
+      return LocalManager().searchPaginated(keyword,
+          limit: limit, offset: offset);
     }
+  }
+
+  void update() {
+    _gridKey.currentState?.refresh();
   }
 
   @override
   void initState() {
     var sort = appdata.implicitData["local_sort"] ?? "name";
     sortType = LocalSortType.fromString(sort);
-    comics = LocalManager().getComics(sortType);
     LocalManager().addListener(update);
     super.initState();
   }
@@ -161,9 +169,21 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
   }
 
   void selectAll() {
-    setState(() {
-      selectedComics = comics.asMap().map((k, v) => MapEntry(v, true));
-    });
+    // Load all comics for selection. This is a one-time operation
+    // triggered by the user, not in the scroll path.
+    if (keyword.isEmpty) {
+      final allComics = LocalManager().getComics(sortType);
+      setState(() {
+        selectedComics =
+            allComics.asMap().map((k, v) => MapEntry(v, true));
+      });
+    } else {
+      final allComics = LocalManager().search(keyword);
+      setState(() {
+        selectedComics =
+            allComics.asMap().map((k, v) => MapEntry(v, true));
+      });
+    }
   }
 
   void deSelect() {
@@ -174,10 +194,13 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
 
   void invertSelection() {
     setState(() {
-      comics.asMap().forEach((k, v) {
-        selectedComics[v] = !selectedComics.putIfAbsent(v, () => false);
-      });
-      selectedComics.removeWhere((k, v) => !v);
+      for (var v in _loadedComics) {
+        if (selectedComics.containsKey(v)) {
+          selectedComics.remove(v);
+        } else {
+          selectedComics[v] = true;
+        }
+      }
     });
   }
 
@@ -341,9 +364,13 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                     ),
               actions: multiSelectMode ? selectActions : null,
             ),
-          SliverGridComics(
-            comics: comics,
+          PaginatedSliverGridComics(
+            key: _gridKey,
+            pageLoader: _loadPage,
             selections: selectedComics,
+            onLoadedComicsChanged: (comics) {
+              _loadedComics = comics.cast<LocalComic>();
+            },
             onLongPressed: (c, heroID) {
               setState(() {
                 multiSelectMode = true;

@@ -28,26 +28,39 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   void onUpdate() {
-    setState(() {
-      comics = HistoryManager().getAll();
-      if (multiSelectMode) {
-        selectedComics.removeWhere((comic, _) => !comics.contains(comic));
-        if (selectedComics.isEmpty) {
+    _gridKey.currentState?.refresh();
+    if (multiSelectMode) {
+      selectedComics.removeWhere((comic, _) => !_loadedComics.contains(comic));
+      if (selectedComics.isEmpty) {
+        setState(() {
           multiSelectMode = false;
-        }
+        });
       }
-    });
+    }
   }
 
-  var comics = HistoryManager().getAll();
+  /// Comics currently loaded by the paginated grid.
+  List<History> _loadedComics = [];
+
+  /// GlobalKey to access the paginated grid's state for refresh.
+  final _gridKey = GlobalKey<PaginatedSliverGridComicsState>();
+
+  /// Page loader for PaginatedSliverGridComics.
+  Future<List<Comic>> _loadPage(int offset, int limit) async {
+    return HistoryManager().getAllPaginated(limit: limit, offset: offset);
+  }
+
   var controller = FlyoutController();
 
   bool multiSelectMode = false;
   Map<History, bool> selectedComics = {};
 
   void selectAll() {
+    // Load all history for selection (one-time operation).
+    final allComics = HistoryManager().getAll();
     setState(() {
-      selectedComics = comics.asMap().map((k, v) => MapEntry(v, true));
+      selectedComics =
+          allComics.asMap().map((k, v) => MapEntry(v, true));
     });
   }
 
@@ -59,10 +72,13 @@ class _HistoryPageState extends State<HistoryPage> {
 
   void invertSelection() {
     setState(() {
-      comics.asMap().forEach((k, v) {
-        selectedComics[v] = !selectedComics.putIfAbsent(v, () => false);
-      });
-      selectedComics.removeWhere((k, v) => !v);
+      for (var v in _loadedComics) {
+        if (selectedComics.containsKey(v)) {
+          selectedComics.remove(v);
+        } else {
+          selectedComics[v] = true;
+        }
+      }
     });
   }
 
@@ -271,9 +287,13 @@ class _HistoryPageState extends State<HistoryPage> {
                   : Text('History'.tl),
               actions: multiSelectMode ? selectActions : normalActions,
             ),
-            SliverGridComics(
-              comics: comics,
+            PaginatedSliverGridComics(
+              key: _gridKey,
+              pageLoader: _loadPage,
               selections: selectedComics,
+              onLoadedComicsChanged: (comics) {
+                _loadedComics = comics.cast<History>();
+              },
               onLongPressed: null,
               onTap: multiSelectMode
                   ? (c, heroID) {

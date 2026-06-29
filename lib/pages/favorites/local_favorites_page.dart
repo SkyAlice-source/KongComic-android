@@ -48,6 +48,35 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
 
   var searchResults = <FavoriteItem>[];
 
+  /// GlobalKey for the paginated grid.
+  final _gridKey = GlobalKey<PaginatedSliverGridComicsState>();
+
+  /// Comics currently loaded by the paginated grid.
+  List<FavoriteItem> _loadedComics = [];
+
+  /// Whether to use pagination for the current view.
+  /// Only paginates single-folder browsing with no search/filter.
+  bool get _usePagination =>
+      !searchMode && !isAllFolder && readFilterSelect == readFilterList[0];
+
+  /// Page loader for PaginatedSliverGridComics.
+  Future<List<Comic>> _loadPage(int offset, int limit) async {
+    return manager.getFolderComicsPaginated(
+      widget.folder,
+      limit: limit,
+      offset: offset,
+    );
+  }
+
+  /// The list of comics currently active for selection/indexing.
+  /// In pagination mode, this is the loaded comics.
+  /// In search mode, this is the search results.
+  /// Otherwise, this is the filtered comics list.
+  List<FavoriteItem> get _activeComics =>
+      _usePagination
+          ? _loadedComics
+          : (searchMode ? searchResults : filterComics(comics));
+
   void updateSearchResult() {
     setState(() {
       if (keyword.trim().isEmpty) {
@@ -67,6 +96,12 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
 
   void updateComics() {
     if (isLoading) return;
+    // In pagination mode, just refresh the grid.
+    if (_usePagination && _gridKey.currentState != null) {
+      _gridKey.currentState!.refresh();
+      comics = [];
+      return;
+    }
     if (isAllFolder) {
       var totalComics = manager.totalComics;
       if (totalComics < _asyncDataFetchLimit) {
@@ -205,6 +240,11 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
     setState(() {
       if (searchMode) {
         selectedComics = searchResults.asMap().map((k, v) => MapEntry(v, true));
+      } else if (_usePagination) {
+        // Load all comics from the folder for selection (one-time).
+        final allComics = manager.getFolderComics(widget.folder);
+        selectedComics =
+            allComics.asMap().map((k, v) => MapEntry(v, true));
       } else {
         selectedComics = comics.asMap().map((k, v) => MapEntry(v, true));
       }
@@ -215,6 +255,14 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
     setState(() {
       if (searchMode) {
         for (var c in searchResults) {
+          if (selectedComics.containsKey(c)) {
+            selectedComics.remove(c);
+          } else {
+            selectedComics[c] = true;
+          }
+        }
+      } else if (_usePagination) {
+        for (var c in _loadedComics) {
           if (selectedComics.containsKey(c)) {
             selectedComics.remove(c);
           } else {
@@ -268,6 +316,130 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
   }
 
   var scrollController = ScrollController();
+
+  /// Build menu entries for a comic tile.
+  List<MenuEntry> _buildMenuEntries(Comic c) {
+    return [
+      if (!isAllFolder)
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+          text: "Delete".tl,
+          onClick: () {
+            LocalFavoritesManager().deleteComicWithId(
+              widget.folder,
+              c.id,
+              (c as FavoriteItem).type,
+            );
+          },
+        ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
+        text: "Select".tl,
+        onClick: () {
+          setState(() {
+            if (!multiSelectMode) {
+              multiSelectMode = true;
+            }
+            if (selectedComics.containsKey(c as FavoriteItem)) {
+              selectedComics.remove(c);
+              _checkExitSelectMode();
+            } else {
+              selectedComics[c] = true;
+            }
+            lastSelectedIndex = _activeComics.indexOf(c);
+          });
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
+        text: "Download".tl,
+        onClick: () {
+          downloadComic(c as FavoriteItem);
+          context.showMessage(
+            message: "Download started".tl,
+          );
+        },
+      ),
+      if (appdata.settings["onClickFavorite"] == "viewDetail")
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
+          text: "Read".tl,
+          onClick: () {
+            App.mainNavigatorKey?.currentContext?.to(
+              () => ReaderWithLoading(
+                id: c.id,
+                sourceKey: c.sourceKey,
+              )
+            );
+          },
+        ),
+    ];
+  }
+
+  /// Handle tap on a comic tile.
+  void _handleTap(Comic c, int heroID) {
+    if (multiSelectMode) {
+      setState(() {
+        if (selectedComics.containsKey(c as FavoriteItem)) {
+          selectedComics.remove(c);
+          _checkExitSelectMode();
+        } else {
+          selectedComics[c] = true;
+        }
+        lastSelectedIndex = _activeComics.indexOf(c);
+      });
+    } else if (appdata.settings["onClickFavorite"] == "viewDetail") {
+      App.mainNavigatorKey?.currentContext?.to(
+        () => ComicPage(
+          id: c.id,
+          sourceKey: c.sourceKey,
+          cover: c.cover,
+          title: c.title,
+          heroID: heroID,
+        )
+      );
+    } else {
+      App.mainNavigatorKey?.currentContext?.to(
+        () => ReaderWithLoading(id: c.id, sourceKey: c.sourceKey),
+      );
+    }
+  }
+
+  /// Handle long press on a comic tile (enter multi-select or range select).
+  void _handleLongPress(Comic c, int heroID) {
+    setState(() {
+      if (!multiSelectMode) {
+        multiSelectMode = true;
+        if (!selectedComics.containsKey(c as FavoriteItem)) {
+          selectedComics[c] = true;
+        }
+        lastSelectedIndex = _activeComics.indexOf(c);
+      } else {
+        if (lastSelectedIndex != null) {
+          int start = lastSelectedIndex!;
+          int end = _activeComics.indexOf(c as FavoriteItem);
+          if (start > end) {
+            int temp = start;
+            start = end;
+            end = temp;
+          }
+
+          for (int i = start; i <= end; i++) {
+            if (i == lastSelectedIndex) continue;
+
+            var comic = _activeComics[i];
+            if (selectedComics.containsKey(comic)) {
+              selectedComics.remove(comic);
+            } else {
+              selectedComics[comic] = true;
+            }
+          }
+        }
+        lastSelectedIndex = _activeComics.indexOf(c as FavoriteItem);
+      }
+      _checkExitSelectMode();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -658,128 +830,29 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
               ),
             ),
           )
+        else if (_usePagination)
+          PaginatedSliverGridComics(
+            key: _gridKey,
+            pageLoader: _loadPage,
+            selections: selectedComics,
+            onLoadedComicsChanged: (loaded) {
+              _loadedComics = loaded.cast<FavoriteItem>();
+            },
+            menuBuilder: (c) {
+              return _buildMenuEntries(c);
+            },
+            onTap: (c, heroID) => _handleTap(c, heroID),
+            onLongPressed: (c, heroID) => _handleLongPress(c, heroID),
+          )
         else
           SliverGridComics(
             comics: searchMode ? searchResults : filterComics(comics),
             selections: selectedComics,
             menuBuilder: (c) {
-              return [
-                if (!isAllFolder)
-                  MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-                    text: "Delete".tl,
-                    onClick: () {
-                      LocalFavoritesManager().deleteComicWithId(
-                        widget.folder,
-                        c.id,
-                        (c as FavoriteItem).type,
-                      );
-                    },
-                  ),
-                MenuEntry(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
-                  text: "Select".tl,
-                  onClick: () {
-                    setState(() {
-                      if (!multiSelectMode) {
-                        multiSelectMode = true;
-                      }
-                      if (selectedComics.containsKey(c as FavoriteItem)) {
-                        selectedComics.remove(c);
-                        _checkExitSelectMode();
-                      } else {
-                        selectedComics[c] = true;
-                      }
-                      lastSelectedIndex = comics.indexOf(c);
-                    });
-                  },
-                ),
-                MenuEntry(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
-                  text: "Download".tl,
-                  onClick: () {
-                    downloadComic(c as FavoriteItem);
-                    context.showMessage(
-                      message: "Download started".tl,
-                    );
-                  },
-                ),
-                if (appdata.settings["onClickFavorite"] == "viewDetail")
-                  MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
-                    text: "Read".tl,
-                    onClick: () {
-                      App.mainNavigatorKey?.currentContext?.to(
-                        () => ReaderWithLoading(
-                          id: c.id,
-                          sourceKey: c.sourceKey,
-                        )
-                      );
-                    },
-                  ),
-              ];
+              return _buildMenuEntries(c);
             },
-            onTap: (c, heroID) {
-              if (multiSelectMode) {
-                setState(() {
-                  if (selectedComics.containsKey(c as FavoriteItem)) {
-                    selectedComics.remove(c);
-                    _checkExitSelectMode();
-                  } else {
-                    selectedComics[c] = true;
-                  }
-                  lastSelectedIndex = comics.indexOf(c);
-                });
-              } else if (appdata.settings["onClickFavorite"] == "viewDetail") {
-                App.mainNavigatorKey?.currentContext?.to(
-                  () => ComicPage(
-                    id: c.id,
-                    sourceKey: c.sourceKey,
-                    cover: c.cover,
-                    title: c.title,
-                    heroID: heroID,
-                  )
-                );
-              } else {
-                App.mainNavigatorKey?.currentContext?.to(
-                  () => ReaderWithLoading(id: c.id, sourceKey: c.sourceKey),
-                );
-              }
-            },
-            onLongPressed: (c, heroID) {
-              setState(() {
-                if (!multiSelectMode) {
-                  multiSelectMode = true;
-                  if (!selectedComics.containsKey(c as FavoriteItem)) {
-                    selectedComics[c] = true;
-                  }
-                  lastSelectedIndex = comics.indexOf(c);
-                } else {
-                  if (lastSelectedIndex != null) {
-                    int start = lastSelectedIndex!;
-                    int end = comics.indexOf(c as FavoriteItem);
-                    if (start > end) {
-                      int temp = start;
-                      start = end;
-                      end = temp;
-                    }
-
-                    for (int i = start; i <= end; i++) {
-                      if (i == lastSelectedIndex) continue;
-
-                      var comic = comics[i];
-                      if (selectedComics.containsKey(comic)) {
-                        selectedComics.remove(comic);
-                      } else {
-                        selectedComics[comic] = true;
-                      }
-                    }
-                  }
-                  lastSelectedIndex = comics.indexOf(c as FavoriteItem);
-                }
-                _checkExitSelectMode();
-              });
-            },
+            onTap: (c, heroID) => _handleTap(c, heroID),
+            onLongPressed: (c, heroID) => _handleLongPress(c, heroID),
           ),
       ],
     );

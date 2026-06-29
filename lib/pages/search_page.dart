@@ -51,16 +51,23 @@ class _SearchPageState extends State<SearchPage> {
   void search([String? text]) {
     final keyword = text ?? controller.text;
 
-    // ID 直接跳转：匹配某个源的 ID 格式则直接打开漫画页
+    // ID 直接跳转：仅当唯一匹配时直接跳转，多源匹配时由建议列表选择
+    var matchedSources = <ComicSource>[];
     for (var source in ComicSource.all()) {
       if (source.idMatcher?.hasMatch(keyword) ?? false) {
-        context.to(() => ComicPage(
-          sourceKey: source.key,
-          id: keyword,
-        )).then((_) => update());
-        return;
+        matchedSources.add(source);
       }
     }
+
+    if (matchedSources.length == 1) {
+      context.to(() => ComicPage(
+        sourceKey: matchedSources.first.key,
+        id: keyword,
+      )).then((_) => update());
+      return;
+    }
+
+    // 多源匹配时不自动跳转，建议列表已显示各源选项供用户选择
 
     if (_selectedSources.isEmpty) return;
 
@@ -556,13 +563,43 @@ class _SearchPageState extends State<SearchPage> {
         if (comicSource == null) {
           return const SizedBox();
         }
+        // 为每个源分配稳定的颜色标识
+        const sourceColors = [
+          Color(0xFF534AB7),
+          Color(0xFF0F6E56),
+          Color(0xFFD85A30),
+          Color(0xFF185FA5),
+          Color(0xFF993556),
+        ];
+        final colorIndex = key.hashCode.abs() % sourceColors.length;
+        final accentColor = sourceColors[colorIndex];
         return ListTile(
-          leading: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
-          title: Text("${"Open comic".tl}: ${comicSource.name}"),
+          leading: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              comicSource.name.substring(0, 1).toUpperCase(),
+              style: TextStyle(
+                color: accentColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          title: Text(
+            "${"Open comic".tl}: ${comicSource.name}",
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
           subtitle: Text(
             controller.text,
             maxLines: 1,
             overflow: TextOverflow.fade,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
           ),
           trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
           onTap: () {

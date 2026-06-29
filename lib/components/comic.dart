@@ -1718,3 +1718,253 @@ class SimpleComicTile extends StatelessWidget {
     return child;
   }
 }
+
+/// A paginated sliver grid that loads comics incrementally.
+///
+/// Unlike [SliverGridComics] which takes a pre-loaded [List<Comic]], this widget
+/// accepts a [pageLoader] callback and loads pages lazily as the user scrolls.
+/// This avoids loading thousands of comics into memory on page open.
+///
+/// For [selectAll] support, the parent should load all comics separately
+/// (one-time operation) and populate the [selections] map. The widget only
+/// checks [selections] for currently visible items, so the map may contain
+/// more entries than are displayed.
+class PaginatedSliverGridComics extends StatefulWidget {
+  const PaginatedSliverGridComics({
+    super.key,
+    required this.pageLoader,
+    this.pageSize = 30,
+    this.selections,
+    this.badgeBuilder,
+    this.menuBuilder,
+    this.onTap,
+    this.onLongPressed,
+    this.onLoadedComicsChanged,
+  });
+
+  /// Loads a page of comics starting at [offset].
+  /// Return an empty list to signal no more pages.
+  final Future<List<Comic>> Function(int offset, int limit) pageLoader;
+
+  /// Number of comics to load per page.
+  final int pageSize;
+
+  /// Selection map. May contain more entries than currently loaded.
+  /// Keys are checked by identity (Comic does not override == by default,
+  /// but FavoriteItem and History do).
+  final Map<Comic, bool>? selections;
+
+  final String? Function(Comic)? badgeBuilder;
+
+  final List<MenuEntry> Function(Comic)? menuBuilder;
+
+  final void Function(Comic, int heroID)? onTap;
+
+  final void Function(Comic, int heroID)? onLongPressed;
+
+  /// Called whenever the loaded comics list changes (page loaded or refresh).
+  /// The parent can use this to track loaded comics for invertSelection etc.
+  final void Function(List<Comic> loadedComics)? onLoadedComicsChanged;
+
+  @override
+  State<PaginatedSliverGridComics> createState() =>
+      PaginatedSliverGridComicsState();
+}
+
+class PaginatedSliverGridComicsState
+    extends State<PaginatedSliverGridComics> {
+  final List<Comic> _comics = [];
+  final List<int> _heroIDs = [];
+  final Map<String, bool> _favoriteStatus = {};
+  final Map<String, History> _historyStatus = {};
+
+  bool _isLoading = false;
+  bool _hasMore = true;
+  bool _initialized = false;
+  Object? _error;
+
+  static int _nextHeroID = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNextPage();
+  }
+
+  Future<void> _loadNextPage() async {
+    if (_isLoading || !_hasMore) return;
+    _isLoading = true;
+    if (_initialized) {
+      setState(() {});
+    }
+    try {
+      final newComics =
+          await widget.pageLoader(_comics.length, widget.pageSize);
+      if (!mounted) return;
+      if (newComics.isEmpty) {
+        _hasMore = false;
+      } else {
+        for (var comic in newComics) {
+          if (isBlocked(comic) == null) {
+            _comics.add(comic);
+            _heroIDs.add(_nextHeroID++);
+          }
+        }
+        _precomputeStatusForNew(newComics);
+        widget.onLoadedComicsChanged?.call(List.unmodifiable(_comics));
+      }
+      _initialized = true;
+    } catch (e) {
+      _error = e;
+    } finally {
+      _isLoading = false;
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  void _precomputeStatusForNew(List<Comic> newComics) {
+    final showFavorite =
+        appdata.settings['showFavoriteStatusOnTile'] == true;
+    final showHistory =
+        appdata.settings['showHistoryStatusOnTile'] == true;
+
+    if (showFavorite) {
+      for (var comic in newComics) {
+        if (isBlocked(comic) == null) {
+          _favoriteStatus[comic.id] = LocalFavoritesManager()
+              .isExist(comic.id, ComicType(comic.sourceKey.hashCode));
+        }
+      }
+    }
+
+    if (showHistory) {
+      final batch =
+          HistoryManager().findBatch(newComics.map((c) => c.id));
+      _historyStatus.addAll(batch);
+    }
+  }
+
+  /// Reset and reload from page 1.
+  Future<void> refresh() async {
+    _comics.clear();
+    _heroIDs.clear();
+    _favoriteStatus.clear();
+    _historyStatus.clear();
+    _hasMore = true;
+    _initialized = false;
+    _error = null;
+    await _loadNextPage();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Initial loading state
+    if (!_initialized && _isLoading) {
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Error on first load
+    if (_error != null && _comics.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48),
+              const SizedBox(height: 8),
+              Text(_error.toString()),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Empty state
+    if (_comics.isEmpty && !_hasMore) {
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(child: Text('No comics')),
+      );
+    }
+
+    // Main grid: childCount = comics + 1 (footer slot)
+    final showFooter = _hasMore || _isLoading;
+
+    return SliverGrid(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          // Footer slot
+          if (index == _comics.length) {
+            if (showFooter) {
+              if (!_isLoading) {
+                // Trigger next page load
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _loadNextPage();
+                });
+              }
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }
+
+          final comic = _comics[index];
+          final badge = widget.badgeBuilder?.call(comic);
+          final isSelected = widget.selections == null
+              ? false
+              : widget.selections![comic] ?? false;
+
+          final tile = ComicTile(
+            comic: comic,
+            badge: badge,
+            menuOptions: widget.menuBuilder?.call(comic),
+            onTap: widget.onTap != null
+                ? () => widget.onTap!(comic, _heroIDs[index])
+                : null,
+            onLongPressed: widget.onLongPressed != null
+                ? () => widget.onLongPressed!(comic, _heroIDs[index])
+                : null,
+            heroID: _heroIDs[index],
+            isFavorite: _favoriteStatus[comic.id],
+            history: _historyStatus[comic.id],
+          );
+
+          if (widget.selections == null) {
+            return RepaintBoundary(child: tile);
+          }
+          return AnimatedContainer(
+            key: ValueKey(comic.id),
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Theme.of(context)
+                      .colorScheme
+                      .secondaryContainer
+                      .toOpacity(0.72)
+                  : null,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(4),
+            child: RepaintBoundary(child: tile),
+          );
+        },
+        childCount: _comics.length + (showFooter ? 1 : 0),
+      ),
+      gridDelegate: SliverGridDelegateWithComics(),
+    );
+  }
+}
