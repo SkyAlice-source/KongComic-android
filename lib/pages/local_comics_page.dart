@@ -549,8 +549,10 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
     var loadingController = showLoadingDialog(
       context,
       allowCancel: true,
-      message: "${"Exporting".tl} $current/${comics.length}",
-      withProgress: comics.length > 1,
+      message: comics.length == 1
+          ? "${"Exporting".tl}: ${comics.first.title}"
+          : "${"Exporting".tl} 0/${comics.length}",
+      withProgress: true,
       onCancel: () {
         canceled = true;
       },
@@ -563,15 +565,24 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
           cacheDir,
           sanitizeFileName(comic.title, maxLength: 100) + ext,
         );
-        await export(comic, fileName).timeout(
+        await export(comic, fileName, onProgress: (imgCurrent, imgTotal) {
+          if (comics.length == 1) {
+            loadingController.setProgress(imgCurrent / imgTotal);
+            loadingController.setMessage("${"Exporting".tl}: $imgCurrent/$imgTotal");
+          } else {
+            var overall = (current + imgCurrent / imgTotal) / comics.length;
+            loadingController.setProgress(overall);
+            loadingController.setMessage(
+                "${"Exporting".tl} ${current + 1}/${comics.length}: $imgCurrent/$imgTotal");
+          }
+        }).timeout(
           const Duration(minutes: 5),
           onTimeout: () => throw Exception("Export timed out for: ${comic.title}"),
         );
         current++;
         if (comics.length > 1) {
-          loadingController
-              .setMessage("${"Exporting".tl} $current/${comics.length}");
           loadingController.setProgress(current / comics.length);
+          loadingController.setMessage("${"Exporting".tl} $current/${comics.length}");
         }
         if (canceled) {
           return;
@@ -613,7 +624,8 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
 }
 
 typedef ExportComicFunc = Future<File> Function(
-    LocalComic comic, String outFilePath);
+    LocalComic comic, String outFilePath,
+    {void Function(int current, int total)? onProgress});
 
 /// Opens the folder containing the comic in the system file explorer
 Future<void> openComicFolder(LocalComic comic) async {

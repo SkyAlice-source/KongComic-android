@@ -244,6 +244,7 @@ class Settings with ChangeNotifier {
     'showChapterComments': true, // show chapter comments in reader
     'showChapterCommentsAtEnd':
         false, // show chapter comments at end of chapter
+    'homeBannerFolders': <String>[], // empty = all folders
   };
 
   operator [](String key) {

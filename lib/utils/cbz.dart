@@ -202,7 +202,8 @@ abstract class CBZ {
     return comic;
   }
 
-  static Future<File> export(LocalComic comic, String outFilePath) async {
+  static Future<File> export(LocalComic comic, String outFilePath,
+      {void Function(int current, int total)? onProgress}) async {
     var cache = Directory(FilePath.join(App.cachePath, 'cbz_export'));
     if (cache.existsSync()) cache.deleteSync(recursive: true);
     cache.createSync();
@@ -219,6 +220,7 @@ abstract class CBZ {
             '${i.toString().padLeft(width, '0')}.${image.split('.').last}';
         var dst = File(FilePath.join(cache.path, dstName));
         await src.copyMem(dst.path);
+        onProgress?.call(i, pageCount);
         i++;
       }
     } else {
@@ -248,6 +250,7 @@ abstract class CBZ {
             '${i.toString().padLeft(width, '0')}.${image.split('.').last}';
         var dst = File(FilePath.join(cache.path, dstName));
         await src.copyMem(dst.path);
+        onProgress?.call(i, pageCount);
         i++;
       }
     }

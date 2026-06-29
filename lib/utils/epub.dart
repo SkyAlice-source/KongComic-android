@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:isolate';
 
 import 'package:uuid/uuid.dart';
@@ -25,7 +26,8 @@ class EpubData {
 }
 
 Future<File> createEpubComic(
-    EpubData data, String cacheDir, String outFilePath) async {
+    EpubData data, String cacheDir, String outFilePath,
+    {void Function(int current, int total)? onProgress}) async {
   final workingDir = Directory(FilePath.join(cacheDir, 'epub'));
   if (workingDir.existsSync()) {
     workingDir.deleteSync(recursive: true);
@@ -59,6 +61,7 @@ Future<File> createEpubComic(
       .writeAsBytesSync(data.cover.readAsBytesSync());
   int imgIndex = 0;
   int chapterIndex = 0;
+  final totalImages = data.chapters.values.fold(0, (sum, list) => sum + list.length);
   var manifestStrBuilder = StringBuffer();
   manifestStrBuilder.writeln(
       '        <item id="cover_image" href="OEBPS/images/cover.$coverExt" media-type="$coverMime"/>');
@@ -76,6 +79,7 @@ Future<File> createEpubComic(
       manifestStrBuilder.writeln(
           '        <item id="img$imgIndex" href="OEBPS/images/img$imgIndex$ext" media-type="$mime"/>');
       imgIndex++;
+      onProgress?.call(imgIndex, totalImages);
     }
     var html =
         File(FilePath.join(workingDir.path, 'OEBPS', '$chapterIndex.html'));
@@ -171,7 +175,7 @@ ${navMapStrBuilder.toString()}
 </ncx>
   ''');
 
-  ZipFile.compressFolder(workingDir.path, outFilePath);
+  await ZipFile.compressFolderAsync(workingDir.path, outFilePath);
 
   workingDir.deleteSync(recursive: true);
 
@@ -179,7 +183,8 @@ ${navMapStrBuilder.toString()}
 }
 
 Future<File> createEpubWithLocalComic(
-    LocalComic comic, String outFilePath) async {
+    LocalComic comic, String outFilePath,
+    {void Function(int current, int total)? onProgress}) async {
   var chapters = <String, List<File>>{};
   if (comic.chapters == null) {
     chapters[comic.title] =
@@ -203,7 +208,39 @@ Future<File> createEpubWithLocalComic(
 
   final cacheDir = App.cachePath;
 
-  return Isolate.run(() => overrideIO(() async {
-        return createEpubComic(data, cacheDir, outFilePath);
-      }));
+  final receivePort = ReceivePort();
+  var completer = Completer<File>();
+  Isolate? isolate;
+
+  receivePort.listen((message) {
+    if (message is SendPort) {
+      // Isolate ready
+    } else if (message is List<int>) {
+      if (message.length == 2) {
+        onProgress?.call(message[0], message[1]);
+      }
+    } else if (message is String) {
+      receivePort.close();
+      completer.complete(File(message));
+      isolate?.kill();
+    }
+  });
+
+  isolate = await Isolate.spawn<SendPort>(
+    (sendPort) => overrideIO(() async {
+      var isolateReceivePort = ReceivePort();
+      sendPort.send(isolateReceivePort.sendPort);
+
+      void progressCallback(int current, int total) {
+        sendPort.send([current, total]);
+      }
+
+      await createEpubComic(data, cacheDir, outFilePath,
+          onProgress: progressCallback);
+      sendPort.send(outFilePath);
+    }),
+    receivePort.sendPort,
+  );
+
+  return completer.future;
 }

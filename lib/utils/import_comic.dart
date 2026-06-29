@@ -43,18 +43,25 @@ class ImportComic {
     var dir = await picker.pickDirectory(directAccess: true);
     if (dir != null) {
       var entries = await dir.list().toList();
+      // Pre-filter valid archive files to know total count
+      var validFiles = entries.whereType<File>().where((f) {
+        var name = f.name.toLowerCase();
+        return name.endsWith('.cbz') || name.endsWith('.zip') ||
+            name.endsWith('.7z') || name.endsWith('.cb7');
+      }).toList();
       Map<String?, List<LocalComic>> imported = {};
-      var controller = showLoadingDialog(App.rootContext, allowCancel: false);
+      var controller = showLoadingDialog(App.rootContext,
+          allowCancel: false, withProgress: true);
       var comics = <LocalComic>[];
-      for (var entry in entries) {
-        if (entry is! File) continue;
-        var name = entry.name.toLowerCase();
-        if (!name.endsWith('.cbz') && !name.endsWith('.zip') && 
-            !name.endsWith('.7z') && !name.endsWith('.cb7')) continue;
+      var processed = 0;
+      for (var entry in validFiles) {
+        processed++;
+        controller.setProgress(processed / validFiles.length);
+        controller.setMessage(
+            "${"Importing".tl} $processed/${validFiles.length}: ${entry.name}");
         try {
           var comic = await CBZ.import(entry);
           comics.add(comic);
-          controller.setMessage("${"Imported".tl}: ${comic.title}");
         } catch (e, s) {
           Log.error("Import Comic", e.toString(), s);
         }
@@ -79,19 +86,61 @@ class ImportComic {
     }
 
     bool cancelled = false;
-    var controller = showLoadingDialog(App.rootContext, onCancel: () {
-      cancelled = true;
-    });
+    var controller = showLoadingDialog(App.rootContext,
+        onCancel: () {
+          cancelled = true;
+        }, withProgress: true);
 
     try {
       var db = sql.sqlite3.open(dbFile.path);
 
-      Future<List<LocalComic>> validateComics(List<sql.Row> comics) async {
-        List<LocalComic> imported = [];
-        for (var comic in comics) {
+      var tags = <String>[""];
+      tags.addAll(db.select("""
+            SELECT * FROM DOWNLOAD_LABELS LB
+            ORDER BY  LB.TIME DESC;
+          """).map((r) => r['LABEL'] as String).toList());
+
+      // Pre-collect all comic lists to know total count for progress
+      var allComicData = <MapEntry<String, List<sql.Row>>>[];
+      for (var tag in tags) {
+        var folderName = tag == '' ? '(EhViewer)Default'.tl : '(EhViewer)$tag';
+        var comicList = tag == ''
+            ? db.select("""
+              SELECT * 
+              FROM DOWNLOAD_DIRNAME DN
+              LEFT JOIN DOWNLOADS DL
+              ON DL.GID = DN.GID
+              WHERE DL.LABEL IS NULL AND DL.STATE = 3
+              ORDER BY DL.TIME DESC
+            """).toList()
+            : db.select("""
+              SELECT * 
+              FROM DOWNLOAD_DIRNAME DN
+              LEFT JOIN DOWNLOADS DL
+              ON DL.GID = DN.GID
+              WHERE DL.LABEL = ? AND DL.STATE = 3
+              ORDER BY DL.TIME DESC
+            """, [tag]).toList();
+        allComicData.add(MapEntry(folderName, comicList));
+      }
+
+      int totalComics = allComicData.fold(0, (sum, e) => sum + e.value.length);
+      int processed = 0;
+
+      for (var entry in allComicData) {
+        if (cancelled) {
+          break;
+        }
+        var folderName = entry.key;
+        var comicList = entry.value;
+        var validComics = <LocalComic>[];
+        for (var comic in comicList) {
           if (cancelled) {
-            return imported;
+            break;
           }
+          processed++;
+          controller.setProgress(totalComics > 0 ? processed / totalComics : null);
+          controller.setMessage("${"Importing".tl}: $processed/$totalComics");
           var comicDir = Directory(
               FilePath.join(comicSrc.path, comic['DIRNAME'] as String));
           String titleJP =
@@ -122,41 +171,8 @@ class ImportComic {
           if (comicObj == null) {
             continue;
           }
-          imported.add(comicObj);
+          validComics.add(comicObj);
         }
-        return imported;
-      }
-
-      var tags = <String>[""];
-      tags.addAll(db.select("""
-            SELECT * FROM DOWNLOAD_LABELS LB
-            ORDER BY  LB.TIME DESC;
-          """).map((r) => r['LABEL'] as String).toList());
-
-      for (var tag in tags) {
-        if (cancelled) {
-          break;
-        }
-        var folderName = tag == '' ? '(EhViewer)Default'.tl : '(EhViewer)$tag';
-        var comicList = tag == ''
-            ? db.select("""
-              SELECT * 
-              FROM DOWNLOAD_DIRNAME DN
-              LEFT JOIN DOWNLOADS DL
-              ON DL.GID = DN.GID
-              WHERE DL.LABEL IS NULL AND DL.STATE = 3
-              ORDER BY DL.TIME DESC
-            """).toList()
-            : db.select("""
-              SELECT * 
-              FROM DOWNLOAD_DIRNAME DN
-              LEFT JOIN DOWNLOADS DL
-              ON DL.GID = DN.GID
-              WHERE DL.LABEL = ? AND DL.STATE = 3
-              ORDER BY DL.TIME DESC
-            """, [tag]).toList();
-
-        var validComics = await validateComics(comicList);
         imported[folderName] = validComics;
         if (validComics.isNotEmpty &&
             !LocalFavoritesManager().existsFolder(folderName)) {
@@ -247,29 +263,35 @@ class ImportComic {
     var localDir = LocalManager().directory;
     Map<String?, List<LocalComic>> imported = {null: []};
     bool cancelled = false;
-    var controller = showLoadingDialog(App.rootContext, onCancel: () {
-      cancelled = true;
-    });
+    var controller = showLoadingDialog(App.rootContext,
+        onCancel: () {
+          cancelled = true;
+        }, withProgress: true);
     try {
       if (!await localDir.exists()) {
         App.rootContext.showMessage(message: "Local path not found".tl);
         controller.close();
         return false;
       }
-      await for (var entry in localDir.list()) {
+      var entries = await localDir.list().toList();
+      var dirs = entries.whereType<Directory>().toList();
+      var total = dirs.length;
+      var processed = 0;
+      for (var entry in dirs) {
         if (cancelled) {
           break;
         }
-        if (entry is Directory) {
-          var stat = await entry.stat();
-          var result = await _checkSingleComic(
-            entry,
-            createTime: stat.modified,
-            useRelativePath: true,
-          );
-          if (result != null) {
-            imported[null]!.add(result);
-          }
+        processed++;
+        controller.setProgress(total > 0 ? processed / total : null);
+        controller.setMessage("${"Importing".tl}: $processed/$total");
+        var stat = await entry.stat();
+        var result = await _checkSingleComic(
+          entry,
+          createTime: stat.modified,
+          useRelativePath: true,
+        );
+        if (result != null) {
+          imported[null]!.add(result);
         }
       }
       if (!cancelled && imported[null]!.isEmpty) {

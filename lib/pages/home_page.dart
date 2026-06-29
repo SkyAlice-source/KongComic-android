@@ -98,7 +98,11 @@ class _BannerState extends State<_Banner> {
   Timer? _timer;
   List<FavoriteItem> _comics = [];
   void _loadComics() {
-    final folders = LocalFavoritesManager().folderNames;
+    final allFolderNames = LocalFavoritesManager().folderNames;
+    final selectedFolders = appdata.settings['homeBannerFolders'] as List;
+    final folders = selectedFolders.isEmpty
+        ? allFolderNames
+        : selectedFolders.cast<String>().where((f) => allFolderNames.contains(f)).toList();
     final all = <FavoriteItem>[];
     for (final folder in folders) {
       all.addAll(LocalFavoritesManager().getFolderComics(folder));
@@ -119,7 +123,7 @@ class _BannerState extends State<_Banner> {
   void initState() {
     super.initState();
     // No PageController needed
-    _loadComics(); LocalFavoritesManager().addListener(_loadComics); _startTimer();
+    _loadComics(); LocalFavoritesManager().addListener(_loadComics); appdata.settings.addListener(_loadComics); _startTimer();
   }
   void _startTimer() {
     _timer?.cancel();
@@ -128,7 +132,7 @@ class _BannerState extends State<_Banner> {
       setState(() { _currentIndex = (_currentIndex + 1) % _comics.length; widget.currentComicNotifier.value = _comics[_currentIndex]; });
     });
   }
-  @override void dispose() { _timer?.cancel(); LocalFavoritesManager().removeListener(_loadComics); super.dispose(); }
+  @override void dispose() { _timer?.cancel(); LocalFavoritesManager().removeListener(_loadComics); appdata.settings.removeListener(_loadComics); super.dispose(); }
   void _navigateToComic(FavoriteItem c) { context.to(() => ComicPage(id: c.id, sourceKey: c.type.comicSource?.key ?? '', cover: c.coverPath, title: c.name)); }
 
   @override

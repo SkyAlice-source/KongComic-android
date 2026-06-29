@@ -15,6 +15,7 @@ Future<void> _createPdfFromComic({
   required String savePath,
   required String localPath,
   required DecodeImage decodeImage,
+  void Function(int current, int total)? onProgress,
 }) async {
   var images = <String>[];
 
@@ -66,7 +67,7 @@ Future<void> _createPdfFromComic({
     outputPath: savePath,
     decodeImage: decodeImage,
   );
-  await generator.generate();
+  await generator.generate(onProgress: onProgress);
 }
 
 Future<Isolate> _runIsolate(
@@ -107,6 +108,9 @@ Future<Isolate> _runIsolate(
           savePath: savePath,
           localPath: localPath,
           decodeImage: decodeImage,
+          onProgress: (current, total) {
+            sendPort.send([current, total]);
+          },
         );
 
         sendPort.send(null);
@@ -116,7 +120,8 @@ Future<Isolate> _runIsolate(
   );
 }
 
-Future<File> createPdfFromComicIsolate(LocalComic comic, String savePath) async {
+Future<File> createPdfFromComicIsolate(LocalComic comic, String savePath,
+    {void Function(int current, int total)? onProgress}) async {
   var receivePort = ReceivePort();
   SendPort? sendPort;
   Isolate? isolate;
@@ -128,6 +133,10 @@ Future<File> createPdfFromComicIsolate(LocalComic comic, String savePath) async 
       Image.decodeImage(message).then((image) {
         sendPort!.send(image);
       });
+    } else if (message is List<int>) {
+      if (message.length == 2) {
+        onProgress?.call(message[0], message[1]);
+      }
     } else if (message == null) {
       receivePort.close();
       completer.complete();
@@ -163,7 +172,7 @@ class PdfGenerator {
     required this.decodeImage,
   });
 
-  Future<void> generate() async {
+  Future<void> generate({void Function(int current, int total)? onProgress}) async {
     var file = File(outputPath);
     final output = file.openWrite();
 
@@ -277,6 +286,8 @@ class PdfGenerator {
       write('endstream\nendobj\n\n');
 
       _objectId++;
+
+      onProgress?.call(i + 1, imagePaths.length);
     }
 
     // 5. 写入Info对象（元数据）
