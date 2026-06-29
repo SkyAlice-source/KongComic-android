@@ -9,6 +9,7 @@ import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/cache.dart';
 import 'package:kong_comic/network/proxy.dart';
+import 'package:kong_comic/utils/translations.dart';
 
 import '../foundation/app.dart';
 import 'cloudflare.dart';
@@ -30,21 +31,21 @@ class MyLogInterceptor implements Interceptor {
                   "${_getStatusCodeInfo(statusCode)}");
         }
       case DioExceptionType.connectionTimeout:
-        err = err.copyWith(message: "Connection Timeout");
+        err = err.copyWith(message: "Connection Timeout".tl);
       case DioExceptionType.receiveTimeout:
         err = err.copyWith(
             message: "Receive Timeout: "
-                "This indicates that the server is too busy to respond");
+                "This indicates that the server is too busy to respond".tl);
       case DioExceptionType.unknown:
         if (err.toString().contains("Connection terminated during handshake")) {
           err = err.copyWith(
               message: "Connection terminated during handshake: "
                   "This may be caused by the firewall blocking the connection "
-                  "or your requests are too frequent.");
+                  "or your requests are too frequent.".tl);
         } else if (err.toString().contains("Connection reset by peer")) {
           err = err.copyWith(
               message: "Connection reset by peer: "
-                  "The error is unrelated to app, please check your network.");
+                  "The error is unrelated to app, please check your network.".tl);
         }
       default:
         {}
@@ -52,20 +53,19 @@ class MyLogInterceptor implements Interceptor {
     handler.next(err);
   }
 
-  static const errorMessages = <int, String>{
-    400: "The Request is invalid.",
-    401: "The Request is unauthorized.",
-    403: "No permission to access the resource. Check your account or network.",
-    404: "Not found.",
-    429: "Too many requests. Please try again later.",
-  };
-
   String _getStatusCodeInfo(int? statusCode) {
     if (statusCode != null && statusCode >= 500) {
       return "This is server-side error, please try again later. "
-          "Do not report this issue.";
+          "Do not report this issue.".tl;
     } else {
-      return errorMessages[statusCode] ?? "";
+      final messages = <int, String>{
+        400: "The Request is invalid.".tl,
+        401: "The Request is unauthorized.".tl,
+        403: "No permission to access the resource. Check your account or network.".tl,
+        404: "Not found.".tl,
+        429: "Too many requests. Please try again later.".tl,
+      };
+      return messages[statusCode] ?? "";
     }
   }
 

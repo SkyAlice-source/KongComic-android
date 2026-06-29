@@ -49,7 +49,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void search([String? text]) {
-    final keyword = text ?? controller.text;
+    final keyword = text ?? _searchTextController.text;
 
     // ID 直接跳转：仅当唯一匹配时直接跳转，多源匹配时由建议列表选择
     var matchedSources = <ComicSource>[];
@@ -67,7 +67,10 @@ class _SearchPageState extends State<SearchPage> {
       return;
     }
 
-    // 多源匹配时不自动跳转，建议列表已显示各源选项供用户选择
+    if (matchedSources.length > 1) {
+      _showSourcePicker(matchedSources, keyword);
+      return;
+    }
 
     if (_selectedSources.isEmpty) return;
 
@@ -94,6 +97,92 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
+  void _showSourcePicker(List<ComicSource> sources, String id) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        const sourceColors = [
+          Color(0xFF534AB7),
+          Color(0xFF0F6E56),
+          Color(0xFFD85A30),
+          Color(0xFF185FA5),
+          Color(0xFF993556),
+        ];
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text(
+                  "Multiple sources matched".tl,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  id,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontFamily: 'monospace',
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...sources.map((source) {
+                final colorIndex =
+                    source.key.hashCode.abs() % sourceColors.length;
+                final accentColor = sourceColors[colorIndex];
+                return ListTile(
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      source.name.substring(0, 1).toUpperCase(),
+                      style: TextStyle(
+                        color: accentColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  title: Text(source.name),
+                  subtitle: Text("Open comic".tl),
+                  trailing: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowRight01,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.to(() => ComicPage(
+                          sourceKey: source.key,
+                          id: id,
+                        )).then((_) => update());
+                  },
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   var suggestions = <Pair<String, TranslationType>>[];
 
   bool canHandleUrl(String text) {
@@ -110,15 +199,15 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void findSuggestions() {
-    var text = controller.text.split(" ").last;
+    var text = _searchTextController.text.split(" ").last;
     var suggestions = this.suggestions;
 
     suggestions.clear();
 
-    if (canHandleUrl(controller.text)) {
+    if (canHandleUrl(_searchTextController.text)) {
       suggestions.add(Pair("**URL**", TranslationType.other));
     } else {
-      var text = controller.text;
+      var text = _searchTextController.text;
 
       for (var comicSource in ComicSource.all()) {
         if (comicSource.idMatcher?.hasMatch(text) ?? false) {
@@ -496,15 +585,15 @@ class _SearchPageState extends State<SearchPage> {
     }
 
     void onSelected(String text, TranslationType? type) {
-      var words = controller.text.split(" ");
+      var words = _searchTextController.text.split(" ");
       if (words.length >= 2 &&
           check("${words[words.length - 2]} ${words[words.length - 1]}", text,
               text.translateTagsToCN)) {
-        controller.text = controller.text.replaceLast(
+        _searchTextController.text = _searchTextController.text.replaceLast(
             "${words[words.length - 2]} ${words[words.length - 1]}", "");
       } else {
-        controller.text =
-            controller.text.replaceLast(words[words.length - 1], "");
+        _searchTextController.text =
+            _searchTextController.text.replaceLast(words[words.length - 1], "");
       }
       final source = ComicSource.find(_selectedSources.first);
       String insert;
@@ -515,7 +604,7 @@ class _SearchPageState extends State<SearchPage> {
         if (t.contains(' ')) t = "'$t'";
         insert = type != null ? "${type.name}:$t" : t;
       }
-      controller.text += "$insert ";
+      _searchTextController.text += "$insert ";
       suggestions.clear();
       update();
       focusNode.requestFocus();
@@ -543,7 +632,7 @@ class _SearchPageState extends State<SearchPage> {
           leading: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
           title: Text("Open link".tl),
           subtitle: Text(
-            controller.text,
+            _searchTextController.text,
             maxLines: 1,
             overflow: TextOverflow.fade,
           ),
@@ -552,7 +641,7 @@ class _SearchPageState extends State<SearchPage> {
             setState(() {
               suggestions.clear();
             });
-            handleAppLink(Uri.parse(controller.text));
+            handleAppLink(Uri.parse(_searchTextController.text));
           },
         );
       }
@@ -596,7 +685,7 @@ class _SearchPageState extends State<SearchPage> {
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
           subtitle: Text(
-            controller.text,
+            _searchTextController.text,
             maxLines: 1,
             overflow: TextOverflow.fade,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
@@ -606,7 +695,7 @@ class _SearchPageState extends State<SearchPage> {
             context.to(
               () => ComicPage(
                 sourceKey: key,
-                id: controller.text,
+                id: _searchTextController.text,
               ),
             );
           },
