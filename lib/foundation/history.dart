@@ -219,6 +219,10 @@ class HistoryManager with ChangeNotifier {
         );
       """);
 
+    // Performance: add indexes for high-frequency query columns
+    _db.execute("CREATE INDEX IF NOT EXISTS idx_history_time ON history(time);");
+    _db.execute("CREATE INDEX IF NOT EXISTS idx_history_type ON history(type);");
+
     var columns = _db.select("PRAGMA table_info(history);");
     if (!columns.any((element) => element["name"] == "chapter_group")) {
       _db.execute("alter table history add column chapter_group int;");
@@ -317,15 +321,30 @@ void clearUnfavoritedHistory() {
     final idAndTypes = _db.select("""
       select id, type from history;
     """);
+    // Collect all (id, type) pairs to delete, then batch delete in one SQL.
+    final toDelete = <String, Set<int>>{};
     for (var element in idAndTypes) {
       final id = element["id"] as String;
       final type = ComicType(element["type"] as int);
       if (!LocalFavoritesManager().isExist(id, type)) {
-        _db.execute("""
-          delete from history
-          where id == ? and type == ?;
-        """, [id, type.value]);
+        toDelete.putIfAbsent(id, () => {}).add(type.value);
       }
+    }
+    if (toDelete.isNotEmpty) {
+      // Build batch DELETE with parameterized VALUES.
+      final args = <dynamic>[];
+      final placeholders = <String>[];
+      for (var entry in toDelete.entries) {
+        for (var typeVal in entry.value) {
+          args.add(entry.key);
+          args.add(typeVal);
+          placeholders.add('(?, ?)');
+        }
+      }
+      _db.execute("""
+        delete from history
+        where (id, type) IN (VALUES ${placeholders.join(', ')});
+      """, args);
     }
     _db.execute('COMMIT;');
   } catch (e) {
@@ -384,12 +403,73 @@ void clearUnfavoritedHistory() {
     return History.fromRow(res.first);
   }
 
+  /// Batch-query history records for multiple comic IDs in a single SQL query.
+  /// Returns a Map keyed by comic id. Only includes IDs that have history.
+  /// Also populates the LRU cache with the results.
+  Map<String, History> findBatch(Iterable<String> ids) {
+    if (_cachedHistoryIds == null) {
+      updateCache();
+    }
+    // Filter to IDs that actually exist in history
+    var validIds = ids.where((id) => _cachedHistoryIds!.containsKey(id)).toSet();
+    if (validIds.isEmpty) return {};
+
+    // Check LRU cache first, collect uncached IDs
+    var result = <String, History>{};
+    var uncachedIds = <String>[];
+    for (var id in validIds) {
+      if (cachedHistories.containsKey(id)) {
+        // LRU: move accessed item to the end (most recently used)
+        var item = cachedHistories.remove(id)!;
+        cachedHistories[id] = item;
+        result[id] = item;
+      } else {
+        uncachedIds.add(id);
+      }
+    }
+
+    // Batch query all uncached IDs in one SQL statement
+    if (uncachedIds.isNotEmpty) {
+      var placeholders = List.filled(uncachedIds.length, '?').join(',');
+      var res = _db.select("""
+        select * from history
+        where id in ($placeholders);
+      """, uncachedIds);
+      for (var row in res) {
+        var h = History.fromRow(row);
+        result[h.id] = h;
+        cachedHistories[h.id] = h;
+        if (cachedHistories.length > 20) {
+          cachedHistories.remove(cachedHistories.keys.first);
+        }
+      }
+    }
+
+    return result;
+  }
+
   List<History> getAll() {
     var res = _db.select("""
       select * from history
       order by time DESC;
     """);
     return res.map((element) => History.fromRow(element)).toList();
+  }
+
+  /// Paginated version of [getAll].
+  List<History> getAllPaginated({required int limit, required int offset}) {
+    var res = _db.select("""
+      select * from history
+      order by time DESC
+      LIMIT ? OFFSET ?;
+    """, [limit, offset]);
+    return res.map((element) => History.fromRow(element)).toList();
+  }
+
+  /// Total number of history records.
+  int getHistoryCount() {
+    var res = _db.select('SELECT COUNT(*) as cnt FROM history;');
+    return res.first['cnt'] as int;
   }
 
   /// 获取最近阅读的漫画

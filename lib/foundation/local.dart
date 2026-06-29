@@ -406,6 +406,10 @@ class LocalManager with ChangeNotifier {
         PRIMARY KEY (id, comic_type)
       );
     ''');
+    // Performance: add indexes for high-frequency query columns
+    _db.execute('CREATE INDEX IF NOT EXISTS idx_comics_type ON comics(comic_type);');
+    _db.execute('CREATE INDEX IF NOT EXISTS idx_comics_directory ON comics(directory);');
+    _db.execute('CREATE INDEX IF NOT EXISTS idx_comics_title ON comics(title);');
     if (File(FilePath.join(App.dataPath, 'local_path')).existsSync()) {
       path = File(FilePath.join(App.dataPath, 'local_path')).readAsStringSync();
       if (!directory.existsSync()) {
@@ -470,7 +474,7 @@ class LocalManager with ChangeNotifier {
     notifyListeners();
   }
 
-  void remove(String id, ComicType comicType) async {
+  void remove(String id, ComicType comicType) {
     _db.execute(
       'DELETE FROM comics WHERE id = ? AND comic_type = ?;',
       [id, comicType.value],
@@ -484,14 +488,39 @@ class LocalManager with ChangeNotifier {
   }
 
   List<LocalComic> getComics(LocalSortType sortType) {
+    final orderBy = switch (sortType) {
+      LocalSortType.name => 'title ASC',
+      LocalSortType.timeAsc => 'created_at ASC',
+      LocalSortType.timeDesc => 'created_at DESC',
+    };
     var res = _db.select('''
       SELECT * FROM comics
-      ORDER BY
-        ${sortType.value == 'name' ? 'title' : 'created_at'}
-        ${sortType.value == 'time_asc' ? 'ASC' : 'DESC'}
-      ;
+      ORDER BY $orderBy;
     ''');
     return res.map((row) => LocalComic.fromRow(row)).toList();
+  }
+
+  /// Paginated version of [getComics].
+  /// Returns at most [limit] comics starting from [offset].
+  List<LocalComic> getComicsPaginated(LocalSortType sortType,
+      {required int limit, required int offset}) {
+    final orderBy = switch (sortType) {
+      LocalSortType.name => 'title ASC',
+      LocalSortType.timeAsc => 'created_at ASC',
+      LocalSortType.timeDesc => 'created_at DESC',
+    };
+    var res = _db.select('''
+      SELECT * FROM comics
+      ORDER BY $orderBy
+      LIMIT ? OFFSET ?;
+    ''', [limit, offset]);
+    return res.map((row) => LocalComic.fromRow(row)).toList();
+  }
+
+  /// Total number of local comics.
+  int getComicCount() {
+    var res = _db.select('SELECT COUNT(*) as cnt FROM comics;');
+    return res.first['cnt'] as int;
   }
 
   LocalComic? find(String id, ComicType comicType) {
@@ -545,7 +574,8 @@ class LocalManager with ChangeNotifier {
   LocalComic? findByName(String name) {
     final res = _db.select('''
       SELECT * FROM comics
-      WHERE title = ? OR directory = ?;
+      WHERE title = ? OR directory = ?
+      LIMIT 1;
     ''', [name, name]);
     if (res.isEmpty) {
       return null;
@@ -579,6 +609,27 @@ class LocalManager with ChangeNotifier {
       ORDER BY created_at DESC;
     ''', ['%$keyword%', '%$keyword%', '%$keyword%']);
     return res.map((row) => LocalComic.fromRow(row)).toList();
+  }
+
+  /// Paginated version of [search].
+  List<LocalComic> searchPaginated(String keyword,
+      {required int limit, required int offset}) {
+    final res = _db.select('''
+      SELECT * FROM comics
+      WHERE title LIKE ? OR tags LIKE ? OR subtitle LIKE ?
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?;
+    ''', ['%$keyword%', '%$keyword%', '%$keyword%', limit, offset]);
+    return res.map((row) => LocalComic.fromRow(row)).toList();
+  }
+
+  /// Count of comics matching the search keyword.
+  int searchCount(String keyword) {
+    final res = _db.select('''
+      SELECT COUNT(*) as cnt FROM comics
+      WHERE title LIKE ? OR tags LIKE ? OR subtitle LIKE ?;
+    ''', ['%$keyword%', '%$keyword%', '%$keyword%']);
+    return res.first['cnt'] as int;
   }
 
   Future<List<String>> getImages(String id, ComicType type, Object ep) async {

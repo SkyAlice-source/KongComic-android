@@ -263,6 +263,11 @@ class LocalFavoritesManager with ChangeNotifier {
         break;
       }
     }
+    // Performance: ensure indexes exist for all folder tables
+    for (var folder in folderNames) {
+      _db.execute('CREATE INDEX IF NOT EXISTS idx_"$folder"_order ON "$folder"(display_order);');
+      _db.execute('CREATE INDEX IF NOT EXISTS idx_"$folder"_time ON "$folder"(time);');
+    }
     await appdata.ensureInit();
     // Make sure the follow updates folder is ready
     var followUpdateFolder = appdata.settings['followUpdatesFolder'];
@@ -422,6 +427,25 @@ class LocalFavoritesManager with ChangeNotifier {
     return rows.map((element) => FavoriteItem.fromRow(element)).toList();
   }
 
+  /// Paginated version of [getFolderComics].
+  List<FavoriteItem> getFolderComicsPaginated(String folder,
+      {required int limit, required int offset}) {
+    var rows = _db.select("""
+        select * from "$folder"
+        ORDER BY display_order
+        LIMIT ? OFFSET ?;
+      """, [limit, offset]);
+    return rows.map((element) => FavoriteItem.fromRow(element)).toList();
+  }
+
+  /// Total number of comics in a folder.
+  int getFolderComicCount(String folder) {
+    var rows = _db.select("""
+        SELECT COUNT(*) as cnt FROM "$folder";
+      """);
+    return rows.first['cnt'] as int;
+  }
+
   static Future<List<FavoriteItem>> _getFolderComicsAsync(
       String folder, Pointer<void> p) {
     return Isolate.run(() {
@@ -434,9 +458,29 @@ class LocalFavoritesManager with ChangeNotifier {
     });
   }
 
+  /// Paginated async version of [getFolderComics].
+  static Future<List<FavoriteItem>> _getFolderComicsAsyncPaginated(
+      String folder, Pointer<void> p, int limit, int offset) {
+    return Isolate.run(() {
+      var db = sqlite3.fromPointer(p);
+      var rows = db.select("""
+        select * from "$folder"
+        ORDER BY display_order
+        LIMIT ? OFFSET ?;
+      """, [limit, offset]);
+      return rows.map((element) => FavoriteItem.fromRow(element)).toList();
+    });
+  }
+
   /// Start a new isolate to get the comics in the folder
   Future<List<FavoriteItem>> getFolderComicsAsync(String folder) {
     return _getFolderComicsAsync(folder, _db.handle);
+  }
+
+  /// Paginated async version of [getFolderComicsAsync].
+  Future<List<FavoriteItem>> getFolderComicsAsyncPaginated(String folder,
+      {required int limit, required int offset}) {
+    return _getFolderComicsAsyncPaginated(folder, _db.handle, limit, offset);
   }
 
   List<FavoriteItem> getAllComics() {
@@ -473,9 +517,9 @@ class LocalFavoritesManager with ChangeNotifier {
   void addTagTo(String folder, String id, String tag) {
     _db.execute("""
       update "$folder"
-      set tags = '$tag,' || tags
+      set tags = ? || ',' || tags
       where id == ?
-    """, [id]);
+    """, [tag, id]);
     notifyListeners();
   }
 
@@ -534,6 +578,9 @@ class LocalFavoritesManager with ChangeNotifier {
         primary key (id, type)
       );
     """);
+    // Performance: add index for display_order (used in sorting)
+    _db.execute('CREATE INDEX IF NOT EXISTS idx_"$name"_order ON "$name"(display_order);');
+    _db.execute('CREATE INDEX IF NOT EXISTS idx_"$name"_time ON "$name"(time);');
     notifyListeners();
     counts[name] = 0;
     return name;

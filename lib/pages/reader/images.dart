@@ -23,8 +23,10 @@ class _ReaderImagesState extends State<_ReaderImages> {
 
   @override
   void dispose() {
-    super.dispose();
+    // Cancel loading before super.dispose() — Flutter requires cleanup
+    // before the State is detached from the element tree.
     ImageDownloader.cancelAllLoadingImages();
+    super.dispose();
   }
 
   /// Handle jumping to last page when _jumpToLastPageOnLoad is true

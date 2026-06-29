@@ -39,6 +39,8 @@ class ComicTile extends StatelessWidget {
     this.onTap,
     this.onLongPressed,
     this.heroID,
+    this.isFavorite,
+    this.history,
   });
 
   final Comic comic;
@@ -54,6 +56,15 @@ class ComicTile extends StatelessWidget {
   final VoidCallback? onLongPressed;
 
   final int? heroID;
+
+  /// Pre-computed favorite status. When non-null, skips the
+  /// `LocalFavoritesManager().isExist()` call in build().
+  /// Also signals that [history] was pre-computed (even if null).
+  final bool? isFavorite;
+
+  /// Pre-computed history record. Only meaningful when [isFavorite] is non-null.
+  /// A null value here means "no history record" (or history display is disabled).
+  final History? history;
 
 
   void _onTap() {
@@ -152,6 +163,11 @@ class ComicTile extends StatelessWidget {
     var history = appdata.settings['showHistoryStatusOnTile']
         ? HistoryManager().find(comic.id, ComicType(comic.sourceKey.hashCode))
         : null;
+    // Use pre-computed values when available (from SliverGridComics batch query)
+    if (this.isFavorite != null) {
+      isFavorite = this.isFavorite!;
+      history = this.history;
+    }
     if (history?.page == 0) {
       history!.page = 1;
     }
@@ -556,12 +572,11 @@ class _ComicDescription extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (tags != null) {
-      tags!.removeWhere((element) => element.removeAllBlank == "");
-      for (var s in tags!) {
-        s = s.replaceAll("\n", " ");
-      }
-    }
+    // Create a new filtered list instead of mutating the original.
+    final processedTags = tags
+        ?.where((element) => element.removeAllBlank != "")
+        .map((s) => s.replaceAll("\n", " "))
+        .toList();
     var enableTranslate =
         App.locale.languageCode == 'zh' && this.enableTranslate;
     return Column(
@@ -588,7 +603,7 @@ class _ComicDescription extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         const SizedBox(height: 4),
-        if (tags != null && tags!.isNotEmpty)
+        if (processedTags != null && processedTags.isNotEmpty)
           Expanded(
             child: LayoutBuilder(builder: (context, constraints) {
               if (constraints.maxHeight < 22) {
@@ -607,7 +622,7 @@ class _ComicDescription extends StatelessWidget {
                   spacing: 4,
                   runSpacing: 3,
                   children: [
-                    for (var s in tags!)
+                    for (var s in processedTags)
                       Container(
                         height: 21,
                         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -713,12 +728,43 @@ class _SliverGridComicsState extends State<SliverGridComics> {
   List<Comic> comics = [];
   List<int> heroIDs = [];
 
+  /// Pre-computed favorite status, keyed by comic.id.
+  /// Populated by [_precomputeStatus] to avoid per-tile DB lookups in build().
+  Map<String, bool> _favoriteStatus = {};
+
+  /// Pre-computed history records, keyed by comic.id.
+  /// Populated by [_precomputeStatus] via a single batch SQL query.
+  Map<String, History> _historyStatus = {};
+
   static int _nextHeroID = 0;
 
   void generateHeroID() {
     heroIDs.clear();
     for (var i = 0; i < comics.length; i++) {
       heroIDs.add(_nextHeroID++);
+    }
+  }
+
+  /// Batch pre-compute favorite and history status for all visible comics.
+  /// Replaces N individual isExist()/find() calls with O(1) HashMap lookups
+  /// and a single batch SQL query.
+  void _precomputeStatus() {
+    _favoriteStatus = {};
+    _historyStatus = {};
+    if (comics.isEmpty) return;
+
+    bool showFavorite = appdata.settings['showFavoriteStatusOnTile'] == true;
+    bool showHistory = appdata.settings['showHistoryStatusOnTile'] == true;
+
+    if (showFavorite) {
+      for (var comic in comics) {
+        _favoriteStatus[comic.id] = LocalFavoritesManager()
+            .isExist(comic.id, ComicType(comic.sourceKey.hashCode));
+      }
+    }
+
+    if (showHistory) {
+      _historyStatus = HistoryManager().findBatch(comics.map((c) => c.id));
     }
   }
 
@@ -732,6 +778,7 @@ class _SliverGridComicsState extends State<SliverGridComics> {
         }
       }
       generateHeroID();
+      _precomputeStatus();
     }
     super.didUpdateWidget(oldWidget);
   }
@@ -744,6 +791,7 @@ class _SliverGridComicsState extends State<SliverGridComics> {
       }
     }
     generateHeroID();
+    _precomputeStatus();
     HistoryManager().addListener(update);
     super.initState();
   }
@@ -762,6 +810,7 @@ class _SliverGridComicsState extends State<SliverGridComics> {
           comics.add(comic);
         }
       }
+      _precomputeStatus();
     });
   }
 
@@ -776,6 +825,8 @@ class _SliverGridComicsState extends State<SliverGridComics> {
       menuBuilder: widget.menuBuilder,
       onTap: widget.onTap,
       onLongPressed: widget.onLongPressed,
+      favoriteStatus: _favoriteStatus,
+      historyStatus: _historyStatus,
     );
   }
 }
@@ -790,6 +841,8 @@ class _SliverGridComics extends StatelessWidget {
     this.onTap,
     this.onLongPressed,
     this.selection,
+    this.favoriteStatus,
+    this.historyStatus,
   });
 
   final List<Comic> comics;
@@ -807,6 +860,10 @@ class _SliverGridComics extends StatelessWidget {
   final void Function(Comic, int heroID)? onTap;
 
   final void Function(Comic, int heroID)? onLongPressed;
+
+  final Map<String, bool>? favoriteStatus;
+
+  final Map<String, History>? historyStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -830,9 +887,11 @@ class _SliverGridComics extends StatelessWidget {
               ? () => onLongPressed!(comics[index], heroIDs[index])
               : null,
           heroID: heroIDs[index],
+          isFavorite: favoriteStatus?[comics[index].id],
+          history: historyStatus?[comics[index].id],
         );
         if (selection == null) {
-          return comic;
+          return RepaintBoundary(child: comic);
         }
         return AnimatedContainer(
           key: ValueKey(comics[index].id),
@@ -846,7 +905,7 @@ class _SliverGridComics extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           margin: const EdgeInsets.all(4),
-          child: comic,
+          child: RepaintBoundary(child: comic),
         );
       }, childCount: comics.length),
       gridDelegate: SliverGridDelegateWithComics(),
@@ -1593,7 +1652,7 @@ class SimpleComicTile extends StatelessWidget {
     Widget child = image == null
         ? const SizedBox()
         : AnimatedImage(
-            key: ValueKey(_findImageProvider(comic).hashCode),
+            key: ValueKey(image.hashCode),
             image: image,
             width: double.infinity,
             height: double.infinity,

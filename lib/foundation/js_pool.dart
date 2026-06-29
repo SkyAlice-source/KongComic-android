@@ -8,7 +8,7 @@ import 'package:kong_comic/foundation/log.dart';
 class JSPool {
   static final int _maxInstances = 4;
   final List<IsolateJsEngine> _instances = [];
-  bool _isInitializing = false;
+  Future<void>? _initFuture;
 
   static final JSPool _singleton = JSPool._internal();
   factory JSPool() {
@@ -16,26 +16,35 @@ class JSPool {
   }
   JSPool._internal();
 
-  Future<void> init() async {
-    if (_isInitializing) return;
-    _isInitializing = true;
+  Future<void> init() {
+    _initFuture ??= _doInit();
+    return _initFuture!;
+  }
+
+  Future<void> _doInit() async {
     var jsInitBuffer = await rootBundle.load("assets/init.js");
     var jsInit = jsInitBuffer.buffer.asUint8List();
     for (int i = 0; i < _maxInstances; i++) {
       _instances.add(IsolateJsEngine(jsInit));
     }
-    _isInitializing = false;
   }
 
   Future<dynamic> execute(String jsFunction, List<dynamic> args) async {
     await init();
     var selectedInstance = _instances[0];
     for (var instance in _instances) {
-      if (instance.pendingTasks < selectedInstance.pendingTasks) {
+      if (!instance._isClosed &&
+          instance.pendingTasks < selectedInstance.pendingTasks) {
         selectedInstance = instance;
       }
     }
     return selectedInstance.execute(jsFunction, args);
+  }
+
+  /// Evaluate a JS expression (not wrapped in a function).
+  /// Convenience wrapper that wraps the code in a zero-arg function.
+  Future<dynamic> evaluate(String jsCode) async {
+    return execute("(function() { return ($jsCode); })", []);
   }
 }
 
@@ -53,6 +62,8 @@ class IsolateJsEngine {
   SendPort? _sendPort;
   ReceivePort? _receivePort;
 
+  final Completer<void> _sendPortReady = Completer<void>();
+
   int _counter = 0;
   final Map<int, Completer<dynamic>> _tasks = {};
 
@@ -69,6 +80,9 @@ class IsolateJsEngine {
   void _onMessage(dynamic message) {
     if (message is SendPort) {
       _sendPort = message;
+      if (!_sendPortReady.isCompleted) {
+        _sendPortReady.complete();
+      }
     } else if (message is TaskResult) {
       final completer = _tasks.remove(message.id);
       if (completer != null) {
@@ -110,7 +124,19 @@ class IsolateJsEngine {
           }
           final result = jsFunc.invoke(message.args);
           jsFunc.free();
-          sendPort.send(TaskResult(message.id, result, null));
+          // Handle async results: flutter_qjs converts JS Promises to Dart Futures.
+          // Without awaiting, the unresolved Future would be sent across the
+          // isolate boundary (which fails) and the Promise would be orphaned.
+          if (result is Future) {
+            try {
+              final asyncResult = await result;
+              sendPort.send(TaskResult(message.id, asyncResult, null));
+            } catch (e) {
+              sendPort.send(TaskResult(message.id, null, e.toString()));
+            }
+          } else {
+            sendPort.send(TaskResult(message.id, result, null));
+          }
         } catch (e) {
           sendPort.send(TaskResult(message.id, null, e.toString()));
         }
@@ -122,9 +148,7 @@ class IsolateJsEngine {
     if (_isClosed) {
       throw Exception("IsolateJsEngine is closed.");
     }
-    while (_sendPort == null) {
-      await Future.delayed(const Duration(milliseconds: 10));
-    }
+    await _sendPortReady.future;
     final completer = Completer<dynamic>();
     final taskId = _counter++;
     _tasks[taskId] = completer;
@@ -133,11 +157,17 @@ class IsolateJsEngine {
     return completer.future;
   }
 
-  void close() async {
+  Future<void> close() async {
     if (!_isClosed) {
       _isClosed = true;
-      while (_tasks.isNotEmpty) {
-        await Future.delayed(const Duration(milliseconds: 100));
+      // Wait for pending tasks with a timeout to avoid permanent blocking.
+      if (_tasks.isNotEmpty) {
+        try {
+          await Future.wait(_tasks.values.map((c) => c.future))
+              .timeout(const Duration(seconds: 5));
+        } catch (_) {
+          // Timeout or error: force kill the isolate.
+        }
       }
       _receivePort?.close();
       _isolate?.kill(priority: Isolate.immediate);

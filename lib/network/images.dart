@@ -30,6 +30,7 @@ abstract class ImageDownloader {
         totalBytes: data.length,
         imageBytes: data,
       );
+      return;
     }
 
     var configs = <String, dynamic>{};
@@ -73,20 +74,21 @@ abstract class ImageDownloader {
     if (expectedBytes == -1) {
       expectedBytes = null;
     }
-    var buffer = <int>[];
+    var bytesBuilder = BytesBuilder();
     await for (var data in stream) {
-      buffer.addAll(data);
+      bytesBuilder.add(data);
       if (expectedBytes != null) {
         yield ImageDownloadProgress(
-          currentBytes: buffer.length,
+          currentBytes: bytesBuilder.length,
           totalBytes: expectedBytes,
         );
       }
     }
 
+    List<int> buffer = bytesBuilder.takeBytes();
+
     if (configs['onResponse'] is JSInvokable) {
-      final uint8List = Uint8List.fromList(buffer);
-      buffer = (configs['onResponse'] as JSInvokable)([uint8List]);
+      buffer = (configs['onResponse'] as JSInvokable)([Uint8List.fromList(buffer)]);
       (configs['onResponse'] as JSInvokable).free();
     }
 
@@ -94,7 +96,7 @@ abstract class ImageDownloader {
     yield ImageDownloadProgress(
       currentBytes: buffer.length,
       totalBytes: buffer.length,
-      imageBytes: Uint8List.fromList(buffer),
+      imageBytes: buffer is Uint8List ? buffer : Uint8List.fromList(buffer),
     );
   }
 
@@ -116,11 +118,13 @@ abstract class ImageDownloader {
     if (_loadingImages.containsKey(cacheKey)) {
       return _loadingImages[cacheKey]!.stream;
     }
+    final cancelToken = CancelToken();
     final stream = _StreamWrapper<ImageDownloadProgress>(
-      _loadComicImage(imageKey, sourceKey, cid, eid),
+      _loadComicImage(imageKey, sourceKey, cid, eid, cancelToken),
       (wrapper) {
         _loadingImages.remove(cacheKey);
       },
+      cancelToken: cancelToken,
     );
     _loadingImages[cacheKey] = stream;
     return stream.stream;
@@ -128,11 +132,12 @@ abstract class ImageDownloader {
 
   static Stream<ImageDownloadProgress> loadComicImageUnwrapped(
       String imageKey, String? sourceKey, String cid, String eid) {
-    return _loadComicImage(imageKey, sourceKey, cid, eid);
+    return _loadComicImage(imageKey, sourceKey, cid, eid, null);
   }
 
   static Stream<ImageDownloadProgress> _loadComicImage(
-      String imageKey, String? sourceKey, String cid, String eid) async* {
+      String imageKey, String? sourceKey, String cid, String eid,
+      [CancelToken? cancelToken]) async* {
     // Guard against empty/invalid image keys (defensive: same as loadThumbnail).
     if (imageKey.isEmpty) {
       throw "Error: Empty image URL.";
@@ -147,6 +152,7 @@ abstract class ImageDownloader {
         totalBytes: data.length,
         imageBytes: data,
       );
+      return;
     }
 
     Future<Map<String, dynamic>?> Function()? onLoadFailed;
@@ -183,23 +189,25 @@ abstract class ImageDownloader {
         ));
 
         var req = await dio.request<ResponseBody>(configs['url'] ?? imageKey,
-            data: configs['data']);
+            data: configs['data'],
+            cancelToken: cancelToken);
         var stream = req.data?.stream ?? (throw "Error: Empty response body.");
         int? expectedBytes = req.data!.contentLength;
         if (expectedBytes == -1) {
           expectedBytes = null;
         }
-        var buffer = <int>[];
+        var bytesBuilder = BytesBuilder();
         await for (var data in stream) {
-          buffer.addAll(data);
+          bytesBuilder.add(data);
           yield ImageDownloadProgress(
-            currentBytes: buffer.length,
+            currentBytes: bytesBuilder.length,
             totalBytes: expectedBytes,
           );
         }
 
+        List<int> buffer;
         if (configs['onResponse'] is JSInvokable) {
-          dynamic result = (configs['onResponse'] as JSInvokable)([Uint8List.fromList(buffer)]);
+          dynamic result = (configs['onResponse'] as JSInvokable)([bytesBuilder.takeBytes()]);
           if (result is Future) {
             result = await result;
           }
@@ -209,6 +217,8 @@ abstract class ImageDownloader {
             throw "Error: Invalid onResponse result.";
           }
           (configs['onResponse'] as JSInvokable).free();
+        } else {
+          buffer = bytesBuilder.takeBytes();
         }
 
         Uint8List data;
@@ -264,9 +274,11 @@ class _StreamWrapper<T> {
 
   final void Function(_StreamWrapper<T> wrapper) onClosed;
 
+  final CancelToken? cancelToken;
+
   bool isClosed = false;
 
-  _StreamWrapper(this._stream, this.onClosed) {
+  _StreamWrapper(this._stream, this.onClosed, {this.cancelToken}) {
     _listen();
   }
 
@@ -276,30 +288,36 @@ class _StreamWrapper<T> {
         if (isClosed) {
           break;
         }
-        for (var controller in controllers) {
+        // Iterate over a copy to avoid ConcurrentModificationError
+        // when listeners cancel during callback execution.
+        for (var controller in controllers.toList()) {
           if (!controller.isClosed) {
             controller.add(data);
           }
         }
+        // If all listeners have cancelled, stop consuming the upstream stream.
+        if (controllers.isEmpty) {
+          break;
+        }
       }
     }
     catch (e) {
-      for (var controller in controllers) {
+      for (var controller in controllers.toList()) {
         if (!controller.isClosed) {
           controller.addError(e);
         }
       }
     }
     finally {
-      for (var controller in controllers) {
+      for (var controller in controllers.toList()) {
         if (!controller.isClosed) {
           controller.close();
         }
       }
+      controllers.clear();
+      isClosed = true;
+      onClosed(this);
     }
-    controllers.clear();
-    isClosed = true;
-    onClosed(this);
   }
 
   Stream<T> get stream {
@@ -315,7 +333,8 @@ class _StreamWrapper<T> {
   }
 
   void cancel() {
-    for (var controller in controllers) {
+    cancelToken?.cancel();
+    for (var controller in controllers.toList()) {
       controller.close();
     }
     controllers.clear();

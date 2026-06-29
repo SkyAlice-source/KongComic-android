@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
@@ -23,27 +22,33 @@ class CacheManager {
 
   int _limitSize = 2 * 1024 * 1024 * 1024;
 
-  static Future<int> _scanDir(Pointer<void> dbP, String dir) async {
+  static Future<int> _scanDir(String dbPath, String dir) async {
     var res = await Isolate.run(() async {
       int totalSize = 0;
       List<String> unmanagedFiles = [];
-      var db = sqlite3.fromPointer(dbP);
-      await for (var file in Directory(dir).list(recursive: true)) {
-        if (file is File) {
-          var size = await file.length();
-          var segments = file.uri.pathSegments;
-          var name = segments.last;
-          var dir = segments.elementAtOrNull(segments.length - 2) ?? "*";
-          var res = db.select('''
-            SELECT * FROM cache
-            WHERE dir = ? AND name = ?
-          ''', [dir, name]);
-          if (res.isEmpty) {
-            unmanagedFiles.add(file.path);
-          } else {
-            totalSize += size;
+      // Open an independent database connection in this Isolate
+      // to avoid thread-safety issues with shared SQLite pointers.
+      var db = sqlite3.open(dbPath);
+      try {
+        await for (var file in Directory(dir).list(recursive: true)) {
+          if (file is File) {
+            var size = await file.length();
+            var segments = file.uri.pathSegments;
+            var name = segments.last;
+            var dirName = segments.elementAtOrNull(segments.length - 2) ?? "*";
+            var res = db.select('''
+              SELECT * FROM cache
+              WHERE dir = ? AND name = ?
+            ''', [dirName, name]);
+            if (res.isEmpty) {
+              unmanagedFiles.add(file.path);
+            } else {
+              totalSize += size;
+            }
           }
         }
+      } finally {
+        db.dispose();
       }
       return {
         'totalSize': totalSize,
@@ -80,7 +85,10 @@ class CacheManager {
         type TEXT
       )
     ''');
-    _scanDir(_db.handle, cachePath).then((value) {
+    // Performance: add indexes for high-frequency query columns
+    _db.execute('CREATE INDEX IF NOT EXISTS idx_cache_expires ON cache(expires);');
+    _db.execute('CREATE INDEX IF NOT EXISTS idx_cache_dir_name ON cache(dir, name);');
+    _scanDir('${App.dataPath}/cache.db', cachePath).then((value) {
       _currentSize = value;
       checkCache();
     });

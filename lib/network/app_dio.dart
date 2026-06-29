@@ -77,10 +77,16 @@ class MyLogInterceptor implements Interceptor {
     headers.remove("cookie");
     String content;
     if (response.data is List<int>) {
-      try {
-        content = utf8.decode(response.data, allowMalformed: false);
-      } catch (e) {
-        content = "<Bytes>\nlength:${response.data.length}";
+      final dataLength = (response.data as List<int>).length;
+      if (dataLength > 10240) {
+        // Skip decoding for large binary responses (e.g. images).
+        content = "<Bytes>\nlength:$dataLength";
+      } else {
+        try {
+          content = utf8.decode(response.data as List<int>, allowMalformed: false);
+        } catch (e) {
+          content = "<Bytes>\nlength:$dataLength";
+        }
       }
     } else {
       content = response.data.toString();
@@ -176,8 +182,14 @@ class AppDio with DioMixin {
 }
 
 class RHttpAdapter implements HttpClientAdapter {
+  HttpClient? _client;
+  String? _lastProxy;
+
   @override
-  void close({bool force = false}) {}
+  void close({bool force = false}) {
+    _client?.close(force: force);
+    _client = null;
+  }
 
   @override
   Future<ResponseBody> fetch(
@@ -191,21 +203,25 @@ class RHttpAdapter implements HttpClientAdapter {
 
     final proxy = await getProxy();
     final uri = options.uri;
-    final client = HttpClient();
 
-    client.findProxy = (_) {
-      if (proxy != null) return 'PROXY $proxy';
-      return 'DIRECT';
-    };
+    // Reuse HttpClient for connection pooling.
+    // Recreate only when proxy changes to avoid stale connections.
+    if (_client == null || _lastProxy != proxy) {
+      _client?.close();
+      _client = HttpClient();
+      _lastProxy = proxy;
+      _client!.findProxy = (_) {
+        if (proxy != null) return 'PROXY $proxy';
+        return 'DIRECT';
+      };
+      _client!.badCertificateCallback =
+          (X509Certificate cert, String host, int port) {
+        return appdata.settings['ignoreBadCertificate'] == true;
+      };
+      _client!.connectionTimeout = const Duration(seconds: 15);
+    }
 
-    client.badCertificateCallback =
-        (X509Certificate cert, String host, int port) {
-      return appdata.settings['ignoreBadCertificate'] == true;
-    };
-
-    client.connectionTimeout = const Duration(seconds: 15);
-
-    final request = await client.openUrl(options.method, uri);
+    final request = await _client!.openUrl(options.method, uri);
 
     options.headers.forEach((key, value) {
       if (value != null) {
@@ -227,12 +243,7 @@ class RHttpAdapter implements HttpClientAdapter {
     });
 
     return ResponseBody(
-      response.cast<Uint8List>().transform(
-        StreamTransformer.fromHandlers(handleDone: (sink) {
-          client.close();
-          sink.close();
-        }),
-      ),
+      response.cast<Uint8List>(),
       response.statusCode,
       statusMessage: _getStatusMessage(response.statusCode),
       isRedirect: false,

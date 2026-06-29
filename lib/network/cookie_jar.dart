@@ -29,6 +29,8 @@ class CookieJarSql {
         PRIMARY KEY (name, domain, path)
       );
     ''');
+    // Performance: add index for domain-based cookie lookup
+    _db.execute('CREATE INDEX IF NOT EXISTS idx_cookies_domain ON cookies(domain);');
   }
 
   void saveFromResponse(Uri uri, List<Cookie> cookies) {

@@ -138,14 +138,23 @@ class ImportComic {
           break;
         }
         var folderName = tag == '' ? '(EhViewer)Default'.tl : '(EhViewer)$tag';
-        var comicList = db.select("""
+        var comicList = tag == ''
+            ? db.select("""
               SELECT * 
               FROM DOWNLOAD_DIRNAME DN
               LEFT JOIN DOWNLOADS DL
               ON DL.GID = DN.GID
-              WHERE DL.LABEL ${tag == '' ? 'IS NULL' : '= \'$tag\''} AND DL.STATE = 3
+              WHERE DL.LABEL IS NULL AND DL.STATE = 3
               ORDER BY DL.TIME DESC
-            """).toList();
+            """).toList()
+            : db.select("""
+              SELECT * 
+              FROM DOWNLOAD_DIRNAME DN
+              LEFT JOIN DOWNLOADS DL
+              ON DL.GID = DN.GID
+              WHERE DL.LABEL = ? AND DL.STATE = 3
+              ORDER BY DL.TIME DESC
+            """, [tag]).toList();
 
         var validComics = await validateComics(comicList);
         imported[folderName] = validComics;
