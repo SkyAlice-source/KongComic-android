@@ -284,17 +284,36 @@ class LocalFavoritesManager with ChangeNotifier {
     for (var folder in folderNames) {
       counts[folder] = count(folder);
     }
-    _initHashedIds(folderNames, _db.handle).then((value) {
-      _hashedIds = value;
-      notifyListeners();
-    });
+    _hashedIds = _computeHashedIds(folderNames);
+    notifyListeners();
   }
 
   void refreshHashedIds() {
-    _initHashedIds(folderNames, _db.handle).then((value) {
-      _hashedIds = value;
-      notifyListeners();
-    });
+    _hashedIds = _computeHashedIds(folderNames);
+    notifyListeners();
+  }
+
+  /// Synchronously compute hashed IDs from the database.
+  ///
+  /// Previously this used Isolate.run with _db.handle, but sharing a SQLite
+  /// FFI pointer across isolates is unsafe: the Isolate's Database object can
+  /// be GC'd, calling sqlite3_close_v2 and invalidating the main isolate's
+  /// connection. This caused all subsequent queries to return empty/zero
+  /// results, which is why folder counts showed as 0 after restart.
+  Map<int, int> _computeHashedIds(List<String> folders) {
+    var hashedIds = <int, int>{};
+    for (var folder in folders) {
+      var rows = _db.select('''
+        select id, type from "$folder";
+      ''');
+      for (var row in rows) {
+        var id = row["id"] as String;
+        var type = row["type"] as int;
+        var hash = id.hashCode ^ type;
+        hashedIds[hash] = (hashedIds[hash] ?? 0) + 1;
+      }
+    }
+    return hashedIds;
   }
 
   void reduceHashedId(String id, int type) {
@@ -306,26 +325,6 @@ class LocalFavoritesManager with ChangeNotifier {
         _hashedIds.remove(hash);
       }
     }
-  }
-
-  static Future<Map<int, int>> _initHashedIds(
-      List<String> folders, Pointer<void> p) {
-    return Isolate.run(() {
-      var db = sqlite3.fromPointer(p);
-      var hashedIds = <int, int>{};
-      for (var folder in folders) {
-        var rows = db.select("""
-          select id, type from "$folder";
-        """);
-        for (var row in rows) {
-          var id = row["id"] as String;
-          var type = row["type"] as int;
-          var hash = id.hashCode ^ type;
-          hashedIds[hash] = (hashedIds[hash] ?? 0) + 1;
-        }
-      }
-      return hashedIds;
-    });
   }
 
   List<String> find(String id, ComicType type) {
