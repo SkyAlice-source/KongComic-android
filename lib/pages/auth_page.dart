@@ -3,6 +3,8 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:local_auth_android/local_auth_android.dart';
+import 'package:local_auth_darwin/local_auth_darwin.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 class AuthPage extends StatefulWidget {
@@ -64,6 +66,17 @@ class _AuthPageState extends State<AuthPage> {
     }
     var isAuthorized = await localAuth.authenticate(
       localizedReason: "Please authenticate to continue".tl,
+      authMessages: [
+        AndroidAuthMessages(
+          signInTitle: "需要身份验证",
+          signInHint: "请验证身份",
+          cancelButton: "取消",
+        ),
+        IOSAuthMessages(
+          cancelButton: "取消",
+          localizedFallbackTitle: "使用密码",
+        ),
+      ],
     );
     if (isAuthorized) {
       widget.onSuccessfulAuth?.call();

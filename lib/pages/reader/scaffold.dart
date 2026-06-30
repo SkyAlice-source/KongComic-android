@@ -513,25 +513,13 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             onPressed: openChapterDrawer,
           ),
         ),
-      if (context.reader.mode.key.startsWith('continuous'))
-        Tooltip(
-          message: "Auto Scroll".tl,
-          child: IconButton(
-            icon: HugeIcon(icon:
-              context.reader._imageViewController != null &&
-                      (context.reader._imageViewController as dynamic)._autoScrolling == true
-                  ? HugeIcons.strokeRoundedPause
-                  : HugeIcons.strokeRoundedPlay,
-              size: 20,
-            ),
-            onPressed: () {
-              if (context.reader._imageViewController != null) {
-                (context.reader._imageViewController as dynamic)
-                    .toggleAutoScroll();
-              }
-            },
-          ),
+      Tooltip(
+        message: "Set as Cover".tl,
+        child: IconButton(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 20),
+          onPressed: setAsCover,
         ),
+      ),
       Tooltip(
         message: "Save Image".tl,
         child: IconButton(
@@ -935,7 +923,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   /// If there is only one image on screen, return it.
   ///
   /// If there are multiple images on screen,
-  /// show an overlay to let the user select an image.
+  /// show a dialog to let the user select an image.
   ///
   /// The return value is the index of the selected image.
   Future<int?> selectImage() async {
@@ -965,15 +953,163 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     if (!needsSelection && singleImageIndex != null) {
       return singleImageIndex;
     } else {
-      var location = await _showSelectImageOverlay();
-      if (location == null) {
-        return null;
+      return await _showImagePickerDialog();
+    }
+  }
+
+  /// Show a thumbnail grid dialog for image selection.
+  /// Returns the selected image index, or null if cancelled.
+  Future<int?> _showImagePickerDialog() async {
+    var reader = context.reader;
+    var images = reader.images;
+    if (images == null || images.isEmpty) return null;
+
+    // Determine the range of images to show (current page's images)
+    int startIndex = 0;
+    int endIndex = images.length;
+
+    var imageViewController = reader._imageViewController;
+    if (imageViewController is _GalleryModeState) {
+      var range = imageViewController.getCurrentPageImageRange();
+      if (range != null) {
+        (startIndex, endIndex) = range;
       }
-      var imageKey = imageViewController!.getImageKeyByOffset(location);
-      if (imageKey == null) {
-        return null;
+    }
+
+    if (startIndex >= endIndex || startIndex >= images.length) {
+      startIndex = 0;
+      endIndex = images.length;
+    }
+    endIndex = endIndex.clamp(0, images.length);
+
+    if (_isOpen) {
+      openOrClose();
+    }
+
+    final cs = Theme.of(context).colorScheme;
+
+    return showDialog<int>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Select Image".tl),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: GridView.builder(
+              shrinkWrap: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 0.7,
+              ),
+              itemCount: endIndex - startIndex,
+              itemBuilder: (context, index) {
+                final imgIndex = startIndex + index;
+                final imageKey = images[imgIndex];
+                return GestureDetector(
+                  onTap: () => Navigator.of(context).pop(imgIndex),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: cs.outlineVariant, width: 1),
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _buildThumbnail(imageKey, reader),
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                              color: Colors.black54,
+                              child: Text(
+                                "${imgIndex + 1}",
+                                style: const TextStyle(color: Colors.white, fontSize: 12),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text("Cancel".tl),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildThumbnail(String imageKey, dynamic reader) {
+    if (imageKey.startsWith("file://")) {
+      return Image.file(
+        File(imageKey.substring(7)),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          child: Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 24)),
+        ),
+      );
+    }
+    return Image(
+      image: CachedImageProvider(
+        "$imageKey@${reader.type.sourceKey}@${reader.cid}@${reader.eid}",
+        sourceKey: reader.type.sourceKey,
+        cid: reader.cid,
+      ),
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Container(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        child: Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 24)),
+      ),
+    );
+  }
+
+  /// Set the selected image as the comic's custom cover.
+  void setAsCover() async {
+    try {
+      var result = await selectImageToData();
+      if (result == null) return;
+
+      var (imageIndex, data) = result;
+      var reader = context.reader;
+      var sourceKey = reader.type.sourceKey;
+      var cid = reader.cid;
+
+      var success = await CustomCoverManager.setCustomCoverFromData(
+        sourceKey,
+        cid,
+        data,
+      );
+
+      if (mounted) {
+        showToast(
+          message: success ? "Cover updated".tl : "Cover update failed".tl,
+          context: context,
+          seconds: 1,
+        );
       }
-      return reader.images!.indexOf(imageKey);
+    } catch (e) {
+      if (mounted) {
+        showToast(
+          message: "Cover update failed".tl,
+          context: context,
+          seconds: 1,
+        );
+      }
     }
   }
 
@@ -1005,37 +1141,6 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       return null;
     }
     return (i, data);
-  }
-
-  Future<Offset?> _showSelectImageOverlay() {
-    if (_isOpen) {
-      openOrClose();
-    }
-
-    var completer = Completer<Offset?>();
-
-    var overlay = Overlay.of(context);
-    OverlayEntry? entry;
-    entry = OverlayEntry(
-      builder: (context) {
-        return Positioned.fill(
-          child: _SelectImageOverlayContent(
-            onTap: (offset) {
-              completer.complete(offset);
-              entry!.remove();
-            },
-            onDispose: () {
-              if (!completer.isCompleted) {
-                completer.complete(null);
-              }
-            },
-          ),
-        );
-      },
-    );
-    overlay.insert(entry);
-
-    return completer.future;
   }
 }
 
@@ -1221,65 +1326,3 @@ class _ClockWidgetState extends State<_ClockWidget> {
   }
 }
 
-class _SelectImageOverlayContent extends StatefulWidget {
-  const _SelectImageOverlayContent({
-    required this.onTap,
-    required this.onDispose,
-  });
-
-  final void Function(Offset) onTap;
-
-  final void Function() onDispose;
-
-  @override
-  State<_SelectImageOverlayContent> createState() =>
-      _SelectImageOverlayContentState();
-}
-
-class _SelectImageOverlayContentState
-    extends State<_SelectImageOverlayContent> {
-  @override
-  void dispose() {
-    widget.onDispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapUp: (details) {
-        widget.onTap(details.globalPosition);
-      },
-      child: Container(
-        color: Colors.black.withAlpha(50),
-        child: Align(
-          alignment: Alignment(0, -0.8),
-          child: Container(
-            width: 232,
-            height: 42,
-            decoration: BoxDecoration(
-              color: context.colorScheme.surface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: context.colorScheme.outlineVariant),
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 8),
-                HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 20),
-                const SizedBox(width: 16),
-                Text(
-                  "Click to select an image".tl,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: context.colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

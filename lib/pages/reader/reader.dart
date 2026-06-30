@@ -24,6 +24,7 @@ import 'package:kong_comic/foundation/cache_manager.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/consts.dart';
+import 'package:kong_comic/foundation/custom_cover.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/global_state.dart';
 import 'package:kong_comic/foundation/history.dart';

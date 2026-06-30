@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:path/path.dart' as p;
@@ -47,6 +48,44 @@ class CustomCoverManager {
 
       final key = '$sourceKey@$id';
       final covers = _getAll();
+      covers[key] = destPath;
+      appdata.implicitData[_key] = covers;
+      appdata.writeImplicitData();
+      App.forceRebuild();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 设置自定义封面（从图片字节数据）
+  static Future<bool> setCustomCoverFromData(String sourceKey, String id, Uint8List data) async {
+    try {
+      final dir = Directory(_coversDir);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+
+      // 检测图片格式
+      String ext = '.jpg';
+      if (data.length >= 4) {
+        if (data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47) {
+          ext = '.png';
+        } else if (data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46) {
+          ext = '.webp';
+        }
+      }
+
+      final destPath = p.join(_coversDir, '${sourceKey}_$id$ext');
+      await File(destPath).writeAsBytes(data);
+
+      final key = '$sourceKey@$id';
+      final covers = _getAll();
+      // 删除旧封面文件（如果扩展名变了）
+      final oldPath = covers[key];
+      if (oldPath != null && oldPath != destPath) {
+        try { await File(oldPath).delete(); } catch (_) {}
+      }
       covers[key] = destPath;
       appdata.implicitData[_key] = covers;
       appdata.writeImplicitData();

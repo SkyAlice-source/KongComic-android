@@ -52,6 +52,8 @@ dependencies:
       url: https://github.com/venera-app/webdav_client
       ref: 2f669c98fb81cff1c64fee93466a1475c77e4273
   local_auth: ^3.0.1
+  local_auth_android: ^2.0.9
+  local_auth_darwin: ^2.0.3
   wakelock_plus: ^1.2.14
   flutter_saf:
     git: 

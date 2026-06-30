@@ -37,8 +37,11 @@ class _SearchPageState extends State<SearchPage> {
 
   bool get _isAggregated => _selectedSources.length > 1;
 
-  SearchPageData get currentSearchPageData =>
-      ComicSource.find(_selectedSources.first)!.searchPageData!;
+  SearchPageData? get currentSearchPageData {
+    if (_selectedSources.isEmpty) return null;
+    final source = ComicSource.find(_selectedSources.first);
+    return source?.searchPageData;
+  }
 
   var focusNode = FocusNode();
 
@@ -49,7 +52,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void search([String? text]) {
-    final keyword = text ?? controller.text;
+    final keyword = text ?? _searchTextController.text;
 
     // ID 直接跳转：匹配某个源的 ID 格式则直接打开漫画页
     for (var source in ComicSource.all()) {
@@ -103,15 +106,15 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void findSuggestions() {
-    var text = controller.text.split(" ").last;
+    var text = _searchTextController.text.split(" ").last;
     var suggestions = this.suggestions;
 
     suggestions.clear();
 
-    if (canHandleUrl(controller.text)) {
+    if (canHandleUrl(_searchTextController.text)) {
       suggestions.add(Pair("**URL**", TranslationType.other));
     } else {
-      var text = controller.text;
+      var text = _searchTextController.text;
 
       for (var comicSource in ComicSource.all()) {
         if (comicSource.idMatcher?.hasMatch(text) ?? false) {
@@ -123,7 +126,10 @@ class _SearchPageState extends State<SearchPage> {
       }
     }
 
-    if (!ComicSource.find(_selectedSources.first)!.enableTagsSuggestions) {
+    final currentSource = _selectedSources.isNotEmpty
+        ? ComicSource.find(_selectedSources.first)
+        : null;
+    if (currentSource == null || !currentSource.enableTagsSuggestions) {
       update();
       return;
     }
@@ -289,7 +295,10 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildSourceRow() {
-    final sources = searchSources.map((e) => ComicSource.find(e)!).toList();
+    final sources = searchSources
+        .map((e) => ComicSource.find(e))
+        .whereType<ComicSource>()
+        .toList();
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -408,7 +417,7 @@ class _SearchPageState extends State<SearchPage> {
                     ),
                   ),
                 );
-              }).toList(),
+              })
             ],
           ),
         ),
@@ -429,7 +438,9 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void useDefaultOptions() {
-    final searchOptions = currentSearchPageData.searchOptions ?? [];
+    final searchData = currentSearchPageData;
+    if (searchData == null) return;
+    final searchOptions = searchData.searchOptions ?? [];
     options = searchOptions.map((e) => e.defaultValue).toList();
   }
 
@@ -438,9 +449,14 @@ class _SearchPageState extends State<SearchPage> {
       return const SliverToBoxAdapter(child: SizedBox());
     }
 
+    final searchData = currentSearchPageData;
+    if (searchData == null) {
+      return const SliverToBoxAdapter(child: SizedBox());
+    }
+
     var children = <Widget>[];
 
-    final searchOptions = currentSearchPageData.searchOptions ?? [];
+    final searchOptions = searchData.searchOptions ?? [];
     if (searchOptions.length != options.length) {
       useDefaultOptions();
     }
@@ -489,17 +505,19 @@ class _SearchPageState extends State<SearchPage> {
     }
 
     void onSelected(String text, TranslationType? type) {
-      var words = controller.text.split(" ");
+      var words = _searchTextController.text.split(" ");
       if (words.length >= 2 &&
           check("${words[words.length - 2]} ${words[words.length - 1]}", text,
               text.translateTagsToCN)) {
-        controller.text = controller.text.replaceLast(
+        _searchTextController.text = _searchTextController.text.replaceLast(
             "${words[words.length - 2]} ${words[words.length - 1]}", "");
       } else {
-        controller.text =
-            controller.text.replaceLast(words[words.length - 1], "");
+        _searchTextController.text =
+            _searchTextController.text.replaceLast(words[words.length - 1], "");
       }
-      final source = ComicSource.find(_selectedSources.first);
+      final source = _selectedSources.isNotEmpty
+          ? ComicSource.find(_selectedSources.first)
+          : null;
       String insert;
       if (source?.onTagSuggestionSelected != null) {
         insert = source!.onTagSuggestionSelected!(type?.name ?? '', text);
@@ -508,7 +526,7 @@ class _SearchPageState extends State<SearchPage> {
         if (t.contains(' ')) t = "'$t'";
         insert = type != null ? "${type.name}:$t" : t;
       }
-      controller.text += "$insert ";
+      _searchTextController.text += "$insert ";
       suggestions.clear();
       update();
       focusNode.requestFocus();
@@ -536,7 +554,7 @@ class _SearchPageState extends State<SearchPage> {
           leading: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
           title: Text("Open link".tl),
           subtitle: Text(
-            controller.text,
+            _searchTextController.text,
             maxLines: 1,
             overflow: TextOverflow.fade,
           ),
@@ -545,7 +563,7 @@ class _SearchPageState extends State<SearchPage> {
             setState(() {
               suggestions.clear();
             });
-            handleAppLink(Uri.parse(controller.text));
+            handleAppLink(Uri.parse(_searchTextController.text));
           },
         );
       }
@@ -560,7 +578,7 @@ class _SearchPageState extends State<SearchPage> {
           leading: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
           title: Text("${"Open comic".tl}: ${comicSource.name}"),
           subtitle: Text(
-            controller.text,
+            _searchTextController.text,
             maxLines: 1,
             overflow: TextOverflow.fade,
           ),
@@ -569,7 +587,7 @@ class _SearchPageState extends State<SearchPage> {
             context.to(
               () => ComicPage(
                 sourceKey: key,
-                id: controller.text,
+                id: _searchTextController.text,
               ),
             );
           },
