@@ -19,9 +19,8 @@
 </p>
 
 <p align="center">
-  <img src="doc/1.png" width="200" />
-  <img src="doc/2.png" width="200" />
-  <img src="doc/3.png" width="200" />
+  <img src="doc/Screenshot_20260625_030823.png" width="200" />
+  <img src="doc/Screenshot_20260625_030912.png" width="200" />
 </p>
 
 ---
