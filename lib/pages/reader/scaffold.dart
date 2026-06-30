@@ -513,25 +513,13 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             onPressed: openChapterDrawer,
           ),
         ),
-      if (context.reader.mode.key.startsWith('continuous'))
-        Tooltip(
-          message: "Auto Scroll".tl,
-          child: IconButton(
-            icon: HugeIcon(icon:
-              context.reader._imageViewController != null &&
-                      (context.reader._imageViewController as dynamic)._autoScrolling == true
-                  ? HugeIcons.strokeRoundedPause
-                  : HugeIcons.strokeRoundedPlay,
-              size: 20,
-            ),
-            onPressed: () {
-              if (context.reader._imageViewController != null) {
-                (context.reader._imageViewController as dynamic)
-                    .toggleAutoScroll();
-              }
-            },
-          ),
+      Tooltip(
+        message: "Set as Cover".tl,
+        child: IconButton(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedImage02, size: 20),
+          onPressed: setAsCover,
         ),
+      ),
       Tooltip(
         message: "Save Image".tl,
         child: IconButton(
@@ -771,6 +759,44 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     }
   }
 
+  void setAsCover() async {
+    try {
+      var result = await selectImageToData();
+      if (result == null) {
+        return;
+      }
+      var (imageIndex, data) = result;
+      
+      final success = await CustomCoverManager.setCustomCover(
+        context.reader.type.sourceKey,
+        context.reader.cid,
+        null, // Will save from data
+        data: data,
+      );
+      
+      if (success) {
+        showToast(
+          message: "Cover updated successfully".tl,
+          context: context,
+          seconds: 1,
+        );
+        update();
+      } else {
+        showToast(
+          message: "Failed to update cover".tl,
+          context: context,
+          seconds: 1,
+        );
+      }
+    } catch (e) {
+      showToast(
+        message: e.toString(),
+        context: context,
+        seconds: 1,
+      );
+    }
+  }
+
   void openSetting() {
     _openSideBar(
       ReaderSettings(
@@ -935,7 +961,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   /// If there is only one image on screen, return it.
   ///
   /// If there are multiple images on screen,
-  /// show an overlay to let the user select an image.
+  /// show a thumbnail grid to let the user select an image.
   ///
   /// The return value is the index of the selected image.
   Future<int?> selectImage() async {
@@ -944,6 +970,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
 
     bool needsSelection = false;
     int? singleImageIndex;
+    List<int> imageIndices = [];
 
     if (imageViewController is _GalleryModeState) {
       var range = imageViewController.getCurrentPageImageRange();
@@ -955,6 +982,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           singleImageIndex = startIndex;
         } else {
           needsSelection = true;
+          for (int i = startIndex; i < endIndex; i++) {
+            imageIndices.add(i);
+          }
         }
       }
     } else if (imageViewController is _ContinuousModeState) {
@@ -965,16 +995,104 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     if (!needsSelection && singleImageIndex != null) {
       return singleImageIndex;
     } else {
-      var location = await _showSelectImageOverlay();
-      if (location == null) {
-        return null;
-      }
-      var imageKey = imageViewController!.getImageKeyByOffset(location);
-      if (imageKey == null) {
-        return null;
-      }
-      return reader.images!.indexOf(imageKey);
+      // Show thumbnail grid for selection
+      return await _showImageThumbnailGrid(imageIndices);
     }
+  }
+
+  /// Show a thumbnail grid for image selection
+  Future<int?> _showImageThumbnailGrid(List<int> imageIndices) async {
+    if (imageIndices.isEmpty) return null;
+    
+    int? selectedIndex;
+    
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text("Select an image".tl),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: GridView.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: imageIndices.length,
+            itemBuilder: (context, index) {
+              final imageIndex = imageIndices[index];
+              final imageKey = context.reader.images![imageIndex];
+              
+              return GestureDetector(
+                onTap: () {
+                  selectedIndex = imageIndex;
+                  Navigator.of(dialogContext).pop();
+                },
+                child: FutureBuilder<Uint8List?>(
+                  future: _loadThumbnail(imageKey),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.memory(
+                            snapshot.data!,
+                            fit: BoxFit.cover,
+                          ),
+                          if (selectedIndex == imageIndex)
+                            const Positioned(
+                              right: 4,
+                              top: 4,
+                              child: Icon(
+                                Icons.check_circle,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                        ],
+                      );
+                    } else {
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    }
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text("Cancel".tl),
+          ),
+        ],
+      ),
+    );
+    
+    return selectedIndex;
+  }
+
+  /// Load thumbnail data for an image
+  Future<Uint8List?> _loadThumbnail(String imageKey) async {
+    Uint8List? data;
+    if (imageKey.startsWith("file://")) {
+      try {
+        data = await File(imageKey.substring(7)).readAsBytes();
+      } catch (_) {}
+    } else {
+      try {
+        var cache = await CacheManager().findCache(
+          "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
+        );
+        if (cache != null) {
+          data = await cache.readAsBytes();
+        }
+      } catch (_) {}
+    }
+    return data;
   }
 
   /// Same as [selectImage], but return the image data with its index.
@@ -1005,37 +1123,6 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       return null;
     }
     return (i, data);
-  }
-
-  Future<Offset?> _showSelectImageOverlay() {
-    if (_isOpen) {
-      openOrClose();
-    }
-
-    var completer = Completer<Offset?>();
-
-    var overlay = Overlay.of(context);
-    OverlayEntry? entry;
-    entry = OverlayEntry(
-      builder: (context) {
-        return Positioned.fill(
-          child: _SelectImageOverlayContent(
-            onTap: (offset) {
-              completer.complete(offset);
-              entry!.remove();
-            },
-            onDispose: () {
-              if (!completer.isCompleted) {
-                completer.complete(null);
-              }
-            },
-          ),
-        );
-      },
-    );
-    overlay.insert(entry);
-
-    return completer.future;
   }
 }
 
@@ -1217,69 +1304,6 @@ class _ClockWidgetState extends State<_ClockWidget> {
         ),
         Text(_currentTime),
       ],
-    );
-  }
-}
-
-class _SelectImageOverlayContent extends StatefulWidget {
-  const _SelectImageOverlayContent({
-    required this.onTap,
-    required this.onDispose,
-  });
-
-  final void Function(Offset) onTap;
-
-  final void Function() onDispose;
-
-  @override
-  State<_SelectImageOverlayContent> createState() =>
-      _SelectImageOverlayContentState();
-}
-
-class _SelectImageOverlayContentState
-    extends State<_SelectImageOverlayContent> {
-  @override
-  void dispose() {
-    widget.onDispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapUp: (details) {
-        widget.onTap(details.globalPosition);
-      },
-      child: Container(
-        color: Colors.black.withAlpha(50),
-        child: Align(
-          alignment: Alignment(0, -0.8),
-          child: Container(
-            width: 232,
-            height: 42,
-            decoration: BoxDecoration(
-              color: context.colorScheme.surface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: context.colorScheme.outlineVariant),
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 8),
-                HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 20),
-                const SizedBox(width: 16),
-                Text(
-                  "Click to select an image".tl,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: context.colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

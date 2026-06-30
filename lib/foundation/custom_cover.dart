@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:path/path.dart' as p;
@@ -31,19 +32,28 @@ class CustomCoverManager {
     return _getAll()[key];
   }
 
-  /// 设置自定义封面（复制图片到应用目录并保存映射）
-  static Future<bool> setCustomCover(String sourceKey, String id, String sourcePath) async {
+  /// 设置自定义封面（从文件路径）
+  static Future<bool> setCustomCover(String sourceKey, String id, String? sourcePath, {Uint8List? data}) async {
     try {
       final dir = Directory(_coversDir);
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
 
-      final ext = p.extension(sourcePath).toLowerCase();
-      final destPath = p.join(_coversDir, '${sourceKey}_$id$ext');
-
-      // 复制文件到应用目录（保持持久性）
-      await File(sourcePath).copy(destPath);
+      String destPath;
+      if (data != null) {
+        // 从数据保存
+        final ext = _detectImageExt(data);
+        destPath = p.join(_coversDir, '${sourceKey}_$id$ext');
+        await File(destPath).writeAsBytes(data);
+      } else if (sourcePath != null) {
+        // 从文件复制
+        final ext = p.extension(sourcePath).toLowerCase();
+        destPath = p.join(_coversDir, '${sourceKey}_$id$ext');
+        await File(sourcePath).copy(destPath);
+      } else {
+        return false;
+      }
 
       final key = '$sourceKey@$id';
       final covers = _getAll();
@@ -55,6 +65,16 @@ class CustomCoverManager {
     } catch (_) {
       return false;
     }
+  }
+
+  /// 根据图片数据检测文件扩展名
+  static String _detectImageExt(Uint8List data) {
+    if (data.length < 4) return '.jpg';
+    if (data[0] == 0x89 && data[1] == 0x50) return '.png';
+    if (data[0] == 0xFF && data[1] == 0xD8) return '.jpg';
+    if (data[0] == 0x47 && data[1] == 0x49) return '.gif';
+    if (data[0] == 0x52 && data[1] == 0x49) return '.webp';
+    return '.jpg';
   }
 
   /// 移除自定义封面，恢复为源封面
