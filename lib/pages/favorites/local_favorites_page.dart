@@ -2,9 +2,6 @@ part of 'favorites_page.dart';
 
 const _localAllFolderLabel = '^_^[%local_all%]^_^';
 
-/// If the number of comics in a folder exceeds this limit, it will be
-/// fetched asynchronously.
-const _asyncDataFetchLimit = 500;
 
 class _LocalFavoritesPage extends StatefulWidget {
   const _LocalFavoritesPage({required this.folder, super.key});
@@ -41,8 +38,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
   bool get isAllFolder => widget.folder == _localAllFolderLabel;
 
   LocalFavoritesManager get manager => LocalFavoritesManager();
-
-  bool isLoading = false;
 
   late String readFilterSelect;
 
@@ -95,7 +90,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
   }
 
   void updateComics() {
-    if (isLoading) return;
     // In pagination mode, just refresh the grid.
     if (_usePagination && _gridKey.currentState != null) {
       _gridKey.currentState!.refresh();
@@ -103,41 +97,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
       return;
     }
     if (isAllFolder) {
-      var totalComics = manager.totalComics;
-      if (totalComics < _asyncDataFetchLimit) {
-        comics = manager.getAllComics();
-      } else {
-        isLoading = true;
-        manager
-            .getAllComicsAsync()
-            .minTime(const Duration(milliseconds: 200))
-            .then((value) {
-          if (mounted) {
-            setState(() {
-              isLoading = false;
-              comics = value;
-            });
-          }
-        });
-      }
+      comics = manager.getAllComics();
     } else {
-      var folderComics = manager.folderComics(widget.folder);
-      if (folderComics < _asyncDataFetchLimit) {
-        comics = manager.getFolderComics(widget.folder);
-      } else {
-        isLoading = true;
-        manager
-            .getFolderComicsAsync(widget.folder)
-            .minTime(const Duration(milliseconds: 200))
-            .then((value) {
-          if (mounted) {
-            setState(() {
-              isLoading = false;
-              comics = value;
-            });
-          }
-        });
-      }
+      comics = manager.getFolderComics(widget.folder);
     }
     setState(() {});
   }
@@ -821,16 +783,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
               },
             ).paddingBottom(8).paddingRight(8),
           ),
-        if (isLoading)
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 200,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
-          )
-        else if (_usePagination)
+        if (_usePagination)
           PaginatedSliverGridComics(
             key: _gridKey,
             pageLoader: _loadPage,

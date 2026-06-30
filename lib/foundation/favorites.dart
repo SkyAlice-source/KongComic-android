@@ -1,7 +1,5 @@
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:ffi';
-import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -445,41 +443,32 @@ class LocalFavoritesManager with ChangeNotifier {
     return rows.first['cnt'] as int;
   }
 
-  static Future<List<FavoriteItem>> _getFolderComicsAsync(
-      String folder, Pointer<void> p) {
-    return Isolate.run(() {
-      var db = sqlite3.fromPointer(p);
-      var rows = db.select("""
-        select * from "$folder"
-        ORDER BY display_order;
-      """);
-      return rows.map((element) => FavoriteItem.fromRow(element)).toList();
-    });
+  static Future<List<FavoriteItem>> _getFolderComicsAsync(String folder) {
+    // Runs synchronously: Isolate.run with _db.handle is unsafe because the
+    // Isolate's GC can call sqlite3_close_v2 on the shared pointer,
+    // invalidating the main isolate's database connection.
+    return Future.value(LocalFavoritesManager().getFolderComics(folder));
   }
 
   /// Paginated async version of [getFolderComics].
   static Future<List<FavoriteItem>> _getFolderComicsAsyncPaginated(
-      String folder, Pointer<void> p, int limit, int offset) {
-    return Isolate.run(() {
-      var db = sqlite3.fromPointer(p);
-      var rows = db.select("""
-        select * from "$folder"
-        ORDER BY display_order
-        LIMIT ? OFFSET ?;
-      """, [limit, offset]);
-      return rows.map((element) => FavoriteItem.fromRow(element)).toList();
-    });
+      String folder, int limit, int offset) {
+    return Future.value(LocalFavoritesManager().getFolderComicsPaginated(
+      folder,
+      limit: limit,
+      offset: offset,
+    ));
   }
 
   /// Start a new isolate to get the comics in the folder
   Future<List<FavoriteItem>> getFolderComicsAsync(String folder) {
-    return _getFolderComicsAsync(folder, _db.handle);
+    return _getFolderComicsAsync(folder);
   }
 
   /// Paginated async version of [getFolderComicsAsync].
   Future<List<FavoriteItem>> getFolderComicsAsyncPaginated(String folder,
       {required int limit, required int offset}) {
-    return _getFolderComicsAsyncPaginated(folder, _db.handle, limit, offset);
+    return _getFolderComicsAsyncPaginated(folder, limit, offset);
   }
 
   List<FavoriteItem> getAllComics() {
@@ -493,24 +482,13 @@ class LocalFavoritesManager with ChangeNotifier {
     return res.toList();
   }
 
-  static Future<List<FavoriteItem>> _getAllComicsAsync(
-      List<String> folders, Pointer<void> p) {
-    return Isolate.run(() {
-      var db = sqlite3.fromPointer(p);
-      var res = <FavoriteItem>{};
-      for (final folder in folders) {
-        var comics = db.select("""
-          select * from "$folder";
-        """);
-        res.addAll(comics.map((element) => FavoriteItem.fromRow(element)));
-      }
-      return res.toList();
-    });
+  static Future<List<FavoriteItem>> _getAllComicsAsync(List<String> folders) {
+    return Future.value(LocalFavoritesManager().getAllComics());
   }
 
   /// Start a new isolate to get all the comics
   Future<List<FavoriteItem>> getAllComicsAsync() {
-    return _getAllComicsAsync(folderNames, _db.handle);
+    return _getAllComicsAsync(folderNames);
   }
 
   void addTagTo(String folder, String id, String tag) {
