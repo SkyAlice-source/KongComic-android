@@ -258,7 +258,7 @@ class LocalFavoritesManager with ChangeNotifier {
           """, [translatedTags, comic.id, comic.type.value]);
         }
       } else {
-        break;
+        continue;
       }
     }
     // Performance: ensure indexes exist for all folder tables
