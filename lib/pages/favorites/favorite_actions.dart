@@ -279,10 +279,7 @@ Future<void> sortFolders() async {
           )
         ],
         body: ReorderableListView.builder(
-          onReorder: (oldIndex, newIndex) {
-            if (oldIndex < newIndex) {
-              newIndex--;
-            }
+          onReorderItem: (oldIndex, newIndex) {
             setState(() {
               var item = folders.removeAt(oldIndex);
               folders.insert(newIndex, item);

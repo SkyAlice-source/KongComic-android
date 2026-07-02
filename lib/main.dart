@@ -74,6 +74,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    WindowPlacement.dispose();
+    cancelHeartbeatTimer();
+    super.dispose();
+  }
+
   bool isAuthPageActive = false;
 
   OverlayEntry? hideContentOverlay;

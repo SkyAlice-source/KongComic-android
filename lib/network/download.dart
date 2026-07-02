@@ -104,6 +104,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
   @override
   void cancel() {
     _isRunning = false;
+    stopRecorder();
     LocalManager().removeTask(this);
     var local = LocalManager().find(id, comicType);
     if (path != null) {

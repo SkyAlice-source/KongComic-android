@@ -130,9 +130,11 @@ class FileDownloader {
 
       _reportStatus(resultStream);
 
-      Timer.periodic(const Duration(seconds: 1), (timer) {
+      Timer? statusTimer;
+      statusTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (_canceled || _currentBytes >= _fileSize) {
           timer.cancel();
+          statusTimer = null;
           return;
         }
         resultStream.add(DownloadingStatus(
@@ -142,6 +144,7 @@ class FileDownloader {
 
       // start downloading
       await _scheduleDownload();
+      statusTimer?.cancel();
       if (_canceled) {
         resultStream.close();
         return;

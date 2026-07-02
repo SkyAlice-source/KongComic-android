@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:hugeicons/hugeicons.dart';
 import 'dart:convert';
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';

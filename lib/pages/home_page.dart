@@ -1,13 +1,8 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:fluentui_system_icons/fluentui_system_icons.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:kong_comic/foundation/appdata.dart';
-import 'package:kong_comic/pages/categories_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:sliver_tools/sliver_tools.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
@@ -16,16 +11,10 @@ import 'package:kong_comic/foundation/custom_cover.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/local.dart';
-import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/comic_source_page.dart';
-import 'package:kong_comic/pages/downloading_page.dart';
 import 'package:kong_comic/pages/follow_updates_page.dart';
-import 'package:kong_comic/pages/history_page.dart';
 import 'package:kong_comic/pages/image_favorites_page/image_favorites_page.dart';
-import 'package:kong_comic/utils/data_sync.dart';
-import 'package:kong_comic/utils/import_comic.dart';
-import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 import 'local_comics_page.dart';
@@ -81,7 +70,6 @@ class _HomePageState extends State<HomePage> {
 class _BannerProvider extends InheritedWidget {
   final double bannerHeight;
   const _BannerProvider({required this.bannerHeight, required super.child});
-  static _BannerProvider of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_BannerProvider>()!;
   @override bool updateShouldNotify(_BannerProvider old) => old.bannerHeight != bannerHeight;
 }
 
@@ -324,7 +312,7 @@ class _ComicInfoSection extends StatelessWidget {
                   style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
             if (progress != null)
               Padding(padding: const EdgeInsets.only(bottom: 4),
-                child: Text("Reading progress %s".tl.replaceAll("%s", progress ?? ""), style: TextStyle(fontSize: 13, color: cs.onSurface))),
+                child: Text("Reading progress %s".tl.replaceAll("%s", progress), style: TextStyle(fontSize: 13, color: cs.onSurface))),
             Text("Total %s chapters".tl.replaceAll("%s", "${history?.maxPage ?? '?'}"), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
             if (updatedTime != null)
               Padding(padding: const EdgeInsets.only(top: 4),
@@ -356,7 +344,15 @@ class _HomeCapsulesState extends State<_HomeCapsules> {
   String? get folder => appdata.settings["followUpdatesFolder"];
   void _refresh() {
     if (!mounted) return;
-    setState(() { if (folder == null) _updateCount = 0; else if (LocalFavoritesManager().folderNames.contains(folder)) _updateCount = LocalFavoritesManager().countUpdates(folder!); else _updateCount = 0; });
+    setState(() {
+      if (folder == null) {
+        _updateCount = 0;
+      } else if (LocalFavoritesManager().folderNames.contains(folder)) {
+        _updateCount = LocalFavoritesManager().countUpdates(folder!);
+      } else {
+        _updateCount = 0;
+      }
+    });
   }
   @override void initState() { super.initState(); _refresh(); LocalFavoritesManager().addListener(_refresh); LocalManager().addListener(_refresh); }
   @override void dispose() { LocalFavoritesManager().removeListener(_refresh); LocalManager().removeListener(_refresh); super.dispose(); }

@@ -526,6 +526,11 @@ class WindowPlacement {
   static bool validate(Rect rect) {
     return rect.topLeft.dx >= 0 && rect.topLeft.dy >= 0;
   }
+
+  static void dispose() {
+    timer?.cancel();
+    timer = null;
+  }
 }
 
 class VirtualWindowFrame extends StatefulWidget {

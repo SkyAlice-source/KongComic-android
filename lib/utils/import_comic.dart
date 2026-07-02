@@ -47,10 +47,14 @@ class ImportComic {
       var controller = showLoadingDialog(App.rootContext, allowCancel: false);
       var comics = <LocalComic>[];
       for (var entry in entries) {
-        if (entry is! File) continue;
+        if (entry is! File) {
+          continue;
+        }
         var name = entry.name.toLowerCase();
         if (!name.endsWith('.cbz') && !name.endsWith('.zip') && 
-            !name.endsWith('.7z') && !name.endsWith('.cb7')) continue;
+            !name.endsWith('.7z') && !name.endsWith('.cb7')) {
+          continue;
+        }
         try {
           var comic = await CBZ.import(entry);
           comics.add(comic);
