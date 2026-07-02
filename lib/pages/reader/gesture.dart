@@ -299,7 +299,7 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
       var page = reader.page;
       var ep = reader.chapter;
       var name = reader.widget.name;
-      saveFile(filename: "${name}_EP${ep}_P${page}${filetype.ext}", data: image);
+      saveFile(filename: "${name}_EP${ep}_P$page$filetype.ext", data: image);
     } else {
       context.showMessage(message: "No Image".tl.tl);
     }

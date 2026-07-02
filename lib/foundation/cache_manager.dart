@@ -136,9 +136,9 @@ class CacheManager {
       return null;
     }
     var row = res.first;
-    var dir = row[1] as String;
-    var name = row[2] as String;
-    var expires = row[3] as int;
+    var dir = row[1] as String? ?? '';
+    var name = row[2] as String? ?? '';
+    var expires = row[3] as int? ?? 0;
     var file = File('$cachePath/$dir/$name');
     var now = DateTime.now().millisecondsSinceEpoch;
     if (expires < now) {
@@ -193,8 +193,8 @@ class CacheManager {
       WHERE expires < ?
     ''', [DateTime.now().millisecondsSinceEpoch]);
     for (var row in res) {
-      var dir = row[1] as String;
-      var name = row[2] as String;
+      var dir = row[1] as String? ?? '';
+      var name = row[2] as String? ?? '';
       var file = File('$cachePath/$dir/$name');
       if (await file.exists()) {
         var size = await file.length();

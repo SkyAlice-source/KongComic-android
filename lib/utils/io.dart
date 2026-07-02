@@ -299,12 +299,10 @@ Future<FileSelectResult?> selectFile({required List<String> ext}) async {
       if (xFile == null) return null;
       file = FileSelectResult(xFile.path);
     }
-    if (file == null || !ext.any((e) => file!.path.toLowerCase().endsWith(".$e"))) {
-      if (file != null) {
-        App.rootContext.showMessage(
-          message: "Invalid file type: ${file.path.split(".").last}",
-        );
-      }
+    if (!ext.any((e) => file!.path.toLowerCase().endsWith(".$e"))) {
+      App.rootContext.showMessage(
+        message: "Invalid file type: ${file.path.split(".").last}",
+      );
       return null;
     }
     return file;
@@ -411,20 +409,22 @@ class Share {
     required String mime,
   }) {
     if (!App.isWindows) {
-      s.Share.shareXFiles(
-        [s.XFile.fromData(data, mimeType: mime)],
+      s.SharePlus.instance.share(s.ShareParams(
+        files: [s.XFile.fromData(data, mimeType: mime)],
         fileNameOverrides: [filename],
-      );
+      ));
     } else {
       // write to cache
       var file = File(FilePath.join(App.cachePath, filename));
       file.writeAsBytesSync(data);
-      s.Share.shareXFiles([s.XFile(file.path)]);
+      s.SharePlus.instance.share(s.ShareParams(
+        files: [s.XFile(file.path)],
+      ));
     }
   }
 
   static void shareText(String text) {
-    s.Share.share(text);
+    s.SharePlus.instance.share(s.ShareParams(text: text));
   }
 }
 

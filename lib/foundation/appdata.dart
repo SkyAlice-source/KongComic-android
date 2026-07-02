@@ -30,7 +30,7 @@ class Appdata with Init {
       var file = File(FilePath.join(App.dataPath, 'appdata.json'));
       futures.add(file.writeAsString(data));
 
-      var disableSyncFields = json["settings"]["disableSyncFields"] as String;
+      var disableSyncFields = json["settings"]["disableSyncFields"] as String? ?? "";
       if (disableSyncFields.isNotEmpty) {
         var json4sync = jsonDecode(data);
         List<String> customDisableSync = splitField(disableSyncFields);

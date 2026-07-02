@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:isolate';
+import 'dart:async';
 
 import 'package:flutter/widgets.dart' show ChangeNotifier;
 import 'package:flutter_saf/flutter_saf.dart';
@@ -209,6 +210,9 @@ class LocalManager with ChangeNotifier {
   factory LocalManager() {
     return _instance ??= LocalManager._();
   }
+
+  /// Mutex lock for saveCurrentDownloadingTasks to prevent concurrent writes
+  Completer? _saveTasksLock;
 
   late Database _db;
 
@@ -746,9 +750,20 @@ class LocalManager with ChangeNotifier {
   }
 
   Future<void> saveCurrentDownloadingTasks() async {
-    var tasks = downloadingTasks.map((e) => e.toJson()).toList();
-    await File(FilePath.join(App.dataPath, 'downloading_tasks.json'))
-        .writeAsString(jsonEncode(tasks));
+    // Implement mutex lock to prevent concurrent writes
+    while (_saveTasksLock != null) {
+      await _saveTasksLock!.future;
+    }
+    _saveTasksLock = Completer();
+    
+    try {
+      var tasks = downloadingTasks.map((e) => e.toJson()).toList();
+      await File(FilePath.join(App.dataPath, 'downloading_tasks.json'))
+          .writeAsString(jsonEncode(tasks));
+    } finally {
+      _saveTasksLock!.complete();
+      _saveTasksLock = null;
+    }
   }
 
   void restoreDownloadingTasks() {

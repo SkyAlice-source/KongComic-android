@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:hugeicons/hugeicons.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -503,12 +502,14 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                           epName = comic.chapters!
                               .getGroupByIndex(group - 1).values.elementAt(ep - 1);
                         }
-                      } catch (e) {}
+                      } catch (e) {
+                        // Ignore parsing errors for chapter info
+                      }
                       epText = groupName == null
                           ? "${"Last Reading".tl}: $epName"
                           : "$groupName $epName";
                     } else {
-                      epText = "${"Last Reading".tl}";
+                      epText = "Last Reading".tl;
                     }
                     final textColor = Colors.white;
                     return Stack(

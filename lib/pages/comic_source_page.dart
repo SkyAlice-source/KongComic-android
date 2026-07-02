@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'package:hugeicons/hugeicons.dart';
-import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';

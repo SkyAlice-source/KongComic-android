@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/pages/categories_page.dart';
 import 'package:kong_comic/pages/history_page.dart';

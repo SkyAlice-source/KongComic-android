@@ -20,6 +20,13 @@ import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'foundation/appdata.dart';
 
+Timer? _heartbeatTimer;
+
+void cancelHeartbeatTimer() {
+  _heartbeatTimer?.cancel();
+  _heartbeatTimer = null;
+}
+
 extension _FutureInit<T> on Future<T> {
   /// Prevent unhandled exception
   ///
@@ -90,7 +97,7 @@ void _scheduleDeferredInit() {
       if (App.isWindows) {
         // Report to the monitor thread that the app is running
         // https://github.com/venera-app/venera/issues/343
-        Timer.periodic(const Duration(seconds: 1), (_) {
+        _heartbeatTimer = Timer.periodic(const Duration(seconds: 1), (_) {
           const methodChannel = MethodChannel('kong_comic/method_channel');
           methodChannel.invokeMethod("heartBeat");
         });
