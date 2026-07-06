@@ -284,16 +284,19 @@ class _SettingsPageState extends State<SettingsPage> {
     if (currentPage == -1) {
       return const SizedBox();
     }
-    return Navigator(
-      onGenerateRoute: (settings) {
-        return PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) {
-            return _buildSettingsContent(currentPage);
-          },
-          transitionDuration: Duration.zero,
-        );
-      },
-    );
+    // Render the selected settings page directly. Sub-pages reach a 2nd/3rd
+    // level via `context.to`, which now resolves to the main (per-tab)
+    // navigator — keeping the back stack symmetric with the narrow-screen
+    // flow and the rest of the app.
+    //
+    // A separate nested Navigator used to live here. Because it was a
+    // different navigator from the per-tab one, the outer PopScope in
+    // navigation_bar.dart intercepted the system / predictive back gesture and
+    // popped the whole SettingsPage off the per-tab stack, skipping the
+    // in-page level. Returning from a 2nd/3rd-level settings page therefore
+    // required multiple back presses (the same class of bug as the earlier
+    // comments-page fix).
+    return _buildSettingsContent(currentPage);
   }
 
   Widget _buildSettingsContent(int pageIndex) {
