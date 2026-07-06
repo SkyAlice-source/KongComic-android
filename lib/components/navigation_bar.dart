@@ -232,11 +232,20 @@ class NaviPaneState extends State<NaviPane>
           if (didPop) {
             return;
           }
-          widget.navigatorKey.currentState?.maybePop(result);
+          // 当内部 Navigator 仍可 pop 时优先交还（理论上 canPop=true 不会走到这里）；
+          // 否则退出整个应用。
+          if (widget.navigatorKey.currentState?.canPop() ?? false) {
+            widget.navigatorKey.currentState?.maybePop(result);
+          } else {
+            SystemNavigator.pop();
+          }
         },
         child: NotificationListener<NavigationNotification>(
           onNotification: (NavigationNotification notification) {
-            final bool nextCanPop = !notification.canHandlePop;
+            // 关键修复：_canPop 必须跟随内部 Navigator 的 canHandlePop。
+            // 之前取反导致内部有页面时拦截系统返回手势，预测返回/连续侧滑被取消，
+            // 必须多次侧滑才能返回（与之前评论/设置页"多次返回"同源）。
+            final bool nextCanPop = notification.canHandlePop;
             if (nextCanPop != _canPop) {
               setState(() {
                 _canPop = nextCanPop;
