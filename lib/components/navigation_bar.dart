@@ -104,6 +104,15 @@ class NaviPaneState extends State<NaviPane>
       _kBottomBarHeight + MediaQuery.of(context).padding.bottom;
 
   void onNavigatorStateChange() {
+    // 用 per-tab Navigator 自身的 canPop 驱动 PopScope 的 _canPop，而非监听全局
+    // NavigationNotification——嵌套 Navigator 的通知会向上冒泡并错误覆盖 _canPop，
+    // 让二级页侧滑被误判为 tab 根页而直接退出应用（v1.2.9 的回归）。
+    final canPop = widget.navigatorKey.currentState?.canPop() ?? false;
+    if (canPop != _canPop) {
+      setState(() {
+        _canPop = canPop;
+      });
+    }
     onRebuild(context);
   }
 
@@ -240,20 +249,7 @@ class NaviPaneState extends State<NaviPane>
             SystemNavigator.pop();
           }
         },
-        child: NotificationListener<NavigationNotification>(
-          onNotification: (NavigationNotification notification) {
-            // 关键修复：_canPop 必须跟随内部 Navigator 的 canHandlePop。
-            // 之前取反导致内部有页面时拦截系统返回手势，预测返回/连续侧滑被取消，
-            // 必须多次侧滑才能返回（与之前评论/设置页"多次返回"同源）。
-            final bool nextCanPop = notification.canHandlePop;
-            if (nextCanPop != _canPop) {
-              setState(() {
-                _canPop = nextCanPop;
-              });
-            }
-            return false;
-          },
-          child: Navigator(
+        child: Navigator(
             observers: [widget.observer],
             key: widget.navigatorKey,
             onGenerateRoute: (settings) => AppPageRoute(
@@ -263,7 +259,6 @@ class NaviPaneState extends State<NaviPane>
               },
             ),
           ),
-        ),
       ),
     );
   }

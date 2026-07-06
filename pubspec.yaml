@@ -2,7 +2,7 @@ name: kong_comic
 description: "A comic app."
 publish_to: 'none'
 
-version: 1.2.9+129
+version: 1.2.10+130
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
