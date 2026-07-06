@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
-import 'dart:ffi' as ffi;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -238,35 +237,37 @@ class HistoryManager with ChangeNotifier {
         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
       """;
 
-  static Future<void> _addHistoryAsync(int dbAddr, History newItem) {
-    return Isolate.run(() {
-      var db = sqlite3.fromPointer(ffi.Pointer.fromAddress(dbAddr));
-      db.execute(_insertHistorySql, [
-        newItem.id,
-        newItem.title,
-        newItem.subtitle,
-        newItem.cover,
-        newItem.time.millisecondsSinceEpoch,
-        newItem.type.value,
-        newItem.ep,
-        newItem.page,
-        newItem.readEpisode.join(','),
-        newItem.maxPage,
-        newItem.group
-      ]);
-    });
+  Future<void> _addHistoryAsync(History newItem) {
+    // Runs synchronously: Isolate.run with _db.handle is unsafe because the
+    // Isolate's GC can call sqlite3_close_v2 on the shared pointer,
+    // invalidating the main isolate's database connection.
+    _db.execute(_insertHistorySql, [
+      newItem.id,
+      newItem.title,
+      newItem.subtitle,
+      newItem.cover,
+      newItem.time.millisecondsSinceEpoch,
+      newItem.type.value,
+      newItem.ep,
+      newItem.page,
+      newItem.readEpisode.join(','),
+      newItem.maxPage,
+      newItem.group
+    ]);
+    return Future.value();
   }
 
   bool _haveAsyncTask = false;
 
-  /// Create a isolate to add history to prevent blocking the UI thread.
+  /// Add history. Runs synchronously on the main isolate to avoid sharing
+  /// the SQLite FFI pointer across isolates (which corrupts the DB).
   Future<void> addHistoryAsync(History newItem) async {
     while (_haveAsyncTask) {
       await Future.delayed(Duration(milliseconds: 20));
     }
 
     _haveAsyncTask = true;
-    await _addHistoryAsync(_db.handle.address, newItem);
+    await _addHistoryAsync(newItem);
     _haveAsyncTask = false;
     if (_cachedHistoryIds == null) {
       updateCache();

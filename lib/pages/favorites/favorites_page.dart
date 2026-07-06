@@ -20,7 +20,6 @@ import 'package:kong_comic/network/cache.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
-import 'package:kong_comic/utils/ext.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/opencc.dart';
 import 'package:kong_comic/utils/tags_translation.dart';
