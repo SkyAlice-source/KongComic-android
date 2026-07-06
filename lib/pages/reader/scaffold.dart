@@ -744,10 +744,24 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
 
   void share() async {
     try {
-      var result = await selectImageToData();
-      if (result == null) {
+      final images = context.reader.images;
+      if (images == null || images.isEmpty) {
+        Share.shareText(context.reader.widget.name);
         return;
       }
+      final result = await Navigator.of(context).push<(int, Uint8List)?>(
+        MaterialPageRoute(
+          builder: (_) => _ChapterImagePickerPage(
+            images: images,
+            sourceKey: context.reader.type.sourceKey,
+            cid: context.reader.cid,
+            eid: context.reader.eid,
+            currentPage: (context.reader.page - 1).clamp(0, images.length - 1),
+            title: "Select Image to Share",
+          ),
+        ),
+      );
+      if (!mounted || result == null) return;
       var (imageIndex, data) = result;
       var fileType = detectFileType(data);
       var filename =
@@ -769,7 +783,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
 
       final result = await Navigator.of(context).push<(int, Uint8List)?>(
         MaterialPageRoute(
-          builder: (_) => _CoverImagePickerPage(
+          builder: (_) => _ChapterImagePickerPage(
             images: images,
             sourceKey: context.reader.type.sourceKey,
             cid: context.reader.cid,
@@ -1327,26 +1341,28 @@ class _ClockWidgetState extends State<_ClockWidget> {
 
 /// Full-screen image picker that lets the user browse ALL pages in the
 /// current chapter and select any image as the comic's cover.
-class _CoverImagePickerPage extends StatefulWidget {
+class _ChapterImagePickerPage extends StatefulWidget {
   final List<String> images;
   final String sourceKey;
   final String cid;
   final String eid;
   final int currentPage;
+  final String title;
 
-  const _CoverImagePickerPage({
+  const _ChapterImagePickerPage({
     required this.images,
     required this.sourceKey,
     required this.cid,
     required this.eid,
     required this.currentPage,
+    this.title = "Select Cover Image",
   });
 
   @override
-  State<_CoverImagePickerPage> createState() => _CoverImagePickerPageState();
+  State<_ChapterImagePickerPage> createState() => _ChapterImagePickerPageState();
 }
 
-class _CoverImagePickerPageState extends State<_CoverImagePickerPage> {
+class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
   /// Cache futures so FutureBuilder doesn't re-fetch on every rebuild.
   final Map<int, Future<Uint8List?>> _futures = {};
   bool _isLoadingFull = false;
@@ -1389,7 +1405,7 @@ class _CoverImagePickerPageState extends State<_CoverImagePickerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Select Cover Image".tl),
+        title: Text(widget.title.tl),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
