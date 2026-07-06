@@ -761,19 +761,35 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
 
   void setAsCover() async {
     try {
-      var result = await selectImageToData();
-      if (result == null) {
+      final images = context.reader.images;
+      if (images == null || images.isEmpty) {
+        showToast(message: "No images available".tl, context: context);
         return;
       }
-      var (imageIndex, data) = result;
-      
+
+      final result = await Navigator.of(context).push<(int, Uint8List)?>(
+        MaterialPageRoute(
+          builder: (_) => _CoverImagePickerPage(
+            images: images,
+            sourceKey: context.reader.type.sourceKey,
+            cid: context.reader.cid,
+            eid: context.reader.eid,
+            currentPage: (context.reader.page - 1).clamp(0, images.length - 1),
+          ),
+        ),
+      );
+
+      if (!mounted || result == null) return;
+      var (_, data) = result;
+
       final success = await CustomCoverManager.setCustomCover(
         context.reader.type.sourceKey,
         context.reader.cid,
-        null, // Will save from data
+        null,
         data: data,
       );
-      
+
+      if (!mounted) return;
       if (success) {
         showToast(
           message: "Cover updated successfully".tl,
@@ -789,6 +805,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       showToast(
         message: e.toString(),
         context: context,
@@ -1304,6 +1321,184 @@ class _ClockWidgetState extends State<_ClockWidget> {
         ),
         Text(_currentTime),
       ],
+    );
+  }
+}
+
+/// Full-screen image picker that lets the user browse ALL pages in the
+/// current chapter and select any image as the comic's cover.
+class _CoverImagePickerPage extends StatefulWidget {
+  final List<String> images;
+  final String sourceKey;
+  final String cid;
+  final String eid;
+  final int currentPage;
+
+  const _CoverImagePickerPage({
+    required this.images,
+    required this.sourceKey,
+    required this.cid,
+    required this.eid,
+    required this.currentPage,
+  });
+
+  @override
+  State<_CoverImagePickerPage> createState() => _CoverImagePickerPageState();
+}
+
+class _CoverImagePickerPageState extends State<_CoverImagePickerPage> {
+  /// Cache futures so FutureBuilder doesn't re-fetch on every rebuild.
+  final Map<int, Future<Uint8List?>> _futures = {};
+  bool _isLoadingFull = false;
+
+  Future<Uint8List?> _loadImage(int index) {
+    return _futures.putIfAbsent(index, () async {
+      final imageKey = widget.images[index];
+      if (imageKey.startsWith("file://")) {
+        try {
+          return await File(imageKey.substring(7)).readAsBytes();
+        } catch (_) {
+          return null;
+        }
+      }
+      try {
+        final cache = await CacheManager().findCache(
+          "$imageKey@${widget.sourceKey}@${widget.cid}@${widget.eid}",
+        );
+        if (cache != null) {
+          return await cache.readAsBytes();
+        }
+      } catch (_) {}
+      return null;
+    });
+  }
+
+  Future<void> _selectImage(int index) async {
+    setState(() => _isLoadingFull = true);
+    final data = await _loadImage(index);
+    if (!mounted) return;
+    setState(() => _isLoadingFull = false);
+    if (data != null) {
+      Navigator.of(context).pop((index, data));
+    } else {
+      showToast(message: "Failed to load image".tl, context: context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Select Cover Image".tl),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: Stack(
+        children: [
+          GridView.builder(
+            padding: const EdgeInsets.all(6),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 6,
+              mainAxisSpacing: 6,
+              childAspectRatio: 0.72,
+            ),
+            itemCount: widget.images.length,
+            itemBuilder: (context, index) {
+              return GestureDetector(
+                onTap: () => _selectImage(index),
+                child: FutureBuilder<Uint8List?>(
+                  future: _loadImage(index),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.memory(
+                              snapshot.data!,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          // Page number badge
+                          Positioned(
+                            bottom: 4,
+                            left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                "${index + 1}",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Current page indicator
+                          if (index == widget.currentPage)
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  "Current".tl,
+                                  style: TextStyle(
+                                    color:
+                                        Theme.of(context).colorScheme.onPrimary,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    }
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Center(
+                        child: Text(
+                          "${index + 1}",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+          if (_isLoadingFull)
+            Container(
+              color: Colors.black38,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+        ],
+      ),
     );
   }
 }
