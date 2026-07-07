@@ -1,41 +1,46 @@
 import 'package:flutter/widgets.dart';
 
-abstract class GlobalState {
-  static final _state = <Pair<Object?, State>>[];
-
-  static void register(State state, [Object? key]) {
-    _state.add(Pair(key, state));
-  }
-
-  static T find<T extends State>([Object? key]) {
-    for (var pair in _state) {
-      if ((key == null || pair.left == key) && pair.right is T) {
-        return pair.right as T;
-      }
-    }
-    throw Exception('State not found');
-  }
-
-  static T? findOrNull<T extends State>([Object? key]) {
-    for (var pair in _state) {
-      if ((key == null || pair.left == key) && pair.right is T) {
-        return pair.right as T;
-      }
-    }
-    return null;
-  }
-
-  static void unregister(State state, [Object? key]) {
-    _state.removeWhere(
-        (pair) => (key == null || pair.left == key) && pair.right == state);
-  }
-}
-
 class Pair<K, V> {
   K left;
   V right;
 
   Pair(this.left, this.right);
+}
+
+abstract class GlobalState {
+  static final _state = <Object?, Map<Type, State>>{};
+
+  static void register(State state, [Object? key]) {
+    (_state.putIfAbsent(key, () => <Type, State>{}))[state.runtimeType] = state;
+  }
+
+  static T find<T extends State>([Object? key]) {
+    final map = _state[key];
+    if (map != null) {
+      final state = map[T];
+      if (state != null) return state as T;
+    }
+    throw Exception('State not found');
+  }
+
+  static T? findOrNull<T extends State>([Object? key]) {
+    final map = _state[key];
+    if (map != null) {
+      final state = map[T];
+      if (state != null) return state as T;
+    }
+    return null;
+  }
+
+  static void unregister(State state, [Object? key]) {
+    final map = _state[key];
+    if (map != null) {
+      map.remove(state.runtimeType);
+      if (map.isEmpty) {
+        _state.remove(key);
+      }
+    }
+  }
 }
 
 abstract class AutomaticGlobalState<T extends StatefulWidget>

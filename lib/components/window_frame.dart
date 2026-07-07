@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:kong_comic/utils/translations.dart';
 
 const _kTitleBarHeight = 36.0;
 
@@ -143,9 +144,9 @@ class _WindowFrameState extends State<WindowFrame> {
                           ),
                         ),
                         if (kDebugMode)
-                          const TextButton(
+                          TextButton(
                             onPressed: debug,
-                            child: Text('Debug'),
+                            child: Text('Debug'.tl),
                           ),
                         if (!App.isMacOS)
                           _WindowButtons(

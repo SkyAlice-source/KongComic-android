@@ -66,7 +66,7 @@ class _AboutSettingsState extends State<AboutSettings> {
           settingKey: "checkUpdateOnStart",
         ).toSliver(),
         ListTile(
-          title: Text("GitHub"),
+          title: Text("GitHub".tl),
           trailing: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 20),
           onTap: () {
             launchUrlString("https://github.com/SkyAlice-source/KongComic-android");

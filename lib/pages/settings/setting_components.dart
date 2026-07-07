@@ -44,7 +44,7 @@ class _SwitchSettingState extends State<_SwitchSetting> {
 
     assert(value is bool);
 
-    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       title: Text(widget.title),
       subtitle: widget.subtitle == null ? null : Text(widget.subtitle!),
       trailing: Switch(
@@ -183,7 +183,7 @@ class _DoubleLineSelectSettingsState extends State<_DoubleLineSelectSettings> {
         ? appdata.settings.getDeviceReaderSetting(widget.settingKey)
         : appdata.settings[widget.settingKey];
 
-    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       title: Row(
         children: [
           Text(widget.title),
@@ -214,7 +214,7 @@ class _DoubleLineSelectSettingsState extends State<_DoubleLineSelectSettings> {
             ),
         ],
       ),
-      subtitle: Text(widget.optionTranslation[value] ?? "None"),
+      subtitle: Text(widget.optionTranslation[value] ?? "None".tl),
       trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
       onTap: () {
         var renderBox = context.findRenderObject() as RenderBox;
@@ -314,7 +314,7 @@ class _EndSelectorSelectSettingState extends State<_EndSelectorSelectSetting> {
         : widget.useDeviceSettings
         ? appdata.settings.getDeviceReaderSetting(widget.settingKey)
         : appdata.settings[widget.settingKey];
-    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       title: Row(
         children: [
           Text(widget.title),
@@ -422,7 +422,7 @@ class _SliderSettingState extends State<_SliderSetting> {
                 ? appdata.settings.getDeviceReaderSetting(widget.settingsIndex)
                 : appdata.settings[widget.settingsIndex])
             .toDouble();
-    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       title: Text(widget.title, softWrap: true, maxLines: 2),
       trailing: Text(value.toString(), style: ts.s12),
       subtitle: Slider(
@@ -486,7 +486,7 @@ class _PopupWindowSetting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       title: Text(title),
       trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
       onTap: () {
@@ -603,7 +603,7 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
       ),
     );
 
-    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       title: Text(widget.pages[key] ?? "(Invalid) $key"),
       key: Key(key),
       trailing: Row(
@@ -712,7 +712,7 @@ class _CallbackSetting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       title: Text(title),
       subtitle: subtitle == null ? null : Text(subtitle!),
       trailing: Button.normal(
@@ -736,7 +736,7 @@ class _SettingPartTitle extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return SliverToBoxAdapter(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         child: Row(
           children: [
             icon,

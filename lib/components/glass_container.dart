@@ -262,53 +262,60 @@ class GlassBottomBar extends StatelessWidget {
         : 0.0;
     final totalHeight = height + bottomPad;
     final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
+    // 半透明毛玻璃：light 模式 ~90% 白, dark 模式 ~85% 深色
+    // 内容可以透过 dock 看到一点，消除"白块"分界线
+    final glassColor = isDark
+        ? Colors.black.withValues(alpha: 0.85)
+        : Colors.white.withValues(alpha: 0.9);
 
     return Padding(
       padding: margin,
       child: SizedBox(
         height: totalHeight,
         width: double.infinity,
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF1C1C1E)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : Colors.black.withValues(alpha: 0.06),
-              width: 0.4,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
-                blurRadius: 20,
-                spreadRadius: -4,
-                offset: const Offset(0, 4),
+        // 安全区透明（不加背景），内容自然透出
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: glassColor,
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.06),
+                    width: 0.4,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color:
+                          Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                      blurRadius: 20,
+                      spreadRadius: -4,
+                      offset: const Offset(0, 4),
+                    ),
+                    BoxShadow(
+                      color: isDark
+                          ? Colors.transparent
+                          : Colors.white.withValues(alpha: 0.5),
+                      blurRadius: 12,
+                      spreadRadius: -2,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: SizedBox(
+                  height: height,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: children,
+                  ),
+                ),
               ),
-              BoxShadow(
-                color: isDark
-                    ? Colors.transparent
-                    : Colors.white.withValues(alpha: 0.5),
-                blurRadius: 12,
-                spreadRadius: -2,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: bottomPad,
             ),
-            child: SizedBox(
-              height: height,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: children,
-              ),
-            ),
-          ),
+            if (bottomPad > 0) SizedBox(height: bottomPad),
+          ],
         ),
       ),
     );

@@ -551,6 +551,7 @@ class _FavoriteFolder extends StatelessWidget {
     return ComicList(
       key: comicListKey,
       enablePageStorage: true,
+      allFavorite: true,
       leadingSliver: SliverAppbar(
         title: Text(title),
         actions: [

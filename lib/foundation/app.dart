@@ -16,7 +16,7 @@ export "context.dart";
 
 class _App {
   final version = "1.6.4";
-  final appVersion = "1.2.11";
+  final appVersion = "1.2.12";
 
   bool get isAndroid => Platform.isAndroid;
 
@@ -83,6 +83,10 @@ class _App {
   }
 
   Future<void> init() async {
+    // Ensure the binding exists before registering the memory-pressure
+    // observer (this runs before runApp in some entry paths).
+    WidgetsFlutterBinding.ensureInitialized();
+    WidgetsBinding.instance.addObserver(_ImageCacheMemoryObserver());
     cachePath = (await getApplicationCacheDirectory()).path;
     dataPath = (await getApplicationSupportDirectory()).path;
     if (isAndroid) {
@@ -140,6 +144,20 @@ class _App {
   void forceRebuild() {
     _forceRebuildHandler?.call();
     onLanguageChange?.call();
+  }
+}
+
+// Evicts decoded images when the OS reports memory pressure. Comic covers and
+// reader pages are large bitmaps; without this, low-RAM devices can be killed
+// by the system (OOM) while scrolling long lists or chapters.
+class _ImageCacheMemoryObserver extends WidgetsBindingObserver {
+  @override
+  void didHaveMemoryPressure() {
+    PaintingBinding.instance.imageCache.clear();
+    Log.info(
+      "ImageCache",
+      "Cleared decoded image cache due to system memory pressure",
+    );
   }
 }
 

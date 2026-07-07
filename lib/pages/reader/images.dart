@@ -19,6 +19,10 @@ class _ReaderImagesState extends State<_ReaderImages> {
     reader = context.reader;
     reader.isLoading = true;
     super.initState();
+    Future.microtask(() {
+      if (!mounted) return;
+      load();
+    });
   }
 
   @override
@@ -53,6 +57,7 @@ class _ReaderImagesState extends State<_ReaderImages> {
           reader.type,
           reader.chapter,
         );
+        if (!mounted) return;
         setState(() {
           reader.images = images;
           reader.isLoading = false;
@@ -63,6 +68,7 @@ class _ReaderImagesState extends State<_ReaderImages> {
           });
         });
       } catch (e) {
+        if (!mounted) return;
         setState(() {
           error = e.toString();
           reader.isLoading = false;
@@ -75,6 +81,7 @@ class _ReaderImagesState extends State<_ReaderImages> {
         reader.widget.cid,
         cp,
       );
+      if (!mounted) return;
       if (res.error) {
         setState(() {
           error = res.errorMessage;
@@ -93,13 +100,13 @@ class _ReaderImagesState extends State<_ReaderImages> {
         });
       }
     }
+    if (!mounted) return;
     context.readerScaffold.update();
   }
 
   @override
   Widget build(BuildContext context) {
     if (reader.isLoading) {
-      load();
       return const Center(child: CircularProgressIndicator());
     } else if (error != null) {
       return GestureDetector(
@@ -114,6 +121,7 @@ class _ReaderImagesState extends State<_ReaderImages> {
                 reader.isLoading = true;
                 error = null;
               });
+              load();
             },
           ),
         ),
@@ -199,6 +207,11 @@ class _GalleryModeState extends State<_GalleryMode>
 
   var imageStates = <State<ComicImage>>{};
 
+  /// Tracks pages already queued for precaching so we don't re-issue
+  /// precache/download work for the same page on every builder rebuild
+  /// (the builder fires repeatedly while scrolling). Bounded by chapter length.
+  final Set<int> _precached = {};
+
   bool isLongPressing = false;
 
   int fingers = 0;
@@ -256,6 +269,8 @@ class _GalleryModeState extends State<_GalleryMode>
           isChapterCommentsPage(i)) {
         continue;
       }
+      if (_precached.contains(i)) continue;
+      _precached.add(i);
       _cachePage(i, i == startPage + 1 || i == startPage - 1);
     }
   }
@@ -291,14 +306,15 @@ class _GalleryModeState extends State<_GalleryMode>
         fingers++;
       },
       onPointerUp: (event) {
-        fingers--;
+        if (fingers > 0) fingers--;
       },
       onPointerCancel: (event) {
-        fingers--;
+        if (fingers > 0) fingers--;
       },
       onPointerMove: (event) {
         if (isLongPressing) {
-          var controller = photoViewControllers[reader.page]!;
+          var controller = photoViewControllers[reader.page];
+          if (controller == null) return;
           Offset value = event.delta;
           if (isLongPressing) {
             controller.updateMultiple(position: controller.position + value);
@@ -334,7 +350,9 @@ class _GalleryModeState extends State<_GalleryMode>
 
             if (reader.imagesPerPage == 1 || pageImages.length == 1) {
               return PhotoViewGalleryPageOptions(
-                filterQuality: FilterQuality.medium,
+                // High filter quality keeps zoomed-in pages crisp (gallery
+                // mode decodes full-resolution images for pinch-to-zoom).
+                filterQuality: FilterQuality.high,
                 controller: photoViewControllers[index],
                 imageProvider: _createImageProviderFromKey(
                   pageImages[0],
@@ -403,7 +421,7 @@ class _GalleryModeState extends State<_GalleryMode>
           var keys = photoViewControllers.keys.toList();
           for (var key in keys) {
             if (key != i) {
-              photoViewControllers.remove(key);
+              photoViewControllers.remove(key)?.dispose();
             }
           }
         },
@@ -500,8 +518,9 @@ class _GalleryModeState extends State<_GalleryMode>
 
   @override
   Future<void> animateToPage(int page) {
-    if ((page - controller.page!.round()).abs() > 1) {
-      controller.jumpToPage(page > controller.page! ? page - 1 : page + 1);
+    var currentPage = controller.page ?? reader.page.toDouble();
+    if ((page - currentPage.round()).abs() > 1) {
+      controller.jumpToPage(page > currentPage ? page - 1 : page + 1);
     }
     return controller.animateToPage(
       page,
@@ -521,7 +540,8 @@ class _GalleryModeState extends State<_GalleryMode>
       context.readerScaffold.addImageFavorite();
       return;
     }
-    var controller = photoViewControllers[reader.page]!;
+    var controller = photoViewControllers[reader.page];
+    if (controller == null) return;
     controller.onDoubleClick?.call();
   }
 
@@ -530,8 +550,11 @@ class _GalleryModeState extends State<_GalleryMode>
     if (!appdata.settings['enableLongPressToZoom'] || fingers != 1) {
       return;
     }
-    var photoViewController = photoViewControllers[reader.page]!;
-    double target = photoViewController.getInitialScale!.call()! * 1.75;
+    var photoViewController = photoViewControllers[reader.page];
+    if (photoViewController == null) return;
+    var initialScale = photoViewController.getInitialScale?.call();
+    if (initialScale == null) return;
+    double target = initialScale * 1.75;
     var size = reader.size;
     Offset zoomPosition;
     if (appdata.settings['longPressZoomPosition'] != 'center') {
@@ -551,9 +574,11 @@ class _GalleryModeState extends State<_GalleryMode>
     if (!appdata.settings['enableLongPressToZoom'] || !isLongPressing) {
       return;
     }
-    var photoViewController = photoViewControllers[reader.page]!;
-    double target = photoViewController.getInitialScale!.call()!;
-    photoViewController.animateScale?.call(target);
+    var photoViewController = photoViewControllers[reader.page];
+    if (photoViewController == null) return;
+    var initialScale = photoViewController.getInitialScale?.call();
+    if (initialScale == null) return;
+    photoViewController.animateScale?.call(initialScale);
     isLongPressing = false;
   }
 
@@ -627,9 +652,11 @@ class _GalleryModeState extends State<_GalleryMode>
     if (imageKey.startsWith("file://")) {
       return await File(imageKey.substring(7)).readAsBytes();
     } else {
-      return (await CacheManager().findCache(
+      var cache = await CacheManager().findCache(
         "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
-      ))!.readAsBytes();
+      );
+      if (cache == null) return null;
+      return await cache.readAsBytes();
     }
   }
 
@@ -666,6 +693,8 @@ class _GalleryModeState extends State<_GalleryMode>
       controller.dispose();
     }
     keyRepeatTimer?.cancel();
+    imageStates.clear();
+    _precached.clear();
     super.dispose();
   }
 }
@@ -696,10 +725,15 @@ class _ContinuousModeState extends State<_ContinuousMode>
   var photoViewController = PhotoViewController();
   ScrollController? _scrollController;
 
-  ScrollController get scrollController => _scrollController!;
+  ScrollController get scrollController {
+    if (_scrollController == null) {
+      throw StateError('scrollController accessed before callback');
+    }
+    return _scrollController!;
+  }
 
   var isCTRLPressed = false;
-  static var _isMouseScrolling = false;
+  var _isMouseScrolling = false;
   var fingers = 0;
   bool disableScroll = false;
 
@@ -750,6 +784,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
   void dispose() {
     _autoScrollTimer?.cancel();
     itemPositionsListener.itemPositions.removeListener(onPositionChanged);
+    imageStates.clear();
     super.dispose();
   }
 
@@ -966,7 +1001,8 @@ class _ContinuousModeState extends State<_ContinuousMode>
           width = double.infinity;
         }
 
-        ImageProvider image = _createImageProvider(index, context);
+        var image = _createImageProvider(index, context);
+        if (image == null) return const SizedBox();
 
         return ColoredBox(
           color: context.colorScheme.surface,
@@ -1010,7 +1046,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
         }
       },
       onPointerUp: (event) {
-        fingers--;
+        if (fingers > 0) fingers--;
         if (fingers <= 1 && disableScroll) {
           setState(() {
             disableScroll = false;
@@ -1027,7 +1063,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
         }
       },
       onPointerCancel: (event) {
-        fingers--;
+        if (fingers > 0) fingers--;
         if (fingers <= 1 && disableScroll) {
           setState(() {
             disableScroll = false;
@@ -1293,9 +1329,11 @@ class _ContinuousModeState extends State<_ContinuousMode>
     if (imageKey.startsWith("file://")) {
       return await File(imageKey.substring(7)).readAsBytes();
     } else {
-      return (await CacheManager().findCache(
+      var cache = await CacheManager().findCache(
         "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
-      ))!.readAsBytes();
+      );
+      if (cache == null) return null;
+      return await cache.readAsBytes();
     }
   }
 
@@ -1327,8 +1365,9 @@ ImageProvider _createImageProviderFromKey(
   );
 }
 
-ImageProvider _createImageProvider(int page, BuildContext context) {
+ImageProvider? _createImageProvider(int page, BuildContext context) {
   var reader = context.reader;
+  if (reader.images == null || page > reader.images!.length) return null;
   var imageKey = reader.images![page - 1];
   return _createImageProviderFromKey(imageKey, context, page);
 }
@@ -1337,16 +1376,18 @@ ImageProvider _createImageProvider(int page, BuildContext context) {
 /// The image is cached using the flutter's [precacheImage] method.
 /// The image will be downloaded and decoded into memory.
 void _precacheImage(int page, BuildContext context) {
-  if (page <= 0 || page > context.reader.images!.length) {
+  if (page <= 0 || context.reader.images == null || page > context.reader.images!.length) {
     return;
   }
-  precacheImage(_createImageProvider(page, context), context);
+  var image = _createImageProvider(page, context);
+  if (image == null) return;
+  precacheImage(image, context);
 }
 
 /// [_preDownloadImage] is used to download the image for the given page.
 /// The image is downloaded using the [CacheManager] and saved to the local storage.
 void _preDownloadImage(int page, BuildContext context) {
-  if (page <= 0 || page > context.reader.images!.length) {
+  if (page <= 0 || context.reader.images == null || page > context.reader.images!.length) {
     return;
   }
   var reader = context.reader;
@@ -1406,8 +1447,8 @@ class _SwipeChangeChapterProgressState
 
   @override
   void dispose() {
-    super.dispose();
     controller?.removeListener(onScroll);
+    super.dispose();
   }
 
   void onScroll() {

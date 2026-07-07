@@ -8,221 +8,235 @@ class NetworkSettings extends StatefulWidget {
 }
 
 class _NetworkSettingsState extends State<NetworkSettings> {
+  String proxyType = '';
+  String proxyHost = '';
+  String proxyPort = '';
+  String proxyUsername = '';
+  String proxyPassword = '';
+  final _proxyFormKey = GlobalKey<FormState>();
+
+  String _toProxyStr() {
+    if (proxyType == 'direct') return 'direct';
+    if (proxyType == 'system') return 'system';
+    var res = '';
+    if (proxyUsername.isNotEmpty) {
+      res += proxyUsername;
+      if (proxyPassword.isNotEmpty) res += ':$proxyPassword';
+      res += '@';
+    }
+    res += proxyHost;
+    if (proxyPort.isNotEmpty) res += ':$proxyPort';
+    return res;
+  }
+
+  void _parseProxy(String proxy) {
+    if (proxy == 'direct') { proxyType = 'direct'; return; }
+    if (proxy == 'system') { proxyType = 'system'; return; }
+    proxyType = 'manual';
+    var parts = proxy.split('@');
+    if (parts.length == 2) {
+      var auth = parts[0].split(':');
+      if (auth.length == 2) { proxyUsername = auth[0]; proxyPassword = auth[1]; }
+      parts = parts[1].split(':');
+      if (parts.length == 2) { proxyHost = parts[0]; proxyPort = parts[1]; }
+    } else {
+      parts = proxy.split(':');
+      if (parts.length == 2) { proxyHost = parts[0]; proxyPort = parts[1]; }
+    }
+  }
+
+  void _saveProxy() {
+    appdata.settings['proxy'] = _toProxyStr();
+    appdata.saveData();
+  }
+
+  // DNS overrides
+  final _dnsOverrides = <(TextEditingController, TextEditingController)>[];
+
+  @override
+  void initState() {
+    _parseProxy(appdata.settings['proxy']);
+    for (var entry in (appdata.settings['dnsOverrides'] as Map).entries) {
+      if (entry.key is String && entry.value is String) {
+        _dnsOverrides.add((
+          TextEditingController(text: entry.key),
+          TextEditingController(text: entry.value)
+        ));
+      }
+    }
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    var map = <String, String>{};
+    for (var entry in _dnsOverrides) {
+      map[entry.$1.text] = entry.$2.text;
+    }
+    appdata.settings['dnsOverrides'] = map;
+    appdata.saveData();
+    JsEngine().resetDio();
+    for (var entry in _dnsOverrides) {
+      entry.$1.dispose();
+      entry.$2.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
         SliverAppbar(title: Text("Network".tl)),
-        _PopupWindowSetting(
+        _SettingPartTitle(
           title: "Proxy".tl,
-          builder: () => const _ProxySettingView(),
-        ).toSliver(),
-        _PopupWindowSetting(
-          title: "DNS Overrides".tl,
-          builder: () => const _DNSOverrides(),
-        ).toSliver(),
-
-      ],
-    );
-  }
-}
-
-class _ProxySettingView extends StatefulWidget {
-  const _ProxySettingView();
-
-  @override
-  State<_ProxySettingView> createState() => _ProxySettingViewState();
-}
-
-class _ProxySettingViewState extends State<_ProxySettingView> {
-  String type = '';
-  String host = '';
-  String port = '';
-  String username = '';
-  String password = '';
-
-  // USERNAME:PASSWORD@HOST:PORT
-  String toProxyStr() {
-    if (type == 'direct') {
-      return 'direct';
-    } else if (type == 'system') {
-      return 'system';
-    }
-    var res = '';
-    if (username.isNotEmpty) {
-      res += username;
-      if (password.isNotEmpty) {
-        res += ':$password';
-      }
-      res += '@';
-    }
-    res += host;
-    if (port.isNotEmpty) {
-      res += ':$port';
-    }
-    return res;
-  }
-
-  void parseProxyString(String proxy) {
-    if (proxy == 'direct') {
-      type = 'direct';
-      return;
-    } else if (proxy == 'system') {
-      type = 'system';
-      return;
-    }
-    type = 'manual';
-    var parts = proxy.split('@');
-    if (parts.length == 2) {
-      var auth = parts[0].split(':');
-      if (auth.length == 2) {
-        username = auth[0];
-        password = auth[1];
-      }
-      parts = parts[1].split(':');
-      if (parts.length == 2) {
-        host = parts[0];
-        port = parts[1];
-      }
-    } else {
-      parts = proxy.split(':');
-      if (parts.length == 2) {
-        host = parts[0];
-        port = parts[1];
-      }
-    }
-  }
-
-  @override
-  void initState() {
-    var proxy = appdata.settings['proxy'];
-    parseProxyString(proxy);
-    super.initState();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PopUpWidgetScaffold(
-      title: "Proxy".tl,
-      body: SingleChildScrollView(
-        child: RadioGroup<String>(
-          groupValue: type,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedForward01, size: 18),
+        ),
+        RadioGroup<String>(
+          groupValue: proxyType,
           onChanged: (v) {
-            setState(() {
-              type = v ?? type;
-            });
-            if (type != 'manual') {
-              appdata.settings['proxy'] = toProxyStr();
-              appdata.saveData();
-            }
+            setState(() => proxyType = v ?? proxyType);
+            if (proxyType != 'manual') _saveProxy();
           },
           child: Column(
             children: [
               RadioListTile<String>(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                 title: Text("Direct".tl),
                 value: 'direct',
               ),
               RadioListTile<String>(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                 title: Text("System".tl),
                 value: 'system',
               ),
-              RadioListTile(
+              RadioListTile<String>(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                 title: Text("Manual".tl),
                 value: 'manual',
               ),
-              if (type == 'manual') buildManualProxy(),
             ],
           ),
+        ).toSliver(),
+        if (proxyType == 'manual')
+          Form(
+            key: _proxyFormKey,
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  title: TextField(
+                    decoration: InputDecoration(labelText: "Host".tl),
+                    controller: TextEditingController(text: proxyHost),
+                    onChanged: (v) => proxyHost = v,
+                  ),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  title: TextField(
+                    decoration: InputDecoration(labelText: "Port".tl),
+                    controller: TextEditingController(text: proxyPort),
+                    onChanged: (v) => proxyPort = v,
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  title: TextField(
+                    decoration: InputDecoration(labelText: "Username".tl),
+                    controller: TextEditingController(text: proxyUsername),
+                    onChanged: (v) => proxyUsername = v,
+                  ),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  title: TextField(
+                    decoration: InputDecoration(labelText: "Password".tl),
+                    controller: TextEditingController(text: proxyPassword),
+                    onChanged: (v) => proxyPassword = v,
+                    obscureText: true,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: FilledButton.icon(
+                    onPressed: () { _saveProxy(); context.showMessage(message: "Saved".tl); },
+                    icon: const Icon(Icons.save, size: 18),
+                    label: Text("Save".tl),
+                  ),
+                ),
+              ],
+            ),
+          ).toSliver(),
+        _SettingPartTitle(
+          title: "DNS Overrides".tl,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 18),
         ),
-      ),
+        _SwitchSetting(
+          title: "Enable DNS Overrides".tl,
+          settingKey: "enableDnsOverrides",
+        ).toSliver(),
+        _SwitchSetting(
+          title: "Server Name Indication".tl,
+          settingKey: "sni",
+        ).toSliver(),
+        if (_dnsOverrides.isNotEmpty)
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            color: context.colorScheme.outlineVariant,
+          ).toSliver(),
+        for (var i = 0; i < _dnsOverrides.length; i++) _buildDnsRow(i).toSliver(),
+        TextButton.icon(
+          onPressed: () {
+            setState(() => _dnsOverrides.add((TextEditingController(), TextEditingController())));
+          },
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
+          label: Text("Add".tl),
+        ).paddingHorizontal(16).toSliver(),
+      ],
     );
   }
 
-  var formKey = GlobalKey<FormState>();
-
-  Widget buildManualProxy() {
-    return Form(
-      key: formKey,
-      child: Column(
+  Widget _buildDnsRow(int index) {
+    var entry = _dnsOverrides[index];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
         children: [
-          TextFormField(
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              labelText: "Host".tl,
+          Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: "Domain".tl,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              ),
+              controller: entry.$1,
             ),
-            controller: TextEditingController(text: host),
-            onChanged: (v) {
-              host = v;
-            },
-            validator: (v) {
-              if (v?.isEmpty ?? false) {
-                return "Host cannot be empty".tl;
-              }
-              return null;
-            },
           ),
-          const SizedBox(height: 8),
-          TextFormField(
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              labelText: "Port".tl,
+          SizedBox(
+            height: 32,
+            child: VerticalDivider(width: 1, color: context.colorScheme.outlineVariant),
+          ),
+          Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: "IP".tl,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              ),
+              controller: entry.$2,
             ),
-            controller: TextEditingController(text: port),
-            onChanged: (v) {
-              port = v;
-            },
-            validator: (v) {
-              if (v?.isEmpty ?? true) {
-                return null;
-              }
-              if (int.tryParse(v!) == null) {
-                return "Port must be a number".tl;
-              }
-              return null;
-            },
           ),
-          const SizedBox(height: 8),
-          TextFormField(
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              labelText: "Username".tl,
-            ),
-            controller: TextEditingController(text: username),
-            onChanged: (v) {
-              username = v;
-            },
-            validator: (v) {
-              if ((v?.isEmpty ?? false) && password.isNotEmpty) {
-                return "Username cannot be empty".tl;
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              labelText: "Password".tl,
-            ),
-            controller: TextEditingController(text: password),
-            onChanged: (v) {
-              password = v;
-            },
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                appdata.settings['proxy'] = toProxyStr();
-                appdata.saveData();
-                App.rootContext.pop();
-              }
-            },
-            child: Text("Save".tl),
+          IconButton(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+            onPressed: () => setState(() => _dnsOverrides.removeAt(index)),
           ),
         ],
       ),
-    ).paddingHorizontal(16).paddingTop(16);
+    );
   }
 }
 
@@ -273,7 +287,7 @@ class __DNSOverridesState extends State<_DNSOverrides> {
               settingKey: "enableDnsOverrides",
             ),
             _SwitchSetting(
-              title: "Server Name Indication",
+              title: "Server Name Indication".tl,
               settingKey: "sni",
             ),
             const SizedBox(height: 8),

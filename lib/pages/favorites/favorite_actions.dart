@@ -209,7 +209,7 @@ Future<List<FavoriteItem>> updateComicsInfo(String folder) async {
                 const SizedBox(height: 4),
                 Text("$value/${comics.length}"),
                 const SizedBox(height: 4),
-                if (errors > 0) Text("Errors: $errors"),
+                if (errors > 0) Text("Errors: @errors".tlParams({"errors": errors})),
               ],
             ).paddingHorizontal(16),
             actions: [
@@ -455,7 +455,7 @@ Future<void> importNetworkFolder(
                   "c": receivedComics,
                 })),
                 const SizedBox(height: 4),
-                if (isErrored()) Text("Error: $errorMsg"),
+                if (isErrored()) Text("Error: @errorMsg".tlParams({"errorMsg": errorMsg ?? ""})),
               ],
             ).paddingHorizontal(16),
             actions: [

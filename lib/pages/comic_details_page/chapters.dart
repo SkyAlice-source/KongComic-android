@@ -83,13 +83,15 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                 trailing: Tooltip(
                   message: "Order".tl,
                   child: IconButton(
-                    icon: Icon(reverse
-                        ? Icons.arrow_upward
-                        : Icons.arrow_downward),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowUpDown,
+                        size: 20),
                     onPressed: () {
                       setState(() {
                         reverse = !reverse;
                       });
+                      appdata.settings["reverseChapterOrder"] = reverse;
+                      appdata.saveData();
                     },
                   ),
                 ),
@@ -110,27 +112,40 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                     padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
                     child: Material(
                       color: isCurrent
-                          ? context.colorScheme.primaryContainer
-                          : context.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(16),
+                          ? context.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                          : context.colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12),
                       child: InkWell(
                         onTap: () => state.read(i + 1),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Center(
-                            child: Text(
-                              value,
-                              maxLines: 1,
-                              textAlign: TextAlign.center,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: isCurrent
-                                    ? context.colorScheme.onPrimaryContainer
-                                    : visited
-                                        ? context.colorScheme.onSurfaceVariant
-                                        : context.colorScheme.onSurface,
-                                fontWeight: isCurrent ? FontWeight.w600 : null,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isCurrent
+                                  ? context.colorScheme.primary
+                                  : visited
+                                      ? context.colorScheme.tertiary.withValues(alpha: 0.5)
+                                      : context.colorScheme.outline.withValues(alpha: 0.3),
+                              width: isCurrent ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Center(
+                              child: Text(
+                                value,
+                                maxLines: 1,
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: isCurrent
+                                      ? context.colorScheme.primary
+                                      : visited
+                                          ? context.colorScheme.onSurfaceVariant
+                                          : context.colorScheme.onSurface,
+                                  fontWeight: isCurrent ? FontWeight.w600 : null,
+                                ),
                               ),
                             ),
                           ),
@@ -270,13 +285,15 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                 trailing: Tooltip(
                   message: "Order".tl,
                   child: IconButton(
-                    icon: Icon(reverse
-                        ? Icons.arrow_upward
-                        : Icons.arrow_downward),
+                    icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowUpDown,
+                        size: 20),
                     onPressed: () {
                       setState(() {
                         reverse = !reverse;
                       });
+                      appdata.settings["reverseChapterOrder"] = reverse;
+                      appdata.saveData();
                     },
                   ),
                 ),
@@ -320,7 +337,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                     padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
                     child: Material(
                       color: isCurrent
-                          ? context.colorScheme.primaryContainer
+                          ? context.colorScheme.primaryContainer.withValues(alpha: 0.5)
                           : context.colorScheme.surfaceContainerLow,
                       borderRadius: BorderRadius.circular(12),
                       child: InkWell(
@@ -328,15 +345,18 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
                           decoration: BoxDecoration(
-                            border: Border(
-                              left: BorderSide(
-                                color: context.colorScheme.tertiary.withValues(alpha: 0.5),
-                                width: 3,
-                              ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isCurrent
+                                  ? context.colorScheme.primary
+                                  : visited
+                                      ? context.colorScheme.tertiary.withValues(alpha: 0.5)
+                                      : context.colorScheme.outline.withValues(alpha: 0.3),
+                              width: isCurrent ? 1.5 : 1,
                             ),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             child: Center(
                               child: Text(
                                 value,
@@ -345,7 +365,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: isCurrent
-                                      ? context.colorScheme.onPrimaryContainer
+                                      ? context.colorScheme.primary
                                       : visited
                                           ? context.colorScheme.onSurfaceVariant
                                           : context.colorScheme.onSurface,

@@ -80,7 +80,7 @@ class _AppbarState extends State<Appbar> {
     var content = Container(
       decoration: BoxDecoration(
         color: widget.backgroundColor ??
-            context.colorScheme.surface.toOpacity(0.86),
+          Theme.of(context).scaffoldBackgroundColor,
       ),
       height: _kAppBarHeight + context.padding.top,
       child: Row(
@@ -114,7 +114,7 @@ class _AppbarState extends State<Appbar> {
     );
     if (widget.style == AppbarStyle.shadow) {
       return Material(
-        color: context.colorScheme.surface,
+        color: Theme.of(context).scaffoldBackgroundColor,
         elevation: _scrolledUnder ? 2 : 0,
         child: content,
       );
@@ -229,7 +229,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
       return SizedBox.expand(
         child: BlurEffect(
           child: Material(
-            color: context.colorScheme.surface.toOpacity(0.86),
+            color: Theme.of(context).scaffoldBackgroundColor,
             elevation: 0,
             borderRadius: BorderRadius.circular(radius),
             child: body,
@@ -239,7 +239,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     } else {
       return SizedBox.expand(
         child: Material(
-          color: context.colorScheme.surface,
+          color: Theme.of(context).scaffoldBackgroundColor,
           elevation: shrinkOffset == 0 ? 0 : 2,
           borderRadius: BorderRadius.circular(radius),
           child: body,
@@ -772,7 +772,7 @@ class _SliverSearchBarDelegate extends SliverPersistentHeaderDelegate {
       width: double.infinity,
       padding: EdgeInsets.only(top: topPadding),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Theme.of(context).scaffoldBackgroundColor,
         border: Border(
           bottom: BorderSide(
             color: Theme.of(context).colorScheme.outlineVariant,

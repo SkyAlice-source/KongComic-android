@@ -183,7 +183,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 width: 8,
               ),
               Tooltip(
-                message: "Back",
+                message: "Back".tl,
                 child: IconButton(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 22),
                   onPressed: context.pop,
@@ -215,7 +215,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final cs = Theme.of(context).colorScheme;
 
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
@@ -226,7 +226,7 @@ class _SettingsPageState extends State<SettingsPage> {
             }
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(

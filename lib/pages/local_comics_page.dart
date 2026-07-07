@@ -667,7 +667,7 @@ Future<void> openComicFolder(LocalComic comic) async {
     Log.error("Open Folder", "Failed to open comic folder: $e", s);
     // Show error message to user
     if (App.rootContext.mounted) {
-      App.rootContext.showMessage(message: "Failed to open folder: $e");
+      App.rootContext.showMessage(message: "Failed to open folder: @e".tlParams({"e": e}));
     }
   }
 }
@@ -687,7 +687,7 @@ void showDeleteChaptersPopWindow(BuildContext context, LocalComic comic) {
                 itemCount: comic.downloadedChapters.length,
                 itemBuilder: (context, index) {
                   var id = comic.downloadedChapters[index];
-                  var chapter = comic.chapters![id] ?? "Unknown Chapter";
+                  var chapter = comic.chapters![id] ?? "Unknown Chapter".tl;
                   return CheckboxListTile(
                     title: Text(chapter),
                     value: chapters.contains(id),

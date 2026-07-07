@@ -43,6 +43,8 @@ part 'actions.dart';
 
 part 'cover_viewer.dart';
 
+const _chapterTextShadow = [Shadow(color: Colors.black54, blurRadius: 3)];
+
 class ComicPage extends StatefulWidget {
   const ComicPage({
     super.key,
@@ -158,6 +160,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   @override
   void dispose() {
     scrollController.removeListener(onScroll);
+    scrollController.dispose();
     LocalManager().removeListener(_onDownloadProgress);
     _downloadTask?.removeListener(_onDownloadProgress);
     super.dispose();
@@ -427,9 +430,9 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 ),
               _ActionButton(
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedBookmark01, size: 20),
-                activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedBookmarkAdd01, size: 20),
+                activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedBookmarkCheck01, size: 20),
                 isActive: isFavorite || isAddToLocalFav,
-                text: 'Favorite'.tl,
+                text: (isFavorite || isAddToLocalFav) ? 'Favorited'.tl : 'Favorite'.tl,
                 onPressed: openFavPanel,
                 onLongPressed: quickFavorite,
                 iconColor: context.useTextColor(Colors.purple),
@@ -535,12 +538,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                                   color: textColor,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  shadows: const [
-                                    Shadow(
-                                      color: Colors.black54,
-                                      blurRadius: 3,
-                                    ),
-                                  ],
+                                  shadows: _chapterTextShadow,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -554,12 +552,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                                   color: textColor.withValues(alpha: 0.85),
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
-                                  shadows: const [
-                                    Shadow(
-                                      color: Colors.black54,
-                                      blurRadius: 3,
-                                    ),
-                                  ],
+                                  shadows: _chapterTextShadow,
                                 ),
                                 maxLines: 1,
                               ),

@@ -247,13 +247,16 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
           useDeviceSettings: useDeviceSpecificSettings,
         ).toSliver(),
-        _SliderSetting(
-          title: "Auto scroll speed".tl,
-          settingsIndex: "autoScrollSpeed",
-          interval: 1,
-          min: 0,
-          max: 50,
-        ).toSliver(),
+        SliverAnimatedVisibility(
+          visible: false,
+          child: _SliderSetting(
+            title: "Auto scroll speed".tl,
+            settingsIndex: "autoScrollSpeed",
+            interval: 1,
+            min: 0,
+            max: 50,
+          ),
+        ),
         SliverAnimatedVisibility(
           visible: appdata.settings['readerMode']!.startsWith('gallery'),
           child: _SliderSetting(
@@ -308,7 +311,7 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           ),
         ),
         SliverAnimatedVisibility(
-          visible: appdata.settings['readerMode']!.startsWith('continuous'),
+          visible: false,
           child: _SliderSetting(
             title: "Mouse scroll speed".tl,
             settingsIndex: "readerScrollSpeed",

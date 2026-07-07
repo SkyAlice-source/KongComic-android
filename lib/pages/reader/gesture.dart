@@ -27,6 +27,26 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
 
   bool ignoreNextTag = false;
 
+  /// Whether a point falls within the visible toolbar area.
+  /// When toolbars are open, taps there should be handled by the toolbar
+  /// buttons (IconButton etc.), not by the reader gesture detector.
+  bool _isInToolbarArea(Offset position) {
+    final scaffold = context.readerScaffold;
+    if (!scaffold.isOpen) return false;
+    final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    // Top toolbar area
+    if (position.dy < _ReaderScaffoldState.kTopBarHeight + topPadding) {
+      return true;
+    }
+    // Bottom toolbar area
+    final screenHeight = MediaQuery.of(context).size.height;
+    if (position.dy > screenHeight - _ReaderScaffoldState.kBottomBarHeight - bottomPadding) {
+      return true;
+    }
+    return false;
+  }
+
   void ignoreNextTap() {
     ignoreNextTag = true;
   }
@@ -46,6 +66,13 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
   }
 
   @override
+  void dispose() {
+    _tapGestureRecognizer.dispose();
+    _dragListeners.clear();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Listener(
       behavior: HitTestBehavior.translucent,
@@ -54,11 +81,14 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
           _previousEvent = null;
           return;
         }
-        fingers++;
         if (ignoreNextTag) {
           ignoreNextTag = false;
           return;
         }
+        if (_isInToolbarArea(event.position)) {
+          return;
+        }
+        fingers++;
         _lastTapPointer = event.pointer;
         _lastTapMoveDistance = Offset.zero;
         _tapGestureRecognizer.addPointer(event);
@@ -69,10 +99,9 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
           _dragInProgress = false;
         }
         Future.delayed(_kLongPressMinTime, () {
-          if (_lastTapPointer == event.pointer && fingers == 1) {
-            if (_lastTapMoveDistance!.distanceSquared < 20.0 * 20.0) {
-              // long press but menu removed
-            } else {
+          if (!mounted) return;
+          if (_lastTapPointer == event.pointer && fingers == 1 && _lastTapMoveDistance != null) {
+            if (_lastTapMoveDistance!.distanceSquared >= 20.0 * 20.0) {
               _dragInProgress = true;
               for (var dragListener in _dragListeners) {
                 dragListener.onStart?.call(event.position);
@@ -93,7 +122,7 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
         }
       },
       onPointerUp: (event) {
-        fingers--;
+        if (fingers > 0) fingers--;
         if (_dragInProgress) {
           for (var dragListener in _dragListeners) {
             dragListener.onEnd?.call();
@@ -104,7 +133,7 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
         _lastTapMoveDistance = null;
       },
       onPointerCancel: (event) {
-        fingers--;
+        if (fingers > 0) fingers--;
         if (_dragInProgress) {
           for (var dragListener in _dragListeners) {
             dragListener.onEnd?.call();
@@ -175,6 +204,7 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
     }
     _previousEvent = event;
     Future.delayed(_kDoubleTapMaxTime, () {
+      if (!mounted) return;
       if (_previousEvent == event) {
         onTap(location);
         _previousEvent = null;
@@ -183,7 +213,12 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
   }
 
   void onTap(Offset location) {
-    if (reader._imageViewController!.handleOnTap(location)) {
+    // Safety: ignore taps in toolbar area (onPointerDown should already
+    // have blocked them, but this prevents any race condition)
+    if (_isInToolbarArea(location)) {
+      return;
+    }
+    if (reader._imageViewController?.handleOnTap(location) ?? false) {
       return;
     } else if (context.readerScaffold.isOpen) {
       context.readerScaffold.openOrClose();
@@ -283,17 +318,21 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
 
   void copyImage(Offset location) async {
     var controller = reader._imageViewController;
-    var image = await controller!.getImageByOffset(location);
+    if (controller == null) return;
+    var image = await controller.getImageByOffset(location);
+    if (!mounted) return;
     if (image != null) {
       writeImageToClipboard(image);
     } else {
-      context.showMessage(message: "No Image".tl.tl);
+      context.showMessage(message: "No Image".tl);
     }
   }
 
   void saveImage(Offset location) async {
     var controller = reader._imageViewController;
-    var image = await controller!.getImageByOffset(location);
+    if (controller == null) return;
+    var image = await controller.getImageByOffset(location);
+    if (!mounted) return;
     if (image != null) {
       var filetype = detectFileType(image);
       var page = reader.page;
@@ -301,7 +340,7 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
       var name = reader.widget.name;
       saveFile(filename: "${name}_EP${ep}_P$page$filetype.ext", data: image);
     } else {
-      context.showMessage(message: "No Image".tl.tl);
+      context.showMessage(message: "No Image".tl);
     }
   }
 }

@@ -10,12 +10,14 @@ import 'package:kong_comic/pages/auth_page.dart';
 import 'package:kong_comic/pages/main_page.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:kong_comic/utils/translations.dart';
 import 'components/components.dart';
 import 'components/window_frame.dart';
 import 'foundation/app.dart';
 import 'foundation/appdata.dart';
 import 'headless.dart';
 import 'init.dart';
+import 'pages/follow_updates_page.dart';
 
 void main(List<String> args) {
   if (args.contains('--headless')) {
@@ -77,6 +79,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    FollowUpdatesService.disposeChecker();
     WindowPlacement.dispose();
     cancelHeartbeatTimer();
     super.dispose();
@@ -175,6 +178,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ).copyWith(
         surfaceTint: Colors.transparent,
       ),
+      // Material 默认底色统一为页面背景色，避免各页顶栏/tab栏出现白条
+      canvasColor: brightness == Brightness.light
+          ? const Color(0xFFF5F7FA)
+          : const Color(0xFF121212),
       scaffoldBackgroundColor: brightness == Brightness.light
           ? const Color(0xFFF5F7FA)
           : const Color(0xFF121212),
@@ -208,7 +215,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
       return MaterialApp(
         key: ValueKey(appdata.settings['language'] ?? 'system'),
-        title: "KongComic",
+        title: "KongComic".tl,
         home: home,
         debugShowCheckedModeBanner: false,
         theme: getTheme(primary, secondary, tertiary, Brightness.light),

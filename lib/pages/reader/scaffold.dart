@@ -100,7 +100,10 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     // Apply screen orientation
     _applyScreenOrientation();
     super.initState();
-    Future.delayed(const Duration(milliseconds: 200), addDragListener);
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (!mounted) return;
+      addDragListener();
+    });
   }
 
   @override
@@ -292,7 +295,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
 
   void addImageFavorite() async {
     try {
-      if (context.reader.images![0].contains('file://')) {
+      var images = context.reader.images;
+      if (images == null || images.isEmpty) return;
+      if (images[0].contains('file://')) {
         showToast(
           message: "Local comic collection is not supported at present".tl,
           context: context,
@@ -396,7 +401,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           if (imageFavoritesEp.eid != eid) {
             // 空字符串说明是从pica导入的, 那我们就手动刷一遍保证一致
             if (imageFavoritesEp.eid == "") {
-              imageFavoritesEp.eid == eid;
+              imageFavoritesEp.eid = eid;
             } else {
               // 避免多章节漫画源的章节顺序发生变化, 如果情况比较多, 做一个以eid为准更新ep的功能
               showToast(
@@ -437,7 +442,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       Tooltip(
         message: "Collect the image".tl,
         child: IconButton(
-          icon: HugeIcon(icon: isLiked() ? HugeIcons.strokeRoundedHeartAdd : HugeIcons.strokeRoundedHeartAdd, size: 20),
+          icon: isLiked()
+              ? Icon(Icons.favorite, size: 20, color: Colors.red)
+              : HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 20),
           onPressed: addImageFavorite,
         ),
       ),
@@ -453,15 +460,19 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         ),
       if (App.isAndroid)
         Tooltip(
-          message: "Screen Rotation".tl,
+          message: () {
+            if (rotation == null) return "Screen Rotation".tl;
+            if (rotation == false) return "Locked: Portrait".tl;
+            return "Locked: Landscape".tl;
+          }(),
           child: IconButton(
             icon: () {
               if (rotation == null) {
                 return HugeIcon(icon: HugeIcons.strokeRounded3dRotate, size: 20);
               } else if (rotation == false) {
-                return HugeIcon(icon: HugeIcons.strokeRoundedAiLock, size: 20);
+                return Icon(Icons.screen_lock_portrait, size: 20, color: Colors.orange);
               } else {
-                return HugeIcon(icon: HugeIcons.strokeRoundedAiLock, size: 20);
+                return Icon(Icons.screen_lock_landscape, size: 20, color: Colors.blue);
               }
             }.call(),
             onPressed: () {
@@ -473,6 +484,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                   DeviceOrientation.portraitUp,
                   DeviceOrientation.portraitDown,
                 ]);
+                showToast(message: "Portrait lock enabled".tl, context: context, seconds: 1);
               } else if (rotation == false) {
                 setState(() {
                   rotation = true;
@@ -481,27 +493,37 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                   DeviceOrientation.landscapeLeft,
                   DeviceOrientation.landscapeRight,
                 ]);
+                showToast(message: "Landscape lock enabled".tl, context: context, seconds: 1);
               } else {
                 setState(() {
                   rotation = null;
                 });
                 SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+                showToast(message: "Rotation unlocked".tl, context: context, seconds: 1);
               }
             },
           ),
         ),
       Tooltip(
-        message: "Auto Page Turning".tl,
+        message: context.reader.autoPageTurningTimer != null
+            ? "${"Auto Page Turning".tl} (${"On".tl})"
+            : "Auto Page Turning".tl,
         child: IconButton(
           icon: context.reader.autoPageTurningTimer != null
-              ? HugeIcon(icon: HugeIcons.strokeRoundedAlarmClock, size: 20)
+              ? Icon(Icons.alarm_on, size: 20, color: Colors.green)
               : HugeIcon(icon: HugeIcons.strokeRoundedAlarmClock, size: 20),
           onPressed: () {
+            var wasOn = context.reader.autoPageTurningTimer != null;
             context.reader.autoPageTurning(
               context.reader.cid,
               context.reader.type,
             );
             update();
+            showToast(
+              message: wasOn ? "Auto page turning stopped".tl : "Auto page turning started".tl,
+              context: context,
+              seconds: 1,
+            );
           },
         ),
       ),
@@ -590,7 +612,12 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                   const Spacer(),
                   for (var button in buttons)
                     if (!small)
-                      button.paddingHorizontal(4)
+                      Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                        clipBehavior: Clip.antiAlias,
+                        child: button.paddingHorizontal(4),
+                      )
                     else
                       ...[button, const Spacer()],
                   if (!small)
@@ -757,7 +784,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             cid: context.reader.cid,
             eid: context.reader.eid,
             currentPage: (context.reader.page - 1).clamp(0, images.length - 1),
-            title: "Select Image to Share",
+            title: "Select Image to Share".tl,
           ),
         ),
       );
@@ -868,18 +895,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   }
 
   void _openSideBar(Widget widget, {double width = 400}) {
-    _gestureDetectorState?.ignoreNextTap();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showSideBar(
-        context,
-        widget,
-        width: width,
-        dismissible: true,
-      ).whenComplete(() {
-        _gestureDetectorState?.clearIgnoreNextTap();
-      });
-    });
+    Navigator.of(context, rootNavigator: true).push(
+      SideBarRoute(widget, width: width, dismissible: true),
+    );
   }
 
   bool shouldShowChapterComments() {
@@ -912,14 +930,16 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     var epId = chapters.ids.elementAt(chapterIndex);
     var chapterTitle = chapters.titles.elementAt(chapterIndex);
 
-    showSideBar(
-      context,
-      ChapterCommentsPage(
-        comicId: context.reader.cid,
-        epId: epId,
-        source: source,
-        comicTitle: context.reader.widget.name,
-        chapterTitle: chapterTitle,
+    Navigator.of(context, rootNavigator: true).push(
+      SideBarRoute(
+        ChapterCommentsPage(
+          comicId: context.reader.cid,
+          epId: epId,
+          source: source,
+          comicTitle: context.reader.widget.name,
+          chapterTitle: chapterTitle,
+        ),
+        width: 500,
       ),
     );
   }
@@ -1183,6 +1203,7 @@ class _BatteryWidgetState extends State<_BatteryWidget> {
       state = await _battery.batteryState;
       if (!mounted) return;
       if (_batteryLevel > 0 && state != BatteryState.unknown) {
+        if (!mounted) return;
         setState(() {
           _hasBattery = true;
         });
@@ -1299,6 +1320,7 @@ class _ClockWidgetState extends State<_ClockWidget> {
     super.initState();
     _currentTime = _getCurrentTime();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
       final time = _getCurrentTime();
       if (_currentTime != time) {
         setState(() {

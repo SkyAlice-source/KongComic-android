@@ -473,6 +473,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
 
   void checkNow() async {
     FollowUpdatesService._cancelChecking?.call();
+    await Future.delayed(const Duration(milliseconds: 50));
 
     bool isCanceled = false;
     void onCancel() {
@@ -531,6 +532,7 @@ abstract class FollowUpdatesService {
   static void Function()? _cancelChecking;
 
   static bool _isInitialized = false;
+  static Timer? _timer;
 
   static void _check() async {
     if (_isChecking) {
@@ -543,6 +545,7 @@ abstract class FollowUpdatesService {
     bool isCanceled = false;
     _cancelChecking = () {
       isCanceled = true;
+      _isChecking = false;
     };
 
     _isChecking = true;
@@ -575,9 +578,15 @@ abstract class FollowUpdatesService {
     _check();
     DataSync().addListener(updateFollowUpdatesUI);
     // A short interval will not affect the performance since every comic has a check time.
-    Timer.periodic(const Duration(minutes: 10), (timer) {
+    _timer = Timer.periodic(const Duration(minutes: 10), (timer) {
       _check();
     });
+  }
+
+  static void disposeChecker() {
+    _timer?.cancel();
+    _timer = null;
+    _isInitialized = false;
   }
 }
 

@@ -391,6 +391,7 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
   @override
   Widget build(BuildContext context) {
     Widget tabBar = Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
       borderRadius: BorderRadius.circular(8),
       child: AppTabBar(
         key: PageStorageKey(optionTypes),

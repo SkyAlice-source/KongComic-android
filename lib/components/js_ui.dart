@@ -5,6 +5,7 @@ import 'package:flutter_qjs/flutter_qjs.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/js_engine.dart';
+import 'package:kong_comic/utils/translations.dart';
 
 import 'components.dart';
 
@@ -84,7 +85,7 @@ mixin class JsUiApi {
         onPressed: () {
           dialogContext?.pop();
         },
-        child: Text('OK'),
+        child: Text('OK'.tl),
       ));
     }
     return showDialog(

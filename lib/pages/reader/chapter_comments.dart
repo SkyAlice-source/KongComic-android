@@ -1,7 +1,7 @@
 part of 'reader.dart';
 
 bool _shouldBlockComment(Comment comment) {
-  var blockedWords = appdata.settings["blockedCommentWords"] as List;
+  var blockedWords = (appdata.settings["blockedCommentWords"] as List?) ?? [];
   if (blockedWords.isEmpty) return false;
   
   var content = comment.content.toLowerCase();
@@ -45,6 +45,12 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
   bool sending = false;
   bool _isLoadingMore = false;
 
+  @override
+  void initState() {
+    super.initState();
+    firstLoad();
+  }
+
   void firstLoad() async {
     var res = await widget.source.chapterCommentsLoader!(
       widget.comicId,
@@ -83,7 +89,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
       return;
     }
     if (res.error) {
-      context.showMessage(message: res.errorMessage ?? "Unknown Error");
+      context.showMessage(message: res.errorMessage ?? "Unknown Error".tl);
     } else {
       var filteredComments =
           res.data.where((c) => !_shouldBlockComment(c)).toList();
@@ -113,13 +119,12 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
         ),
         style: AppbarStyle.shadow,
       ),
-      body: buildBody(context),
+      body: _buildBody(),
     );
   }
 
-  Widget buildBody(BuildContext context) {
+  Widget _buildBody() {
     if (_loading) {
-      firstLoad();
       return const Center(child: CircularProgressIndicator());
     } else if (_error != null) {
       return NetworkError(
@@ -276,7 +281,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
                       maxPage = null;
                     });
                   } else {
-                    context.showMessage(message: b.errorMessage ?? "Error");
+                    context.showMessage(message: b.errorMessage ?? "Error".tl);
                     setState(() {
                       sending = false;
                     });
@@ -472,7 +477,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
             isLiked = !isLiked;
             likes += isLiked ? 1 : -1;
           } else {
-            context.showMessage(message: res.errorMessage ?? "Error");
+            context.showMessage(message: res.errorMessage ?? "Error".tl);
           }
           setState(() {
             isLiking = false;
@@ -538,7 +543,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
       widget.comment.voteStatus = voteStatus;
       widget.comment.score = res.data ?? widget.comment.score;
     } else {
-      context.showMessage(message: res.errorMessage ?? "Error");
+      context.showMessage(message: res.errorMessage ?? "Error".tl);
     }
     setState(() {
       isVotingUp = false;
@@ -640,6 +645,12 @@ class _EmbeddedChapterCommentsPageState
   ScrollController? _scrollController;
 
   @override
+  void initState() {
+    super.initState();
+    firstLoad();
+  }
+
+  @override
   void dispose() {
     textController.dispose();
     _scrollController?.dispose();
@@ -682,7 +693,7 @@ class _EmbeddedChapterCommentsPageState
     );
     if (res.error) {
       if (mounted) {
-        context.showMessage(message: res.errorMessage ?? "Unknown Error");
+        context.showMessage(message: res.errorMessage ?? "Unknown Error".tl);
       }
     } else if (mounted) {
       var filteredComments =
@@ -756,7 +767,6 @@ class _EmbeddedChapterCommentsPageState
 
   Widget _buildBody() {
     if (_loading) {
-      firstLoad();
       return const Center(child: CircularProgressIndicator());
     } else if (_error != null) {
       return NetworkError(
@@ -884,7 +894,7 @@ class _EmbeddedChapterCommentsPageState
                     });
                   } else {
                     if (mounted) {
-                      context.showMessage(message: b.errorMessage ?? "Error");
+                      context.showMessage(message: b.errorMessage ?? "Error".tl);
                     }
                     setState(() {
                       sending = false;

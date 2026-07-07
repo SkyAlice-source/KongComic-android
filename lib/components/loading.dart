@@ -270,7 +270,7 @@ abstract class MultiPageLoadingState<T extends StatefulWidget, S extends Object>
             data!.addAll(value.data);
           });
         } else {
-          var message = value.errorMessage ?? "Network Error";
+          var message = value.errorMessage ?? "Network Error".tl;
           if (message.length > 20) {
             message = "${message.substring(0, 20)}...";
           }

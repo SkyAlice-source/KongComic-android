@@ -194,8 +194,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
 
   @override
   void dispose() {
-    super.dispose();
     LocalFavoritesManager().removeListener(updateComics);
+    scrollController.dispose();
+    super.dispose();
   }
 
   void selectAll() {
@@ -1221,6 +1222,7 @@ class _LocalFavoritesFilterDialogState
   @override
   Widget build(BuildContext context) {
     Widget tabBar = Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
       borderRadius: BorderRadius.circular(8),
       child: AppTabBar(
         key: PageStorageKey(optionTypes),

@@ -85,7 +85,7 @@ class AppWebview extends StatefulWidget {
 class _AppWebviewState extends State<AppWebview> {
   InAppWebViewController? controller;
 
-  String title = "Webview";
+  String title = "Webview".tl;
 
   double _progress = 0;
 
@@ -125,7 +125,7 @@ class _AppWebviewState extends State<AppWebview> {
   Widget build(BuildContext context) {
     final actions = [
       Tooltip(
-        message: "More",
+        message: "More".tl,
         child: IconButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 18),
           onPressed: () {
@@ -161,7 +161,7 @@ class _AppWebviewState extends State<AppWebview> {
       future: future,
       builder: (context, e) {
         if (e.error != null) {
-          return Center(child: Text("Error: ${e.error}"));
+          return Center(child: Text("Error: @error".tlParams({"error": e.error ?? ""})));
         }
         if (!e.hasData) {
           return const SizedBox();
@@ -203,7 +203,7 @@ class _AppWebviewState extends State<AppWebview> {
       onTitleChanged: (c, t) {
         if (mounted) {
           setState(() {
-            title = t ?? "Webview";
+            title = t ?? "Webview".tl;
           });
         }
         widget.onTitleChange?.call(title, controller!);
@@ -307,7 +307,7 @@ class DesktopWebview {
         configuration: CreateConfiguration(
       useWindowPositionAndSize: true,
       userDataFolderWindows: "${App.dataPath}\\webview",
-      title: "webview",
+      title: "webview".tl,
       proxy: await getProxy(),
     ));
     _webview!.addOnWebMessageReceivedCallback(onMessage);

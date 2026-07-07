@@ -33,7 +33,6 @@ import 'package:kong_comic/foundation/res.dart';
 import 'package:kong_comic/network/images.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/clipboard_image.dart';
-import 'package:kong_comic/utils/data_sync.dart';
 import 'package:kong_comic/utils/ext.dart';
 import 'package:kong_comic/utils/file_type.dart';
 import 'package:kong_comic/utils/io.dart';
@@ -188,6 +187,7 @@ class _ReaderState extends State<Reader>
 
   @override
   void initState() {
+    super.initState();
     page = widget.initialPage ?? 1;
     if (page < 1) {
       page = 1;
@@ -196,18 +196,11 @@ class _ReaderState extends State<Reader>
     if (chapter < 1) {
       chapter = 1;
     }
-    if (widget.initialChapterGroup != null) {
+    if (widget.initialChapterGroup != null && widget.chapters != null) {
       for (int i = 0; i < (widget.initialChapterGroup! - 1); i++) {
         chapter += widget.chapters!.getGroupByIndex(i).length;
       }
     }
-    if (widget.initialPage != null) {
-      page = widget.initialPage!;
-      if (page < 1) {
-        page = 1;
-      }
-    }
-    // mode = ReaderMode.fromKey(appdata.settings['readerMode']);
     mode = ReaderMode.fromKey(
       appdata.settings.getReaderSetting(cid, type.sourceKey, 'readerMode'),
     );
@@ -228,9 +221,9 @@ class _ReaderState extends State<Reader>
     }
     setImageCacheSize();
     Future.delayed(const Duration(milliseconds: 200), () {
+      if (!mounted) return;
       LocalFavoritesManager().onRead(cid, type);
     });
-    super.initState();
   }
 
   bool _isInitialized = false;
@@ -270,16 +263,12 @@ class _ReaderState extends State<Reader>
 
   @override
   void dispose() {
-    if (isFullscreen) {
-      fullscreen();
-    }
     autoPageTurningTimer?.cancel();
+    _updateHistoryTimer?.cancel();
+    _animationTimer?.cancel();
     focusNode.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     stopVolumeEvent();
-    Future.microtask(() {
-      DataSync().onDataChanged();
-    });
     PaintingBinding.instance.imageCache.maximumSizeBytes = 100 << 20;
     disposeReaderWindow();
     super.dispose();
@@ -406,8 +395,9 @@ class _ReaderState extends State<Reader>
   /// Get the size of the reader.
   /// The size is not always the same as the size of the screen.
   Size get size {
-    var renderBox = context.findRenderObject() as RenderBox;
-    return renderBox.size;
+    final renderObject = context.findRenderObject();
+    if (renderObject == null) return Size.zero;
+    return (renderObject as RenderBox).size;
   }
 }
 
@@ -589,7 +579,7 @@ abstract mixin class _VolumeListener {
   }
 }
 
-abstract mixin class _ReaderLocation {
+mixin _ReaderLocation on State<Reader> {
   int _page = 1;
   int? _pendingPage;
 
@@ -677,6 +667,8 @@ abstract mixin class _ReaderLocation {
 
   int _animationCount = 0;
 
+  Timer? _animationTimer;
+
   bool toPage(int page) {
     if (_validatePage(page)) {
       if (page == this.page && page != 1 && page != totalPages) {
@@ -685,18 +677,20 @@ abstract mixin class _ReaderLocation {
       final hasAnimation = enablePageAnimation(cid, type);
       if (hasAnimation) {
         _pendingPage = page;
-        _animationCount = 0; // 重置计数，防止拖动时动画取消导致卡死
+        _animationCount = 0;
         _animationCount++;
+        _animationTimer?.cancel();
         update();
-        _imageViewController!.animateToPage(page).then((_) {
+        (_imageViewController?.animateToPage(page) ?? Future.value()).then((_) {
+          if (!mounted) return;
           _animationCount--;
           if (_pendingPage == page) {
             _pendingPage = null;
           }
           update();
         });
-        // 超时保险：3秒后强制清除动画标记
-        Future.delayed(const Duration(seconds: 3), () {
+        _animationTimer = Timer(const Duration(seconds: 3), () {
+          if (!mounted) return;
           if (_animationCount > 0) {
             _animationCount = 0;
             _pendingPage = null;
@@ -753,6 +747,7 @@ abstract mixin class _ReaderLocation {
         type.sourceKey,
         'autoPageTurningInterval',
       );
+      if (interval < 1) interval = 5;
       autoPageTurningTimer = Timer.periodic(Duration(seconds: interval), (_) {
         if (page == maxPage) {
           autoPageTurningTimer!.cancel();

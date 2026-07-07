@@ -1,12 +1,22 @@
 part of 'comic_page.dart';
 
+List<String> _lowerBlockedWords = const [];
+
+void _ensureBlockedWordsCache() {
+  final words = appdata.settings["blockedCommentWords"] as List?;
+  if (words == null || words.isEmpty) {
+    _lowerBlockedWords = const [];
+    return;
+  }
+  _lowerBlockedWords = words.map((w) => w.toString().toLowerCase()).toList();
+}
+
 bool _shouldBlockComment(Comment comment) {
-  var blockedWords = appdata.settings["blockedCommentWords"] as List;
-  if (blockedWords.isEmpty) return false;
-  
+  _ensureBlockedWordsCache();
+  if (_lowerBlockedWords.isEmpty) return false;
   var content = comment.content.toLowerCase();
-  for (var word in blockedWords) {
-    if (content.contains(word.toString().toLowerCase())) {
+  for (var word in _lowerBlockedWords) {
+    if (content.contains(word)) {
       return true;
     }
   }
@@ -81,7 +91,7 @@ class _CommentsPageState extends State<CommentsPage> {
       return;
     }
     if (res.error) {
-      context.showMessage(message: res.errorMessage ?? "Unknown Error");
+      context.showMessage(message: res.errorMessage ?? "Unknown Error".tl);
     } else {
       var filteredComments =
           res.data.where((c) => !_shouldBlockComment(c)).toList();
@@ -272,7 +282,7 @@ class _CommentsPageState extends State<CommentsPage> {
                       maxPage = null;
                     });
                   } else {
-                    context.showMessage(message: b.errorMessage ?? "Error");
+                    context.showMessage(message: b.errorMessage ?? "Error".tl);
                     setState(() {
                       sending = false;
                     });
@@ -461,7 +471,7 @@ class _CommentTileState extends State<_CommentTile> {
             isLiked = !isLiked;
             likes += isLiked ? 1 : -1;
           } else {
-            context.showMessage(message: res.errorMessage ?? "Error");
+            context.showMessage(message: res.errorMessage ?? "Error".tl);
           }
           setState(() {
             isLiking = false;
@@ -529,7 +539,7 @@ class _CommentTileState extends State<_CommentTile> {
       widget.comment.voteStatus = voteStatus;
       widget.comment.score = res.data ?? widget.comment.score;
     } else {
-      context.showMessage(message: res.errorMessage ?? "Error");
+      context.showMessage(message: res.errorMessage ?? "Error".tl);
     }
     setState(() {
       isVotingUp = false;

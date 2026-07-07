@@ -99,7 +99,7 @@ class _AppSettingsState extends State<AppSettings> {
         ).toSliver(),
         _CallbackSetting(
           title: "Cache Limit".tl,
-          subtitle: "${appdata.settings['cacheSize']} MB",
+          subtitle: "${appdata.settings['cacheSize']} ${"MB".tl}",
           callback: () {
             showInputDialog(
               context: context,
@@ -409,14 +409,14 @@ class _WebdavSettingState extends State<_WebdavSetting> {
   @override
   Widget build(BuildContext context) {
     return PopUpWidgetScaffold(
-      title: "Webdav",
+      title: "Webdav".tl,
       body: SingleChildScrollView(
         child: Column(
           children: [
             const SizedBox(height: 12),
             TextField(
               decoration: InputDecoration(
-                labelText: "URL",
+                labelText: "URL".tl,
                 hintText: "A valid WebDav directory URL".tl,
                 border: OutlineInputBorder(),
               ),

@@ -18,6 +18,7 @@ import 'package:archive/archive.dart' hide ZipFile;
 import 'package:path/path.dart' as p;
 import 'package:zip_flutter/zip_flutter.dart';
 
+import 'package:kong_comic/utils/translations.dart';
 import 'file_downloader.dart';
 abstract class DownloadTask with ChangeNotifier {
   /// 0-1
@@ -149,7 +150,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       return;
     }
     _isRunning = false;
-    _message = "Paused";
+    _message = "Paused".tl;
     _currentSpeed = 0;
     var shouldMove = <int>[];
     for (var entry in tasks.entries) {
@@ -172,7 +173,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
 
   bool _isError = false;
 
-  String _message = "Fetching comic info...";
+  String _message = "Fetching comic info...".tl;
 
   String? _cover;
 
@@ -197,6 +198,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       (appdata.settings["downloadThreads"] as num).toInt();
 
   void _scheduleTasks() {
+    if (_images == null) return;
     var images = _images![_images!.keys.elementAt(_chapter)]!;
     var downloading = 0;
     for (var i = _index; i < images.length; i++) {
@@ -246,13 +248,13 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
   void resume() async {
     if (_isRunning) return;
     _isError = false;
-    _message = "Resuming...";
+    _message = "Resuming...".tl;
     _isRunning = true;
     notifyListeners();
     runRecorder();
 
     if (comic == null) {
-      _message = "Fetching comic info...";
+      _message = "Fetching comic info...".tl;
       notifyListeners();
       var res = await _runWithRetry(() async {
         var r = await source.loadComicInfo!(comicId);
@@ -266,7 +268,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         return;
       }
       if (res.error) {
-        _setError("Error: ${res.errorMessage}");
+        _setError("${"Error".tl}: ${res.errorMessage}");
         return;
       } else {
         comic = res.data;
@@ -286,7 +288,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         path = dir.path;
       } catch (e, s) {
         Log.error("Download", e.toString(), s);
-        _setError("Error: $e");
+        _setError("${"Error".tl}: $e");
         return;
       }
     }
@@ -294,7 +296,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
     await LocalManager().saveCurrentDownloadingTasks();
 
     if (_cover == null) {
-      _message = "Downloading cover...";
+      _message = "Downloading cover...".tl;
       notifyListeners();
       var res = await _runWithRetry(() async {
         Uint8List? data;
@@ -314,7 +316,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       });
       if (res.error) {
         Log.error("Download", res.errorMessage!);
-        _setError("Error: ${res.errorMessage}");
+        _setError("${"Error".tl}: ${res.errorMessage}");
         return;
       } else {
         _cover = res.data;
@@ -325,7 +327,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
 
     if (_images == null) {
       if (comic!.chapters == null) {
-        _message = "Fetching image list...";
+        _message = "Fetching image list...".tl;
         notifyListeners();
         var res = await _runWithRetry(() async {
           var r = await source.loadComicPages!(comicId, null);
@@ -340,7 +342,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         }
         if (res.error) {
           Log.error("Download", res.errorMessage!);
-          _setError("Error: ${res.errorMessage}");
+          _setError("${"Error".tl}: ${res.errorMessage}");
           return;
         } else {
           _images = {'': res.data};
@@ -360,7 +362,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
             _totalCount += _images![i]!.length;
             continue;
           }
-          _message = "Fetching image list ($cpCount/$totalCpCount)...";
+          _message = "${"Fetching image list".tl} ($cpCount/$totalCpCount)...";
           notifyListeners();
           var res = await _runWithRetry(() async {
             var r = await source.loadComicPages!(comicId, i);
@@ -375,7 +377,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
           }
           if (res.error) {
             Log.error("Download", res.errorMessage!);
-            _setError("Error: ${res.errorMessage}");
+            _setError("${"Error".tl}: ${res.errorMessage}");
             return;
           } else {
             _images![i] = res.data;
@@ -388,6 +390,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       await LocalManager().saveCurrentDownloadingTasks();
     }
 
+    if (_images == null) return;
     while (_chapter < _images!.length) {
       var images = _images![_images!.keys.elementAt(_chapter)]!;
       tasks.clear();
@@ -400,7 +403,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         }
         if (task.error != null) {
           Log.error("Download", task.error.toString());
-          _setError("Error: ${task.error}");
+          _setError("${"Error".tl}: ${task.error}");
           return;
         }
         _index++;
@@ -725,7 +728,7 @@ class ArchiveDownloadTask extends DownloadTask {
 
   FileDownloader? _downloader;
 
-  String _message = "Fetching comic info...";
+  String _message = "Fetching comic info...".tl;
 
   bool _isRunning = false;
 
@@ -777,7 +780,7 @@ class ArchiveDownloadTask extends DownloadTask {
   @override
   void pause() {
     _isRunning = false;
-    _message = "Paused";
+    _message = "Paused".tl;
     _downloader?.stop();
     notifyListeners();
   }
@@ -794,7 +797,7 @@ class ArchiveDownloadTask extends DownloadTask {
     _isError = false;
     _isRunning = true;
     notifyListeners();
-    _message = "Downloading...";
+    _message = "Downloading...".tl;
 
     if (path == null) {
       var dir = await LocalManager().findValidDirectory(
@@ -806,7 +809,7 @@ class ArchiveDownloadTask extends DownloadTask {
         try {
           await dir.create();
         } catch (e) {
-          _setError("Error: $e");
+          _setError("${"Error".tl}: $e");
           return;
         }
       }
@@ -833,7 +836,7 @@ class ArchiveDownloadTask extends DownloadTask {
         notifyListeners();
       }
     } catch (e) {
-      _setError("Error: $e");
+      _setError("${"Error".tl}: $e");
       return;
     }
 
@@ -842,14 +845,14 @@ class ArchiveDownloadTask extends DownloadTask {
     }
 
     if (!isDownloaded) {
-      _setError("Error: Download failed");
+      _setError("${"Error".tl}: ${"Download failed".tl}");
       return;
     }
 
     try {
       await _extractArchive(archiveFile.path, path!);
     } catch (e) {
-      _setError("Failed to extract archive: $e");
+      _setError("${"Failed to extract archive".tl}: $e");
       return;
     }
 
@@ -944,20 +947,20 @@ class ArchiveDownloadTask extends DownloadTask {
 Future<Uint8List> _buildCbzFromDir(Directory dir) async {
   final archive = Archive();
 
-  void addEntries(Directory d, String prefix) {
-    for (final entity in d.listSync(recursive: false, followLinks: false)) {
+  Future<void> addEntries(Directory d, String prefix) async {
+    await for (final entity in d.list(recursive: false, followLinks: false)) {
       final name = p.basename(entity.path);
       final entryPath = prefix.isEmpty ? name : '$prefix/$name';
       if (entity is File) {
-        final bytes = entity.readAsBytesSync();
+        final bytes = await entity.readAsBytes();
         archive.addFile(ArchiveFile(entryPath, bytes.length, bytes));
       } else if (entity is Directory) {
-        addEntries(entity, entryPath);
+        await addEntries(entity, entryPath);
       }
     }
   }
 
-  addEntries(dir, '');
+  await addEntries(dir, '');
   final encoded = ZipEncoder().encode(archive);
   return Uint8List.fromList(encoded);
 }

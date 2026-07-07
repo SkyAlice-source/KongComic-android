@@ -60,7 +60,10 @@ class AppUpdate {
     if (version.isEmpty) {
       throw Exception("Empty tag_name in release");
     }
-    if (!_isNewerVersion(version.split("+").first, App.appVersion)) {
+    // Strip pre-release (-beta, -rc.1) and build metadata (+build123)
+    // so that only the core numeric segments are compared.
+    final coreVersion = version.split(RegExp(r'[-+]')).first;
+    if (!_isNewerVersion(coreVersion, App.appVersion)) {
       return null;
     }
     final body = (data["body"] as String?) ?? "";
@@ -84,7 +87,7 @@ class AppUpdate {
       }
     }
     return AppUpdateInfo(
-      latestVersion: version.split("+").first,
+      latestVersion: coreVersion,
       releaseNotes: body,
       abiDownloads: downloads,
     );
@@ -124,11 +127,6 @@ class AppUpdate {
     }
     final filename = "KongComic-${info.latestVersion}.apk";
     final savePath = FilePath.join(cacheDir.path, filename);
-    // Clean up any leftover state from a previous attempt.
-    final staleDownload = File("$savePath.download");
-    if (staleDownload.existsSync()) {
-      staleDownload.deleteSync();
-    }
 
     final downloader = FileDownloader(url, savePath);
     if (handle != null) {
@@ -173,6 +171,17 @@ class AppUpdate {
     final apk = File(savePath);
     if (!apk.existsSync() || apk.lengthSync() == 0) {
       throw Exception("Downloaded APK is missing or empty");
+    }
+    // Lightweight integrity check: verify the APK's ZIP magic header.
+    final raf = apk.openSync();
+    final magic = raf.readSync(4);
+    raf.closeSync();
+    if (magic.length < 4 ||
+        magic[0] != 0x50 ||
+        magic[1] != 0x4B ||
+        magic[2] != 0x03 ||
+        magic[3] != 0x04) {
+      throw Exception("Downloaded APK is corrupted");
     }
     final ok = await App.installApk(savePath);
     if (!ok) {

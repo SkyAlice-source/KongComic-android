@@ -3,7 +3,7 @@ part of 'components.dart';
 ImageProvider? _findImageProvider(Comic comic) {
   // 自定义封面优先
   final customPath = CustomCoverManager.getCustomCoverPath(comic.sourceKey, comic.id);
-  if (customPath != null && File(customPath).existsSync()) {
+  if (customPath != null && CustomCoverManager.coverFileExists(customPath)) {
     return FileImage(File(customPath));
   }
 
@@ -158,10 +158,10 @@ class ComicTile extends StatelessWidget {
 
     var isFavorite = appdata.settings['showFavoriteStatusOnTile']
         ? LocalFavoritesManager()
-            .isExist(comic.id, ComicType(comic.sourceKey.hashCode))
+            .isExist(comic.id, ComicType.fromKey(comic.sourceKey))
         : false;
     var history = appdata.settings['showHistoryStatusOnTile']
-        ? HistoryManager().find(comic.id, ComicType(comic.sourceKey.hashCode))
+        ? HistoryManager().find(comic.id, ComicType.fromKey(comic.sourceKey))
         : null;
     // Use pre-computed values when available (from SliverGridComics batch query)
     if (this.isFavorite != null) {
@@ -176,61 +176,62 @@ class ComicTile extends StatelessWidget {
       return child;
     }
 
+    final leftPad = type == 'detailed' ? 16.0 : 6.0;
+    const ringSize = 22.0;
+
+    Widget? favBadge;
+    if (isFavorite) {
+      favBadge = Positioned(
+        left: leftPad,
+        top: 8,
+        child: Container(
+          width: ringSize,
+          height: ringSize,
+          decoration: const BoxDecoration(
+            color: Colors.green,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.check, size: 14, color: Colors.white),
+        ),
+      );
+    }
+
+    Widget? histBadge;
+    if (history != null) {
+      final label = history.maxPage != null && history.maxPage! > 0
+          ? "${(history.page * 100 / history.maxPage!).clamp(0, 100).toInt()}"
+          : "${history.ep}";
+      histBadge = Positioned(
+        left: leftPad + (isFavorite ? ringSize + 4 : 0),
+        top: 8,
+        child: Container(
+          width: ringSize,
+          height: ringSize,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.65),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
     return Stack(
       children: [
-        Positioned.fill(
-          child: child,
-        ),
-        if (isFavorite || history != null)
-          Positioned(
-            left: type == 'detailed' ? 16 : 6,
-            top: 8,
-            child: Container(
-              height: 24,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                color: Colors.black.toOpacity(0.6),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isFavorite)
-                    Container(
-                      height: 24,
-                      width: 24,
-                      color: Colors.green.toOpacity(0.85),
-                      child: const Icon(
-                        Icons.bookmark_rounded,
-                        size: 15,
-                        color: Colors.white,
-                      ),
-                    ),
-                  if (history != null)
-                    Container(
-                      height: 24,
-                      color: Colors.blue.toOpacity(0.85),
-                      constraints: const BoxConstraints(minWidth: 22),
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      alignment: Alignment.center,
-                      child: Text(
-                        history.maxPage != null && history.maxPage! > 0
-                            ? "${(history.page * 100 / history.maxPage!).clamp(0, 100).toInt()}%"
-                            : "${history.ep}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
+        Positioned.fill(child: child),
+        if (favBadge != null) favBadge,
+        if (histBadge != null) histBadge,
       ],
     );
   }
@@ -242,12 +243,31 @@ class ComicTile extends StatelessWidget {
     }
     // 自定义封面变化时强制重建 AnimatedImage
     final customKey = CustomCoverManager.getCustomCoverPath(comic.sourceKey, comic.id);
-    return AnimatedImage(
-      key: ValueKey(customKey ?? '${comic.sourceKey}_${comic.id}'),
-      image: image,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: double.infinity,
+    // Decode covers at (at most) the on-screen size * devicePixelRatio so a
+    // 1200px-wide network cover doesn't get fully decoded for a ~160px grid
+    // cell. This cuts per-cover RAM and decode time on the busiest screens
+    // (home / favorites / search grids) and keeps scrolling smooth.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dpr = MediaQuery.of(context).devicePixelRatio;
+        int? cacheWidth;
+        int? cacheHeight;
+        if (constraints.hasBoundedWidth && constraints.maxWidth.isFinite) {
+          cacheWidth = (constraints.maxWidth * dpr).ceil().clamp(24, 512);
+        }
+        if (constraints.hasBoundedHeight && constraints.maxHeight.isFinite) {
+          cacheHeight = (constraints.maxHeight * dpr).ceil().clamp(24, 512);
+        }
+        return AnimatedImage(
+          key: ValueKey(customKey ?? '${comic.sourceKey}_${comic.id}'),
+          image: image,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
+        );
+      },
     );
   }
 
@@ -704,9 +724,15 @@ class SliverGridComics extends StatefulWidget {
       this.menuBuilder,
       this.onTap,
       this.onLongPressed,
-      this.selections});
+      this.selections,
+      this.allFavorite = false});
 
   final List<Comic> comics;
+
+  /// When true, every comic is treated as favorited (used by network
+  /// favorites folders where all listed comics are already in a favorite
+  /// folder). Skips the LocalFavoritesManager lookup.
+  final bool allFavorite;
 
   final Map<Comic, bool>? selections;
 
@@ -758,8 +784,9 @@ class _SliverGridComicsState extends State<SliverGridComics> {
 
     if (showFavorite) {
       for (var comic in comics) {
-        _favoriteStatus[comic.id] = LocalFavoritesManager()
-            .isExist(comic.id, ComicType(comic.sourceKey.hashCode));
+        _favoriteStatus[comic.id] = widget.allFavorite ||
+            LocalFavoritesManager()
+                .isExist(comic.id, ComicType.fromKey(comic.sourceKey));
       }
     }
 
@@ -827,6 +854,7 @@ class _SliverGridComicsState extends State<SliverGridComics> {
       onLongPressed: widget.onLongPressed,
       favoriteStatus: _favoriteStatus,
       historyStatus: _historyStatus,
+      allFavorite: widget.allFavorite,
     );
   }
 }
@@ -843,7 +871,9 @@ class _SliverGridComics extends StatelessWidget {
     this.selection,
     this.favoriteStatus,
     this.historyStatus,
+    this.allFavorite = false,
   });
+
 
   final List<Comic> comics;
 
@@ -864,6 +894,8 @@ class _SliverGridComics extends StatelessWidget {
   final Map<String, bool>? favoriteStatus;
 
   final Map<String, History>? historyStatus;
+
+  final bool allFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -952,6 +984,7 @@ class ComicList extends StatefulWidget {
     this.controller,
     this.refreshHandlerCallback,
     this.enablePageStorage = false,
+    this.allFavorite = false,
   });
 
   final Future<Res<List<Comic>>> Function(int page)? loadPage;
@@ -971,6 +1004,10 @@ class ComicList extends StatefulWidget {
   final void Function(VoidCallback c)? refreshHandlerCallback;
 
   final bool enablePageStorage;
+
+  /// When true, every comic is treated as favorited (used by network
+  /// favorites folders). Skips the LocalFavoritesManager lookup.
+  final bool allFavorite;
 
   @override
   State<ComicList> createState() => ComicListState();
@@ -1119,7 +1156,7 @@ class ComicListState extends State<ComicList> {
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Text("Page $_page / ${_maxPage ?? '?'}"),
+                  child: Text("Page @page / @maxPage".tlParams({"page": _page, "maxPage": _maxPage ?? '?'})),
                 ),
               ),
             ),
@@ -1152,6 +1189,7 @@ class ComicListState extends State<ComicList> {
       Future.microtask(() {
         setState(() {});
       });
+      return;
     }
     if (_data[page] != null || _loading[page] == true) {
       return;
@@ -1260,6 +1298,7 @@ class ComicListState extends State<ComicList> {
         SliverGridComics(
           comics: _data[_page] ?? const [],
           menuBuilder: widget.menuBuilder,
+          allFavorite: widget.allFavorite,
         ),
         if (_data[_page]!.length > 6 && _maxPage != 1)
           _buildSliverPageSelector(),
@@ -1309,6 +1348,7 @@ class ComicListState extends State<ComicList> {
         SliverGridComics(
           comics: _data.values.expand((element) => element).toList(),
           menuBuilder: widget.menuBuilder,
+          allFavorite: widget.allFavorite,
           onLastItemBuild: () {
             if (_error == null && (_maxPage == null || _data.length < _maxPage!)) {
               _loadPage(_data.length + 1);
@@ -1658,6 +1698,12 @@ class SimpleComicTile extends StatelessWidget {
             height: double.infinity,
             fit: BoxFit.cover,
             filterQuality: FilterQuality.medium,
+            cacheWidth: (98 * MediaQuery.of(context).devicePixelRatio)
+                .ceil()
+                .clamp(24, 400),
+            cacheHeight: (136 * MediaQuery.of(context).devicePixelRatio)
+                .ceil()
+                .clamp(24, 400),
           );
 
     child = Container(
@@ -1740,6 +1786,7 @@ class PaginatedSliverGridComics extends StatefulWidget {
     this.onTap,
     this.onLongPressed,
     this.onLoadedComicsChanged,
+    this.allFavorite = false,
   });
 
   /// Loads a page of comics starting at [offset].
@@ -1765,6 +1812,9 @@ class PaginatedSliverGridComics extends StatefulWidget {
   /// Called whenever the loaded comics list changes (page loaded or refresh).
   /// The parent can use this to track loaded comics for invertSelection etc.
   final void Function(List<Comic> loadedComics)? onLoadedComicsChanged;
+
+  /// When true, every comic is treated as favorited (network favorites folders).
+  final bool allFavorite;
 
   @override
   State<PaginatedSliverGridComics> createState() =>
@@ -1833,8 +1883,9 @@ class PaginatedSliverGridComicsState
     if (showFavorite) {
       for (var comic in newComics) {
         if (isBlocked(comic) == null) {
-          _favoriteStatus[comic.id] = LocalFavoritesManager()
-              .isExist(comic.id, ComicType(comic.sourceKey.hashCode));
+          _favoriteStatus[comic.id] = widget.allFavorite ||
+              LocalFavoritesManager()
+                  .isExist(comic.id, ComicType.fromKey(comic.sourceKey));
         }
       }
     }
@@ -1887,9 +1938,9 @@ class PaginatedSliverGridComicsState
 
     // Empty state
     if (_comics.isEmpty && !_hasMore) {
-      return const SliverFillRemaining(
+      return SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(child: Text('No comics')),
+        child: Center(child: Text('No comics'.tl)),
       );
     }
 

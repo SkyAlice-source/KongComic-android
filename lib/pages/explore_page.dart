@@ -28,7 +28,7 @@ class _ExplorePageState extends State<ExplorePage>
   late List<String> pages;
 
   void onSettingsChanged() {
-    var explorePages = List<String>.from(appdata.settings["explore_pages"]);
+    var explorePages = List<String>.from(appdata.settings["explore_pages"] ?? []);
     var all = ComicSource.all()
         .map((e) => e.explorePages)
         .expand((e) => e.map((e) => e.title))
@@ -148,6 +148,7 @@ class _ExplorePageState extends State<ExplorePage>
     }
 
     Widget tabBar = Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: AppTabBar(
         key: PageStorageKey(pages.toString()),
         tabs: pages.map((e) => buildTab(e)).toList(),
@@ -318,8 +319,8 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
         },
       );
     } else {
-      return const Center(
-        child: Text("Empty Page"),
+      return Center(
+        child: Text("Empty Page".tl),
       );
     }
   }

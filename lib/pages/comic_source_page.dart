@@ -73,31 +73,36 @@ class ComicSourcePage extends StatelessWidget {
     if (ComicSource.all().isEmpty) {
       return 0;
     }
-    var dio = AppDio();
-    var res = await dio.get<String>(appdata.settings['comicSourceListUrl']);
-    if (res.statusCode != 200) {
+    try {
+      var dio = AppDio();
+      var res = await dio.get<String>(appdata.settings['comicSourceListUrl']);
+      if (res.statusCode != 200) {
+        return -1;
+      }
+      var list = jsonDecode(res.data ?? "null") as List?;
+      if (list == null) return -1;
+      var versions = <String, String>{};
+      for (var source in list) {
+        versions[source['key']] = source['version'];
+      }
+      var shouldUpdate = <String>[];
+      for (var source in ComicSource.all()) {
+        if (versions.containsKey(source.key) &&
+            compareSemVer(versions[source.key]!, source.version)) {
+          shouldUpdate.add(source.key);
+        }
+      }
+      if (shouldUpdate.isNotEmpty) {
+        var updates = <String, String>{};
+        for (var key in shouldUpdate) {
+          updates[key] = versions[key]!;
+        }
+        ComicSourceManager().updateAvailableUpdates(updates);
+      }
+      return shouldUpdate.length;
+    } catch (e) {
       return -1;
     }
-    var list = jsonDecode(res.data!) as List;
-    var versions = <String, String>{};
-    for (var source in list) {
-      versions[source['key']] = source['version'];
-    }
-    var shouldUpdate = <String>[];
-    for (var source in ComicSource.all()) {
-      if (versions.containsKey(source.key) &&
-          compareSemVer(versions[source.key]!, source.version)) {
-        shouldUpdate.add(source.key);
-      }
-    }
-    if (shouldUpdate.isNotEmpty) {
-      var updates = <String, String>{};
-      for (var key in shouldUpdate) {
-        updates[key] = versions[key]!;
-      }
-      ComicSourceManager().updateAvailableUpdates(updates);
-    }
-    return shouldUpdate.length;
   }
 
   @override
@@ -221,7 +226,7 @@ class _BodyState extends State<_Body> {
             ),
             TextField(
               decoration: InputDecoration(
-                hintText: "URL",
+                hintText: "URL".tl,
                 border: const UnderlineInputBorder(),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 suffix: IconButton(
@@ -422,7 +427,7 @@ class _ComicSourceListState extends State<_ComicSourceList> {
                 TextField(
                   controller: controller,
                   decoration: InputDecoration(
-                    hintText: "URL",
+                    hintText: "URL".tl,
                     border: const UnderlineInputBorder(),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
@@ -740,7 +745,7 @@ class _CallbackSetting extends StatefulWidget {
 class _CallbackSettingState extends State<_CallbackSetting> {
   String get key => widget.setting.key;
 
-  String get buttonText => widget.setting.value['buttonText'] ?? "Click";
+  String get buttonText => widget.setting.value['buttonText'] ?? "Click".tl;
 
   String get title => widget.setting.value['title'] ?? key;
 

@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart' as s;
 import 'package:file_selector/file_selector.dart' as file_selector;
 import 'package:kong_comic/utils/file_type.dart';
+import 'package:kong_comic/utils/translations.dart';
 
 export 'dart:io';
 export 'dart:typed_data';
@@ -301,7 +302,7 @@ Future<FileSelectResult?> selectFile({required List<String> ext}) async {
     }
     if (!ext.any((e) => file!.path.toLowerCase().endsWith(".$e"))) {
       App.rootContext.showMessage(
-        message: "Invalid file type: ${file.path.split(".").last}",
+        message: "${"Invalid file type".tl}: ${file.path.split(".").last}",
       );
       return null;
     }

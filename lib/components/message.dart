@@ -239,7 +239,7 @@ LoadingDialogController showLoadingDialog(
           });
         };
         return ContentDialog(
-          title: controller._message ?? 'Loading',
+          title: controller._message ?? 'Loading'.tl,
           content: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             child: ClipRRect(
@@ -408,7 +408,7 @@ Future<void> showInputDialog({
                 onPressed: () async {
                   if (inputValidator != null &&
                       !inputValidator.hasMatch(controller.text)) {
-                    setState(() => error = "Invalid input");
+                    setState(() => error = "Invalid input".tl);
                     return;
                   }
                   var futureOr = onConfirm(controller.text);

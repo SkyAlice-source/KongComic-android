@@ -35,8 +35,6 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _bannerKey = UniqueKey();
     });
-    // Allow the banner to rebuild and load new comics
-    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   @override
@@ -44,7 +42,17 @@ class _HomePageState extends State<HomePage> {
     var widget = LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight;
-        final bannerHeight = (availableHeight - 380).clamp(260.0, 420.0);
+        // dock 浮层高度（含底部安全区），内容需避让以免被遮挡
+        final dockHeight = 58.0 + MediaQuery.of(context).padding.bottom;
+        // 中间卡片内在高度：主卡宽 sw*0.54、高 cardW*1.4
+        final sw = MediaQuery.of(context).size.width;
+        final cardW = sw * 0.54;
+        final cardHeight = cardW * 1.4;
+        // 可用内容区高度（减去顶部状态栏和底部dock）
+        final contentArea = availableHeight - context.padding.top - dockHeight;
+        // 按比例分配：banner 占内容区 ~42%，其余 58% 给信息区+按钮+两行框
+        // 这样无论分辨率如何，整块英雄区都能完整显示在一屏内
+        final bannerHeight = (contentArea * 0.42).clamp(cardHeight * 0.8, cardHeight * 1.15);
         return _BannerProvider(
           bannerHeight: bannerHeight,
           child: RefreshIndicator(
@@ -56,7 +64,7 @@ class _HomePageState extends State<HomePage> {
                 _ComicInfoSection(currentComicNotifier: _currentComic),
                 const _HomeCapsules(),
                 const _BottomModules(),
-                SliverPadding(padding: EdgeInsets.only(top: context.padding.bottom)),
+                SliverPadding(padding: EdgeInsets.only(bottom: dockHeight)),
               ],
             ),
           ),
@@ -212,8 +220,6 @@ final opacity = 1.0;
                   border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0),
                   boxShadow: [
                     BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
-                    BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(-4, 0)),
-                    BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(4, 0)),
                   ],
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -238,8 +244,6 @@ final opacity = 1.0;
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
-            BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(-4, 0)),
-            BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 12, offset: const Offset(4, 0)),
           ],
           borderRadius: BorderRadius.circular(12),
         ),
@@ -296,8 +300,10 @@ class _ComicInfoSection extends StatelessWidget {
         if (comic == null) return const SliverToBoxAdapter(child: SizedBox());
         final cs = Theme.of(context).colorScheme;
         final history = HistoryManager().find(comic.id, comic.type);
-        final progress = history != null && history.maxPage != null && history.maxPage! > 0
-            ? "${(history.page * 100 / history.maxPage!).clamp(0, 100).toInt()}%"
+        final progress = history != null
+            ? "Chapter %s · %s chapters read".tl
+                .replaceFirst("%s", "${history.ep}")
+                .replaceFirst("%s", "${history.readEpisode.length}")
             : null;
         final updatedTime = comic.time.isNotEmpty ? comic.time.substring(0, 10) : null;
         return SliverToBoxAdapter(child: Padding(
@@ -316,7 +322,7 @@ class _ComicInfoSection extends StatelessWidget {
                   style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
             if (progress != null)
               Padding(padding: const EdgeInsets.only(bottom: 4),
-                child: Text("Reading progress %s".tl.replaceAll("%s", progress), style: TextStyle(fontSize: 13, color: cs.onSurface))),
+                child: Text(progress, style: TextStyle(fontSize: 13, color: cs.onSurface))),
             Text("Total %s chapters".tl.replaceAll("%s", "${history?.maxPage ?? '?'}"), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
             if (updatedTime != null)
               Padding(padding: const EdgeInsets.only(top: 4),

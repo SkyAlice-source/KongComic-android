@@ -9,6 +9,7 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/favorites.dart';
+
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
@@ -21,6 +22,24 @@ import 'appdata.dart';
 import 'history.dart';
 
 class LocalComic with HistoryMixin implements Comic {
+  static List<String> _safeDecodeList(dynamic value) {
+    try {
+      return List.from(jsonDecode(value as String));
+    } catch (_) {
+      Log.error("LocalComic",
+          "Failed to decode list: ${value.toString().length > 200 ? value.toString().substring(0, 200) : value}");
+      return [];
+    }
+  }
+
+  static ComicChapters? _safeDecodeChapters(dynamic value) {
+    try {
+      return ComicChapters.fromJsonOrNull(jsonDecode(value as String));
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   final String id;
 
@@ -95,12 +114,12 @@ class LocalComic with HistoryMixin implements Comic {
       : id = row[0] as String,
         title = row[1] as String,
         subtitle = row[2] as String,
-        tags = List.from(jsonDecode(row[3] as String)),
+        tags = _safeDecodeList(row[3]),
         directory = row[4] as String,
-        chapters = ComicChapters.fromJsonOrNull(jsonDecode(row[5] as String)),
+        chapters = _safeDecodeChapters(row[5]),
         cover = row[6] as String,
         comicType = ComicType(row[7] as int),
-        downloadedChapters = List.from(jsonDecode(row[8] as String)),
+        downloadedChapters = _safeDecodeList(row[8]),
         createdAt = DateTime.fromMillisecondsSinceEpoch(row[9] as int);
 
   File get coverFile => File(FilePath.join(

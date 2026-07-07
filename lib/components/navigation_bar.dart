@@ -265,6 +265,7 @@ class NaviPaneState extends State<NaviPane>
 
   Widget buildTop() {
     return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Container(
         padding: const EdgeInsets.only(left: 16, right: 16),
         height: _kTopBarHeight,
@@ -290,9 +291,10 @@ class NaviPaneState extends State<NaviPane>
     );
   }
 
-  Widget buildBottom() {
+  Widget buildBottom(BuildContext context) {
     return GlassBottomBar(
       height: _kBottomBarHeight,
+      edgeToEdge: true,
       children: [
         ...List<Widget>.generate(widget.paneItems.length, (index) {
           return Expanded(
@@ -656,36 +658,101 @@ class _NaviMainView extends StatefulWidget {
 class _NaviMainViewState extends State<_NaviMainView> {
   NaviPaneState get state => widget.state;
 
+  bool _showBottomBar = true;
+  bool _showTopBar = true;
+  double _lastScrollOffset = 0;
+  int _lastPage = 0;
+
+  void onScroll(double offset) {
+    final diff = offset - _lastScrollOffset;
+    if (diff > 10 && (_showBottomBar || _showTopBar)) {
+      setState(() {
+        _showBottomBar = false;
+        _showTopBar = false;
+      });
+    } else if (diff < -10 && (!_showBottomBar || !_showTopBar)) {
+      setState(() {
+        _showBottomBar = true;
+        _showTopBar = true;
+      });
+    }
+    if (diff.abs() > 5) {
+      _lastScrollOffset = offset;
+    }
+  }
+
   @override
   void initState() {
     state.mainViewUpdateHandler = () {
       setState(() {});
     };
+    _lastPage = state.currentPage;
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     var shouldShowAppBar = state.controller.value < 2;
-    return Column(
-      children: [
-        if (shouldShowAppBar) state.buildTop().paddingTop(context.padding.top),
-        Expanded(
-          child: MediaQuery.removePadding(
-            context: context,
-            removeTop: shouldShowAppBar,
-            child: AnimatedSwitcher(
-              duration: _fastAnimationDuration,
-              child: state.buildMainViewContent(),
+
+    if (state.currentPage != _lastPage) {
+      _lastPage = state.currentPage;
+      _showBottomBar = true;
+      _showTopBar = true;
+      _lastScrollOffset = 0;
+    }
+
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              if (shouldShowAppBar)
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  alignment: Alignment.topCenter,
+                  child: _showTopBar
+                      ? state.buildTop().paddingTop(context.padding.top)
+                      : const SizedBox.shrink(),
+                ),
+              Expanded(
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: shouldShowAppBar,
+                  removeBottom: true,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollUpdateNotification) {
+                        onScroll(notification.metrics.pixels);
+                      }
+                      return false;
+                    },
+                    child: AnimatedSwitcher(
+                      duration: _fastAnimationDuration,
+                      child: state.buildMainViewContent(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (shouldShowAppBar)
+            Positioned(
+              left: 0.0,
+              right: 0.0,
+              bottom: 0.0,
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                alignment: Alignment.bottomCenter,
+                child: _showBottomBar
+                    ? state.buildBottom(context)
+                    : const SizedBox.shrink(),
+              ),
             ),
-          ),
-        ),
-        if (shouldShowAppBar)
-          Container(
-            color: Theme.of(context).colorScheme.surface,
-            child: state.buildBottom(),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

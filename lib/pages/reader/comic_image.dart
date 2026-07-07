@@ -84,9 +84,17 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
   Object? _lastException;
   ImageStreamCompleterHandle? _completerHandle;
 
-  static final Map<int, Size> _cache = {};
+  static final Map<String, Size> _cache = {};
+  static const int _maxCacheSize = 200;
 
   static clear() => _cache.clear();
+
+  static void _cacheSize(String key, Size size) {
+    if (_cache.length >= _maxCacheSize) {
+      _cache.remove(_cache.keys.first);
+    }
+    _cache[key] = size;
+  }
 
   @override
   void initState() {
@@ -98,7 +106,6 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    assert(_imageStream != null);
     WidgetsBinding.instance.removeObserver(this);
     _stopListeningToStream();
     _completerHandle?.dispose();
@@ -354,12 +361,11 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
       var height = widget.height;
 
       if (_imageInfo != null) {
-        // Record the height and the width of the image
-        _cache[widget.image.hashCode] = Size(_imageInfo!.image.width.toDouble(),
-            _imageInfo!.image.height.toDouble());
+        _cacheSize(widget.image.toString(), Size(_imageInfo!.image.width.toDouble(),
+            _imageInfo!.image.height.toDouble()));
       }
 
-      Size? cacheSize = _cache[widget.image.hashCode];
+      Size? cacheSize = _cache[widget.image.toString()];
       if (cacheSize != null) {
         if (width == double.infinity) {
           width = constrains.maxWidth;

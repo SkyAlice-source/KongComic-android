@@ -52,7 +52,7 @@ class _ReaderWithLoadingState
         ComicType.fromKey(widget.sourceKey),
       );
       if (localComic == null) {
-        return Res.error("comic not found");
+        return Res.error("comic not found".tl);
       }
       return Res(
         ReaderProps(

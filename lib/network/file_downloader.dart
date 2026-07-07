@@ -19,7 +19,10 @@ class FileDownloader {
 
   late int _fileSize;
 
-  final _dio = Dio();
+  final _dio = Dio()
+    ..options.connectTimeout = const Duration(seconds: 30)
+    ..options.receiveTimeout = const Duration(seconds: 30)
+    ..options.sendTimeout = const Duration(seconds: 30);
 
   RandomAccessFile? _file;
 

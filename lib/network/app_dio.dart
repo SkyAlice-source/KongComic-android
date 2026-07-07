@@ -27,7 +27,7 @@ class MyLogInterceptor implements Interceptor {
         var statusCode = err.response?.statusCode;
         if (statusCode != null) {
           err = err.copyWith(
-              message: "Invalid Status Code: $statusCode. "
+              message: "${"Invalid Status Code".tl}: $statusCode. "
                   "${_getStatusCodeInfo(statusCode)}");
         }
       case DioExceptionType.connectionTimeout:

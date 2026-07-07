@@ -15,6 +15,24 @@ class CustomCoverManager {
   /// 封面存储目录
   static String get _coversDir => p.join(App.dataPath, 'covers');
 
+  static final Set<String> _existingCovers = {};
+
+  /// Invalidate the existence cache (called by set/remove).
+  static void _invalidateExistsCache() {
+    _existingCovers.clear();
+  }
+
+  /// Check whether a custom cover file actually exists on disk.
+  /// Results are cached to avoid blocking the UI thread with sync I/O.
+  static bool coverFileExists(String path) {
+    if (_existingCovers.contains(path)) return true;
+    if (File(path).existsSync()) {
+      _existingCovers.add(path);
+      return true;
+    }
+    return false;
+  }
+
   /// 获取所有自定义封面映射（sourceKey@id → 本地文件路径）
   static Map<String, String> _getAll() {
     final data = appdata.implicitData[_key];
@@ -60,6 +78,7 @@ class CustomCoverManager {
       covers[key] = destPath;
       appdata.implicitData[_key] = covers;
       appdata.writeImplicitData();
+      _invalidateExistsCache();
       App.forceRebuild();
       return true;
     } catch (_) {
@@ -89,6 +108,7 @@ class CustomCoverManager {
     }
     appdata.implicitData[_key] = covers;
     appdata.writeImplicitData();
+    _invalidateExistsCache();
     App.forceRebuild();
   }
 
