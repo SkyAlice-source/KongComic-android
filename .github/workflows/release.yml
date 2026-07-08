@@ -1,0 +1,90 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # 推送 v1.0.0, v1.1.0 等 tag 时触发
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: pubspec.yaml
+          channel: 'stable'
+
+      - name: Restore dependencies
+        run: |
+          export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+          export PUB_HOSTED_URL=https://pub.flutter-io.cn
+          flutter pub get --verbose 2>&1
+
+      - name: Setup signing
+        run: |
+          # 从 GitHub Secrets 还原密钥库（确保证书一致，支持应用更新）
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            # 写入 base64 并清理空白字符（防止 GitHub Secrets 换行问题）
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | tr -d '\n\r\t ' > /tmp/keystore.b64
+            base64 -d /tmp/keystore.b64 > android/kongcomic-release.jks 2>/dev/null
+            # 验证文件是否有效（JKS 至少约 2.5KB）
+            JKS_SIZE=$(wc -c < android/kongcomic-release.jks 2>/dev/null || echo 0)
+            if [ "$JKS_SIZE" -gt 2000 ]; then
+              echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+              echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+              echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+              echo "storeFile=../kongcomic-release.jks" >> android/key.properties
+              echo "Signing configured from secrets (${JKS_SIZE} bytes)"
+            else
+              echo "Warning: Keystore file invalid (${JKS_SIZE} bytes), building without signing"
+              rm -f android/kongcomic-release.jks android/key.properties 2>/dev/null
+            fi
+          else
+            echo "Warning: No signing secrets configured, building without signature"
+          fi
+
+      - name: Build release APKs
+        run: |
+          export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+          export PUB_HOSTED_URL=https://pub.flutter-io.cn
+          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+
+      - name: Build universal APK
+        run: |
+          export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+          export PUB_HOSTED_URL=https://pub.flutter-io.cn
+          flutter build apk --release --android-skip-build-dependency-validation
+
+      # 重命名 APK
+      - name: Rename APKs
+        run: |
+          VERSION=$(grep 'flutter.versionName' android/local.properties | cut -d'=' -f2)
+          mkdir -p release-artifacts
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "release-artifacts/KongComic-${VERSION}-arm64-v8a.apk"
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "release-artifacts/KongComic-${VERSION}-armeabi-v7a.apk"
+          mv build/app/outputs/flutter-apk/app-x86_64-release.apk "release-artifacts/KongComic-${VERSION}-x86_64.apk"
+          mv build/app/outputs/flutter-apk/app-release.apk "release-artifacts/KongComic-${VERSION}-universal.apk"
+
+      # 上传到 GitHub Release
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          files: release-artifacts/*
+          generate_release_notes: true
+
+      # 如果 Release 上传失败，作为 artifact 保存
+      - name: Upload APKs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KongComic-APKs
+          path: release-artifacts/*
