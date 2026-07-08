@@ -12,6 +12,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:syntax_highlight/syntax_highlight.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/app_page_route.dart';
 import 'package:kong_comic/foundation/appdata.dart';
@@ -54,3 +55,71 @@ part 'comic.dart';
 part 'effects.dart';
 part 'gesture.dart';
 part 'code.dart';
+
+/// 统一的友好空状态组件 —— 用于各 tab 的"无数据"展示。
+/// 与 NetworkError（红色错误图标）区分：本组件传达"这里还没有内容"而非"出错了"。
+class EmptyState extends StatelessWidget {
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final Widget icon;
+  final String title;
+  final String? subtitle;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconTheme(
+              data: IconThemeData(size: 56, color: cs.onSurfaceVariant.withValues(alpha: 0.35)),
+              child: icon,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                subtitle!,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 3,
+              ),
+            ],
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 24),
+              FilledButton.tonal(
+                onPressed: onAction,
+                child: Text(actionLabel!),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

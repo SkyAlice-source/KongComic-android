@@ -16,7 +16,7 @@ export "context.dart";
 
 class _App {
   final version = "1.6.4";
-  final appVersion = "1.2.12";
+  final appVersion = "1.2.13";
 
   bool get isAndroid => Platform.isAndroid;
 
@@ -60,7 +60,12 @@ class _App {
 
   GlobalKey<NavigatorState>? mainNavigatorKey;
 
-  BuildContext get rootContext => rootNavigatorKey.currentContext!;
+  BuildContext get rootContext {
+    final context = rootNavigatorKey.currentContext;
+    assert(context != null,
+        'rootContext accessed before the root navigator is mounted');
+    return context!;
+  }
 
   final Appdata data = appdata;
 

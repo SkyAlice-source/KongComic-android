@@ -177,7 +177,7 @@ class ComicTile extends StatelessWidget {
     }
 
     final leftPad = type == 'detailed' ? 16.0 : 6.0;
-    const ringSize = 22.0;
+    const ringSize = 24.0;
 
     Widget? favBadge;
     if (isFavorite) {
@@ -187,6 +187,7 @@ class ComicTile extends StatelessWidget {
         child: Container(
           width: ringSize,
           height: ringSize,
+          alignment: Alignment.center,
           decoration: const BoxDecoration(
             color: Colors.green,
             shape: BoxShape.circle,
@@ -198,8 +199,12 @@ class ComicTile extends StatelessWidget {
 
     Widget? histBadge;
     if (history != null) {
-      final label = history.maxPage != null && history.maxPage! > 0
-          ? "${(history.page * 100 / history.maxPage!).clamp(0, 100).toInt()}"
+      final hasProgress = history.maxPage != null && history.maxPage! > 0;
+      final progress = hasProgress
+          ? (history.page / history.maxPage!).clamp(0.0, 1.0)
+          : 0.0;
+      final label = hasProgress
+          ? "${(progress * 100).toInt()}"
           : "${history.ep}";
       histBadge = Positioned(
         left: leftPad + (isFavorite ? ringSize + 4 : 0),
@@ -208,20 +213,37 @@ class ComicTile extends StatelessWidget {
           width: ringSize,
           height: ringSize,
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.65),
+            color: const Color(0xE6000000), // 更实的心底，压在任意封面都清晰
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              height: 1.1,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.18),
+              width: 1,
             ),
-            textAlign: TextAlign.center,
+          ),
+          child: Stack(
+            children: [
+              if (hasProgress)
+                CustomPaint(
+                  size: const Size(ringSize, ringSize),
+                  painter: _ProgressRingPainter(
+                    progress: progress,
+                    // 琥珀色：高对比，区别于蓝色主题与绿色收藏勾
+                    progressColor: const Color(0xFFFF6D00),
+                  ),
+                ),
+              Center(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -556,8 +578,8 @@ class ComicTile extends StatelessWidget {
                   appdata.saveData();
                   context.showMessage(message: 'Blocked'.tl);
                   comicTileContext
-                      .findAncestorStateOfType<_SliverGridComicsState>()!
-                      .update();
+                      .findAncestorStateOfType<_SliverGridComicsState>()
+                      ?.update();
                 },
                 child: Text('Block'.tl),
               ),
@@ -729,7 +751,6 @@ class SliverGridComics extends StatefulWidget {
 
   final List<Comic> comics;
 
-  /// When true, every comic is treated as favorited (used by network
   /// favorites folders where all listed comics are already in a favorite
   /// folder). Skips the LocalFavoritesManager lookup.
   final bool allFavorite;
@@ -820,12 +841,14 @@ class _SliverGridComicsState extends State<SliverGridComics> {
     generateHeroID();
     _precomputeStatus();
     HistoryManager().addListener(update);
+    LocalFavoritesManager().addListener(update);
     super.initState();
   }
 
   @override
   void dispose() {
     HistoryManager().removeListener(update);
+    LocalFavoritesManager().removeListener(update);
     super.dispose();
   }
 
@@ -1787,6 +1810,7 @@ class PaginatedSliverGridComics extends StatefulWidget {
     this.onLongPressed,
     this.onLoadedComicsChanged,
     this.allFavorite = false,
+    this.emptySubtitle,
   });
 
   /// Loads a page of comics starting at [offset].
@@ -1815,6 +1839,9 @@ class PaginatedSliverGridComics extends StatefulWidget {
 
   /// When true, every comic is treated as favorited (network favorites folders).
   final bool allFavorite;
+
+  /// Subtitle shown in the empty state.
+  final String? emptySubtitle;
 
   @override
   State<PaginatedSliverGridComics> createState() =>
@@ -1940,7 +1967,11 @@ class PaginatedSliverGridComicsState
     if (_comics.isEmpty && !_hasMore) {
       return SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(child: Text('No comics'.tl)),
+        child: EmptyState(
+          icon: const Icon(Icons.history_outlined),
+          title: 'No comics'.tl,
+          subtitle: (widget.emptySubtitle ?? "还没有漫画？去添加漫画源或收藏漫画吧").tl,
+        ),
       );
     }
 
@@ -2018,4 +2049,41 @@ class PaginatedSliverGridComicsState
       gridDelegate: SliverGridDelegateWithComics(),
     );
   }
+}
+
+class _ProgressRingPainter extends CustomPainter {
+  final double progress;
+  final Color progressColor;
+
+  _ProgressRingPainter({required this.progress, required this.progressColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const strokeWidth = 3.5;
+    final radius = (size.width - strokeWidth) / 2;
+
+    final bgPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    final progressPaint = Paint()
+      ..color = progressColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      math.pi * 2 * progress,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ProgressRingPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.progressColor != progressColor;
 }

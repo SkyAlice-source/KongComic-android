@@ -116,6 +116,10 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+    if (_imageFavoriteDragListener != null &&
+        _gestureDetectorState?.mounted == true) {
+      _gestureDetectorState!.removeDragListener(_imageFavoriteDragListener!);
+    }
     sliderFocus.dispose();
     super.dispose();
   }
@@ -1056,7 +1060,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     if (imageIndices.isEmpty) return null;
     
     int? selectedIndex;
-    
+    final thumbnailFutures = <String, Future<Uint8List?>>{};
+
     await showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -1081,7 +1086,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                   Navigator.of(dialogContext).pop();
                 },
                 child: FutureBuilder<Uint8List?>(
-                  future: _loadThumbnail(imageKey),
+                  future: thumbnailFutures.putIfAbsent(imageKey, () => _loadThumbnail(imageKey)),
                   builder: (context, snapshot) {
                     if (snapshot.hasData) {
                       return Stack(

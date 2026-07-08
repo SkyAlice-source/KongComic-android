@@ -664,6 +664,7 @@ class _NaviMainViewState extends State<_NaviMainView> {
   int _lastPage = 0;
 
   void onScroll(double offset) {
+    if (state.currentPage == 0 || state.currentPage == 2) return;
     final diff = offset - _lastScrollOffset;
     if (diff > 10 && (_showBottomBar || _showTopBar)) {
       setState(() {
@@ -688,6 +689,12 @@ class _NaviMainViewState extends State<_NaviMainView> {
     };
     _lastPage = state.currentPage;
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    state.mainViewUpdateHandler = null;
+    super.dispose();
   }
 
   @override

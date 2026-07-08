@@ -912,6 +912,7 @@ class ArchiveDownloadTask extends DownloadTask {
         return f.name;
       }
     }
+    if (files.isEmpty) return '';
     files.sort((a, b) {
       return a.name.compareTo(b.name);
     });

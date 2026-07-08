@@ -385,7 +385,7 @@ Future<void> showInputDialog({
                 if (image != null)
                   SizedBox(
                     height: 108,
-                    child: Image.network(image, fit: BoxFit.none),
+                    child: CachedNetworkImage(imageUrl: image, fit: BoxFit.none),
                   ).paddingBottom(8),
                 if (image == null && imageData != null)
                   SizedBox(

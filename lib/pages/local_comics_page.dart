@@ -366,6 +366,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
           PaginatedSliverGridComics(
             key: _gridKey,
             pageLoader: _loadPage,
+            emptySubtitle: "还没有本地漫画？点击右上角 + 添加文件夹",
             selections: selectedComics,
             onLoadedComicsChanged: (comics) {
               _loadedComics = comics.cast<LocalComic>();

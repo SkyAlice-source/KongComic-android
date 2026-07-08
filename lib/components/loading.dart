@@ -92,7 +92,7 @@ class NetworkError extends StatelessWidget {
         ],
       );
     }
-    return Material(child: body);
+  return Material(child: body);
   }
 }
 

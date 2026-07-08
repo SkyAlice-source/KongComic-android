@@ -62,6 +62,7 @@ class _HomePageState extends State<HomePage> {
                 SliverPadding(padding: EdgeInsets.only(top: context.padding.top)),
                 _Banner(key: _bannerKey, height: bannerHeight, currentComicNotifier: _currentComic),
                 _ComicInfoSection(currentComicNotifier: _currentComic),
+                const _HomeHints(),
                 const _HomeCapsules(),
                 const _BottomModules(),
                 SliverPadding(padding: EdgeInsets.only(bottom: dockHeight)),
@@ -207,14 +208,11 @@ class _BannerState extends State<_Banner> {
       final comic = _comics[idx];
       final scale = 1.0 - layer.abs() * 0.1;
       final topOff = layer.abs() * 2.0;
-final opacity = 1.0;
       final pos = sw * 0.5 + layer * overlap - cardW * 0.5;
       items.add(Positioned(
         left: pos, top: topOff, width: cardW,
         child: Transform.scale(scale: scale,
-          child: Opacity(
-            opacity: opacity,
-            child: ClipRRect(borderRadius: BorderRadius.circular(10),
+          child: ClipRRect(borderRadius: BorderRadius.circular(10),
               child: Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0),
@@ -229,7 +227,6 @@ final opacity = 1.0;
               ),
             ),
           ),
-        ),
       ));
     }
     return items;
@@ -415,6 +412,106 @@ class _FlatBox extends StatelessWidget {
               child: Text(value!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: cs.onPrimaryContainer)),
             ),
         ]),
+      ),
+    );
+  }
+}
+
+/// 轻量主页底部提示区 —— 根据当前状态显示上下文引导文字。
+/// 纯展示（SliverToBoxAdapter），不触碰任何现有组件逻辑/状态。
+class _HomeHints extends StatefulWidget {
+  const _HomeHints();
+
+  @override
+  State<_HomeHints> createState() => _HomeHintsState();
+}
+
+class _HomeHintsState extends State<_HomeHints> {
+  int _localCount = 0;
+  int _favoriteCount = 0;
+  int _sourceCount = 0;
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() {
+      _localCount = LocalManager().count;
+      _favoriteCount = LocalFavoritesManager().totalComics;
+      _sourceCount = ComicSource.all().length;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _localCount = LocalManager().count;
+    _favoriteCount = LocalFavoritesManager().totalComics;
+    _sourceCount = ComicSource.all().length;
+    LocalManager().addListener(_refresh);
+    LocalFavoritesManager().addListener(_refresh);
+    ComicSourceManager().addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    LocalManager().removeListener(_refresh);
+    LocalFavoritesManager().removeListener(_refresh);
+    ComicSourceManager().removeListener(_refresh);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 只要任意一类内容存在，就不显示引导提示
+    if (_sourceCount > 0 || _localCount > 0 || _favoriteCount > 0) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    final shown = <String>[
+      "前往「漫画源」添加源，发现更多精彩内容".tl,
+      "还没有本地漫画？点击上方「本地」添加漫画文件夹".tl,
+    ].take(2).toList();
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: Column(
+          children: shown.map((hint) => _HintCard(text: hint)).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _HintCard extends StatelessWidget {
+  final String text;
+  const _HintCard({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lightbulb_outline, size: 20, color: cs.primary.withValues(alpha: 0.8)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                color: cs.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

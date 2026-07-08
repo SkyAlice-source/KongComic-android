@@ -273,7 +273,9 @@ class _SearchPageState extends State<SearchPage> {
     } else if (defaultSearchTarget == "_aggregated_") {
       _selectedSources = searchSources.toSet();
     }
-    useDefaultOptions();
+    if (_selectedSources.isNotEmpty) {
+      useDefaultOptions();
+    }
     controller = SearchBarController(
       onSearch: search,
     );
@@ -324,23 +326,35 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget buildEmpty() {
-    var msg = "No Search Sources".tl;
-    msg += '\n';
-    VoidCallback onTap;
     if (ComicSource.isEmpty) {
-      msg += "Please add some sources".tl;
-      onTap = () {
-        context.to(() => ComicSourcePage());
-      };
-    } else {
-      msg += "Please check your settings".tl;
-      onTap = manageSearchSources;
+      return Column(
+        children: [
+          const Appbar(title: Text("")),
+          Expanded(
+            child: EmptyState(
+              icon: const Icon(Icons.search_outlined),
+              title: "No Search Sources".tl,
+              subtitle: "Please add some sources first".tl,
+              actionLabel: "Manage".tl,
+              onAction: () => context.to(() => const ComicSourcePage()),
+            ),
+          ),
+        ],
+      );
     }
-    return NetworkError(
-      message: msg,
-      retry: onTap,
-      withAppbar: true,
-      buttonText: "Manage".tl,
+    return Column(
+      children: [
+        const Appbar(title: Text("")),
+        Expanded(
+          child: EmptyState(
+            icon: const Icon(Icons.settings_outlined),
+            title: "No Search Sources".tl,
+            subtitle: "Please check your settings".tl,
+            actionLabel: "Manage".tl,
+            onAction: manageSearchSources,
+          ),
+        ),
+      ],
     );
   }
 
@@ -525,12 +539,16 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void useDefaultOptions() {
+    if (_selectedSources.isEmpty) {
+      options = [];
+      return;
+    }
     final searchOptions = currentSearchPageData.searchOptions ?? [];
     options = searchOptions.map((e) => e.defaultValue).toList();
   }
 
   Widget buildSearchOptions() {
-    if (_isAggregated) {
+    if (_isAggregated || _selectedSources.isEmpty) {
       return const SliverToBoxAdapter(child: SizedBox());
     }
 

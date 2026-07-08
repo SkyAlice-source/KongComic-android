@@ -46,6 +46,7 @@ class NetworkCacheManager implements Interceptor {
       size -= _cache[cache.uri]!.size;
     }
     while (size > _maxCacheSize) {
+      if (_cache.isEmpty) break;
       size -= _cache.values.first.size;
       _cache.remove(_cache.keys.first);
     }

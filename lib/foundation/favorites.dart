@@ -19,6 +19,14 @@ String _getTimeString(DateTime time) {
   return time.toIso8601String().replaceFirst("T", " ").substring(0, 19);
 }
 
+/// Generate a safe SQLite index identifier from a folder name.
+/// Folder names can contain non-ASCII characters (Chinese, symbols, etc.)
+/// which break CREATE INDEX syntax when embedded directly.
+/// Uses [hashCode] for uniqueness; the result is always pure ASCII.
+String _safeIndexName(String folder, String suffix) {
+  return 'idx_${folder.hashCode.abs()}_$suffix';
+}
+
 class FavoriteItem implements Comic {
   String name;
   String author;
@@ -225,64 +233,71 @@ class LocalFavoritesManager with ChangeNotifier {
   Future<void> init() async {
     counts = {};
     _db = sqlite3.open("${App.dataPath}/local_favorite.db");
-    _db.execute("""
-      create table if not exists folder_order (
-        folder_name text primary key,
-        order_value int
-      );
-    """);
-    _db.execute("""
-      create table if not exists folder_sync (
-        folder_name text primary key,
-        source_key text,
-        source_folder text
-      );
-    """);
-    var folderNames = _getFolderNamesWithDB();
-    for (var folder in folderNames) {
-      var columns = _db.select("""
-        pragma table_info("$folder");
+    try {
+      _db.execute("""
+        create table if not exists folder_order (
+          folder_name text primary key,
+          order_value int
+        );
       """);
-      if (!columns.any((element) => element["name"] == "translated_tags")) {
-        _db.execute("""
-          alter table "$folder"
-          add column translated_tags TEXT;
+      _db.execute("""
+        create table if not exists folder_sync (
+          folder_name text primary key,
+          source_key text,
+          source_folder text
+        );
+      """);
+      var folderNames = _getFolderNamesWithDB();
+      for (var folder in folderNames) {
+        var columns = _db.select("""
+          pragma table_info("$folder");
         """);
-        var comics = getFolderComics(folder);
-        for (var comic in comics) {
-          var translatedTags = _translateTags(comic.tags);
+        if (!columns.any((element) => element["name"] == "translated_tags")) {
           _db.execute("""
-            update "$folder"
-            set translated_tags = ?
-            where id == ? and type == ?;
-          """, [translatedTags, comic.id, comic.type.value]);
+            alter table "$folder"
+            add column translated_tags TEXT;
+          """);
+          var comics = getFolderComics(folder);
+          for (var comic in comics) {
+            var translatedTags = _translateTags(comic.tags);
+            _db.execute("""
+              update "$folder"
+              set translated_tags = ?
+              where id == ? and type == ?;
+            """, [translatedTags, comic.id, comic.type.value]);
+          }
         }
-      } else {
-        continue;
       }
-    }
-    // Performance: ensure indexes exist for all folder tables
-    for (var folder in folderNames) {
-      _db.execute('CREATE INDEX IF NOT EXISTS idx_"$folder"_order ON "$folder"(display_order);');
-      _db.execute('CREATE INDEX IF NOT EXISTS idx_"$folder"_time ON "$folder"(time);');
-    }
-    await appdata.ensureInit();
-    // Make sure the follow updates folder is ready
-    var followUpdateFolder = appdata.settings['followUpdatesFolder'];
-    if (followUpdateFolder is String &&
-        folderNames.contains(followUpdateFolder)) {
-      prepareTableForFollowUpdates(followUpdateFolder, false);
-    } else {
-      appdata.settings['followUpdatesFolder'] = null;
+      // Performance: ensure indexes exist for all folder tables
+      for (var folder in folderNames) {
+        _db.execute('CREATE INDEX IF NOT EXISTS ${_safeIndexName(folder, "order")} ON "$folder"(display_order);');
+        _db.execute('CREATE INDEX IF NOT EXISTS ${_safeIndexName(folder, "time")} ON "$folder"(time);');
+      }
+      await appdata.ensureInit();
+      // Make sure the follow updates folder is ready
+      var followUpdateFolder = appdata.settings['followUpdatesFolder'];
+      if (followUpdateFolder is String &&
+          folderNames.contains(followUpdateFolder)) {
+        prepareTableForFollowUpdates(followUpdateFolder, false);
+      } else {
+        appdata.settings['followUpdatesFolder'] = null;
+      }
+    } catch (e, _) {
+      Log.error("Favorites", "Schema migration failed, continuing with initCounts", e);
     }
     initCounts();
   }
 
   void initCounts() {
-    for (var folder in folderNames) {
+    final folders = folderNames;
+    for (var folder in folders) {
       counts[folder] = count(folder);
     }
-    _hashedIds = _computeHashedIds(folderNames);
+    _hashedIds = _computeHashedIds(folders);
+    if (_hashedIds.isEmpty) {
+      Log.warning("Favorites",
+          "initCounts: _hashedIds is empty after processing $folders");
+    }
     notifyListeners();
   }
 
@@ -301,15 +316,23 @@ class LocalFavoritesManager with ChangeNotifier {
   Map<int, int> _computeHashedIds(List<String> folders) {
     var hashedIds = <int, int>{};
     for (var folder in folders) {
-      var rows = _db.select('''
+      final rows = _db.select('''
         select id, type from "$folder";
       ''');
+      if (rows.isEmpty) {
+        Log.warning("Favorites",
+            "_computeHashedIds: folder '$folder' has 0 rows");
+      }
       for (var row in rows) {
         var id = row["id"] as String;
         var type = row["type"] as int;
         var hash = id.hashCode ^ type;
         hashedIds[hash] = (hashedIds[hash] ?? 0) + 1;
       }
+    }
+    if (hashedIds.isEmpty) {
+      Log.warning("Favorites",
+          "_computeHashedIds: result is empty for $folders");
     }
     return hashedIds;
   }
@@ -556,8 +579,8 @@ class LocalFavoritesManager with ChangeNotifier {
       );
     """);
     // Performance: add index for display_order (used in sorting)
-    _db.execute('CREATE INDEX IF NOT EXISTS idx_"$name"_order ON "$name"(display_order);');
-    _db.execute('CREATE INDEX IF NOT EXISTS idx_"$name"_time ON "$name"(time);');
+    _db.execute('CREATE INDEX IF NOT EXISTS ${_safeIndexName(name, "order")} ON "$name"(display_order);');
+    _db.execute('CREATE INDEX IF NOT EXISTS ${_safeIndexName(name, "time")} ON "$name"(time);');
     notifyListeners();
     counts[name] = 0;
     return name;
@@ -714,6 +737,12 @@ class LocalFavoritesManager with ChangeNotifier {
     where id == ? and type == ?;
   """, [id, type.value]);
 
+    if (counts[sourceFolder] != null) {
+      counts[sourceFolder] = counts[sourceFolder]! - 1;
+    }
+    if (counts[targetFolder] != null) {
+      counts[targetFolder] = counts[targetFolder]! + 1;
+    }
     notifyListeners();
   }
 

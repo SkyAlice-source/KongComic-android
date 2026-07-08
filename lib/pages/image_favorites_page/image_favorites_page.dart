@@ -277,20 +277,30 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
               },
             ),
           ),
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              return _ImageFavoritesItem(
-                imageFavoritesComic: comics[index],
-                selectedImageFavorites: selectedImageFavorites,
-                addSelected: addSelected,
-                multiSelectMode: multiSelectMode,
-                finalImageFavoritesComicList: comics,
-              );
-            },
-            childCount: comics.length,
+        if (comics.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(
+              icon: const Icon(Icons.image_outlined),
+              title: "No image favorites".tl,
+              subtitle: "长按漫画图片收藏，图片会保存在这里".tl,
+            ),
+          )
+        else
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                return _ImageFavoritesItem(
+                  imageFavoritesComic: comics[index],
+                  selectedImageFavorites: selectedImageFavorites,
+                  addSelected: addSelected,
+                  multiSelectMode: multiSelectMode,
+                  finalImageFavoritesComicList: comics,
+                );
+              },
+              childCount: comics.length,
+            ),
           ),
-        ),
         SliverPadding(padding: EdgeInsets.only(top: context.padding.bottom)),
       ],
     );

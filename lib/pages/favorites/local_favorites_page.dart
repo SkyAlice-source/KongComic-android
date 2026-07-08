@@ -37,6 +37,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
 
   bool get isAllFolder => widget.folder == _localAllFolderLabel;
 
+  /// Reused across flyout rebuilds so the select-page widget keeps its state.
+  final _selectUpdatePageNumKey = GlobalKey<_SelectUpdatePageNumState>();
+
   LocalFavoritesManager get manager => LocalFavoritesManager();
 
   late String readFilterSelect;
@@ -441,13 +444,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                   message: "Sync".tl,
                   child: Flyout(
                     flyoutBuilder: (context) {
-                      final GlobalKey<_SelectUpdatePageNumState>
-                          selectUpdatePageNumKey =
-                          GlobalKey<_SelectUpdatePageNumState>();
                       var updatePageWidget = _SelectUpdatePageNum(
                         networkSource: networkSource!,
                         networkFolder: networkFolder,
-                        key: selectUpdatePageNumKey,
+                        key: _selectUpdatePageNumKey,
                       );
                       return FlyoutContent(
                         title: "Sync".tl,
@@ -459,7 +459,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                               context.pop();
                               importNetworkFolder(
                                 networkSource!,
-                                selectUpdatePageNumKey
+                                _selectUpdatePageNumKey
                                     .currentState!.updatePageNum,
                                 widget.folder,
                                 networkFolder!,

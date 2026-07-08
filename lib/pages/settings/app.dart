@@ -123,7 +123,14 @@ class _AppSettingsState extends State<AppSettings> {
             var controller = showLoadingDialog(context);
             try {
               var file = await exportAppData(false);
-              await saveFile(filename: "data.kongcomic", file: file);
+              final now = DateTime.now();
+              final dateStr =
+                  "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+              final targetName = "KongComic_$dateStr.kongcomic";
+              final targetPath = FilePath.join(App.cachePath, targetName);
+              final renamed = await file.copy(targetPath);
+              file.deleteIgnoreError();
+              await saveFile(filename: targetName, file: renamed);
             } catch (e, s) {
               Log.error("Export data", e.toString(), s);
               context.showMessage(message: "Failed to export data".tl);
@@ -159,7 +166,7 @@ class _AppSettingsState extends State<AppSettings> {
               }
               if (needRestart && context.mounted) {
                 context.showMessage(
-                    message: "Restart app to apply download path changes".tl);
+                    message: "Restart app to complete data import".tl);
               }
             }
           },

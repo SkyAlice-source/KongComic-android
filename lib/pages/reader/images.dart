@@ -77,7 +77,17 @@ class _ReaderImagesState extends State<_ReaderImages> {
       }
     } else {
       var cp = reader.widget.chapters?.ids.elementAtOrNull(reader.chapter - 1);
-      var res = await reader.type.comicSource!.loadComicPages!(
+      final loadPages = reader.type.comicSource?.loadComicPages;
+      if (loadPages == null) {
+        if (!mounted) return;
+        setState(() {
+          error = "Source does not implement loadComicPages";
+          reader.isLoading = false;
+          inProgress = false;
+        });
+        return;
+      }
+      var res = await loadPages(
         reader.widget.cid,
         cp,
       );
@@ -775,7 +785,9 @@ class _ContinuousModeState extends State<_ContinuousMode>
     cached = List.filled(reader.maxPage + 2, false);
     Future.delayed(
       const Duration(milliseconds: 100),
-      () => cacheImages(reader.page),
+      () {
+        if (mounted) cacheImages(reader.page);
+      },
     );
     super.initState();
   }
@@ -784,6 +796,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
   void dispose() {
     _autoScrollTimer?.cancel();
     itemPositionsListener.itemPositions.removeListener(onPositionChanged);
+    photoViewController.dispose();
     imageStates.clear();
     super.dispose();
   }

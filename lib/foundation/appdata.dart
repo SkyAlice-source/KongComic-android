@@ -184,7 +184,7 @@ class Settings with ChangeNotifier {
     'favorites': [],
     'searchSources': null,
     'showFavoriteStatusOnTile': true,
-    'showHistoryStatusOnTile': false,
+    'showHistoryStatusOnTile': true,
     'blockedWords': [],
     'blockedCommentWords': [],
     'defaultSearchTarget': null,
@@ -203,7 +203,7 @@ class Settings with ChangeNotifier {
     'deleteFolderAfterCbz': false,
     'enableLongPressToZoom': true,
     'longPressZoomPosition': "press", // press, center
-    'checkUpdateOnStart': false,
+    'checkUpdateOnStart': true,
     'limitImageWidth': true,
     'imageFitMode': 'contain',
     'webdav': [], // empty means not configured
@@ -240,7 +240,7 @@ class Settings with ChangeNotifier {
     'ignoreBadCertificate': false,
     'readerScrollSpeed': 1.0, // 0.5 - 3.0
     'localFavoritesFirst': true,
-    'autoCloseFavoritePanel': false,
+    'autoCloseFavoritePanel': true,
     'showChapterComments': true, // show chapter comments in reader
     'showChapterCommentsAtEnd':
         false, // show chapter comments at end of chapter

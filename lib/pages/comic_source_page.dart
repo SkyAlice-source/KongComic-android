@@ -1044,6 +1044,13 @@ class _SliverComicSourceState extends State<_SliverComicSource> {
               _reLogin[source.key] = true;
             });
             final List account = source.data["account"];
+            if (source.account == null) {
+              context.showMessage(message: "Login not supported".tl);
+              setState(() {
+                _reLogin[source.key] = false;
+              });
+              return;
+            }
             var res = await source.account!.login!(account[0], account[1]);
             if (res.error) {
               context.showMessage(message: res.errorMessage!);

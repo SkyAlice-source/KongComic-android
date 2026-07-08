@@ -86,8 +86,8 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
 
   void showFolders() {
     context
-        .findAncestorStateOfType<_FavoritesPageState>()!
-        .showFolderSelector();
+        .findAncestorStateOfType<_FavoritesPageState>()
+        ?.showFolderSelector();
   }
 
   @override
@@ -142,8 +142,8 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
                   color: context.colorScheme.primary,
                   onPressed: context
-                      .findAncestorStateOfType<_FavoritesPageState>()!
-                      .showFolderSelector,
+                      .findAncestorStateOfType<_FavoritesPageState>()
+                      ?.showFolderSelector,
                 )
               : null,
         ),
@@ -201,8 +201,8 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
 
   void showFolders() {
     context
-        .findAncestorStateOfType<_FavoritesPageState>()!
-        .showFolderSelector();
+        .findAncestorStateOfType<_FavoritesPageState>()
+        ?.showFolderSelector();
   }
 
   void loadPage() async {

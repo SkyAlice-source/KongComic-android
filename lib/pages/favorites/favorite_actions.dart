@@ -53,8 +53,13 @@ Future<void> newFolder() async {
                       error = e;
                     });
                   } else {
-                    LocalFavoritesManager().createFolder(controller.text);
-                    context.pop();
+                    try {
+                      LocalFavoritesManager().createFolder(controller.text);
+                      context.pop();
+                      context.showMessage(message: "Created successfully".tl);
+                    } catch (e) {
+                      context.showMessage(message: e.toString());
+                    }
                   }
                 },
                 child: Text("Create".tl),

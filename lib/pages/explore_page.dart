@@ -120,23 +120,21 @@ class _ExplorePageState extends State<ExplorePage>
       );
 
   Widget buildEmpty() {
-    var msg = "No Explore Pages".tl;
-    msg += '\n';
-    VoidCallback onTap;
     if (ComicSource.isEmpty) {
-      msg += "Please add some sources".tl;
-      onTap = () {
-        context.to(() => ComicSourcePage());
-      };
-    } else {
-      msg += "Please check your settings".tl;
-      onTap = addPage;
+      return EmptyState(
+        icon: const Icon(Icons.explore_outlined),
+        title: "No Explore Pages".tl,
+        subtitle: "Please add some comic sources first".tl,
+        actionLabel: "Manage".tl,
+        onAction: () => context.to(() => const ComicSourcePage()),
+      );
     }
-    return NetworkError(
-      message: msg,
-      retry: onTap,
-      withAppbar: false,
-      buttonText: "Manage".tl,
+    return EmptyState(
+      icon: const Icon(Icons.inbox_outlined),
+      title: "No Explore Pages".tl,
+      subtitle: "Please check your source settings".tl,
+      actionLabel: "Manage".tl,
+      onAction: addPage,
     );
   }
 
