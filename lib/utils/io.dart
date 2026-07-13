@@ -418,8 +418,8 @@ class Share {
     ));
   }
 
-  static void shareText(String text) {
-    s.SharePlus.instance.share(s.ShareParams(text: text));
+  static Future<void> shareText(String text) async {
+    await s.SharePlus.instance.share(s.ShareParams(text: text));
   }
 }
 

@@ -3,11 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'         # 推送 v1.0.0, v1.1.0 等 tag 时触发
-    branches:
-      - 'release-*'  # 推送 release-v1.2.14 等分支时触发
-      - 'v*'         # 推送 v1.2.14 等版本分支时触发
-  workflow_dispatch: # 支持手动触发
+      - 'v*'  # 推送 v1.0.0, v1.1.0 等 tag 时触发
 
 permissions:
   contents: write
@@ -42,8 +38,8 @@ jobs:
             # 验证文件是否有效（JKS 至少约 2.5KB）
             JKS_SIZE=$(wc -c < android/kongcomic-release.jks 2>/dev/null || echo 0)
             if [ "$JKS_SIZE" -gt 2000 ]; then
-              echo "storePassword=[redacted] secrets.KEYSTORE_PASSWORD }}" > android/key.properties
-              echo "keyPassword=[redacted] secrets.KEY_PASSWORD }}" >> android/key.properties
+              echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+              echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
               echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
               echo "storeFile=../kongcomic-release.jks" >> android/key.properties
               echo "Signing configured from secrets (${JKS_SIZE} bytes)"

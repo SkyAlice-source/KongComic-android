@@ -28,11 +28,6 @@ void main(List<String> args) {
   overrideIO(() {
     runZonedGuarded(() async {
       WidgetsFlutterBinding.ensureInitialized();
-      // 优化: 收紧 Flutter 图片内存缓存上限。
-      // 漫画页为大幅位图,默认 1000 张/100MB 在低端机易 OOM;
-      // 配合阅读器降采样(enableResize),将上限调整为适配漫画场景的值。
-      PaintingBinding.instance.imageCache.maximumSize = 50;
-      PaintingBinding.instance.imageCache.maximumSizeBytes = 120 * 1024 * 1024;
       await init();
       runApp(const MyApp());
       if (App.isDesktop) {
@@ -137,15 +132,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     setState(() {});
   }
 
-  /// Brand colors (Kong Comic design system)
-  static const cinnabar = Color(0xFFD4381B);      // 朱红 — warm vibrant red
-  static const parchment = Color(0xFFFAF7F2);     // parchment warm paper
-  static const inkBlack = Color(0xFF0E0D12);      // 墨黑 — deep ink
-  static const darkSurface = Color(0xFF17151D);   // dark surface
-
   Color translateColorSetting() {
     return switch (appdata.settings['color']) {
-      'brand' => cinnabar,
       'red' => Colors.red,
       'pink' => Colors.pink,
       'purple' => Colors.purple,
@@ -155,13 +143,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       'yellow' => Colors.yellow,
       'cyan' => Colors.cyan,
       'system' => Colors.blue,
-      _ => cinnabar,  // default to brand
+      _ => Colors.blue,
     };
   }
-
-  bool get _isBrandMode =>
-      (appdata.settings['color'] as String?) == null ||
-      appdata.settings['color'] == 'brand';
 
   ThemeData getTheme(
     Color primary,
@@ -194,21 +178,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ).copyWith(
         surfaceTint: Colors.transparent,
       ),
-      // 设计系统背景色（品牌模式）或原默认
-      canvasColor: _isBrandMode
-          ? (brightness == Brightness.light
-              ? parchment
-              : darkSurface)
-          : (brightness == Brightness.light
-              ? const Color(0xFFF5F7FA)
-              : const Color(0xFF121212)),
-      scaffoldBackgroundColor: _isBrandMode
-          ? (brightness == Brightness.light
-              ? parchment
-              : inkBlack)
-          : (brightness == Brightness.light
-              ? const Color(0xFFF5F7FA)
-              : const Color(0xFF121212)),
+      // Material 默认底色统一为页面背景色，避免各页顶栏/tab栏出现白条
+      canvasColor: brightness == Brightness.light
+          ? const Color(0xFFF5F7FA)
+          : const Color(0xFF121212),
+      scaffoldBackgroundColor: brightness == Brightness.light
+          ? const Color(0xFFF5F7FA)
+          : const Color(0xFF121212),
       fontFamily: font,
       fontFamilyFallback: fallback,
     );

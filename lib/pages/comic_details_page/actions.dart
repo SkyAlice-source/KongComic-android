@@ -86,12 +86,12 @@ abstract mixin class _ComicPageActions {
     App.rootContext.showMessage(message: "Added".tl);
   }
 
-  void share() {
+  void share() async {
     var text = comic.title;
     if (comic.url != null) {
       text += '\n${comic.url}';
     }
-    Share.shareText(text);
+    await Share.shareText(text);
   }
 
   /// read the comic
