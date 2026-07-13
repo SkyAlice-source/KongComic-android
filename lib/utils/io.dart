@@ -1,1 +1,460 @@
-aW1wb3J0ICdkYXJ0OmlvJzsKaW1wb3J0ICdkYXJ0Omlzb2xhdGUnOwoKaW1wb3J0ICdwYWNrYWdlOmZsdXR0ZXIvc2VydmljZXMuZGFydCc7CmltcG9ydCAncGFja2FnZTpmbHV0dGVyX2ZpbGVfZGlhbG9nL2ZsdXR0ZXJfZmlsZV9kaWFsb2cuZGFydCc7CmltcG9ydCAncGFja2FnZTpmbHV0dGVyX3NhZi9mbHV0dGVyX3NhZi5kYXJ0JzsKaW1wb3J0ICdwYWNrYWdlOmtvbmdfY29taWMvZm91bmRhdGlvbi9hcHAuZGFydCc7CmltcG9ydCAncGFja2FnZTprb25nX2NvbWljL3V0aWxzL2V4dC5kYXJ0JzsKaW1wb3J0ICdwYWNrYWdlOnBhdGgvcGF0aC5kYXJ0JyBhcyBwOwppbXBvcnQgJ3BhY2thZ2U6c2hhcmVfcGx1cy9zaGFyZV9wbHVzLmRhcnQnIGFzIHM7CmltcG9ydCAncGFja2FnZTpmaWxlX3NlbGVjdG9yL2ZpbGVfc2VsZWN0b3IuZGFydCcgYXMgZmlsZV9zZWxlY3RvcjsKaW1wb3J0ICdwYWNrYWdlOmtvbmdfY29taWMvdXRpbHMvZmlsZV90eXBlLmRhcnQnOwppbXBvcnQgJ3BhY2thZ2U6a29uZ19jb21pYy91dGlscy90cmFuc2xhdGlvbnMuZGFydCc7CgpleHBvcnQgJ2RhcnQ6aW8nOwpleHBvcnQgJ2RhcnQ6dHlwZWRfZGF0YSc7CgpjbGFzcyBJRyB7CiAgLy8vIEEgZ2xvYmFsIGZsYWcgdXNlZCB0byBpbmRpY2F0ZSB3aGV0aGVyIHRoZSBhcHAgaXMgc2VsZWN0aW5nIGZpbGVzLgogIC8vLwogIC8vLyBTZWxlY3QgZmlsZSBhbmQgb3RoZXIgc2ltaWxhciBmaWxlIG9wZXJhdGlvbnMgd2lsbCBsYXVuY2ggZXh0ZXJuYWwgcHJvZ3JhbXMsCiAgLy8vICBjYXVzaW5nIHRoZSBhcHAgdG8gbG9zZSBmb2N1cy4gQXBwTGlmZWN5Y2xlU3RhdGUgd2lsbCBiZSBzZXQgdG8gcGF1c2VkLgogIHN0YXRpYyBib29sIGdldCBpc1NlbGVjdGluZ0ZpbGVzID0+IF9pc1NlbGVjdGluZ0ZpbGVzOwoKICBzdGF0aWMgYm9vbCBfaXNTZWxlY3RpbmdGaWxlcyA9IGZhbHNlOwp9CgpjbGFzcyBGaWxlUGF0aCB7CiAgY29uc3QgRmlsZVBhdGguXygpOwoKICBzdGF0aWMgU3RyaW5nIGpvaW4oU3RyaW5nIHBhdGgxLCBTdHJpbmcgcGF0aDIsCiAgICAgIFtTdHJpbmc/IHBhdGgzLCBTdHJpbmc/IHBhdGg0LCBTdHJpbmc/IHBhdGg1XSkgewogICAgcmV0dXJuIHAuam9pbihwYXRoMSwgcGF0aDIsIHBhdGgzLCBwYXRoNCwgcGF0aDUpOwogIH0KfQoKZXh0ZW5zaW9uIEZpbGVTeXN0ZW1FbnRpdHlFeHQgb24gRmlsZVN5c3RlbUVudGl0eSB7CiAgLy8vIEdldCB0aGUgYmFzZSBuYW1lIG9mIHRoZSBmaWxlIG9yIGRpcmVjdG9yeS4KICBTdHJpbmcgZ2V0IG5hbWUgewogICAgcmV0dXJuIHAuYmFzZW5hbWUocGF0aCk7CiAgfQoKICAvLy8gRGVsZXRlIHRoZSBmaWxlIG9yIGRpcmVjdG9yeSBhbmQgaWdub3JlIGVycm9ycy4KICBGdXR1cmU8dm9pZD4gZGVsZXRlSWdub3JlRXJyb3Ioe2Jvb2wgcmVjdXJzaXZlID0gZmFsc2V9KSBhc3luYyB7CiAgICB0cnkgewogICAgICBhd2FpdCBkZWxldGUocmVjdXJzaXZlOiByZWN1cnNpdmUpOwogICAgfSBjYXRjaCAoZSkgewogICAgICAvLyBpZ25vcmUKICAgIH0KICB9CgogIC8vLyBEZWxldGUgdGhlIGZpbGUgb3IgZGlyZWN0b3J5IGlmIGl0IGV4aXN0cy4KICBGdXR1cmU8dm9pZD4gZGVsZXRlSWZFeGlzdHMoe2Jvb2wgcmVjdXJzaXZlID0gZmFsc2V9KSBhc3luYyB7CiAgICBpZiAoZXhpc3RzU3luYygpKSB7CiAgICAgIGF3YWl0IGRlbGV0ZShyZWN1cnNpdmU6IHJlY3Vyc2l2ZSk7CiAgICB9CiAgfQoKICAvLy8gRGVsZXRlIHRoZSBmaWxlIG9yIGRpcmVjdG9yeSBpZiBpdCBleGlzdHMuCiAgdm9pZCBkZWxldGVJZkV4aXN0c1N5bmMoe2Jvb2wgcmVjdXJzaXZlID0gZmFsc2V9KSB7CiAgICBpZiAoZXhpc3RzU3luYygpKSB7CiAgICAgIGRlbGV0ZVN5bmMocmVjdXJzaXZlOiByZWN1cnNpdmUpOwogICAgfQogIH0KfQoKZXh0ZW5zaW9uIEZpbGVFeHRlbnNpb24gb24gRmlsZSB7CiAgLy8vIEdldCB0aGUgZmlsZSBleHRlbnNpb24sIG5vdCBpbmNsdWRpbmcgdGhlIGRvdC4KICBTdHJpbmcgZ2V0IGV4dGVuc2lvbiA9PiBwYXRoLnNwbGl0KCcuJykubGFzdDsKCiAgLy8vIENvcHkgdGhlIGZpbGUgdG8gdGhlIHNwZWNpZmllZCBwYXRoIHVzaW5nIG1lbW9yeS4KICAvLy8KICAvLy8gVGhpcyBtZXRob2QgcHJldmVudHMgZXJyb3JzIGNhdXNlZCBieSBmaWxlcyBmcm9tIGRpZmZlcmVudCBmaWxlIHN5c3RlbXMuCiAgRnV0dXJlPHZvaWQ+IGNvcHlNZW0oU3RyaW5nIG5ld1BhdGgpIGFzeW5jIHsKICAgIHZhciBuZXdGaWxlID0gRmlsZShuZXdQYXRoKTsKICAgIC8vIFN0cmVhbSBpcyBub3QgdXNhYmxlIHNpbmNlIFtBbmRyb2lkRmlsZV0gZG9lcyBub3Qgc3VwcG9ydCBbb3BlblJlYWRdLgogICAgYXdhaXQgbmV3RmlsZS53cml0ZUFzQnl0ZXMoYXdhaXQgcmVhZEFzQnl0ZXMoKSk7CiAgfQoKICAvLy8gR2V0IHRoZSBiYXNlIG5hbWUgb2YgdGhlIGZpbGUgd2l0aG91dCB0aGUgZXh0ZW5zaW9uLgogIFN0cmluZyBnZXQgYmFzZW5hbWVXaXRob3V0RXh0IHsKICAgIHJldHVybiBwLmJhc2VuYW1lV2l0aG91dEV4dGVuc2lvbihwYXRoKTsKICB9Cn0KCmV4dGVuc2lvbiBEaXJlY3RvcnlFeHRlbnNpb24gb24gRGlyZWN0b3J5IHsKICAvLy8gQ2FsY3VsYXRlIHRoZSBzaXplIG9mIHRoZSBkaXJlY3RvcnkuCiAgRnV0dXJlPGludD4gZ2V0IHNpemUgYXN5bmMgewogICAgaWYgKCFleGlzdHNTeW5jKCkpIHJldHVybiAwOwogICAgaW50IHRvdGFsID0gMDsKICAgIGZvciAodmFyIGYgaW4gbGlzdFN5bmMocmVjdXJzaXZlOiB0cnVlKSkgewogICAgICBpZiAoRmlsZVN5c3RlbUVudGl0eS50eXBlU3luYyhmLnBhdGgpID09IEZpbGVTeXN0ZW1FbnRpdHlUeXBlLmZpbGUpIHsKICAgICAgICB0b3RhbCArPSBhd2FpdCBGaWxlKGYucGF0aCkubGVuZ3RoKCk7CiAgICAgIH0KICAgIH0KICAgIHJldHVybiB0b3RhbDsKICB9CgogIC8vLyBDaGFuZ2UgdGhlIGJhc2UgbmFtZSBvZiB0aGUgZGlyZWN0b3J5LgogIERpcmVjdG9yeSByZW5hbWVYKFN0cmluZyBuZXdOYW1lKSB7CiAgICBuZXdOYW1lID0gc2FuaXRpemVGaWxlTmFtZShuZXdOYW1lKTsKICAgIHJldHVybiByZW5hbWVTeW5jKHBhdGgucmVwbGFjZUxhc3QobmFtZSwgbmV3TmFtZSkpOwogIH0KCiAgRmlsZSBqb2luRmlsZShTdHJpbmcgbmFtZSkgewogICAgcmV0dXJuIEZpbGUoRmlsZVBhdGguam9pbihwYXRoLCBuYW1lKSk7CiAgfQoKICAvLy8gRGVsZXRlIHRoZSBjb250ZW50cyBvZiB0aGUgZGlyZWN0b3J5LgogIHZvaWQgZGVsZXRlQ29udGVudHNCeXN5bmMoe3JlY3Vyc2l2ZSA9IHRydWV9KSB7CiAgICBpZiAoIWV4aXN0c1N5bmMoKSkgcmV0dXJuOwogICAgZm9yICh2YXIgZiBpbiBsaXN0U3luYygpKSB7CiAgICAgIGYuZGVsZXRlSWZFeGlzdHNTeW5jKHJlY3Vyc2l2ZTogcmVjdXJzaXZlKTsKICAgIH0KICB9CgogIC8vLyBEZWxldGUgdGhlIGNvbnRlbnRzIG9mIHRoZSBkaXJlY3RvcnkuCiAgRnV0dXJlPHZvaWQ+IGRlbGV0ZUNvbnRlbnRzKHtyZWN1cnNpdmUgPSB0cnVlfSkgYXN5bmMgewogICAgaWYgKCFleGlzdHNTeW5jKCkpIHJldHVybjsKICAgIGZvciAodmFyIGYgaW4gbGlzdFN5bmMoKSkgewogICAgICBhd2FpdCBmLmRlbGV0ZUlmRXhpc3RzKHJlY3Vyc2l2ZTogcmVjdXJzaXZlKTsKICAgIH0KICB9CgogIC8vLyBDcmVhdGUgdGhlIGRpcmVjdG9yeS4gSWYgdGhlIGRpcmVjdG9yeSBhbHJlYWR5IGV4aXN0cywgZGVsZXRlIGl0IGZpcnN0LgogIHZvaWQgZm9yY2VDcmVhdGVTeW5jKCkgewogICAgaWYgKGV4aXN0c1N5bmMoKSkgewogICAgICBkZWxldGVTeW5jKHJlY3Vyc2l2ZTogdHJ1ZSk7CiAgICB9CiAgICBjcmVhdGVTeW5jKHJlY3Vyc2l2ZTogdHJ1ZSk7CiAgfQp9CgovLy8gU2FuaXRpemUgdGhlIGZpbGUgbmFtZS4gUmVtb3ZlIGludmFsaWQgY2hhcmFjdGVycyBhbmQgdHJpbSB0aGUgZmlsZSBuYW1lLgpTdHJpbmcgc2FuaXRpemVGaWxlTmFtZShTdHJpbmcgZmlsZU5hbWUsIHtTdHJpbmc/IGRpciwgaW50PyBtYXhMZW5ndGh9KSB7CiAgd2hpbGUgKGZpbGVOYW1lLmVuZHNXaXRoKCcuJykpIHsKICAgIGZpbGVOYW1lID0gZmlsZU5hbWUuc3Vic3RyaW5nKDAsIGZpbGVOYW1lLmxlbmd0aCAtIDEpOwogIH0KICB2YXIgbGVuZ3RoID0gbWF4TGVuZ3RoID8/IDI1NTsKICBpZiAoZGlyICE9IG51bGwpIHsKICAgIGlmICghZGlyLmVuZHNXaXRoKCcvJykgJiYgIWRpci5lbmRzV2l0aCgnXFwnKSkgewogICAgICBkaXIgPSAiJGRpci8iOwogICAgfQogICAgbGVuZ3RoIC09IGRpci5sZW5ndGg7CiAgfQogIGZpbmFsIGludmFsaWRDaGFycyA9IFJlZ0V4cChyJ1s8PjoiL1xcXHw/Kl0nKTsKICBmaW5hbCBzYW5pdGl6ZWRGaWxlTmFtZSA9IGZpbGVOYW1lLnJlcGxhY2VBbGwoaW52YWxpZENoYXJzLCAnICcpOwogIHZhciB0cmltbWVkRmlsZU5hbWUgPSBzYW5pdGl6ZWRGaWxlTmFtZS50cmltKCk7CiAgaWYgKHRyaW1tZWRGaWxlTmFtZS5pc0VtcHR5KSB7CiAgICB0aHJvdyBFeGNlcHRpb24oJ0ludmFsaWQgRmlsZSBOYW1lOiBFbXB0eSBsZW5ndGguJyk7CiAgfQogIGlmIChsZW5ndGggPD0gMCkgewogICAgdGhyb3cgRXhjZXB0aW9uKCdJbnZhbGlkIEZpbGUgTmFtZTogTWF4IGxlbmd0aCBpcyBsZXNzIHRoYW4gMC4nKTsKICB9CiAgaWYgKHRyaW1tZWRGaWxlTmFtZS5sZW5ndGggPiBsZW5ndGgpIHsKICAgIHRyaW1tZWRGaWxlTmFtZSA9IHRyaW1tZWRGaWxlTmFtZS5zdWJzdHJpbmcoMCwgbGVuZ3RoKTsKICB9CiAgcmV0dXJuIHRyaW1tZWRGaWxlTmFtZTsKfQoKLy8vIENvcHkgdGhlICpjb250ZW50cyogb2YgdGhlIHNvdXJjZSBkaXJlY3RvcnkgdG8gdGhlIGRlc3RpbmF0aW9uIGRpcmVjdG9yeS4KRnV0dXJlPHZvaWQ+IGNvcHlEaXJlY3RvcnkoRGlyZWN0b3J5IHNvdXJjZSwgRGlyZWN0b3J5IGRlc3RpbmF0aW9uKSBhc3luYyB7CiAgTGlzdDxGaWxlU3lzdGVtRW50aXR5PiBjb250ZW50cyA9IHNvdXJjZS5saXN0U3luYygpOwogIGZvciAoRmlsZVN5c3RlbUVudGl0eSBjb250ZW50IGluIGNvbnRlbnRzKSB7CiAgICBTdHJpbmcgbmV3UGF0aCA9IEZpbGVQYXRoLmpvaW4oZGVzdGluYXRpb24ucGF0aCwgY29udGVudC5uYW1lKTsKCiAgICBpZiAoY29udGVudCBpcyBGaWxlKSB7CiAgICAgIHZhciByZXN1bHRGaWxlID0gRmlsZShuZXdQYXRoKTsKICAgICAgcmVzdWx0RmlsZS5jcmVhdGVTeW5jKCk7CiAgICAgIHZhciBkYXRhID0gY29udGVudC5yZWFkQXNCeXRlc1N5bmMoKTsKICAgICAgcmVzdWx0RmlsZS53cml0ZUFzQnl0ZXNTeW5jKGRhdGEpOwogICAgfSBlbHNlIGlmIChjb250ZW50IGlzIERpcmVjdG9yeSkgewogICAgICBEaXJlY3RvcnkgbmV3RGlyZWN0b3J5ID0gRGlyZWN0b3J5KG5ld1BhdGgpOwogICAgICBuZXdEaXJlY3RvcnkuY3JlYXRlU3luYygpOwogICAgICBjb3B5RGlyZWN0b3J5KGNvbnRlbnQuYWJzb2x1dGUsIG5ld0RpcmVjdG9yeS5hYnNvbHV0ZSk7CiAgICB9CiAgfQp9CgovLy8gQ29weSB0aGUgKmNvbnRlbnRzKiBvZiB0aGUgc291cmNlIGRpcmVjdG9yeSB0byB0aGUgZGVzdGluYXRpb24gZGlyZWN0b3J5LgovLy8gVGhpcyBmdW5jdGlvbiBpcyBleGVjdXRlZCBpbiBhbiBpc29sYXRlIHRvIHByZXZlbnQgdGhlIFVJIGZyb20gZnJlZXppbmcuCkZ1dHVyZTx2b2lkPiBjb3B5RGlyZWN0b3J5SXNvbGF0ZSgKICAgIERpcmVjdG9yeSBzb3VyY2UsIERpcmVjdG9yeSBkZXN0aW5hdGlvbikgYXN5bmMgewogIGF3YWl0IElzb2xhdGUucnVuKCgpID0+IG92ZXJyaWRlSU8oKCkgPT4gY29weURpcmVjdG9yeShzb3VyY2UsIGRlc3RpbmF0aW9uKSkpOwp9CgoKCgpTdHJpbmcgZmluZFZhbGlkRGlyZWN0b3J5TmFtZShTdHJpbmcgcGF0aCwgU3RyaW5nIGRpcmVjdG9yeSkgewogIHZhciBuYW1lID0gc2FuaXRpemVGaWxlTmFtZShkaXJlY3RvcnkpOwogIHZhciBkaXIgPSBEaXJlY3RvcnkoIiRwYXRoLyRuYW1lIik7CiAgdmFyIGkgPSAxOwogIHdoaWxlIChkaXIuZXhpc3RzU3luYygpICYmIGRpci5saXN0U3luYygpLmlzTm90RW1wdHkpIHsKICAgIG5hbWUgPSBzYW5pdGl6ZUZpbGVOYW1lKCIkZGlyZWN0b3J5KCRpKSIpOwogICAgZGlyID0gRGlyZWN0b3J5KCIkcGF0aC8kbmFtZSIpOwogICAgaSsrOwogIH0KICByZXR1cm4gbmFtZTsKfQoKY2xhc3MgRGlyZWN0b3J5UGlja2VyIHsKICAvLy8gUGljayBhIGRpcmVjdG9yeS4KICAvLy8KICAvLy8gVGhlIGRpcmVjdG9yeSBtYXkgbm90IGJlIHVzYWJsZSBhZnRlciB0aGUgaW5zdGFuY2UgaXMgR0NlZC4KICBEaXJlY3RvcnlQaWNrZXIoKTsKCiAgc3RhdGljIGZpbmFsIF9maW5hbGl6ZXIgPSBGaW5hbGl6ZXI8U3RyaW5nPigocGF0aCkgewogICAgaWYgKHBhdGguc3RhcnRzV2l0aChBcHAuY2FjaGVQYXRoKSkgewogICAgICBEaXJlY3RvcnkocGF0aCkuZGVsZXRlSWdub3JlRXJyb3IoKTsKICAgIH0KICAgIGlmIChBcHAuaXNJT1MgfHwgQXBwLmlzTWFjT1MpIHsKICAgICAgX21ldGhvZENoYW5uZWwuaW52b2tlTWV0aG9kKCJzdG9wQWNjZXNzaW5nU2VjdXJpdHlTY29wZWRSZXNvdXJjZSIpOwogICAgfQogIH0pOwoKICBzdGF0aWMgY29uc3QgX21ldGhvZENoYW5uZWwgPSBNZXRob2RDaGFubmVsKCJrb25nX2NvbWljL21ldGhvZF9jaGFubmVsIik7CgogIEZ1dHVyZTxEaXJlY3Rvcnk/PiBwaWNrRGlyZWN0b3J5KHtib29sIGRpcmVjdEFjY2VzcyA9IGZhbHNlfSkgYXN5bmMgewogICAgSU8uX2lzU2VsZWN0aW5nRmlsZXMgPSB0cnVlOwogICAgdHJ5IHsKICAgICAgU3RyaW5nPyBkaXJlY3Rvcnk7CiAgICAgIGlmIChBcHAuaXNXaW5kb3dzIHx8IEFwcC5pc0xpbnV4KSB7CiAgICAgICAgZGlyZWN0b3J5ID0gYXdhaXQgZmlsZV9zZWxlY3Rvci5nZXREaXJlY3RvcnlQYXRoKCk7CiAgICAgIH0gZWxzZSBpZiAoQXBwLmlzQW5kcm9pZCkgewogICAgICAgIGRpcmVjdG9yeSA9IChhd2FpdCBBbmRyb2lkRGlyZWN0b3J5LnBpY2tEaXJlY3RvcnkoKSk/LnBhdGg7CiAgICAgICAgaWYgKGRpcmVjdG9yeSAhPSBudWxsICYmIGRpcmVjdEFjY2VzcykgewogICAgICAgICAgLy8gTmF0aXZlIGxpYnJhcnkgZG9lcyBub3QgaGF2ZSBhY2Nlc3MgdG8gdGhlIGRpcmVjdG9yeS4gQ29weSBpdCB0byBjYWNoZS4KICAgICAgICAgIHZhciBjYWNoZSA9IEZpbGVQYXRoLmpvaW4oQXBwLmNhY2hlUGF0aCwgInNlbGVjdGVkX2RpcmVjdG9yeSIpOwogICAgICAgICAgaWYgKERpcmVjdG9yeShjYWNoZSkuZXhpc3RzU3luYygpKSB7CiAgICAgICAgICAgIERpcmVjdG9yeShjYWNoZSkuZGVsZXRlU3luYyhyZWN1cnNpdmU6IHRydWUpOwogICAgICAgICAgfQogICAgICAgICAgRGlyZWN0b3J5KGNhY2hlKS5jcmVhdGVTeW5jKCk7CiAgICAgICAgICBhd2FpdCBjb3B5RGlyZWN0b3J5SXNvbGF0ZShEaXJlY3RvcnkoZGlyZWN0b3J5KSwgRGlyZWN0b3J5KGNhY2hlKSk7CiAgICAgICAgICBkaXJlY3RvcnkgPSBjYWNoZTsKICAgICAgICB9CiAgICAgIH0gZWxzZSB7CiAgICAgICAgLy8gaW9zLCBtYWNvcwogICAgICAgIGRpcmVjdG9yeSA9CiAgICAgICAgICAgIGF3YWl0IF9tZXRob2RDaGFubmVsLmludm9rZU1ldGhvZDxTdHJpbmc/PigiZ2V0RGlyZWN0b3J5UGF0aCIpOwogICAgICB9CiAgICAgIGlmIChkaXJlY3RvcnkgPT0gbnVsbCkgcmV0dXJuIG51bGw7CiAgICAgIF9maW5hbGl6ZXIuYXR0YWNoKHRoaXMsIGRpcmVjdG9yeSk7CiAgICAgIHJldHVybiBEaXJlY3RvcnkoZGlyZWN0b3J5KTsKICAgIH0gZmluYWxseSB7CiAgICAgIEZ1dHVyZS5kZWxheWVkKGNvbnN0IER1cmF0aW9uKG1pbGxpc2Vjb25kczogMTAwKSwgKCkgewogICAgICAgIElPLl9pc1NlbGVjdGluZ0ZpbGVzID0gZmFsc2U7CiAgICAgIH0pOwogICAgfQogIH0KfQoKY2xhc3MgSU9TRGlyZWN0b3J5UGlja2VyIHsKICBzdGF0aWMgY29uc3QgTWV0aG9kQ2hhbm5lbCBfY2hhbm5lbCA9IE1ldGhvZENoYW5uZWwoImtvbmdfY29taWMvbWV0aG9kX2NoYW5uZWwiKTsKCiAgLy8gIOS7tOeUqCBpT1Mg55uu5b2V6YCJ5peL5pa55rOVCiAgc3RhdGljIEZ1dHVyZTxTdHJpbmc/PiBzZWxlY3REaXJlY3RvcnkoKSBhc3luYyB7CiAgICBJTy5faXNTZWxlY3RpbmdGaWxlcyA9IHRydWU7CiAgICB0cnkgewogICAgICBmaW5hbCBTdHJpbmc/IHBhdGggPSBhd2FpdCBfY2hhbm5lbC5pbnZva2VNZXRob2QoJ3NlbGVjdERpcmVjdG9yeScpOwogICAgICByZXR1cm4gcGF0aDsKICAgIH0gY2F0Y2ggKGUpIHsKICAgICAgLy8g6L+U5Zue5oql6KGo5L+h5oGvCiAgICAgIHJldHVybiBlLnRvU3RyaW5nKCk7CiAgICB9IGZpbmFsbHkgewogICAgICBGdXR1cmUuZGVsYXllZChjb25zdCBEdXJhdGlvbihtaWxsaXNlY29uZHM6IDEwMCksICgpIHsKICAgICAgICBJTy5faXNTZWxlY3RpbmdGaWxlcyA9IGZhbHNlOwogICAgICB9KTsKICAgIH0KICB9Cn0KCkZ1dHVyZTxGaWxlU2VsZWN0UmVzdWx0Pz4gc2VsZWN0RmlsZSh7cmVxdWlyZWQgTGlzdDxTdHJpbmc+IGV4dH0pIGFzeW5jIHsKICBJTy5faXNTZWxlY3RpbmdGaWxlcyA9IHRydWU7CiAgdHJ5IHsKICAgIHZhciBleHRlbnNpb25zID0gQXBwLmlzTWFjT1MgfHwgQXBwLmlzSU9TID8gbnVsbCA6IGV4dDsKICAgIGZpbGVfc2VsZWN0b3IuWFR5cGVHcm91cCB0eXBlR3JvdXAgPSBmaWxlX3NlbGVjdG9yLlhUeXBlR3JvdXAoCiAgICAgIGxhYmVsOiAnZmlsZXMnLAogICAgICBleHRlbnNpb25zOiBleHRlbnNpb25zLAogICAgKTsKICAgIEZpbGVTZWxlY3RSZXN1bHQ/IGZpbGU7CiAgICBpZiAoQXBwLmlzQW5kcm9pZCkgewogICAgICBjb25zdCBzZWxlY3RGaWxlQ2hhbm5lbCA9IE1ldGhvZENoYW5uZWwoInZlbmVyYS9zZWxlY3RfZmlsZSIpOwogICAgICBTdHJpbmcgbWltZVR5cGUgPSAiKi8qIjsKICAgICAgaWYgKGV4dC5sZW5ndGggPT0gMSkgewogICAgICAgIG1pbWVUeXBlID0gRmlsZVR5cGUuZnJvbUV4dGVuc2lvbihleHRbMF0pLm1pbWU7CiAgICAgICAgaWYgKG1pbWVUeXBlID09ICJhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0iKSB7CiAgICAgICAgICBtaW1lVHlwZSA9ICIqLyoiOwogICAgICAgIH0KICAgICAgfQogICAgICB2YXIgZmlsZVBhdGggPSBhd2FpdCBzZWxlY3RGaWxlQ2hhbm5lbC5pbnZva2VNZXRob2QoCiAgICAgICAgInNlbGVjdEZpbGUiLAogICAgICAgIG1pbWVUeXBlLAogICAgICApOwogICAgICBpZiAoZmlsZVBhdGggPT0gbnVsbCkgcmV0dXJuIG51bGw7CiAgICAgIGZpbGUgPSBGaWxlU2VsZWN0UmVzdWx0KGZpbGVQYXRoKTsKICAgIH0gZWxzZSB7CiAgICAgIHZhciB4RmlsZSA9IGF3YWl0IGZpbGVfc2VsZWN0b3Iub3BlbkZpbGUoCiAgICAgICAgYWNjZXB0ZWRUeXBlR3JvdXBzOiA8ZmlsZV9zZWxlY3Rvci5YVHlwZUdyb3VwPlt0eXBlR3JvdXBdLAogICAgICApOwogICAgICBpZiAoeEZpbGUgPT0gbnVsbCkgcmV0dXJuIG51bGw7CiAgICAgIGZpbGUgPSBGaWxlU2VsZWN0UmVzdWx0KHhGaWxlLnBhdGgpOwogICAgfQogICAgaWYgKCFleHQuYW55KChlKSA9PiBmaWxlIS5wYXRoLnRvTG93ZXJDYXNlKCkuZW5kc1dpdGgoIi4kZSIpKSkgewogICAgICBBcHAucm9vdENvbnRleHQuc2hvd01lc3NhZ2UoCiAgICAgICAgbWVzc2FnZTogIiR7IkludmFsaWQgZmlsZSB0eXBlIi50bH06ICR7ZmlsZS5wYXRoLnNwbGl0KCIuIikubGFzdH0iLAogICAgICApOwogICAgICByZXR1cm4gbnVsbDsKICAgIH0KICAgIHJldHVybiBmaWxlOwogIH0gZmluYWxseSB7CiAgICBGdXR1cmUuZGVsYXllZChjb25zdCBEdXJhdGlvbihtaWxsaXNlY29uZHM6IDEwMCksICgpIHsKICAgICAgSU8uX2lzU2VsZWN0aW5nRmlsZXMgPSBmYWxzZTsKICAgIH0pOwogIH0KfQoKRnV0dXJlPFN0cmluZz8+IHNlbGVjdERpcmVjdG9yeSgpIGFzeW5jIHsKICBJTy5faXNTZWxlY3RpbmdGaWxlcyA9IHRydWU7CiAgdHJ5IHsKICAgIHZhciBwYXRoID0gYXdhaXQgZmlsZV9zZWxlY3Rvci5nZXREaXJlY3RvcnlQYXRoKCk7CiAgICByZXR1cm4gcGF0aDsKICB9IGZpbmFsbHkgewogICAgRnV0dXJlLmRlbGF5ZWQoY29uc3QgRHVyYXRpb24obWlsbGlzZWNvbmRzOiAxMDApLCAoKSB7CiAgICAgIElPLl9pc1NlbGVjdGluZ0ZpbGVzID0gZmFsc2U7CiAgICB9KTsKICB9Cn0KCi8vIHNlbGVjdERpcmVjdG9yeUlPUwpGdXR1cmU8U3RyaW5nPz4gc2VsZWN0RGlyZWN0b3J5SU9TKCkgYXN5bmMgewogIHJldHVybiBJT1NEaXJlY3RvcnlQaWNrZXIuc2VsZWN0RGlyZWN0b3J5KCk7Cn0KCkZ1dHVyZTx2b2lkPiBzYXZlRmlsZSgKICAgIHtVSW50OExpc3Q/IGRhdGEsIHJlcXVpcmVkIFN0cmluZyBmaWxlbmFtZSwgRmlsZT8gZmlsZX0pIGFzeW5jIHsKICBpZiAoZGF0YSA9PSBudWxsICYmIGZpbGUgPT0gbnVsbCkgewogICAgdGhyb3cgRXhjZXB0aW9uKCJkYXRhIGFuZCBmaWxlIGNhbm5vdCBiZSBudWxsIGF0IHRoZSBzYW1lIHRpbWUiKTsKICB9CiAgSU8uX2lzU2VsZWN0aW5nRmlsZXMgPSB0cnVlOwogIHRyeSB7CiAgICBpZiAoZGF0YSAhPSBudWxsKSB7CiAgICAgIHZhciBjYWNoZSA9IEZpbGVQYXRoLmpvaW4oQXBwLmNhY2hlUGF0aCwgZmlsZW5hbWUpOwogICAgICBpZiAoRmlsZShjYWNoZSkuZXhpc3RzU3luYygpKSB7CiAgICAgICAgRmlsZShjYWNoZSkuZGVsZXRlU3luYygpOwogICAgICB9CiAgICAgIGF3YWl0IEZpbGUoY2FjaGUpLndyaXRlQXNCeXRlcyhkYXRhKTsKICAgICAgZmlsZSA9IEZpbGUoY2FjaGUpOwogICAgfQogICAgaWYgKEFwcC5pc01vYmlsZSkgewogICAgICBmaW5hbCBwYXJhbXMgPSBTYXZlRmlsZURpYWxvZ1BhcmFtcyhzb3VyY2VGaWxlUGF0aDogZmlsZSEucGF0aCk7CiAgICAgIGF3YWl0IEZsdXR0ZXJGaWxlRGlhbG9nLnNhdmVGaWxlKHBhcmFtczogcGFyYW1zKTsKICAgIH0gZWxzZSB7CiAgICAgIGZpbmFsIHJlc3VsdCA9IGF3YWl0IGZpbGVfc2VsZWN0b3IuZ2V0U2F2ZUxvY2F0aW9uKAogICAgICAgIHN1Z2dlc3RlZE5hbWU6IGZpbGVuYW1lLAogICAgICApOwogICAgICBpZiAocmVzdWx0ICE9IG51bGwpIHsKICAgICAgICB2YXIgeEZpbGUgPSBmaWxlX3NlbGVjdG9yLlhGaWxlKGZpbGUhLnBhdGgpOwogICAgICAgIGF3YWl0IHhGaWxlLnNhdmVUbyhyZXN1bHQucGF0aCk7CiAgICAgIH0KICAgIH0KICB9IGZpbmFsbHkgewogICAgRnV0dXJlLmRlbGF5ZWQoY29uc3QgRHVyYXRpb24obWlsbGlzZWNvbmRzOiAxMDApLCAoKSB7CiAgICAgIElPLl9pc1NlbGVjdGluZ0ZpbGVzID0gZmFsc2U7CiAgICB9KTsKICB9Cn0KCmZpbmFsIGNsYXNzIF9JT092ZXJyaWRlcyBleHRlbmRzIElPT3ZlcnJpZGVzIHsKICBAb3ZlcnJpZGUKICBEaXJlY3RvcnkgY3JlYXRlRGlyZWN0b3J5KFN0cmluZyBwYXRoKSB7CiAgICBpZiAoQXBwLmlzQW5kcm9pZCkgewogICAgICB2YXIgZGlyID0gQW5kcm9pZERpcmVjdG9yeS5mcm9tUGF0aFN5bmMocGF0aCk7CiAgICAgIGlmIChkaXIgPT0gbnVsbCkgewogICAgICAgIHJldHVybiBzdXBlci5jcmVhdGVEaXJlY3RvcnkocGF0aCk7CiAgICAgIH0KICAgICAgcmV0dXJuIGRpcjsKICAgIH0gZWxzZSB7CiAgICAgIHJldHVybiBzdXBlci5jcmVhdGVEaXJlY3RvcnkocGF0aCk7CiAgICB9CiAgfQoKICBAb3ZlcnJpZGUKICBGaWxlIGNyZWF0ZUZpbGUoU3RyaW5nIHBhdGgpIHsKICAgIGlmIChwYXRoLnN0YXJ0c1dpdGgoImZpbGU6Ly8iKSkgewogICAgICBwYXRoID0gcGF0aC5zdWJzdHJpbmcoNyk7CiAgICB9CiAgICBpZiAoQXBwLmlzQW5kcm9pZCkgewogICAgICB2YXIgZiA9IEFuZHJvaWRGaWxlLmZyb21QYXRoU3luYyhwYXRoKTsKICAgICAgaWYgKGYgPT0gbnVsbCkgewogICAgICAgIHJldHVybiBzdXBlci5jcmVhdGVGaWxlKHBhdGgpOwogICAgICB9CiAgICAgIHJldHVybiBmOwogICAgfSBlbHNlIHsKICAgICAgcmV0dXJuIHN1cGVyLmNyZWF0ZUZpbGUocGF0aCk7CiAgICB9CiAgfQp9CgpUIG92ZXJyaWRlSU88VD4oVCBGdW5jdGlvbigpIGYpIHsKICByZXR1cm4gSU9PdmVycmlkZXMucnVuV2l0aElPT3ZlcnJpZGVzPFQ+KAogICAgZiwKICAgIF9JT092ZXJyaWRlcygpLAogICk7Cn0KCmNsYXNzIFNoYXJlIHsKICBzdGF0aWMgRnV0dXJlPHZvaWQ+IHNoYXJlRmlsZSh7CiAgICByZXF1aXJlZCBVSW50OExpc3QgZGF0YSwKICAgIHJlcXVpcmVkIFN0cmluZyBmaWxlbmFtZSwKICAgIHJlcXVpcmVkIFN0cmluZyBtaW1lLAogIH0pIGFzeW5jIHsKICAgIC8vIHdyaXRlIHRvIGNhY2hlIGZpcnN0IGZvciByZWxpYWJsZSBmaWxlIHNoYXJpbmcgYWNyb3NzIGFsbCBwbGF0Zm9ybXMKICAgIHZhciBmaWxlID0gRmlsZShGaWxlUGF0aC5qb2luKEFwcC5jYWNoZVBhdGgsIGZpbGVuYW1lKSk7CiAgICBhd2FpdCBmaWxlLndyaXRlQXNCeXRlcyhkYXRhKTsKICAgIGF3YWl0IHMuU2hhcmVQbHVzLmluc3RhbmNlLnNoYXJlKHMuU2hhcmVQYXJhbXMoCiAgICAgIGZpbGVzOiBbcy5YRmlsZShmaWxlLnBhdGgpXSwKICAgICAgZmlsZU5hbWVPdmVycmlkZXM6IFtmaWxlbmFtZV0sCiAgICApKTsKICB9CgogIHN0YXRpYyB2b2lkIHNoYXJlVGV4dChTdHJpbmcgdGV4dCkgewogICAgcy5TaGFyZVBsdXMuaW5zdGFuY2Uuc2hhcmUocy5TaGFyZVBhcmFtcyh0ZXh0OiB0ZXh0KSk7CiAgfQp9CgpTdHJpbmcgYnl0ZXNUb1JlYWRhYmxlU3RyaW5nKGludCBieXRlcykgewogIGlmIChieXRlcyA8IDEwMjQpIHsKICAgIHJldHVybiAiJGJ5dGVzIEIiOwogIH0gZWxzZSBpZiAoYnl0ZXMgPCAxMDI0ICogMTAyNCkgewogICAgcmV0dXJuICIkeyhieXRlcyAvIDEwMjQpLnRvU3RyaW5nQXNJbnNpZ2VkKDIpfSBLQiI7CiAgfSBlbHNlIGlmIChieXRlcyA8IDEwMjQgKiAxMDI0ICogMTAyNCkgewogICAgcmV0dXJuICIkeyhieXRlcyAvIDEwMjQgLyAxMDI0KS50b1N0cmluZ0FzSW5zaWdlZCgyKX0gTUIiOwogIH0gZWxzZSB7CiAgICByZXR1cm4gIiR7KGJ5dGVzIC8gMTAyNCAvIDEwMjQgLyAxMDI0KS50b1N0cmluZ0FzSW5zaWdlZCgyKX0gR0IiOwogIH0KfQoKY2xhc3MgRmlsZVNlbGVjdFJlc3VsdCB7CiAgZmluYWwgU3RyaW5nIHBhdGg7CgogIHN0YXRpYyBmaW5hbCBfZmluYWxpemVyID0gRmluYWxpemVyPFN0cmluZz4oKHBhdGgpIHsKICAgIGlmIChwYXRoLnN0YXJ0c1dpdGgoQXBwLmNhY2hlUGF0aCkpIHsKICAgICAgRmlsZShwYXRoKS5kZWxldGVJZ25vcmVFcnJvcigpOwogICAgfQogIH0pOwoKICBGaWxlU2VsZWN0UmVzdWx0KHRoaXMucGF0aCkgewogICAgX2ZpbmFsaXplci5hdHRhY2godGhpcywgcGF0aCk7CiAgfQoKICBGdXR1cmU8dm9pZD4gc2F2ZVRvKFN0cmluZyBwYXRoKSBhc3luYyB7CiAgICBhd2FpdCBGaWxlKHRoaXMucGF0aCkuY29weShwYXRoKTsKICB9CgogIEZ1dHVyZTxVSW50OExpc3Q+IHJlYWRBc0J5dGVzKCkgewogICAgcmV0dXJuIEZpbGUocGF0aCkucmVhZEFzQnl0ZXMoKTsKICB9CgogIFN0cmluZyBnZXQgbmFtZSA9PiBGaWxlKHBhdGgpLm5hbWU7Cn0K
+import 'dart:io';
+import 'dart:isolate';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+import 'package:flutter_saf/flutter_saf.dart';
+import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/utils/ext.dart';
+import 'package:path/path.dart' as p;
+import 'package:share_plus/share_plus.dart' as s;
+import 'package:file_selector/file_selector.dart' as file_selector;
+import 'package:kong_comic/utils/file_type.dart';
+import 'package:kong_comic/utils/translations.dart';
+
+export 'dart:io';
+export 'dart:typed_data';
+
+class IO {
+  /// A global flag used to indicate whether the app is selecting files.
+  ///
+  /// Select file and other similar file operations will launch external programs,
+  /// causing the app to lose focus. AppLifecycleState will be set to paused.
+  static bool get isSelectingFiles => _isSelectingFiles;
+
+  static bool _isSelectingFiles = false;
+}
+
+class FilePath {
+  const FilePath._();
+
+  static String join(String path1, String path2,
+      [String? path3, String? path4, String? path5]) {
+    return p.join(path1, path2, path3, path4, path5);
+  }
+}
+
+extension FileSystemEntityExt on FileSystemEntity {
+  /// Get the base name of the file or directory.
+  String get name {
+    return p.basename(path);
+  }
+
+  /// Delete the file or directory and ignore errors.
+  Future<void> deleteIgnoreError({bool recursive = false}) async {
+    try {
+      await delete(recursive: recursive);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  /// Delete the file or directory if it exists.
+  Future<void> deleteIfExists({bool recursive = false}) async {
+    if (existsSync()) {
+      await delete(recursive: recursive);
+    }
+  }
+
+  /// Delete the file or directory if it exists.
+  void deleteIfExistsSync({bool recursive = false}) {
+    if (existsSync()) {
+      deleteSync(recursive: recursive);
+    }
+  }
+}
+
+extension FileExtension on File {
+  /// Get the file extension, not including the dot.
+  String get extension => path.split('.').last;
+
+  /// Copy the file to the specified path using memory.
+  ///
+  /// This method prevents errors caused by files from different file systems.
+  Future<void> copyMem(String newPath) async {
+    var newFile = File(newPath);
+    // Stream is not usable since [AndroidFile] does not support [openRead].
+    await newFile.writeAsBytes(await readAsBytes());
+  }
+
+  /// Get the base name of the file without the extension.
+  String get basenameWithoutExt {
+    return p.basenameWithoutExtension(path);
+  }
+}
+
+extension DirectoryExtension on Directory {
+  /// Calculate the size of the directory.
+  Future<int> get size async {
+    if (!existsSync()) return 0;
+    int total = 0;
+    for (var f in listSync(recursive: true)) {
+      if (FileSystemEntity.typeSync(f.path) == FileSystemEntityType.file) {
+        total += await File(f.path).length();
+      }
+    }
+    return total;
+  }
+
+  /// Change the base name of the directory.
+  Directory renameX(String newName) {
+    newName = sanitizeFileName(newName);
+    return renameSync(path.replaceLast(name, newName));
+  }
+
+  File joinFile(String name) {
+    return File(FilePath.join(path, name));
+  }
+
+  /// Delete the contents of the directory.
+  void deleteContentsSync({recursive = true}) {
+    if (!existsSync()) return;
+    for (var f in listSync()) {
+      f.deleteIfExistsSync(recursive: recursive);
+    }
+  }
+
+  /// Delete the contents of the directory.
+  Future<void> deleteContents({recursive = true}) async {
+    if (!existsSync()) return;
+    for (var f in listSync()) {
+      await f.deleteIfExists(recursive: recursive);
+    }
+  }
+
+  /// Create the directory. If the directory already exists, delete it first.
+  void forceCreateSync() {
+    if (existsSync()) {
+      deleteSync(recursive: true);
+    }
+    createSync(recursive: true);
+  }
+}
+
+/// Sanitize the file name. Remove invalid characters and trim the file name.
+String sanitizeFileName(String fileName, {String? dir, int? maxLength}) {
+  while (fileName.endsWith('.')) {
+    fileName = fileName.substring(0, fileName.length - 1);
+  }
+  var length = maxLength ?? 255;
+  if (dir != null) {
+    if (!dir.endsWith('/') && !dir.endsWith('\\')) {
+      dir = "$dir/";
+    }
+    length -= dir.length;
+  }
+  final invalidChars = RegExp(r'[<>:"/\\|?*]');
+  final sanitizedFileName = fileName.replaceAll(invalidChars, ' ');
+  var trimmedFileName = sanitizedFileName.trim();
+  if (trimmedFileName.isEmpty) {
+    throw Exception('Invalid File Name: Empty length.');
+  }
+  if (length <= 0) {
+    throw Exception('Invalid File Name: Max length is less than 0.');
+  }
+  if (trimmedFileName.length > length) {
+    trimmedFileName = trimmedFileName.substring(0, length);
+  }
+  return trimmedFileName;
+}
+
+/// Copy the **contents** of the source directory to the destination directory.
+Future<void> copyDirectory(Directory source, Directory destination) async {
+  List<FileSystemEntity> contents = source.listSync();
+  for (FileSystemEntity content in contents) {
+    String newPath = FilePath.join(destination.path, content.name);
+
+    if (content is File) {
+      var resultFile = File(newPath);
+      resultFile.createSync();
+      var data = content.readAsBytesSync();
+      resultFile.writeAsBytesSync(data);
+    } else if (content is Directory) {
+      Directory newDirectory = Directory(newPath);
+      newDirectory.createSync();
+      copyDirectory(content.absolute, newDirectory.absolute);
+    }
+  }
+}
+
+/// Copy the **contents** of the source directory to the destination directory.
+/// This function is executed in an isolate to prevent the UI from freezing.
+Future<void> copyDirectoryIsolate(
+    Directory source, Directory destination) async {
+  await Isolate.run(() => overrideIO(() => copyDirectory(source, destination)));
+}
+
+
+
+String findValidDirectoryName(String path, String directory) {
+  var name = sanitizeFileName(directory);
+  var dir = Directory("$path/$name");
+  var i = 1;
+  while (dir.existsSync() && dir.listSync().isNotEmpty) {
+    name = sanitizeFileName("$directory($i)");
+    dir = Directory("$path/$name");
+    i++;
+  }
+  return name;
+}
+
+class DirectoryPicker {
+  /// Pick a directory.
+  ///
+  /// The directory may not be usable after the instance is GCed.
+  DirectoryPicker();
+
+  static final _finalizer = Finalizer<String>((path) {
+    if (path.startsWith(App.cachePath)) {
+      Directory(path).deleteIgnoreError();
+    }
+    if (App.isIOS || App.isMacOS) {
+      _methodChannel.invokeMethod("stopAccessingSecurityScopedResource");
+    }
+  });
+
+  static const _methodChannel = MethodChannel("kong_comic/method_channel");
+
+  Future<Directory?> pickDirectory({bool directAccess = false}) async {
+    IO._isSelectingFiles = true;
+    try {
+      String? directory;
+      if (App.isWindows || App.isLinux) {
+        directory = await file_selector.getDirectoryPath();
+      } else if (App.isAndroid) {
+        directory = (await AndroidDirectory.pickDirectory())?.path;
+        if (directory != null && directAccess) {
+          // Native library does not have access to the directory. Copy it to cache.
+          var cache = FilePath.join(App.cachePath, "selected_directory");
+          if (Directory(cache).existsSync()) {
+            Directory(cache).deleteSync(recursive: true);
+          }
+          Directory(cache).createSync();
+          await copyDirectoryIsolate(Directory(directory), Directory(cache));
+          directory = cache;
+        }
+      } else {
+        // ios, macos
+        directory =
+            await _methodChannel.invokeMethod<String?>("getDirectoryPath");
+      }
+      if (directory == null) return null;
+      _finalizer.attach(this, directory);
+      return Directory(directory);
+    } finally {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        IO._isSelectingFiles = false;
+      });
+    }
+  }
+}
+
+class IOSDirectoryPicker {
+  static const MethodChannel _channel = MethodChannel("kong_comic/method_channel");
+
+  // 调用 iOS 目录选择方法
+  static Future<String?> selectDirectory() async {
+    IO._isSelectingFiles = true;
+    try {
+      final String? path = await _channel.invokeMethod('selectDirectory');
+      return path;
+    } catch (e) {
+      // 返回报错信息
+      return e.toString();
+    } finally {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        IO._isSelectingFiles = false;
+      });
+    }
+  }
+}
+
+Future<FileSelectResult?> selectFile({required List<String> ext}) async {
+  IO._isSelectingFiles = true;
+  try {
+    var extensions = App.isMacOS || App.isIOS ? null : ext;
+    file_selector.XTypeGroup typeGroup = file_selector.XTypeGroup(
+      label: 'files',
+      extensions: extensions,
+    );
+    FileSelectResult? file;
+    if (App.isAndroid) {
+      const selectFileChannel = MethodChannel("venera/select_file");
+      String mimeType = "*/*";
+      if (ext.length == 1) {
+        mimeType = FileType.fromExtension(ext[0]).mime;
+        if (mimeType == "application/octet-stream") {
+          mimeType = "*/*";
+        }
+      }
+      var filePath = await selectFileChannel.invokeMethod(
+        "selectFile",
+        mimeType,
+      );
+      if (filePath == null) return null;
+      file = FileSelectResult(filePath);
+    } else {
+      var xFile = await file_selector.openFile(
+        acceptedTypeGroups: <file_selector.XTypeGroup>[typeGroup],
+      );
+      if (xFile == null) return null;
+      file = FileSelectResult(xFile.path);
+    }
+    if (!ext.any((e) => file!.path.toLowerCase().endsWith(".$e"))) {
+      App.rootContext.showMessage(
+        message: "${"Invalid file type".tl}: ${file.path.split(".").last}",
+      );
+      return null;
+    }
+    return file;
+  } finally {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      IO._isSelectingFiles = false;
+    });
+  }
+}
+
+Future<String?> selectDirectory() async {
+  IO._isSelectingFiles = true;
+  try {
+    var path = await file_selector.getDirectoryPath();
+    return path;
+  } finally {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      IO._isSelectingFiles = false;
+    });
+  }
+}
+
+// selectDirectoryIOS
+Future<String?> selectDirectoryIOS() async {
+  return IOSDirectoryPicker.selectDirectory();
+}
+
+Future<void> saveFile(
+    {Uint8List? data, required String filename, File? file}) async {
+  if (data == null && file == null) {
+    throw Exception("data and file cannot be null at the same time");
+  }
+  IO._isSelectingFiles = true;
+  try {
+    if (data != null) {
+      var cache = FilePath.join(App.cachePath, filename);
+      if (File(cache).existsSync()) {
+        File(cache).deleteSync();
+      }
+      await File(cache).writeAsBytes(data);
+      file = File(cache);
+    }
+    if (App.isMobile) {
+      final params = SaveFileDialogParams(sourceFilePath: file!.path);
+      await FlutterFileDialog.saveFile(params: params);
+    } else {
+      final result = await file_selector.getSaveLocation(
+        suggestedName: filename,
+      );
+      if (result != null) {
+        var xFile = file_selector.XFile(file!.path);
+        await xFile.saveTo(result.path);
+      }
+    }
+  } finally {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      IO._isSelectingFiles = false;
+    });
+  }
+}
+
+final class _IOOverrides extends IOOverrides {
+  @override
+  Directory createDirectory(String path) {
+    if (App.isAndroid) {
+      var dir = AndroidDirectory.fromPathSync(path);
+      if (dir == null) {
+        return super.createDirectory(path);
+      }
+      return dir;
+    } else {
+      return super.createDirectory(path);
+    }
+  }
+
+  @override
+  File createFile(String path) {
+    if (path.startsWith("file://")) {
+      path = path.substring(7);
+    }
+    if (App.isAndroid) {
+      var f = AndroidFile.fromPathSync(path);
+      if (f == null) {
+        return super.createFile(path);
+      }
+      return f;
+    } else {
+      return super.createFile(path);
+    }
+  }
+}
+
+T overrideIO<T>(T Function() f) {
+  return IOOverrides.runWithIOOverrides<T>(
+    f,
+    _IOOverrides(),
+  );
+}
+
+class Share {
+  static Future<void> shareFile({
+    required Uint8List data,
+    required String filename,
+    required String mime,
+  }) async {
+    // write to cache first for reliable file sharing across all platforms
+    var file = File(FilePath.join(App.cachePath, filename));
+    await file.writeAsBytes(data);
+    await s.SharePlus.instance.share(s.ShareParams(
+      files: [s.XFile(file.path)],
+      fileNameOverrides: [filename],
+    ));
+  }
+
+  static void shareText(String text) {
+    s.SharePlus.instance.share(s.ShareParams(text: text));
+  }
+}
+
+String bytesToReadableString(int bytes) {
+  if (bytes < 1024) {
+    return "$bytes B";
+  } else if (bytes < 1024 * 1024) {
+    return "${(bytes / 1024).toStringAsFixed(2)} KB";
+  } else if (bytes < 1024 * 1024 * 1024) {
+    return "${(bytes / 1024 / 1024).toStringAsFixed(2)} MB";
+  } else {
+    return "${(bytes / 1024 / 1024 / 1024).toStringAsFixed(2)} GB";
+  }
+}
+
+class FileSelectResult {
+  final String path;
+
+  static final _finalizer = Finalizer<String>((path) {
+    if (path.startsWith(App.cachePath)) {
+      File(path).deleteIgnoreError();
+    }
+  });
+
+  FileSelectResult(this.path) {
+    _finalizer.attach(this, path);
+  }
+
+  Future<void> saveTo(String path) async {
+    await File(this.path).copy(path);
+  }
+
+  Future<Uint8List> readAsBytes() {
+    return File(path).readAsBytes();
+  }
+
+  String get name => File(path).name;
+}
