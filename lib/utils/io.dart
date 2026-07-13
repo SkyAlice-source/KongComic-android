@@ -404,24 +404,18 @@ T overrideIO<T>(T Function() f) {
 }
 
 class Share {
-  static void shareFile({
+  static Future<void> shareFile({
     required Uint8List data,
     required String filename,
     required String mime,
-  }) {
-    if (!App.isWindows) {
-      s.SharePlus.instance.share(s.ShareParams(
-        files: [s.XFile.fromData(data, mimeType: mime)],
-        fileNameOverrides: [filename],
-      ));
-    } else {
-      // write to cache
-      var file = File(FilePath.join(App.cachePath, filename));
-      file.writeAsBytesSync(data);
-      s.SharePlus.instance.share(s.ShareParams(
-        files: [s.XFile(file.path)],
-      ));
-    }
+  }) async {
+    // write to cache first for reliable file sharing across all platforms
+    var file = File(FilePath.join(App.cachePath, filename));
+    await file.writeAsBytes(data);
+    await s.SharePlus.instance.share(s.ShareParams(
+      files: [s.XFile(file.path)],
+      fileNameOverrides: [filename],
+    ));
   }
 
   static void shareText(String text) {
