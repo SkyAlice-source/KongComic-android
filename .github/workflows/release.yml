@@ -3,7 +3,10 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'  # 推送 v1.0.0, v1.1.0 等 tag 时触发
+      - 'v*'         # 推送 v1.0.0, v1.1.0 等 tag 时触发
+    branches:
+      - 'release-*'  # 推送 release-v1.2.14 等分支时触发
+  workflow_dispatch: # 支持手动触发
 
 permissions:
   contents: write

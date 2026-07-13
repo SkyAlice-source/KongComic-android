@@ -488,7 +488,6 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                   DeviceOrientation.portraitUp,
                   DeviceOrientation.portraitDown,
                 ]);
-                showToast(message: "Portrait lock enabled".tl, context: context, seconds: 1);
               } else if (rotation == false) {
                 setState(() {
                   rotation = true;
@@ -497,280 +496,62 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                   DeviceOrientation.landscapeLeft,
                   DeviceOrientation.landscapeRight,
                 ]);
-                showToast(message: "Landscape lock enabled".tl, context: context, seconds: 1);
               } else {
                 setState(() {
                   rotation = null;
                 });
                 SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-                showToast(message: "Rotation unlocked".tl, context: context, seconds: 1);
               }
             },
           ),
         ),
       Tooltip(
-        message: context.reader.autoPageTurningTimer != null
-            ? "${"Auto Page Turning".tl} (${"On".tl})"
-            : "Auto Page Turning".tl,
-        child: IconButton(
-          icon: context.reader.autoPageTurningTimer != null
-              ? Icon(Icons.alarm_on, size: 20, color: Colors.green)
-              : HugeIcon(icon: HugeIcons.strokeRoundedAlarmClock, size: 20),
-          onPressed: () {
-            var wasOn = context.reader.autoPageTurningTimer != null;
-            context.reader.autoPageTurning(
-              context.reader.cid,
-              context.reader.type,
-            );
-            update();
-            showToast(
-              message: wasOn ? "Auto page turning stopped".tl : "Auto page turning started".tl,
-              context: context,
-              seconds: 1,
-            );
-          },
-        ),
-      ),
-      if (context.reader.widget.chapters != null)
-        Tooltip(
-          message: "Chapters".tl,
-          child: IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 20),
-            onPressed: openChapterDrawer,
-          ),
-        ),
-      Tooltip(
-        message: "Set as Cover".tl,
-        child: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedImage02, size: 20),
-          onPressed: setAsCover,
-        ),
+        message: "Share".tl,
+        child: IconButton(icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 20), onPressed: share),
       ),
       Tooltip(
         message: "Save Image".tl,
         child: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 20),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload01, size: 20),
           onPressed: saveCurrentImage,
         ),
       ),
-      Tooltip(
-        message: "Share".tl,
-        child: IconButton(icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 20), onPressed: share),
-      ),
     ];
-
-    Widget child = SizedBox(
-      height: kBottomBarHeight,
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                onPressed: () => !isReversed
-                    ? context.reader.chapter > 1
-                          ? context.reader.toPrevChapter()
-                          : context.reader.toPage(1)
-                    : context.reader.chapter < context.reader.maxChapter
-                    ? context.reader.toNextChapter()
-                    : context.reader.toPage(context.reader.maxPage),
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedBackward01, size: 20),
-              ),
-              Expanded(child: buildSlider()),
-              IconButton.filledTonal(
-                onPressed: () => !isReversed
-                    ? context.reader.chapter < context.reader.maxChapter
-                          ? context.reader.toNextChapter()
-                          : context.reader.toPage(context.reader.maxPage)
-                    : context.reader.chapter > 1
-                    ? context.reader.toPrevChapter()
-                    : context.reader.toPage(1),
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedForward01, size: 20),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-          LayoutBuilder(
-            builder: (context, constrains) {
-              final small = (constrains.maxWidth - buttons.length * 50) < 120;
-              return Row(
-                children: [
-                  if (!small)
-                    Container(
-                      height: 24,
-                      padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.tertiaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: Text(
-                          text,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onTertiaryContainer,
-                          ),
-                        ),
-                      ),
-                    ).paddingLeft(16),
-                  const Spacer(),
-                  for (var button in buttons)
-                    if (!small)
-                      Material(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                        clipBehavior: Clip.antiAlias,
-                        child: button.paddingHorizontal(4),
-                      )
-                    else
-                      ...[button, const Spacer()],
-                  if (!small)
-                    const SizedBox(width: 4),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
 
     return BlurEffect(
       child: Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom,
+        ),
         decoration: BoxDecoration(
           color: context.colorScheme.surface,
-          border: isOpen
-              ? Border(
-                  top: BorderSide(
-                    color: Colors.grey.toOpacity(0.5),
-                    width: 0.5,
-                  ),
-                )
-              : null,
+          border: Border(
+            top: BorderSide(
+              color: Colors.grey.toOpacity(0.5),
+              width: 0.5,
+            ),
+          ),
         ),
-        padding: EdgeInsets.only(bottom: context.padding.bottom),
         child: Padding(
           padding: EdgeInsets.only(
             left: context.padding.left,
             right: context.padding.right,
           ),
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  var sliderFocus = FocusNode();
-
-  Widget buildSlider() {
-    final displayPage = context.reader.page.clamp(1, context.reader.maxPage);
-    final maxPage = context.reader.maxPage;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: SizedBox(
-        height: 48,
-        child: CustomSlider(
-          focusNode: sliderFocus,
-          value: displayPage.toDouble(),
-          min: 1,
-          max: maxPage.clamp(displayPage, 1 << 16).toDouble(),
-          reversed: isReversed,
-          divisions: (maxPage - 1).clamp(2, 1 << 16),
-          onChanged: (i) {
-            context.reader.toPage(i.toInt());
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget buildPageInfoText() {
-    var epName =
-        context.reader.widget.chapters?.titles.elementAtOrNull(
-          context.reader.chapter - 1,
-        ) ??
-        "E${context.reader.chapter}";
-    if (epName.length > 8) {
-      epName = "${epName.substring(0, 8)}...";
-    }
-    var pageText = "${context.reader.page}/${context.reader.maxPage}";
-    var remaining = context.reader.estimatedRemainingSeconds;
-    var timeText = remaining > 0 ? "  ~${(remaining / 60).ceil()}${"min".tl}" : "";
-    var text = context.reader.widget.chapters != null
-        ? "$epName : $pageText$timeText"
-        : "$pageText$timeText";
-
-    return Positioned(
-      bottom: 13,
-      left: 25,
-      child: Stack(
-        children: [
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 14,
-              foreground: Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = 1.4
-                ..color = context.colorScheme.onInverseSurface,
-            ),
-          ),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black54,
-                  blurRadius: 3,
+          child: Row(
+            children: [
+              Text(
+                text,
+                style: ts.s12.copyWith(
+                  color: context.colorScheme.onSurface,
                 ),
-              ],
-            ),
+              ),
+              const Spacer(),
+              ...buttons,
+            ],
           ),
-        ],
+        ),
       ),
     );
-  }
-
-  Widget buildStatusInfo() {
-    if (appdata.settings['enableClockAndBatteryInfoInReader']) {
-      return Positioned(
-        bottom: 13,
-        right: 25,
-        child: Row(
-          children: [
-            _ClockWidget(),
-            const SizedBox(width: 10),
-            _BatteryWidget(),
-          ],
-        ),
-      );
-    } else {
-      return const SizedBox.shrink();
-    }
-  }
-
-  void openChapterDrawer() {
-    _openSideBar(
-      context.reader.widget.chapters!.isGrouped
-          ? _GroupedChaptersView(context.reader)
-          : _ChaptersView(context.reader),
-      width: 400,
-    );
-  }
-
-  void saveCurrentImage() async {
-    var result = await selectImageToData();
-    if (result == null) {
-      return;
-    }
-    var (imageIndex, data) = result;
-    var fileType = detectFileType(data);
-    // Save file name: ComicName_EP{chapter}_P{page}.{ext} to avoid conflict.
-    // The chapter index of different group is continuous, so we use chapter number is enough.
-    var filename =
-        "${context.reader.widget.name}_EP${context.reader.chapter}_P${imageIndex + 1}${fileType.ext}";
-    saveFile(data: data, filename: filename);
   }
 
   void share() async {
@@ -797,7 +578,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       var fileType = detectFileType(data);
       var filename =
           "${context.reader.widget.name}_EP${context.reader.chapter}_P${imageIndex + 1}${fileType.ext}";
-      Share.shareFile(data: data, filename: filename, mime: fileType.mime);
+      await Share.shareFile(data: data, filename: filename, mime: fileType.mime);
     } catch (e) {
       // fallback: 分享文字
       Share.shareText(context.reader.widget.name);
@@ -820,728 +601,86 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             cid: context.reader.cid,
             eid: context.reader.eid,
             currentPage: (context.reader.page - 1).clamp(0, images.length - 1),
+            title: "Select Cover Image",
           ),
         ),
       );
-
       if (!mounted || result == null) return;
-      var (_, data) = result;
+      var (imageIndex, data) = result;
+      var fileType = detectFileType(data);
+      var filename =
+          "${context.reader.widget.name}_EP${context.reader.chapter}_P${imageIndex + 1}${fileType.ext}";
+      saveFile(data: data, filename: filename);
+    } catch (e) {
+      showToast(message: e.toString(), context: context);
+    }
+  }
 
-      final success = await CustomCoverManager.setCustomCover(
+  void saveCurrentImage() async {
+    try {
+      final images = context.reader.images;
+      if (images == null || images.isEmpty) return;
+      var imageKey = images[context.reader.page - 1];
+      if (imageKey.startsWith("file://")) {
+        file = File(imageKey.substring(7));
+        var fileName = "${context.reader.widget.name}_EP${context.reader.chapter}_P${context.reader.page}.${file.extension}";
+        saveFile(file: file, filename: fileName);
+        return;
+      }
+      Uint8List? data;
+      try {
+        var cache = await CacheManager().findCache(
+          "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
+        );
+        if (cache != null) {
+          data = await cache.readAsBytes();
+        }
+      } catch (_) {}
+      if (data == null) return;
+      var fileType = detectFileType(data);
+      var filename =
+          "${context.reader.widget.name}_EP${context.reader.chapter}_P${context.reader.page}${fileType.ext}";
+      saveFile(data: data, filename: filename);
+    } catch (e) {
+      showToast(message: e.toString(), context: context);
+    }
+  }
+
+  void saveCurrentPageAsCover() async {
+    try {
+      final images = context.reader.images;
+      if (images == null || images.isEmpty) return;
+      var imageKey = images[context.reader.page - 1];
+      if (imageKey.startsWith("file://")) {
+        file = File(imageKey.substring(7));
+        await CustomCoverManager.setCustomCover(
+          context.reader.type.sourceKey,
+          context.reader.cid,
+          file.path,
+        );
+        return;
+      }
+      Uint8List? data;
+      try {
+        var cache = await CacheManager().findCache(
+          "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
+        );
+        if (cache != null) {
+          data = await cache.readAsBytes();
+        }
+      } catch (_) {}
+      if (data == null) return;
+      var fileType = detectFileType(data);
+      var filename =
+          "${context.reader.widget.name}_EP${context.reader.chapter}_P${context.reader.page}${fileType.ext}";
+      var cache = FilePath.join(App.cachePath, filename);
+      await File(cache).writeAsBytes(data);
+      await CustomCoverManager.setCustomCover(
         context.reader.type.sourceKey,
         context.reader.cid,
-        null,
-        data: data,
+        cache,
       );
-
-      if (!mounted) return;
-      if (success) {
-        showToast(
-          message: "Cover updated successfully".tl,
-          context: context,
-          seconds: 1,
-        );
-        update();
-      } else {
-        showToast(
-          message: "Failed to update cover".tl,
-          context: context,
-          seconds: 1,
-        );
-      }
     } catch (e) {
-      if (!mounted) return;
-      showToast(
-        message: e.toString(),
-        context: context,
-        seconds: 1,
-      );
+      showToast(message: e.toString(), context: context);
     }
   }
-
-  void openSetting() {
-    _openSideBar(
-      ReaderSettings(
-        comicId: context.reader.cid,
-        comicSource: context.reader.type.sourceKey,
-        onChanged: (key) {
-          if (key == "readerMode") {
-            context.reader.mode = ReaderMode.fromKey(
-              appdata.settings.getReaderSetting(
-                context.reader.cid,
-                context.reader.type.sourceKey,
-                key,
-              ),
-            );
-          }
-          if (key == "enableTurnPageByVolumeKey") {
-            if (appdata.settings.getReaderSetting(
-              context.reader.cid,
-              context.reader.type.sourceKey,
-              key,
-            )) {
-              context.reader.handleVolumeEvent();
-            } else {
-              context.reader.stopVolumeEvent();
-            }
-          }
-          if (key == "quickCollectImage") {
-            addDragListener();
-          }
-          if (key == "showChapterComments" || key == "showChapterCommentsAtEnd") {
-            update();
-          }
-          context.reader.update();
-        },
-      ),
-      width: 400,
-    );
-  }
-
-  void _openSideBar(Widget widget, {double width = 400}) {
-    Navigator.of(context, rootNavigator: true).push(
-      SideBarRoute(widget, width: width, dismissible: true),
-    );
-  }
-
-  bool shouldShowChapterComments() {
-    // Check if chapters exist
-    if (context.reader.widget.chapters == null) return false;
-
-    // Check if setting is enabled
-    var showChapterComments = appdata.settings.getReaderSetting(
-      context.reader.cid,
-      context.reader.type.sourceKey,
-      'showChapterComments',
-    );
-    if (showChapterComments != true) return false;
-
-    // Check if comic source supports chapter comments
-    var source = ComicSource.find(context.reader.type.sourceKey);
-    if (source == null || source.chapterCommentsLoader == null) return false;
-
-    return true;
-  }
-
-  void openChapterComments() {
-    var source = ComicSource.find(context.reader.type.sourceKey);
-    if (source == null) return;
-
-    var chapters = context.reader.widget.chapters;
-    if (chapters == null) return;
-
-    var chapterIndex = context.reader.chapter - 1;
-    var epId = chapters.ids.elementAt(chapterIndex);
-    var chapterTitle = chapters.titles.elementAt(chapterIndex);
-
-    Navigator.of(context, rootNavigator: true).push(
-      SideBarRoute(
-        ChapterCommentsPage(
-          comicId: context.reader.cid,
-          epId: epId,
-          source: source,
-          comicTitle: context.reader.widget.name,
-          chapterTitle: chapterTitle,
-        ),
-        width: 500,
-      ),
-    );
-  }
-
-  Widget buildEpChangeButton() {
-    final extraWidth = context.padding.left + context.padding.right;
-    if (context.reader.widget.chapters == null) return const SizedBox();
-    switch (showFloatingButtonValue) {
-      case 0:
-        return Container(
-          width: 58 + extraWidth,
-          height: 58,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            lastValue == 1
-                ? Icons.arrow_forward_ios
-                : Icons.arrow_back_ios_outlined,
-            size: 24,
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
-          ),
-        );
-      case -1:
-      case 1:
-        return SizedBox(
-          width: 58 + extraWidth,
-          height: 58,
-          child: Material(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
-            elevation: 2,
-            child: InkWell(
-              onTap: () {
-                if (showFloatingButtonValue == 1) {
-                  context.reader.toNextChapter();
-                } else if (showFloatingButtonValue == -1) {
-                  context.reader.toPrevChapter();
-                }
-                setFloatingButton(0);
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: Center(
-                child: Icon(
-                  _getArrowIcon(
-                    isReversed,
-                    showFloatingButtonValue,
-                  ),
-                  size: 24,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-              ),
-            ),
-          ),
-        );
-    }
-    return const SizedBox();
-  }
-
-  IconData _getArrowIcon(bool reversed, int value) {
-    if (reversed) {
-      return value == 1 ? Icons.arrow_back_ios_outlined : Icons.arrow_forward_ios;
-    } else {
-      return value == 1 ? Icons.arrow_forward_ios : Icons.arrow_back_ios_outlined;
-    }
-  }
-
-  /// If there is only one image on screen, return it.
-  ///
-  /// If there are multiple images on screen,
-  /// show a thumbnail grid to let the user select an image.
-  ///
-  /// The return value is the index of the selected image.
-  Future<int?> selectImage() async {
-    var reader = context.reader;
-    var imageViewController = context.reader._imageViewController;
-
-    bool needsSelection = false;
-    int? singleImageIndex;
-    List<int> imageIndices = [];
-
-    if (imageViewController is _GalleryModeState) {
-      var range = imageViewController.getCurrentPageImageRange();
-      if (range != null) {
-        var (startIndex, endIndex) = range;
-        int actualImageCount = endIndex - startIndex;
-        if (actualImageCount == 1) {
-          needsSelection = false;
-          singleImageIndex = startIndex;
-        } else {
-          needsSelection = true;
-          for (int i = startIndex; i < endIndex; i++) {
-            imageIndices.add(i);
-          }
-        }
-      }
-    } else if (imageViewController is _ContinuousModeState) {
-      needsSelection = false;
-      singleImageIndex = reader.page - 1;
-    }
-
-    if (!needsSelection && singleImageIndex != null) {
-      return singleImageIndex;
-    } else {
-      // Show thumbnail grid for selection
-      return await _showImageThumbnailGrid(imageIndices);
-    }
-  }
-
-  /// Show a thumbnail grid for image selection
-  Future<int?> _showImageThumbnailGrid(List<int> imageIndices) async {
-    if (imageIndices.isEmpty) return null;
-    
-    int? selectedIndex;
-    final thumbnailFutures = <String, Future<Uint8List?>>{};
-
-    await showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text("Select an image".tl),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: imageIndices.length,
-            itemBuilder: (context, index) {
-              final imageIndex = imageIndices[index];
-              final imageKey = context.reader.images![imageIndex];
-              
-              return GestureDetector(
-                onTap: () {
-                  selectedIndex = imageIndex;
-                  Navigator.of(dialogContext).pop();
-                },
-                child: FutureBuilder<Uint8List?>(
-                  future: thumbnailFutures.putIfAbsent(imageKey, () => _loadThumbnail(imageKey)),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.memory(
-                            snapshot.data!,
-                            fit: BoxFit.cover,
-                          ),
-                          if (selectedIndex == imageIndex)
-                            const Positioned(
-                              right: 4,
-                              top: 4,
-                              child: Icon(
-                                Icons.check_circle,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                        ],
-                      );
-                    } else {
-                      return const Center(
-                        child: CircularProgressIndicator(),
-                      );
-                    }
-                  },
-                ),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text("Cancel".tl),
-          ),
-        ],
-      ),
-    );
-    
-    return selectedIndex;
-  }
-
-  /// Load thumbnail data for an image
-  Future<Uint8List?> _loadThumbnail(String imageKey) async {
-    Uint8List? data;
-    if (imageKey.startsWith("file://")) {
-      try {
-        data = await File(imageKey.substring(7)).readAsBytes();
-      } catch (_) {}
-    } else {
-      try {
-        var cache = await CacheManager().findCache(
-          "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
-        );
-        if (cache != null) {
-          data = await cache.readAsBytes();
-        }
-      } catch (_) {}
-    }
-    return data;
-  }
-
-  /// Same as [selectImage], but return the image data with its index.
-  /// Returns (imageIndex, imageData) or null if cancelled.
-  Future<(int, Uint8List)?> selectImageToData() async {
-    var i = await selectImage();
-    if (i == null) {
-      return null;
-    }
-    var imageKey = context.reader.images![i];
-    Uint8List? data;
-    if (imageKey.startsWith("file://")) {
-      try {
-        data = await File(imageKey.substring(7)).readAsBytes();
-      } catch (_) {}
-    } else {
-      // 尝试从缓存获取
-      try {
-        var cache = await CacheManager().findCache(
-          "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
-        );
-        if (cache != null) {
-          data = await cache.readAsBytes();
-        }
-      } catch (_) {}
-    }
-    if (data == null) {
-      return null;
-    }
-    return (i, data);
-  }
-}
-
-class _BatteryWidget extends StatefulWidget {
-  @override
-  _BatteryWidgetState createState() => _BatteryWidgetState();
-}
-
-class _BatteryWidgetState extends State<_BatteryWidget> {
-  late Battery _battery;
-  late int _batteryLevel = 100;
-  Timer? _timer;
-  bool _hasBattery = false;
-  BatteryState state = BatteryState.unknown;
-
-  @override
-  void initState() {
-    super.initState();
-    _battery = Battery();
-    _checkBatteryAvailability();
-  }
-
-  void _checkBatteryAvailability() async {
-    try {
-      _batteryLevel = await _battery.batteryLevel;
-      if (!mounted) return;
-      state = await _battery.batteryState;
-      if (!mounted) return;
-      if (_batteryLevel > 0 && state != BatteryState.unknown) {
-        if (!mounted) return;
-        setState(() {
-          _hasBattery = true;
-        });
-        _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          _battery.batteryLevel.then((level) {
-            if (!mounted) {
-              timer.cancel();
-              return;
-            }
-            if (_batteryLevel != level) {
-              setState(() {
-                _batteryLevel = level;
-              });
-            }
-          });
-        });
-      }
-    } catch (_) {
-      // ignore
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_hasBattery) {
-      return const SizedBox.shrink(); //Empty Widget
-    }
-    return _batteryInfo(_batteryLevel);
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  Widget _batteryInfo(int batteryLevel) {
-    IconData batteryIcon;
-    Color batteryColor = context.colorScheme.onSurface;
-
-    if (state == BatteryState.charging) {
-      batteryIcon = Icons.battery_charging_full;
-    } else if (batteryLevel >= 96) {
-      batteryIcon = Icons.battery_full_sharp;
-    } else if (batteryLevel >= 84) {
-      batteryIcon = Icons.battery_6_bar_sharp;
-    } else if (batteryLevel >= 72) {
-      batteryIcon = Icons.battery_5_bar_sharp;
-    } else if (batteryLevel >= 60) {
-      batteryIcon = Icons.battery_4_bar_sharp;
-    } else if (batteryLevel >= 48) {
-      batteryIcon = Icons.battery_3_bar_sharp;
-    } else if (batteryLevel >= 36) {
-      batteryIcon = Icons.battery_2_bar_sharp;
-    } else if (batteryLevel >= 24) {
-      batteryIcon = Icons.battery_1_bar_sharp;
-    } else if (batteryLevel >= 12) {
-      batteryIcon = Icons.battery_0_bar_sharp;
-    } else {
-      batteryIcon = Icons.battery_alert_sharp;
-      batteryColor = Colors.red;
-    }
-
-    return Row(
-      children: [
-        Icon(
-          batteryIcon,
-          size: 16,
-          color: batteryColor,
-          // Stroke
-          shadows: List.generate(9, (index) {
-            if (index == 4) {
-              return null;
-            }
-            double offsetX = (index % 3 - 1) * 0.8;
-            double offsetY = ((index / 3).floor() - 1) * 0.8;
-            return Shadow(
-              color: context.colorScheme.onInverseSurface,
-              offset: Offset(offsetX, offsetY),
-            );
-          }).whereType<Shadow>().toList(),
-        ),
-        Stack(
-          children: [
-            Text(
-              '$batteryLevel%',
-              style: TextStyle(
-                fontSize: 14,
-                foreground: Paint()
-                  ..style = PaintingStyle.stroke
-                  ..strokeWidth = 1.4
-                  ..color = context.colorScheme.onInverseSurface,
-              ),
-            ),
-            Text('$batteryLevel%'),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ClockWidget extends StatefulWidget {
-  @override
-  _ClockWidgetState createState() => _ClockWidgetState();
-}
-
-class _ClockWidgetState extends State<_ClockWidget> {
-  late String _currentTime;
-  late Timer _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentTime = _getCurrentTime();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) { timer.cancel(); return; }
-      final time = _getCurrentTime();
-      if (_currentTime != time) {
-        setState(() {
-          _currentTime = time;
-        });
-      }
-    });
-  }
-
-  String _getCurrentTime() {
-    final now = DateTime.now();
-    return "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Text(
-          _currentTime,
-          style: TextStyle(
-            fontSize: 14,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.4
-              ..color = context.colorScheme.onInverseSurface,
-          ),
-        ),
-        Text(_currentTime),
-      ],
-    );
-  }
-}
-
-/// Full-screen image picker that lets the user browse ALL pages in the
-/// current chapter and select any image as the comic's cover.
-class _ChapterImagePickerPage extends StatefulWidget {
-  final List<String> images;
-  final String sourceKey;
-  final String cid;
-  final String eid;
-  final int currentPage;
-  final String title;
-
-  const _ChapterImagePickerPage({
-    required this.images,
-    required this.sourceKey,
-    required this.cid,
-    required this.eid,
-    required this.currentPage,
-    this.title = "Select Cover Image",
-  });
-
-  @override
-  State<_ChapterImagePickerPage> createState() => _ChapterImagePickerPageState();
-}
-
-class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
-  /// Cache futures so FutureBuilder doesn't re-fetch on every rebuild.
-  final Map<int, Future<Uint8List?>> _futures = {};
-  bool _isLoadingFull = false;
-
-  Future<Uint8List?> _loadImage(int index) {
-    return _futures.putIfAbsent(index, () async {
-      final imageKey = widget.images[index];
-      if (imageKey.startsWith("file://")) {
-        try {
-          return await File(imageKey.substring(7)).readAsBytes();
-        } catch (_) {
-          return null;
-        }
-      }
-      try {
-        final cache = await CacheManager().findCache(
-          "$imageKey@${widget.sourceKey}@${widget.cid}@${widget.eid}",
-        );
-        if (cache != null) {
-          return await cache.readAsBytes();
-        }
-      } catch (_) {}
-      return null;
-    });
-  }
-
-  Future<void> _selectImage(int index) async {
-    setState(() => _isLoadingFull = true);
-    final data = await _loadImage(index);
-    if (!mounted) return;
-    setState(() => _isLoadingFull = false);
-    if (data != null) {
-      Navigator.of(context).pop((index, data));
-    } else {
-      showToast(message: "Failed to load image".tl, context: context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title.tl),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: Stack(
-        children: [
-          GridView.builder(
-            padding: const EdgeInsets.all(6),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 6,
-              mainAxisSpacing: 6,
-              childAspectRatio: 0.72,
-            ),
-            itemCount: widget.images.length,
-            itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () => _selectImage(index),
-                child: FutureBuilder<Uint8List?>(
-                  future: _loadImage(index),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.memory(
-                              snapshot.data!,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          // Page number badge
-                          Positioned(
-                            bottom: 4,
-                            left: 4,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                "${index + 1}",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                          ),
-                          // Current page indicator
-                          if (index == widget.currentPage)
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  "Current".tl,
-                                  style: TextStyle(
-                                    color:
-                                        Theme.of(context).colorScheme.onPrimary,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    }
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Center(
-                        child: Text(
-                          "${index + 1}",
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-          if (_isLoadingFull)
-            Container(
-              color: Colors.black38,
-              child: const Center(child: CircularProgressIndicator()),
-            ),
-        ],
-      ),
-    );
-  }
-}
