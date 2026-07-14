@@ -44,30 +44,51 @@ class _SwitchSettingState extends State<_SwitchSetting> {
 
     assert(value is bool);
 
-    return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      title: Text(widget.title),
-      subtitle: widget.subtitle == null ? null : Text(widget.subtitle!),
-      trailing: Switch(
-        value: value,
-        onChanged: (value) {
-          setState(() {
-            if (widget.comicId != null) {
-              appdata.settings.setReaderSetting(
-                widget.comicId!,
-                widget.comicSource!,
-                widget.settingKey,
-                value,
-              );
-            } else if (widget.useDeviceSettings) {
-              appdata.settings.setDeviceReaderSetting(widget.settingKey, value);
-            } else {
-              appdata.settings[widget.settingKey] = value;
-            }
-          });
-          appdata.saveData().then((_) {
-            widget.onChanged?.call();
-          });
-        },
+    void toggle(bool v) {
+      setState(() {
+        if (widget.comicId != null) {
+          appdata.settings.setReaderSetting(
+            widget.comicId!,
+            widget.comicSource!,
+            widget.settingKey,
+            v,
+          );
+        } else if (widget.useDeviceSettings) {
+          appdata.settings.setDeviceReaderSetting(widget.settingKey, v);
+        } else {
+          appdata.settings[widget.settingKey] = v;
+        }
+      });
+      appdata.saveData().then((_) {
+        widget.onChanged?.call();
+      });
+    }
+
+    return InkWell(
+      onTap: () => toggle(!value),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(widget.title),
+                  if (widget.subtitle != null)
+                    Text(
+                      widget.subtitle!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Switch(value: value, onChanged: toggle),
+          ],
+        ),
       ),
     );
   }
@@ -223,9 +244,7 @@ class _DoubleLineSelectSettingsState extends State<_DoubleLineSelectSettings> {
         var rect = offset & size;
         showMenu(
           elevation: 3,
-          color: context.brightness == Brightness.light
-              ? const Color(0xFFF6F6F6)
-              : const Color(0xFF1E1E1E),
+          color: context.colorScheme.surfaceContainer,
           context: context,
           position: RelativeRect.fromRect(
             rect,

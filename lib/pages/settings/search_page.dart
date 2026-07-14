@@ -6,6 +6,7 @@ import 'package:sliver_tools/sliver_tools.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/foundation/colors.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/global_state.dart';
 import 'package:kong_comic/pages/aggregated_search_page.dart';
@@ -330,13 +331,9 @@ class _SearchPageState extends State<SearchPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.swap_horiz,
-                          size: 14,
-                          color: _selectedSources.length == searchSources.length
+                        HugeIcon(icon: HugeIcons.strokeRoundedArrowLeftRight, size: 14, color: _selectedSources.length == searchSources.length
                               ? cs.primary
-                              : cs.onSurfaceVariant,
-                        ),
+                              : cs.onSurfaceVariant),
                         const SizedBox(width: 4),
                         Text(
                           "ALL".tl,
@@ -512,19 +509,7 @@ class _SearchPageState extends State<SearchPage> {
     bool showTranslation = App.locale.languageCode == "zh";
     Widget buildItem(Pair<String, TranslationType> value) {
       final cs = Theme.of(context).colorScheme;
-      final typeColors = <TranslationType, Color>{
-        TranslationType.female: const Color(0xFFE91E63),
-        TranslationType.male: const Color(0xFF2196F3),
-        TranslationType.parody: const Color(0xFF9C27B0),
-        TranslationType.character: const Color(0xFFFF9800),
-        TranslationType.artist: const Color(0xFF4CAF50),
-        TranslationType.group: const Color(0xFF00BCD4),
-        TranslationType.cosplayer: const Color(0xFFFF5722),
-        TranslationType.language: const Color(0xFF607D8B),
-        TranslationType.mixed: const Color(0xFF795548),
-        TranslationType.other: cs.onSurfaceVariant,
-      };
-      final typeColor = typeColors[value.right] ?? cs.onSurfaceVariant;
+      final typeColor = translationTypeColor(value.right, cs);
       if (value.left == "**URL**") {
         return ListTile(
           leading: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),

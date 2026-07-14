@@ -77,7 +77,7 @@ class _CategoriesPageState extends State<CategoriesPage>
   Widget buildEmpty() {
     if (ComicSource.isEmpty) {
       return EmptyState(
-        icon: const Icon(Icons.category_outlined),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedGrid, size: 18),
         title: "No Category Pages".tl,
         subtitle: "Please add some comic sources first".tl,
         actionLabel: "Manage".tl,
@@ -85,7 +85,7 @@ class _CategoriesPageState extends State<CategoriesPage>
       );
     }
     return EmptyState(
-      icon: const Icon(Icons.inbox_outlined),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedInbox, size: 18),
       title: "No Category Pages".tl,
       subtitle: "Please check your source settings".tl,
       actionLabel: "Manage".tl,

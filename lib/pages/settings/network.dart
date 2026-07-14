@@ -161,7 +161,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: FilledButton.icon(
                     onPressed: () { _saveProxy(); context.showMessage(message: "Saved".tl); },
-                    icon: const Icon(Icons.save, size: 18),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedSave, size: 18),
                     label: Text("Save".tl),
                   ),
                 ),

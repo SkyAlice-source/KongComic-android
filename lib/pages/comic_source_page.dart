@@ -365,6 +365,9 @@ class _ComicSourceListState extends State<_ComicSourceList> {
       if (res.statusCode != 200) {
         throw "error";
       }
+      if (res.data == null) {
+        throw "empty response";
+      }
       if (mounted) {
         setState(() {
           json = jsonDecode(res.data!);
@@ -818,38 +821,18 @@ class _SliverComicSourceState extends State<_SliverComicSource> {
               children: [
                 Text(source.name, style: ts.s18),
                 const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: context.colorScheme.surfaceContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    source.version,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-                if (hasUpdate)
+                if (source.account != null) ...[
+                  AppBadge("需登录", type: AppBadgeType.info, fontSize: 13),
+                  const SizedBox(width: 6),
+                ],
+                AppBadge(source.version, type: AppBadgeType.neutral, fontSize: 13),
+                if (hasUpdate) ...[
+                  const SizedBox(width: 6),
                   Tooltip(
                     message: newVersion,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        "New Version".tl,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  ).paddingLeft(4),
+                    child: AppBadge("New Version".tl, type: AppBadgeType.warning, fontSize: 13),
+                  ),
+                ],
               ],
             ),
             trailing: Row(

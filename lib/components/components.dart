@@ -1,5 +1,7 @@
 import 'dart:async';
 export 'package:hugeicons/hugeicons.dart';
+import 'badge.dart';
+export 'badge.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'dart:collection';
 import 'dart:convert';

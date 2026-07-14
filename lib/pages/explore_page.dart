@@ -99,13 +99,16 @@ class _ExplorePageState extends State<ExplorePage>
 
   Widget buildFAB() => Material(
         color: Colors.transparent,
-        child: FloatingActionButton(
-          key: const Key("FAB"),
-          onPressed: () {
-            String currentPageId = pages[controller.index];
-            GlobalState.find<_SingleExplorePageState>(currentPageId).toTop();
-          },
-          child: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+          child: FloatingActionButton(
+            key: const Key("FAB"),
+            onPressed: () {
+              String currentPageId = pages[controller.index];
+              GlobalState.find<_SingleExplorePageState>(currentPageId).toTop();
+            },
+            child: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
+          ),
         ),
       );
 
@@ -122,7 +125,7 @@ class _ExplorePageState extends State<ExplorePage>
   Widget buildEmpty() {
     if (ComicSource.isEmpty) {
       return EmptyState(
-        icon: const Icon(Icons.explore_outlined),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCompass01, size: 18),
         title: "No Explore Pages".tl,
         subtitle: "Please add some comic sources first".tl,
         actionLabel: "Manage".tl,
@@ -130,7 +133,7 @@ class _ExplorePageState extends State<ExplorePage>
       );
     }
     return EmptyState(
-      icon: const Icon(Icons.inbox_outlined),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedInbox, size: 18),
       title: "No Explore Pages".tl,
       subtitle: "Please check your source settings".tl,
       actionLabel: "Manage".tl,

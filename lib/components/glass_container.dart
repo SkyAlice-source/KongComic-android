@@ -336,16 +336,15 @@ class GlassSideBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
         color: isDark
-            ? const Color(0xFF000000)
-            : const Color(0xFFF5F5F5),
+            ? cs.surfaceContainerLowest
+            : cs.surfaceContainer,
         border: Border(
           right: BorderSide(
-            color: isDark
-                ? const Color(0xFF222222)
-                : const Color(0xFFE8E8E8),
+            color: cs.outlineVariant,
             width: 1.0,
           ),
         ),
@@ -381,6 +380,8 @@ class GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+    final primary = cs.primary;
     final effectiveBorderRadius = borderRadius ?? BorderRadius.circular(16);
 
     Widget card;
@@ -392,7 +393,7 @@ class GlassCard extends StatelessWidget {
           child: Container(
             padding: padding ?? const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
+              color: cs.surfaceContainerHigh,
               borderRadius: effectiveBorderRadius ,
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.06),
@@ -400,7 +401,7 @@ class GlassCard extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0EA5E9).withValues(alpha: 0.08),
+                  color: primary.withValues(alpha: 0.08),
                   blurRadius: 24,
                   offset: const Offset(0, 4),
                 ),
@@ -434,19 +435,19 @@ class GlassCard extends StatelessWidget {
               borderRadius: effectiveBorderRadius ,
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF0EA5E9).withValues(alpha: 0.12),
-                  const Color(0xFF0EA5E9).withValues(alpha: 0.04),
+                  primary.withValues(alpha: 0.12),
+                  primary.withValues(alpha: 0.04),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               border: Border.all(
-                color: const Color(0xFF0EA5E9).withValues(alpha: 0.2),
+                color: primary.withValues(alpha: 0.2),
                 width: 0.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0EA5E9).withValues(alpha: 0.06),
+                  color: primary.withValues(alpha: 0.06),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),

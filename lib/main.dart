@@ -151,8 +151,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     Color primary,
     Color? secondary,
     Color? tertiary,
-    Brightness brightness,
-  ) {
+    Brightness brightness, {
+    bool amoled = false,
+  }) {
     String? font;
     List<String>? fallback;
     if (App.isLinux || App.isWindows) {
@@ -167,26 +168,67 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         'Arial',
         'sans-serif'
       ];
+    } else {
+      // 移动端也提供 CJK 字体回退栈，保证跨设备字形一致
+      fallback = [
+        'PingFang SC',
+        'Noto Sans SC',
+        'Noto Sans TC',
+        'Microsoft YaHei',
+        'sans-serif'
+      ];
     }
+    final bool isDark = brightness == Brightness.dark;
+    final Color bg = isDark
+        ? (amoled ? const Color(0xFF000000) : const Color(0xFF121212))
+        : const Color(0xFFF5F7FA);
     return ThemeData(
       colorScheme: SeedColorScheme.fromSeeds(
         primaryKey: primary,
         secondaryKey: secondary,
         tertiaryKey: tertiary,
         brightness: brightness,
-        tones: FlexTones.vividBackground(brightness),
+        tones: FlexTones.soft(brightness),
       ).copyWith(
         surfaceTint: Colors.transparent,
+        surface: amoled && isDark ? const Color(0xFF0A0A0A) : null,
+        surfaceContainerLowest: amoled && isDark ? const Color(0xFF000000) : null,
+        surfaceContainerLow: amoled && isDark ? const Color(0xFF0F0F0F) : null,
+        surfaceContainer: amoled && isDark ? const Color(0xFF161616) : null,
+        surfaceContainerHigh: amoled && isDark ? const Color(0xFF1E1E1E) : null,
+        surfaceContainerHighest: amoled && isDark ? const Color(0xFF242424) : null,
       ),
       // Material 默认底色统一为页面背景色，避免各页顶栏/tab栏出现白条
-      canvasColor: brightness == Brightness.light
-          ? const Color(0xFFF5F7FA)
-          : const Color(0xFF121212),
-      scaffoldBackgroundColor: brightness == Brightness.light
-          ? const Color(0xFFF5F7FA)
-          : const Color(0xFF121212),
+      canvasColor: bg,
+      scaffoldBackgroundColor: bg,
       fontFamily: font,
       fontFamilyFallback: fallback,
+      // 中文行高：默认 1.0 偏挤，全局抬到舒适区间，长阅读不累
+      textTheme: (isDark ? ThemeData.dark() : ThemeData.light()).textTheme.copyWith(
+        displayLarge: const TextStyle(height: 1.3),
+        displayMedium: const TextStyle(height: 1.3),
+        displaySmall: const TextStyle(height: 1.35),
+        headlineLarge: const TextStyle(height: 1.3),
+        headlineMedium: const TextStyle(height: 1.35),
+        headlineSmall: const TextStyle(height: 1.4),
+        titleLarge: const TextStyle(height: 1.35),
+        titleMedium: const TextStyle(height: 1.4),
+        titleSmall: const TextStyle(height: 1.4),
+        bodyLarge: const TextStyle(height: 1.5),
+        bodyMedium: const TextStyle(height: 1.45),
+        bodySmall: const TextStyle(height: 1.4),
+        labelLarge: const TextStyle(height: 1.4),
+        labelMedium: const TextStyle(height: 1.4),
+        labelSmall: const TextStyle(height: 1.4),
+      ),
+      // AppBar 标题统一降到 20px（仅 AppBar，不影响其它 titleLarge 用途）
+      appBarTheme: AppBarTheme(
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          height: 1.35,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 
@@ -220,10 +262,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         debugShowCheckedModeBanner: false,
         theme: getTheme(primary, secondary, tertiary, Brightness.light),
         navigatorKey: App.rootNavigatorKey,
-        darkTheme: getTheme(primary, secondary, tertiary, Brightness.dark),
+        darkTheme: getTheme(primary, secondary, tertiary, Brightness.dark,
+            amoled: appdata.settings['theme_mode'] == 'amoled'),
         themeMode: switch (appdata.settings['theme_mode']) {
           'light' => ThemeMode.light,
           'dark' => ThemeMode.dark,
+          'amoled' => ThemeMode.dark,
           _ => ThemeMode.system
         },
         color: Colors.transparent,

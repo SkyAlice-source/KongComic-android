@@ -367,7 +367,7 @@ class _HomeCapsulesState extends State<_HomeCapsules> {
     final lc = LocalManager().count;
     return SliverToBoxAdapter(child: Column(children: [
       Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), child: Row(children: [
-        Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 20), label: "Follow Updates".tl, value: _updateCount > 0 ? "$_updateCount" : null, onTap: () => context.to(() => const FollowUpdatesPage()))),
+        Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 20), label: "Follow Updates".tl, value: _updateCount > 0 ? "$_updateCount" : null, alert: _updateCount > 0, onTap: () => context.to(() => const FollowUpdatesPage()))),
         const SizedBox(width: 10),
         Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 20), label: "Local".tl, value: "$lc", onTap: () => context.to(() => const LocalComicsPage()))),
       ])),
@@ -389,30 +389,51 @@ class _BottomModules extends StatelessWidget {
 
 class _FlatBox extends StatelessWidget {
   final Widget icon; final String label; final String? value; final VoidCallback? onTap;
-  const _FlatBox({required this.icon, required this.label, this.value, this.onTap});
+  final bool alert;
+  const _FlatBox({required this.icon, required this.label, this.value, this.onTap, this.alert = false});
   @override Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return GestureDetector(onTap: onTap,
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          color: cs.surfaceContainerLow,
+      child: Stack(clipBehavior: Clip.none, children: [
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            color: cs.surfaceContainerLow,
+          ),
+          child: Row(children: [
+            icon,
+            const SizedBox(width: 8),
+            Expanded(child: Text(label, style: TextStyle(fontSize: 14, color: cs.onSurface))),
+            if (value != null)
+              Container(
+                margin: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                constraints: const BoxConstraints(minWidth: 20),
+                decoration: BoxDecoration(
+                  color: alert ? cs.errorContainer : cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(value!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: alert ? cs.onErrorContainer : cs.onPrimaryContainer)),
+                ),
+              ),
+          ]),
         ),
-        child: Row(children: [
-          icon,
-          const SizedBox(width: 8),
-          Expanded(child: Text(label, style: TextStyle(fontSize: 14, color: cs.onSurface))),
-          if (value != null)
-            Container(
-              margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: cs.primaryContainer, shape: BoxShape.circle),
-              child: Text(value!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: cs.onPrimaryContainer)),
+        if (alert && value != null)
+          Positioned(
+            top: 4, right: 6,
+            child: Container(
+              width: 10, height: 10,
+              decoration: BoxDecoration(
+                color: cs.error,
+                shape: BoxShape.circle,
+                border: Border.all(color: cs.surfaceContainerLow, width: 1.5),
+              ),
             ),
-        ]),
-      ),
+          ),
+      ]),
     );
   }
 }
@@ -499,7 +520,7 @@ class _HintCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.lightbulb_outline, size: 20, color: cs.primary.withValues(alpha: 0.8)),
+          HugeIcon(icon: HugeIcons.strokeRoundedBulb, size: 20, color: cs.primary.withValues(alpha: 0.8)),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

@@ -192,7 +192,7 @@ class ComicTile extends StatelessWidget {
             color: Colors.green,
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.check, size: 14, color: Colors.white),
+          child: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 14, color: Colors.white),
         ),
       );
     }
@@ -227,8 +227,7 @@ class ComicTile extends StatelessWidget {
                   size: const Size(ringSize, ringSize),
                   painter: _ProgressRingPainter(
                     progress: progress,
-                    // 琥珀色：高对比，区别于蓝色主题与绿色收藏勾
-                    progressColor: const Color(0xFFFF6D00),
+                    progressColor: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               Center(
@@ -717,18 +716,10 @@ class _ComicDescription extends StatelessWidget {
               ),
             ),
             if (badge != null)
-              Container(
-                padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.tertiaryContainer,
-                  borderRadius: const BorderRadius.all(Radius.circular(8)),
-                ),
-                child: Center(
-                  child: Text(
-                    "${badge![0].toUpperCase()}${badge!.substring(1).toLowerCase()}",
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
+              AppBadge(
+                "${badge![0].toUpperCase()}${badge!.substring(1).toLowerCase()}",
+                type: AppBadgeType.neutral,
+                fontSize: 12,
               ),
           ],
         )
@@ -1468,18 +1459,10 @@ class _Star extends StatelessWidget {
       height: size,
       child: Stack(
         children: [
-          Icon(
-            Icons.star_outline,
-            size: size,
-            color: context.colorScheme.secondary,
-          ),
+          HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18, color: context.colorScheme.secondary),
           ClipRect(
             clipper: _StarClipper(value),
-            child: Icon(
-              Icons.star,
-              size: size,
-              color: context.colorScheme.secondary,
-            ),
+            child: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18, color: context.colorScheme.secondary),
           ),
         ],
       ),
@@ -1614,11 +1597,7 @@ class _RatingWidgetState extends State<RatingWidget> {
     int full = fullStars();
     List<Widget> children = [];
     for (int i = 0; i < full; i++) {
-      children.add(Icon(
-        Icons.star,
-        size: widget.size,
-        color: context.colorScheme.secondary,
-      ));
+      children.add(HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18, color: context.colorScheme.secondary));
       if (i < widget.count - 1) {
         children.add(
           SizedBox(
@@ -1630,11 +1609,7 @@ class _RatingWidgetState extends State<RatingWidget> {
     if (full < widget.count) {
       children.add(ClipRect(
         clipper: _SMClipper(rating: star() * widget.size),
-        child: Icon(
-          Icons.star,
-          size: widget.size,
-          color: context.colorScheme.secondary,
-        ),
+        child: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18, color: context.colorScheme.secondary),
       ));
     }
 
@@ -1644,11 +1619,7 @@ class _RatingWidgetState extends State<RatingWidget> {
   List<Widget> buildNormalRow() {
     List<Widget> children = [];
     for (int i = 0; i < widget.count; i++) {
-      children.add(Icon(
-        Icons.star_border,
-        size: widget.size,
-        color: context.colorScheme.secondary,
-      ));
+      children.add(HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18, color: context.colorScheme.secondary));
       if (i < widget.count - 1) {
         children.add(SizedBox(
           width: widget.padding,
@@ -1954,7 +1925,7 @@ class PaginatedSliverGridComicsState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48),
+              HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 48),
               const SizedBox(height: 8),
               Text(_error.toString()),
             ],
@@ -1968,7 +1939,7 @@ class PaginatedSliverGridComicsState
       return SliverFillRemaining(
         hasScrollBody: false,
         child: EmptyState(
-          icon: const Icon(Icons.history_outlined),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
           title: 'No comics'.tl,
           subtitle: (widget.emptySubtitle ?? "还没有漫画？去添加漫画源或收藏漫画吧").tl,
         ),

@@ -227,6 +227,7 @@ class _ReaderState extends State<Reader>
   }
 
   bool _isInitialized = false;
+  int? _originalCacheSize;
 
   @override
   void didChangeDependencies() {
@@ -243,6 +244,7 @@ class _ReaderState extends State<Reader>
 
   void setImageCacheSize() async {
     var availableRAM = await MemoryInfo.getFreePhysicalMemorySize();
+    if (!mounted) return;
     if (availableRAM == null) return;
     int maxImageCacheSize;
     if (availableRAM < 1 << 30) {
@@ -258,6 +260,7 @@ class _ReaderState extends State<Reader>
       "Reader",
       "Detect available RAM: $availableRAM, set image cache size to $maxImageCacheSize",
     );
+    _originalCacheSize ??= PaintingBinding.instance.imageCache.maximumSizeBytes;
     PaintingBinding.instance.imageCache.maximumSizeBytes = maxImageCacheSize;
   }
 
@@ -269,7 +272,9 @@ class _ReaderState extends State<Reader>
     focusNode.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     stopVolumeEvent();
-    PaintingBinding.instance.imageCache.maximumSizeBytes = 100 << 20;
+    if (_originalCacheSize != null) {
+      PaintingBinding.instance.imageCache.maximumSizeBytes = _originalCacheSize!;
+    }
     disposeReaderWindow();
     super.dispose();
   }

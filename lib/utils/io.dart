@@ -421,6 +421,17 @@ class Share {
   static Future<void> shareText(String text) async {
     await s.SharePlus.instance.share(s.ShareParams(text: text));
   }
+
+  /// Share multiple files at once (e.g. all pages of a chapter).
+  static Future<void> shareFiles({
+    required List<String> paths,
+  }) async {
+    final files = paths.map((p) => s.XFile(p)).toList();
+    await s.SharePlus.instance.share(s.ShareParams(
+      files: files,
+      fileNameOverrides: paths.map((p) => p.split('/').last).toList(),
+    ));
+  }
 }
 
 String bytesToReadableString(int bytes) {

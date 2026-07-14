@@ -1,0 +1,47 @@
+import 'package:flutter/material.dart';
+
+/// 全站统一的语义色角标。
+/// 用法：AppBadge("New Version", type: AppBadgeType.warning)
+enum AppBadgeType { info, warning, success, neutral }
+
+class AppBadge extends StatelessWidget {
+  final String text;
+  final AppBadgeType type;
+  final double fontSize;
+  final EdgeInsetsGeometry? padding;
+
+  const AppBadge(
+    this.text, {
+    super.key,
+    this.type = AppBadgeType.neutral,
+    this.fontSize = 13,
+    this.padding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    late final Color bg;
+    late final Color fg;
+    switch (type) {
+      case AppBadgeType.info:
+        bg = cs.primaryContainer;
+        fg = cs.onPrimaryContainer;
+      case AppBadgeType.warning:
+        bg = cs.errorContainer;
+        fg = cs.onErrorContainer;
+      case AppBadgeType.success:
+        bg = cs.tertiaryContainer;
+        fg = cs.onTertiaryContainer;
+      case AppBadgeType.neutral:
+        bg = cs.surfaceContainer;
+        fg = cs.onSurfaceVariant;
+    }
+    return Container(
+      padding: padding ??
+          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Text(text, style: TextStyle(fontSize: fontSize, color: fg)),
+    );
+  }
+}

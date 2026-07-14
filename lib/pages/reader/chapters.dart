@@ -44,10 +44,7 @@ class _ChaptersViewState extends State<_ChaptersView> {
               Tooltip(
                 message: "Click to change the order".tl,
                 child: TextButton.icon(
-                  icon: Icon(
-                    !desc ? Icons.arrow_upward : Icons.arrow_downward,
-                    size: 18,
-                  ),
+                  icon: !desc ? HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18) : HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
                   label: Text(!desc ? "Ascending".tl : "Descending".tl),
                   onPressed: () {
                     setState(() {
@@ -243,10 +240,7 @@ class _ChapterListTile extends StatelessWidget {
             ),
             const Spacer(),
             if (isDownloaded)
-              Icon(
-                Icons.download_done_rounded,
-                color: context.colorScheme.secondary,
-              ),
+              HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18, color: context.colorScheme.secondary),
           ],
         ),
       ),

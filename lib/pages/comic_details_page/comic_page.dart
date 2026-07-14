@@ -621,7 +621,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
           ListTile(title: Text("Description".tl)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SelectableText(comic.description!).fixWidth(double.infinity),
+            child: SelectableText(
+              comic.description!,
+              style: const TextStyle(height: 1.5),
+            ).fixWidth(double.infinity),
           ),
           const SizedBox(height: 16),
           const Divider(),

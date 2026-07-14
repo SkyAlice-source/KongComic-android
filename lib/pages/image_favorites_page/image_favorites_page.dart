@@ -281,7 +281,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
           SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyState(
-              icon: const Icon(Icons.image_outlined),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
               title: "No image favorites".tl,
               subtitle: "长按漫画图片收藏，图片会保存在这里".tl,
             ),

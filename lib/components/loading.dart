@@ -31,11 +31,7 @@ class NetworkError extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 28,
-                  color: context.colorScheme.error,
-                ),
+                HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 28, color: context.colorScheme.error),
                 const SizedBox(width: 8),
                 Text(
                   "Error".tl,

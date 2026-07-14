@@ -1493,11 +1493,7 @@ class _SwipeChangeChapterProgressState
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            widget.isPrev ? Icons.arrow_downward : Icons.arrow_upward,
-            color: context.colorScheme.onSurface,
-            size: 16,
-          ),
+          widget.isPrev ? HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 16, color: context.colorScheme.onSurface) : HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 16, color: context.colorScheme.onSurface),
           const SizedBox(width: 4),
           Text(msg),
         ],

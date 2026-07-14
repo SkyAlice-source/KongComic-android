@@ -447,7 +447,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         message: "Collect the image".tl,
         child: IconButton(
           icon: isLiked()
-              ? Icon(Icons.favorite, size: 20, color: Colors.red)
+              ? HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 20, color: Colors.red)
               : HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 20),
           onPressed: addImageFavorite,
         ),
@@ -474,9 +474,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
               if (rotation == null) {
                 return HugeIcon(icon: HugeIcons.strokeRounded3dRotate, size: 20);
               } else if (rotation == false) {
-                return Icon(Icons.screen_lock_portrait, size: 20, color: Colors.orange);
+                return HugeIcon(icon: HugeIcons.strokeRoundedScreenLockRotation, size: 20, color: Colors.orange);
               } else {
-                return Icon(Icons.screen_lock_landscape, size: 20, color: Colors.blue);
+                return HugeIcon(icon: HugeIcons.strokeRoundedRotate01, size: 20, color: Colors.blue);
               }
             }.call(),
             onPressed: () {
@@ -514,7 +514,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             : "Auto Page Turning".tl,
         child: IconButton(
           icon: context.reader.autoPageTurningTimer != null
-              ? Icon(Icons.alarm_on, size: 20, color: Colors.green)
+              ? HugeIcon(icon: HugeIcons.strokeRoundedAlarmClock, size: 20, color: Colors.green)
               : HugeIcon(icon: HugeIcons.strokeRoundedAlarmClock, size: 20),
           onPressed: () {
             var wasOn = context.reader.autoPageTurningTimer != null;
@@ -780,7 +780,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         await Share.shareText(context.reader.widget.name);
         return;
       }
-      final result = await Navigator.of(context).push<(int, Uint8List)?>(
+      final result = await Navigator.of(context).push<_ImagePickerResult?>(
         MaterialPageRoute(
           builder: (_) => _ChapterImagePickerPage(
             images: images,
@@ -789,11 +789,17 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             eid: context.reader.eid,
             currentPage: (context.reader.page - 1).clamp(0, images.length - 1),
             title: "Select Image to Share".tl,
+            allowSelectAll: true,
           ),
         ),
       );
       if (!mounted || result == null) return;
-      var (imageIndex, data) = result;
+      if (result.paths != null && result.paths!.isNotEmpty) {
+        await Share.shareFiles(paths: result.paths!);
+        return;
+      }
+      final imageIndex = result.index!;
+      final data = result.data!;
       var fileType = detectFileType(data);
       var filename =
           "${context.reader.widget.name}_EP${context.reader.chapter}_P${imageIndex + 1}${fileType.ext}";
@@ -812,7 +818,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         return;
       }
 
-      final result = await Navigator.of(context).push<(int, Uint8List)?>(
+      final result = await Navigator.of(context).push<_ImagePickerResult?>(
         MaterialPageRoute(
           builder: (_) => _ChapterImagePickerPage(
             images: images,
@@ -825,7 +831,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       );
 
       if (!mounted || result == null) return;
-      var (_, data) = result;
+      final data = result.data!;
 
       final success = await CustomCoverManager.setCustomCover(
         context.reader.type.sourceKey,
@@ -961,13 +967,17 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             color: Theme.of(context).colorScheme.primaryContainer,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(
-            lastValue == 1
-                ? Icons.arrow_forward_ios
-                : Icons.arrow_back_ios_outlined,
-            size: 24,
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
-          ),
+          child: lastValue == 1
+              ? HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowRight01,
+                  size: 24,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                )
+              : HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowLeft01,
+                  size: 24,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
         );
       case -1:
       case 1:
@@ -989,13 +999,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
               },
               borderRadius: BorderRadius.circular(16),
               child: Center(
-                child: Icon(
-                  _getArrowIcon(
-                    isReversed,
-                    showFloatingButtonValue,
-                  ),
-                  size: 24,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                child: _getArrowIcon(
+                  isReversed,
+                  showFloatingButtonValue,
                 ),
               ),
             ),
@@ -1005,11 +1011,12 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     return const SizedBox();
   }
 
-  IconData _getArrowIcon(bool reversed, int value) {
+  Widget _getArrowIcon(bool reversed, int value) {
+    final color = Theme.of(context).colorScheme.onPrimaryContainer;
     if (reversed) {
-      return value == 1 ? Icons.arrow_back_ios_outlined : Icons.arrow_forward_ios;
+      return value == 1 ? HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 24, color: color) : HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 24, color: color);
     } else {
-      return value == 1 ? Icons.arrow_forward_ios : Icons.arrow_back_ios_outlined;
+      return value == 1 ? HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 24, color: color) : HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 24, color: color);
     }
   }
 
@@ -1100,11 +1107,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                             const Positioned(
                               right: 4,
                               top: 4,
-                              child: Icon(
-                                Icons.check_circle,
-                                color: Colors.white,
-                                size: 24,
-                              ),
+                              child: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 24, color: Colors.white),
                             ),
                         ],
                       );
@@ -1246,51 +1249,33 @@ class _BatteryWidgetState extends State<_BatteryWidget> {
   }
 
   Widget _batteryInfo(int batteryLevel) {
-    IconData batteryIcon;
-    Color batteryColor = context.colorScheme.onSurface;
+    Widget batteryIcon;
 
     if (state == BatteryState.charging) {
-      batteryIcon = Icons.battery_charging_full;
+      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryCharging01, size: 16, color: context.colorScheme.onSurface);
     } else if (batteryLevel >= 96) {
-      batteryIcon = Icons.battery_full_sharp;
+      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryFull, size: 16, color: context.colorScheme.onSurface);
     } else if (batteryLevel >= 84) {
-      batteryIcon = Icons.battery_6_bar_sharp;
+      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryFull, size: 16, color: context.colorScheme.onSurface);
     } else if (batteryLevel >= 72) {
-      batteryIcon = Icons.battery_5_bar_sharp;
+      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryFull, size: 16, color: context.colorScheme.onSurface);
     } else if (batteryLevel >= 60) {
-      batteryIcon = Icons.battery_4_bar_sharp;
+      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryLow, size: 16, color: context.colorScheme.onSurface);
     } else if (batteryLevel >= 48) {
-      batteryIcon = Icons.battery_3_bar_sharp;
+      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryLow, size: 16, color: context.colorScheme.onSurface);
     } else if (batteryLevel >= 36) {
-      batteryIcon = Icons.battery_2_bar_sharp;
+      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryEmpty, size: 16, color: context.colorScheme.onSurface);
     } else if (batteryLevel >= 24) {
-      batteryIcon = Icons.battery_1_bar_sharp;
+      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryEmpty, size: 16, color: context.colorScheme.onSurface);
     } else if (batteryLevel >= 12) {
-      batteryIcon = Icons.battery_0_bar_sharp;
+      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryEmpty, size: 16, color: context.colorScheme.onSurface);
     } else {
-      batteryIcon = Icons.battery_alert_sharp;
-      batteryColor = Colors.red;
+      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryLow, size: 16, color: Colors.red);
     }
 
     return Row(
       children: [
-        Icon(
-          batteryIcon,
-          size: 16,
-          color: batteryColor,
-          // Stroke
-          shadows: List.generate(9, (index) {
-            if (index == 4) {
-              return null;
-            }
-            double offsetX = (index % 3 - 1) * 0.8;
-            double offsetY = ((index / 3).floor() - 1) * 0.8;
-            return Shadow(
-              color: context.colorScheme.onInverseSurface,
-              offset: Offset(offsetX, offsetY),
-            );
-          }).whereType<Shadow>().toList(),
-        ),
+        batteryIcon,
         Stack(
           children: [
             Text(
@@ -1366,8 +1351,21 @@ class _ClockWidgetState extends State<_ClockWidget> {
   }
 }
 
-/// Full-screen image picker that lets the user browse ALL pages in the
-/// current chapter and select any image as the comic's cover.
+/// Result of the image picker.
+/// When [all] is true, [allPaths] holds temp file paths for every page.
+class _ImagePickerResult {
+  final int? index;
+  final Uint8List? data;
+  /// Multi-select share: temp file paths of all selected pages.
+  final List<String>? paths;
+  const _ImagePickerResult({this.index, this.data, this.paths});
+}
+
+/// Full-screen image picker that lets the user browse all pages in the
+/// current chapter.
+/// - Single mode ([allowSelectAll] = false): tap a page to pick it (e.g. cover).
+/// - Multi mode ([allowSelectAll] = true): tap to toggle selection, then share
+///   the selected pages from the bottom action bar.
 class _ChapterImagePickerPage extends StatefulWidget {
   final List<String> images;
   final String sourceKey;
@@ -1375,6 +1373,7 @@ class _ChapterImagePickerPage extends StatefulWidget {
   final String eid;
   final int currentPage;
   final String title;
+  final bool allowSelectAll;
 
   const _ChapterImagePickerPage({
     required this.images,
@@ -1383,6 +1382,7 @@ class _ChapterImagePickerPage extends StatefulWidget {
     required this.eid,
     required this.currentPage,
     this.title = "Select Cover Image",
+    this.allowSelectAll = false,
   });
 
   @override
@@ -1393,6 +1393,34 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
   /// Cache futures so FutureBuilder doesn't re-fetch on every rebuild.
   final Map<int, Future<Uint8List?>> _futures = {};
   bool _isLoadingFull = false;
+
+  /// Multi-select mode (only used when [widget.allowSelectAll] is true).
+  final Set<int> _selected = {};
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Jump straight to the current page so users don't have to manually
+    // scroll through hundreds of pages. Cell height is fixed by
+    // childAspectRatio, so the offset can be estimated deterministically.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final width = MediaQuery.of(context).size.width;
+      const padding = 6.0, spacing = 6.0, crossAxisCount = 3;
+      final cellW =
+          (width - padding * 2 - spacing * (crossAxisCount - 1)) / crossAxisCount;
+      final cellH = cellW / 0.72;
+      final rowH = cellH + spacing;
+      final row = widget.currentPage ~/ crossAxisCount;
+      final max = _scrollController.hasClients
+          ? _scrollController.position.maxScrollExtent
+          : 0.0;
+      if (max > 0) {
+        _scrollController.jumpTo((row * rowH - padding).clamp(0.0, max));
+      }
+    });
+  }
 
   Future<Uint8List?> _loadImage(int index) {
     return _futures.putIfAbsent(index, () async {
@@ -1422,9 +1450,44 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     if (!mounted) return;
     setState(() => _isLoadingFull = false);
     if (data != null) {
-      Navigator.of(context).pop((index, data));
+      Navigator.of(context).pop(_ImagePickerResult(index: index, data: data));
     } else {
       showToast(message: "Failed to load image".tl, context: context);
+    }
+  }
+
+  /// Load each selected page and share them as multiple temp files.
+  /// Memory-safe: only one page's bytes are held in memory at a time.
+  Future<void> _shareSelected() async {
+    final indices = _selected.toList()..sort();
+    if (indices.isEmpty) {
+      showToast(message: "Select at least one page".tl, context: context);
+      return;
+    }
+    setState(() => _isLoadingFull = true);
+    try {
+      final paths = <String>[];
+      for (final i in indices) {
+        final data = await _loadImage(i);
+        if (data == null) continue;
+        final ext = detectFileType(data).ext;
+        final name = "${widget.cid}_P${i + 1}.$ext";
+        final file = File("${App.cachePath}/$name");
+        await file.writeAsBytes(data);
+        paths.add(file.path);
+      }
+      if (!mounted) return;
+      if (paths.isEmpty) {
+        showToast(message: "No images available".tl, context: context);
+        return;
+      }
+      Navigator.of(context).pop(_ImagePickerResult(paths: paths));
+    } catch (e) {
+      if (mounted) {
+        showToast(message: "Failed to load images".tl, context: context);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingFull = false);
     }
   }
 
@@ -1434,14 +1497,17 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
       appBar: AppBar(
         title: Text(widget.title.tl),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: null,
       ),
       body: Stack(
         children: [
           GridView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.all(6),
+            addAutomaticKeepAlives: false,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
               crossAxisSpacing: 6,
@@ -1451,19 +1517,43 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
             itemCount: widget.images.length,
             itemBuilder: (context, index) {
               return GestureDetector(
-                onTap: () => _selectImage(index),
+                onTap: () {
+                  if (widget.allowSelectAll) {
+                    setState(() {
+                      _selected.contains(index)
+                          ? _selected.remove(index)
+                          : _selected.add(index);
+                    });
+                  } else {
+                    _selectImage(index);
+                  }
+                },
                 child: FutureBuilder<Uint8List?>(
                   future: _loadImage(index),
                   builder: (context, snapshot) {
                     if (snapshot.hasData) {
+                      final selected = _selected.contains(index);
                       return Stack(
                         fit: StackFit.expand,
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.memory(
-                              snapshot.data!,
-                              fit: BoxFit.cover,
+                          Container(
+                            decoration: selected
+                                ? BoxDecoration(
+                                    border: Border.all(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary,
+                                      width: 2.5,
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  )
+                                : null,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.memory(
+                                snapshot.data!,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                           ),
                           // Page number badge
@@ -1488,11 +1578,11 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
                               ),
                             ),
                           ),
-                          // Current page indicator
+                          // Current page indicator (top-left)
                           if (index == widget.currentPage)
                             Positioned(
                               top: 4,
-                              right: 4,
+                              left: 4,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 5,
@@ -1505,30 +1595,111 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
                                 child: Text(
                                   "Current".tl,
                                   style: TextStyle(
-                                    color:
-                                        Theme.of(context).colorScheme.onPrimary,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onPrimary,
                                     fontSize: 10,
                                   ),
+                                ),
+                              ),
+                            ),
+                          // Selected tick (top-right)
+                          if (selected)
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                padding: const EdgeInsets.all(3),
+                                child: HugeIcon(
+                                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                                  size: 14,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onPrimary,
                                 ),
                               ),
                             ),
                         ],
                       );
                     }
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Center(
-                        child: Text(
-                          "${index + 1}",
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Theme.of(context).colorScheme.outline,
+                    // Placeholder (page not yet loaded)
+                    final selected = _selected.contains(index);
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            border: selected
+                                ? Border.all(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
+                                    width: 2.5,
+                                  )
+                                : null,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Center(
+                            child: Text(
+                              "${index + 1}",
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        if (index == widget.currentPage)
+                          Positioned(
+                            top: 4,
+                            left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                "Current".tl,
+                                style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onPrimary,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (selected)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              padding: const EdgeInsets.all(3),
+                              child: HugeIcon(
+                                icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                                size: 14,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimary,
+                              ),
+                            ),
+                          ),
+                      ],
                     );
                   },
                 ),
@@ -1541,6 +1712,62 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
               child: const Center(child: CircularProgressIndicator()),
             ),
         ],
+      ),
+      bottomNavigationBar:
+          widget.allowSelectAll ? _buildActionBar() : null,
+    );
+  }
+
+  Widget _buildActionBar() {
+    final total = widget.images.length;
+    final count = _selected.length;
+    final allSelected = count == total;
+    return SafeArea(
+      child: BottomAppBar(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child:             Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  count == 0
+                      ? "Select pages to share".tl
+                      : "@count / @total selected"
+                          .tlParams({"count": count, "total": total}),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  maxLines: 2,
+                  softWrap: true,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => setState(() {
+                        if (allSelected) {
+                          _selected.clear();
+                        } else {
+                          _selected.addAll(List.generate(total, (i) => i));
+                        }
+                      }),
+                      child: Text(allSelected ? "Clear".tl : "Select All".tl),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: count == 0 ? null : _shareSelected,
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedShare01,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                      label: Text("Share (@count)".tlParams({"count": count})),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+        ),
       ),
     );
   }

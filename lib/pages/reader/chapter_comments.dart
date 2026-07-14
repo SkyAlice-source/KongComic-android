@@ -287,9 +287,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
                     });
                   }
                 },
-                icon: Icon(
-                  Icons.send,
-                  color: Theme.of(context).colorScheme.secondary,
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedSent02, size: 18, color: Theme.of(context).colorScheme.secondary,
                 ),
               ),
           ],
@@ -493,10 +491,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
                 child: CircularProgressIndicator(),
               )
             else if (isLiked)
-              Icon(
-                Icons.favorite,
-                size: 16,
-                color: context.useTextColor(Colors.red),
+              HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 16, color: context.useTextColor(Colors.red),
               )
             else
               HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 16),
@@ -901,9 +896,7 @@ class _EmbeddedChapterCommentsPageState
                     });
                   }
                 },
-                icon: Icon(
-                  Icons.send,
-                  color: Theme.of(context).colorScheme.secondary,
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedSent02, size: 18, color: Theme.of(context).colorScheme.secondary,
                 ),
               ),
           ],
