@@ -206,6 +206,12 @@ class _AppSettingsState extends State<AppSettings> {
               }
             },
           ).toSliver(),
+        if (App.isAndroid)
+          _SwitchSetting(
+            title: "Exit Confirmation".tl,
+            settingKey: "exitConfirm",
+            subtitle: "Ask before exiting via back gesture at root".tl,
+          ).toSliver(),
       ],
     );
   }

@@ -226,14 +226,30 @@ class NaviPaneState extends State<NaviPane>
   Widget buildMainView() {
     return HeroControllerScope(
       controller: MaterialApp.createMaterialHeroController(),
-      child: PopScope(
-        canPop: _canPop,
-        onPopInvokedWithResult: (didPop, result) {
-          if (didPop) {
-            return;
-          }
-          widget.navigatorKey.currentState?.maybePop(result);
-        },
+      child:         PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) {
+              return;
+            }
+            if (_canPop == false) {
+              // 存在子页面，正常返回上一级
+              widget.navigatorKey.currentState?.maybePop(result);
+              return;
+            }
+            // 已在根页面（无子页面），处理退出确认
+            if (appdata.settings['exitConfirm'] != true) {
+              SystemNavigator.pop();
+              return;
+            }
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (_) => const _ExitConfirmDialog(),
+            );
+            if (confirm == true) {
+              SystemNavigator.pop();
+            }
+          },
         child: NotificationListener<NavigationNotification>(
           onNotification: (NavigationNotification notification) {
             final bool nextCanPop = !notification.canHandlePop;
@@ -643,6 +659,61 @@ class _NaviPopScope extends StatelessWidget {
       );
     }
     return res;
+  }
+}
+
+/// 根页面系统/侧滑返回时弹出的退出确认对话框。
+/// 勾选"不再提示"会直接关闭退出确认开关（下次返回将直接退出）。
+class _ExitConfirmDialog extends StatelessWidget {
+  const _ExitConfirmDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    var dontAsk = false;
+    return AlertDialog(
+      title: Text("Confirm Exit".tl),
+      content: StatefulBuilder(
+        builder: (ctx, setSB) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Exit KongComic?".tl),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () => setSB(() => dontAsk = !dontAsk),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: dontAsk,
+                      onChanged: (v) => setSB(() => dontAsk = v ?? false),
+                    ),
+                    Text("Don't ask again".tl),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text("Cancel".tl),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (dontAsk) {
+              appdata.settings['exitConfirm'] = false;
+              appdata.saveData();
+            }
+            Navigator.of(context).pop(true);
+          },
+          child: Text("Exit".tl),
+        ),
+      ],
+    );
   }
 }
 

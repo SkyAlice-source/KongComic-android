@@ -166,7 +166,7 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
         SemanticsBinding.instance.accessibilityFeatures.invertColors;
   }
 
-  void _resolveImage() {
+  void _resolveImage({bool force = false}) {
     final ScrollAwareImageProvider provider = ScrollAwareImageProvider<Object>(
       context: _scrollAwareContext,
       imageProvider: widget.image,
@@ -178,7 +178,7 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
           ? Size(widget.width!, widget.height!)
           : null,
     ));
-    _updateSourceStream(newStream);
+    _updateSourceStream(newStream, force: force);
   }
 
   ImageStreamListener? _imageStreamListener;
@@ -226,8 +226,8 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
   // Updates _imageStream to newStream, and moves the stream listener
   // registration from the old stream to the new stream (if a listener was
   // registered).
-  void _updateSourceStream(ImageStream newStream) {
-    if (_imageStream?.key == newStream.key) {
+  void _updateSourceStream(ImageStream newStream, {bool force = false}) {
+    if (!force && _imageStream?.key == newStream.key) {
       return;
     }
 
@@ -308,34 +308,34 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
       return SizedBox(
         height: widget.height == null ? 300 : null,
         width: widget.width == null ? 300 : null,
-        child: Center(
-          child: SizedBox(
-            height: 300,
-            child: Column(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      _lastException.toString(),
-                      maxLines: 3,
+        child: Listener(
+          onPointerDown: (details) {
+            GlobalState.find<_ReaderGestureDetectorState>().ignoreNextTap();
+            setState(() {
+              _loadingProgress = null;
+              _lastException = null;
+            });
+            _resolveImage(force: true);
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Center(
+              child: SizedBox(
+                height: 300,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          _lastException.toString(),
+                          maxLines: 3,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(
-                  height: 4,
-                ),
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: Listener(
-                    onPointerDown: (details) {
-                      GlobalState.find<_ReaderGestureDetectorState>().ignoreNextTap();
-                      setState(() {
-                        _loadingProgress = null;
-                        _lastException = null;
-                      });
-                      _resolveImage();
-                    },
-                    child: SizedBox(
+                    const SizedBox(
+                      height: 4,
+                    ),
+                    SizedBox(
                       width: 84,
                       height: 36,
                       child: Center(
@@ -345,12 +345,12 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(
+                      height: 16,
+                    ),
+                  ],
                 ),
-                const SizedBox(
-                  height: 16,
-                ),
-              ],
+              ),
             ),
           ),
         ),
