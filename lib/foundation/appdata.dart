@@ -245,6 +245,7 @@ class Settings with ChangeNotifier {
     'showChapterCommentsAtEnd':
         false, // show chapter comments at end of chapter
     'homeBannerFolders': <String>[], // empty = all folders
+    'exitConfirm': true, // 根页面侧滑/系统返回时确认退出（仅 Android 生效）
   };
 
   operator [](String key) {
