@@ -8,6 +8,8 @@
     "Confirm Exit": "确认退出",
     "Exit KongComic?": "确定要退出 KongComic 吗？",
     "Don't ask again": "不再提示",
+    "Exit Confirmation": "退出确认",
+    "Ask before exiting via back gesture at root": "根页面侧滑返回时确认退出",
     "Search": "搜索",
     "History": "历史",
     "Local": "本地",
@@ -1292,6 +1294,11 @@
     "左右滑动卡片切换推荐 · 点击封面进入漫画 · 长按封面可换封面": "左右滑动卡片切换推荐 · 点击封面进入漫画 · 长按封面可换封面",
     "知道了": "知道了",
     "Restart app to apply download path changes": "重启应用以应用下载路径更改",
-    "Restart app to complete data import": "重启应用以完成数据导入"
+    "Restart app to complete data import": "重启应用以完成数据导入",
+    "Exit Confirmation": "退出確認",
+    "Ask before exiting via back gesture at root": "根頁面側滑返回時確認退出",
+    "Confirm Exit": "確認退出",
+    "Exit KongComic?": "確定要退出 KongComic 嗎？",
+    "Don't ask again": "不再提示"
   }
 }
