@@ -677,7 +677,7 @@ class _ExitConfirmDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Exit KongComic?".tl),
+            Text("Exit?".tl),
             const SizedBox(height: 8),
             InkWell(
               onTap: () => setSB(() => dontAsk = !dontAsk),
@@ -797,7 +797,7 @@ class _NaviMainViewState extends State<_NaviMainView> {
               Expanded(
                 child: MediaQuery.removePadding(
                   context: context,
-                  removeTop: shouldShowAppBar,
+                  removeTop: shouldShowAppBar && _showTopBar,
                   removeBottom: true,
                   child: NotificationListener<ScrollNotification>(
                     onNotification: (notification) {
