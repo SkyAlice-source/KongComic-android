@@ -308,9 +308,8 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
       return SizedBox(
         height: widget.height == null ? 300 : null,
         width: widget.width == null ? 300 : null,
-        child: Listener(
-          onPointerDown: (details) {
-            GlobalState.find<_ReaderGestureDetectorState>().ignoreNextTap();
+        child: GestureDetector(
+          onTap: () {
             setState(() {
               _loadingProgress = null;
               _lastException = null;

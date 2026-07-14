@@ -25,8 +25,6 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
 
   late _ReaderState reader;
 
-  bool ignoreNextTag = false;
-
   /// Whether a point falls within the visible toolbar area.
   /// When toolbars are open, taps there should be handled by the toolbar
   /// buttons (IconButton etc.), not by the reader gesture detector.
@@ -45,14 +43,6 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
       return true;
     }
     return false;
-  }
-
-  void ignoreNextTap() {
-    ignoreNextTag = true;
-  }
-
-  void clearIgnoreNextTap() {
-    ignoreNextTag = false;
   }
 
   @override
@@ -79,10 +69,6 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
       onPointerDown: (event) {
         if (event.position == Offset.zero) {
           _previousEvent = null;
-          return;
-        }
-        if (ignoreNextTag) {
-          ignoreNextTag = false;
           return;
         }
         if (_isInToolbarArea(event.position)) {
