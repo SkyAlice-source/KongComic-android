@@ -43,10 +43,10 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           },
         ).toSliver(),
         SelectSetting(
-          title: "Language".tl,
+          title: "语言",
           settingKey: "language",
           optionTranslation: {
-            "system": "System".tl,
+            "system": "跟随系统",
             "zh-CN": "简体中文",
             "zh-TW": "繁體中文",
             "en-US": "English",

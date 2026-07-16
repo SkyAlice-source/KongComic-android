@@ -157,7 +157,7 @@ class _ExplorePageState extends State<ExplorePage>
         actionButton: TabActionButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
           text: "Add".tl,
-          onPressed: addPage,
+          onPressed: () => context.to(() => const ComicSourcePage()),
         ),
       ),
     ).paddingTop(context.padding.top);

@@ -133,15 +133,35 @@ class _ReaderSettingsState extends State<ReaderSettings> {
         if (comicId == null)
           SliverMainAxisGroup(
             slivers: [
-              SwitchListTile(
-                title: Text("Enable device specific settings".tl),
-                value: useDeviceSpecificSettings,
-                onChanged: (b) {
+              InkWell(
+                onTap: () {
+                  final b = !useDeviceSpecificSettings;
                   setState(() {
                     appdata.settings.setEnabledDeviceSpecificSettings(b);
                   });
                   appdata.saveData();
                 },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text("Enable device specific settings".tl),
+                      ),
+                      const SizedBox(width: 12),
+                      Switch(
+                        value: useDeviceSpecificSettings,
+                        onChanged: (b) {
+                          setState(() {
+                            appdata.settings.setEnabledDeviceSpecificSettings(b);
+                          });
+                          appdata.saveData();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ).toSliver(),
               if (useDeviceSpecificSettings)
                 Center(

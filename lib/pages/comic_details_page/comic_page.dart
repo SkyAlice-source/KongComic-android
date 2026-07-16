@@ -6,6 +6,7 @@ import 'package:photo_view/photo_view.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/components/rich_comment_content.dart';
 import 'package:kong_comic/foundation/app.dart';
@@ -103,6 +104,43 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   }
 
   bool showFAB = false;
+
+  /// Cover-extracted theme (Komikku-style auto theming for the detail page).
+  ColorScheme? _coverScheme;
+  bool _extractingCover = false;
+
+  void _extractCoverTheme(ComicDetails data) {
+    if (_coverScheme != null || _extractingCover) return;
+    final coverUrl = widget.cover ?? data.cover;
+    if (coverUrl.isEmpty) return;
+    _extractingCover = true;
+    final provider = CachedImageProvider(
+      coverUrl,
+      sourceKey: data.sourceKey,
+      cid: data.id,
+    );
+    PaletteGenerator.fromImageProvider(
+      provider,
+      size: const Size(100, 100),
+    ).then((pg) {
+      final color = pg.darkVibrantColor?.color ??
+          pg.vibrantColor?.color ??
+          pg.dominantColor?.color;
+      if (color != null && mounted) {
+        final brightness = Theme.of(context).brightness;
+        setState(() {
+          _coverScheme = ColorScheme.fromSeed(
+            seedColor: color,
+            brightness: brightness,
+          );
+        });
+      }
+    }).catchError((_) {
+      // Keep default theme if extraction fails.
+    }).whenComplete(() {
+      _extractingCover = false;
+    });
+  }
 
   @override
   void onReadEnd() {
@@ -203,7 +241,13 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   @override
   Widget buildContent(BuildContext context, ComicDetails data) {
-    return Scaffold(
+    _extractCoverTheme(data);
+    final pageTheme = _coverScheme == null
+        ? Theme.of(context)
+        : Theme.of(context).copyWith(colorScheme: _coverScheme);
+    return Theme(
+      data: pageTheme,
+      child: Scaffold(
       floatingActionButton: showFAB
           ? FloatingActionButton(
               onPressed: () {
@@ -234,7 +278,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
           ),
         ],
       ),
-    );
+    ));
   }
 
   @override

@@ -37,6 +37,10 @@ class NaviPane extends StatefulWidget {
     this.onPageChanged,
     required this.observer,
     required this.navigatorKey,
+    /// Page indices whose root tab already renders its own title/AppBar.
+    /// On mobile, the shared top bar will still show [paneActions] but hide
+    /// the duplicated title label for these tabs.
+    this.topBarTitleHiddenPages = const [],
     super.key,
   });
 
@@ -47,6 +51,10 @@ class NaviPane extends StatefulWidget {
   final Widget Function(int page) pageBuilder;
 
   final void Function(int index)? onPageChanged;
+
+  /// Page indices that render their own AppBar title and should not show the
+  /// duplicated title in the shared top bar on mobile.
+  final List<int> topBarTitleHiddenPages;
 
   final int initialPage;
 
@@ -67,6 +75,10 @@ typedef NaviItemTapListener = void Function(int);
 class NaviPaneState extends State<NaviPane>
     with SingleTickerProviderStateMixin {
   bool _canPop = true;
+
+  /// Whether the current route is a root tab page (no inner page is shown).
+  /// When true, the shared mobile top bar should be rendered.
+  bool get showTopBarInMobile => _canPop;
 
   late int _currentPage = widget.initialPage;
 
@@ -280,6 +292,7 @@ class NaviPaneState extends State<NaviPane>
   }
 
   Widget buildTop() {
+    final hideTitle = widget.topBarTitleHiddenPages.contains(currentPage);
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Container(
@@ -288,10 +301,11 @@ class NaviPaneState extends State<NaviPane>
         width: double.infinity,
         child: Row(
           children: [
-            Text(
-              widget.paneItems[currentPage].label,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            if (!hideTitle)
+              Text(
+                widget.paneItems[currentPage].label,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
             const Spacer(),
             for (var action in widget.paneActions)
               Tooltip(
@@ -770,7 +784,10 @@ class _NaviMainViewState extends State<_NaviMainView> {
 
   @override
   Widget build(BuildContext context) {
-    var shouldShowAppBar = state.controller.value < 2;
+    // On mobile the shared top bar is visible only on root tab pages.
+    // When a child page is shown it supplies its own AppBar, so we hide this
+    // top bar to avoid double titles/actions.
+    var shouldShowAppBar = state.controller.value < 2 && state.showTopBarInMobile;
 
     if (state.currentPage != _lastPage) {
       _lastPage = state.currentPage;

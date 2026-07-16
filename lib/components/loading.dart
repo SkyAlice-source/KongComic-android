@@ -1,5 +1,41 @@
 part of 'components.dart';
 
+String _prettifyErrorMessage(String raw) {
+  var msg = raw.replaceFirst(RegExp(r'^DioException\s*\[[^\]]+\]:\s*'), '');
+  msg = msg.replaceFirst(RegExp(r'^Error:\s*SocketException:\s*'), '');
+
+  if (msg.contains('Connection reset by peer') ||
+      msg.contains('连接被重置') ||
+      msg.contains('Connection reset')) {
+    return '连接被重置，请检查网络或代理后重试'.tl;
+  }
+  if (msg.contains('timed out') ||
+      msg.contains('Timeout') ||
+      msg.contains('超时')) {
+    return '连接超时，请检查网络或稍后再试'.tl;
+  }
+  if (msg.contains('Connection terminated during handshake') ||
+      msg.contains('handshake')) {
+    return '连接握手失败，可能被防火墙或代理拦截'.tl;
+  }
+  if (msg.contains('No route to host') ||
+      msg.contains('No address associated with hostname') ||
+      msg.contains('Bad address')) {
+    return '无法连接服务器，请检查网络或源站地址'.tl;
+  }
+  if (msg.contains('Connection refused')) {
+    return '连接被拒绝，源站可能已关闭或地址错误'.tl;
+  }
+  if (msg.contains('HTTP')) {
+    // 对残留 HTTP 状态/主机信息做简短化
+    final status = RegExp(r'HTTP[^\s]*\s+(\d+)').firstMatch(msg);
+    if (status != null) {
+      return '服务器返回 ${status.group(1)}，请稍后重试'.tl;
+    }
+  }
+  return msg;
+}
+
 class NetworkError extends StatelessWidget {
   const NetworkError({
     super.key,
@@ -42,7 +78,7 @@ class NetworkError extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            cfe == null ? message : "Cloudflare verification required".tl,
+            _prettifyErrorMessage(cfe == null ? message : "Cloudflare verification required".tl),
             textAlign: TextAlign.center,
             maxLines: 3,
           ),

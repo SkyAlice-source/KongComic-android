@@ -19,6 +19,28 @@ import 'headless.dart';
 import 'init.dart';
 import 'pages/follow_updates_page.dart';
 
+/// 全局滚动行为：把 Android 越界辉光颜色从强调色改为中性灰，
+/// 避免选了绿/蓝等强调色时列表四边泛绿。iOS 橡皮筋回弹手感保持不变。
+class _NeutralOverscrollScrollBehavior extends MaterialScrollBehavior {
+  const _NeutralOverscrollScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      return GlowingOverscrollIndicator(
+        axisDirection: details.direction,
+        color: Theme.of(context).colorScheme.outlineVariant,
+        child: child,
+      );
+    }
+    return super.buildOverscrollIndicator(context, child, details);
+  }
+}
+
 void main(List<String> args) {
   if (args.contains('--headless')) {
     runHeadlessMode(args);
@@ -229,6 +251,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           fontWeight: FontWeight.w500,
         ),
       ),
+      // 滚动条滑块用中性灰，避免跟随强调色（如选"绿"时右边缘出现绿条）
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStatePropertyAll(
+          isDark
+              ? Colors.white.withValues(alpha: 0.3)
+              : Colors.black.withValues(alpha: 0.2),
+        ),
+        thickness: const WidgetStatePropertyAll(4.0),
+        radius: const Radius.circular(2),
+        interactive: true,
+      ),
     );
   }
 
@@ -259,6 +292,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         key: ValueKey(appdata.settings['language'] ?? 'system'),
         title: "KongComic".tl,
         home: home,
+        scrollBehavior: const _NeutralOverscrollScrollBehavior(),
         debugShowCheckedModeBanner: false,
         theme: getTheme(primary, secondary, tertiary, Brightness.light),
         navigatorKey: App.rootNavigatorKey,

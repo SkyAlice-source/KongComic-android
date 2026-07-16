@@ -409,11 +409,11 @@ class _FlatBox extends StatelessWidget {
             if (value != null)
               Container(
                 margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                constraints: const BoxConstraints(minWidth: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
                 decoration: BoxDecoration(
                   color: alert ? cs.errorContainer : cs.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                  shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text(value!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: alert ? cs.onErrorContainer : cs.onPrimaryContainer)),

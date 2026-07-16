@@ -1398,6 +1398,13 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
   final Set<int> _selected = {};
   final ScrollController _scrollController = ScrollController();
 
+  /// Images already held in memory: from cache preload OR on-demand download.
+  final Map<int, Uint8List> _loadedImages = {};
+  /// Indices whose image came from local cache (shown, but not in [_loadedImages]).
+  final Set<int> _cachedLoaded = {};
+  /// Indices currently being downloaded on demand (shows a spinner).
+  final Set<int> _loading = {};
+
   @override
   void initState() {
     super.initState();
@@ -1422,6 +1429,9 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     });
   }
 
+  /// Load an image from local cache only — no network. Returns null when the
+  /// page was never preloaded, so its cell stays a placeholder until the user
+  /// taps it to fetch on demand.
   Future<Uint8List?> _loadImage(int index) {
     return _futures.putIfAbsent(index, () async {
       final imageKey = widget.images[index];
@@ -1444,11 +1454,57 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     });
   }
 
+  /// Download a single page on demand when the user taps its placeholder.
+  /// Only this one page is fetched — never auto-load the whole chapter, which
+  /// would blow up memory and traffic.
+  Future<void> _loadOnDemand(int index, {bool autoSelect = true}) async {
+    if (_loading.contains(index) || _loadedImages.containsKey(index)) return;
+    setState(() => _loading.add(index));
+    try {
+      final imageKey = widget.images[index];
+      Uint8List? data;
+      if (imageKey.startsWith("file://")) {
+        try {
+          data = await File(imageKey.substring(7)).readAsBytes();
+        } catch (_) {}
+      } else {
+        await for (final event in ImageDownloader.loadComicImage(
+          imageKey,
+          widget.sourceKey,
+          widget.cid,
+          widget.eid,
+        )) {
+          if (event.imageBytes != null) {
+            data = event.imageBytes;
+            break;
+          }
+        }
+      }
+      if (!mounted) return;
+      if (data != null) {
+        _loadedImages[index] = data;
+        // Tapping a page to load it usually means the user wants it, so select it.
+        if (autoSelect && widget.allowSelectAll) _selected.add(index);
+      } else {
+        showToast(message: "Failed to load image".tl, context: context);
+      }
+    } catch (e) {
+      if (mounted) showToast(message: e.toString(), context: context);
+    } finally {
+      if (mounted) setState(() => _loading.remove(index));
+    }
+  }
+
   Future<void> _selectImage(int index) async {
-    setState(() => _isLoadingFull = true);
-    final data = await _loadImage(index);
+    Uint8List? data = _loadedImages[index];
+    if (data == null && _cachedLoaded.contains(index)) {
+      data = await _loadImage(index);
+    }
+    if (data == null) {
+      await _loadOnDemand(index, autoSelect: false);
+      data = _loadedImages[index];
+    }
     if (!mounted) return;
-    setState(() => _isLoadingFull = false);
     if (data != null) {
       Navigator.of(context).pop(_ImagePickerResult(index: index, data: data));
     } else {
@@ -1468,7 +1524,14 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     try {
       final paths = <String>[];
       for (final i in indices) {
-        final data = await _loadImage(i);
+        // Prefer an already-in-memory image; fall back to cache, then a single
+        // on-demand download — only for the pages the user actually selected.
+        Uint8List? data = _loadedImages[i];
+        data ??= await _loadImage(i);
+        if (data == null) {
+          await _loadOnDemand(i, autoSelect: false);
+          data = _loadedImages[i];
+        }
         if (data == null) continue;
         final ext = detectFileType(data).ext;
         final name = "${widget.cid}_P${i + 1}.$ext";
@@ -1496,6 +1559,10 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title.tl),
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
           onPressed: () => Navigator.of(context).pop(),
@@ -1506,7 +1573,12 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
         children: [
           GridView.builder(
             controller: _scrollController,
-            padding: const EdgeInsets.all(6),
+            padding: EdgeInsets.fromLTRB(
+              6,
+              6,
+              6,
+              6 + kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom + 16,
+            ),
             addAutomaticKeepAlives: false,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
@@ -1516,194 +1588,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
             ),
             itemCount: widget.images.length,
             itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () {
-                  if (widget.allowSelectAll) {
-                    setState(() {
-                      _selected.contains(index)
-                          ? _selected.remove(index)
-                          : _selected.add(index);
-                    });
-                  } else {
-                    _selectImage(index);
-                  }
-                },
-                child: FutureBuilder<Uint8List?>(
-                  future: _loadImage(index),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      final selected = _selected.contains(index);
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Container(
-                            decoration: selected
-                                ? BoxDecoration(
-                                    border: Border.all(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                      width: 2.5,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  )
-                                : null,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Image.memory(
-                                snapshot.data!,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          // Page number badge
-                          Positioned(
-                            bottom: 4,
-                            left: 4,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                "${index + 1}",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                          ),
-                          // Current page indicator (top-left)
-                          if (index == widget.currentPage)
-                            Positioned(
-                              top: 4,
-                              left: 4,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  "Current".tl,
-                                  style: TextStyle(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onPrimary,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          // Selected tick (top-right)
-                          if (selected)
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                padding: const EdgeInsets.all(3),
-                                child: HugeIcon(
-                                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                                  size: 14,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onPrimary,
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    }
-                    // Placeholder (page not yet loaded)
-                    final selected = _selected.contains(index);
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
-                            border: selected
-                                ? Border.all(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary,
-                                    width: 2.5,
-                                  )
-                                : null,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Center(
-                            child: Text(
-                              "${index + 1}",
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (index == widget.currentPage)
-                          Positioned(
-                            top: 4,
-                            left: 4,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                "Current".tl,
-                                style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onPrimary,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (selected)
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary,
-                                shape: BoxShape.circle,
-                              ),
-                              padding: const EdgeInsets.all(3),
-                              child: HugeIcon(
-                                icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                                size: 14,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimary,
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              );
+              return _buildCell(index);
             },
           ),
           if (_isLoadingFull)
@@ -1717,6 +1602,167 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
           widget.allowSelectAll ? _buildActionBar() : null,
     );
   }
+
+  /// Build a single grid cell. Shows the image if it's already in memory
+  /// (cache preload or on-demand download); otherwise a lightweight placeholder.
+  /// Tapping a placeholder fetches JUST that page — never the whole chapter.
+  Widget _buildCell(int index) {
+    final onDemand = _loadedImages[index];
+    if (onDemand != null) {
+      return _cellContent(index, onDemand, true);
+    }
+    return FutureBuilder<Uint8List?>(
+      future: _loadImage(index),
+      builder: (context, snapshot) {
+        final data = snapshot.hasData ? snapshot.data : null;
+        if (data != null && !_cachedLoaded.contains(index)) {
+          _cachedLoaded.add(index);
+        }
+        return _cellContent(index, data, data != null);
+      },
+    );
+  }
+
+  Widget _cellContent(int index, Uint8List? data, bool shown) {
+    final selected = _selected.contains(index);
+    final loading = _loading.contains(index);
+    final content = shown && data != null
+        ? _imageTile(index, data, selected)
+        : _placeholderTile(index, selected, loading);
+    return GestureDetector(
+      onTap: () {
+        if (shown) {
+          if (widget.allowSelectAll) {
+            setState(() {
+              _selected.contains(index)
+                  ? _selected.remove(index)
+                  : _selected.add(index);
+            });
+          } else {
+            _selectImage(index);
+          }
+        } else {
+          _loadOnDemand(index);
+        }
+      },
+      child: content,
+    );
+  }
+
+  Widget _imageTile(int index, Uint8List data, bool selected) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          decoration: selected
+              ? BoxDecoration(
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 2.5,
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                )
+              : null,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.memory(data, fit: BoxFit.cover),
+          ),
+        ),
+        _pageNumberBadge(index + 1),
+        if (index == widget.currentPage) _currentBadge(),
+        if (selected) _selectedTick(),
+      ],
+    );
+  }
+
+  Widget _placeholderTile(int index, bool selected, bool loading) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            border: selected
+                ? Border.all(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 2.5,
+                  )
+                : null,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Center(
+            child: loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    "${index + 1}",
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+          ),
+        ),
+        if (index == widget.currentPage) _currentBadge(),
+        if (selected) _selectedTick(),
+      ],
+    );
+  }
+
+  Widget _pageNumberBadge(int page) => Positioned(
+        bottom: 4,
+        left: 4,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            "$page",
+            style: const TextStyle(color: Colors.white, fontSize: 11),
+          ),
+        ),
+      );
+
+  Widget _currentBadge() => Positioned(
+        top: 4,
+        left: 4,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            "Current".tl,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onPrimary,
+              fontSize: 10,
+            ),
+          ),
+        ),
+      );
+
+  Widget _selectedTick() => Positioned(
+        top: 4,
+        right: 4,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            shape: BoxShape.circle,
+          ),
+          padding: const EdgeInsets.all(3),
+          child: HugeIcon(
+            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+            size: 14,
+            color: Theme.of(context).colorScheme.onPrimary,
+          ),
+        ),
+      );
 
   Widget _buildActionBar() {
     final total = widget.images.length;

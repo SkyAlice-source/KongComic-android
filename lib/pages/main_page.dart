@@ -120,6 +120,7 @@ class _MainPageState extends State<MainPage> {
       pageBuilder: (index) {
         return _pages[index];
       },
+      topBarTitleHiddenPages: const [1],
     );
   }
 }

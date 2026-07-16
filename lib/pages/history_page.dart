@@ -49,8 +49,6 @@ class _HistoryPageState extends State<HistoryPage> {
     return HistoryManager().getAllPaginated(limit: limit, offset: offset);
   }
 
-  var controller = FlyoutController();
-
   bool multiSelectMode = false;
   Map<History, bool> selectedComics = {};
 
@@ -161,94 +159,6 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    List<Widget> selectActions = [
-      IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
-          tooltip: "Select All".tl,
-          onPressed: selectAll
-      ),
-      IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
-          tooltip: "Deselect".tl,
-          onPressed: deSelect
-      ),
-      IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedFlipHorizontal, size: 18),
-          tooltip: "Invert Selection".tl,
-          onPressed: invertSelection
-      ),
-      IconButton(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-        tooltip: "Delete".tl,
-        onPressed: selectedComics.isEmpty
-            ? null
-            : () {
-                final comicsToDelete = List<History>.from(selectedComics.keys);
-                setState(() {
-                  multiSelectMode = false;
-                  selectedComics.clear();
-                });
-
-                for (final comic in comicsToDelete) {
-                  _removeHistory(comic);
-                }
-              },
-      ),
-    ];
-
-    List<Widget> normalActions = [
-      IconButton(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-        tooltip: 'Refresh All Histories'.tl,
-        onPressed: _refreshAllHistories,
-      ),
-      IconButton(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 18),
-        tooltip: multiSelectMode ? "Exit Multi-Select".tl : "Multi-Select".tl,
-        onPressed: () {
-          setState(() {
-            multiSelectMode = !multiSelectMode;
-          });
-        },
-      ),
-      Tooltip(
-        message: 'Clear History'.tl,
-        child: Flyout(
-          controller: controller,
-          flyoutBuilder: (context) {
-            return FlyoutContent(
-              title: 'Clear History'.tl,
-              content: Text('Are you sure you want to clear your history?'.tl),
-              actions: [
-                Button.outlined(
-                  onPressed: () {
-                    HistoryManager().clearUnfavoritedHistory();
-                    context.pop();
-                  },
-                  child: Text('Clear Unfavorited'.tl),
-                ),
-                const SizedBox(width: 4),
-                Button.filled(
-                  color: context.colorScheme.error,
-                  onPressed: () {
-                    HistoryManager().clearHistory();
-                    context.pop();
-                  },
-                  child: Text('Clear'.tl),
-                ),
-              ],
-            );
-          },
-          child: IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
-            onPressed: () {
-              controller.show();
-            },
-          ),
-        ),
-      ),
-    ];
-
     return PopScope(
       canPop: !multiSelectMode,
       onPopInvokedWithResult: (didPop, result) {
@@ -262,30 +172,20 @@ class _HistoryPageState extends State<HistoryPage> {
       child: Scaffold(
         body: SmoothCustomScrollView(
           slivers: [
-            SliverAppbar(
-              leading: Tooltip(
-                message: multiSelectMode ? "Cancel".tl : "Back".tl,
-                child: IconButton(
-                  onPressed: () {
-                    if (multiSelectMode) {
-                      setState(() {
-                        multiSelectMode = false;
-                        selectedComics.clear();
-                      });
-                    } else {
-                      context.pop();
-                    }
-                  },
-                  icon: multiSelectMode
-                      ? HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18)
-                      : HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+            if (multiSelectMode)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Text(
+                    "Selected @count".tlParams({"count": selectedComics.length}),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-              title: multiSelectMode
-                  ? Text(selectedComics.length.toString())
-                  : Text('History'.tl),
-              actions: multiSelectMode ? selectActions : normalActions,
-            ),
             PaginatedSliverGridComics(
               key: _gridKey,
               pageLoader: _loadPage,
@@ -333,6 +233,142 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           ],
         ),
+        floatingActionButton: _buildActionFab(),
+      ),
+    );
+  }
+
+  Widget _buildActionFab() {
+    final fabIcon = multiSelectMode
+        ? HugeIcons.strokeRoundedCheckList
+        : HugeIcons.strokeRoundedMoreVertical;
+    return PopupMenuButton<String>(
+      offset: const Offset(0, -8),
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Theme.of(context).colorScheme.primaryContainer,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: HugeIcon(
+          icon: fabIcon,
+          size: 24,
+          color: Theme.of(context).colorScheme.onPrimaryContainer,
+        ),
+      ),
+      onSelected: (value) {
+        switch (value) {
+          case 'refresh':
+            _refreshAllHistories();
+            break;
+          case 'multiselect':
+            setState(() => multiSelectMode = true);
+            break;
+          case 'clear':
+            _confirmClearHistory();
+            break;
+          case 'select_all':
+            selectAll();
+            break;
+          case 'deselect':
+            deSelect();
+            break;
+          case 'invert':
+            invertSelection();
+            break;
+          case 'delete':
+            _deleteSelected();
+            break;
+          case 'exit':
+            setState(() {
+              multiSelectMode = false;
+              selectedComics.clear();
+            });
+            break;
+        }
+      },
+      itemBuilder: (context) => multiSelectMode
+          ? [
+              PopupMenuItem(
+                value: 'select_all',
+                child: Text('Select All'.tl),
+              ),
+              PopupMenuItem(
+                value: 'deselect',
+                child: Text('Deselect'.tl),
+              ),
+              PopupMenuItem(
+                value: 'invert',
+                child: Text('Invert Selection'.tl),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: Text('Delete'.tl),
+              ),
+              PopupMenuItem(
+                value: 'exit',
+                child: Text('Exit Multi-Select'.tl),
+              ),
+            ]
+          : [
+              PopupMenuItem(
+                value: 'refresh',
+                child: Text('Refresh All Histories'.tl),
+              ),
+              PopupMenuItem(
+                value: 'multiselect',
+                child: Text('Multi-Select'.tl),
+              ),
+              PopupMenuItem(
+                value: 'clear',
+                child: Text('Clear History'.tl),
+              ),
+            ],
+    );
+  }
+
+  void _deleteSelected() {
+    if (selectedComics.isEmpty) return;
+    final comicsToDelete = List<History>.from(selectedComics.keys);
+    setState(() {
+      multiSelectMode = false;
+      selectedComics.clear();
+    });
+    for (final comic in comicsToDelete) {
+      _removeHistory(comic);
+    }
+  }
+
+  void _confirmClearHistory() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Clear History'.tl),
+        content: Text('Are you sure you want to clear your history?'.tl),
+        actions: [
+          TextButton(
+            onPressed: () {
+              HistoryManager().clearUnfavoritedHistory();
+              Navigator.of(dialogContext).pop();
+            },
+            child: Text('Clear Unfavorited'.tl),
+          ),
+          FilledButton(
+            onPressed: () {
+              HistoryManager().clearHistory();
+              Navigator.of(dialogContext).pop();
+            },
+            child: Text('Clear'.tl),
+          ),
+        ],
       ),
     );
   }

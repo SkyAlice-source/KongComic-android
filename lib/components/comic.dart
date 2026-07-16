@@ -152,10 +152,6 @@ class ComicTile extends StatelessWidget {
   Widget build(BuildContext context) {
     var type = appdata.settings['comicDisplayMode'];
 
-    Widget child = type == 'detailed'
-        ? _buildDetailedMode(context)
-        : _buildBriefMode(context);
-
     var isFavorite = appdata.settings['showFavoriteStatusOnTile']
         ? LocalFavoritesManager()
             .isExist(comic.id, ComicType.fromKey(comic.sourceKey))
@@ -172,89 +168,60 @@ class ComicTile extends StatelessWidget {
       history!.page = 1;
     }
 
-    if (!isFavorite && history == null) {
-      return child;
-    }
-
-    final leftPad = type == 'detailed' ? 16.0 : 6.0;
-    const ringSize = 24.0;
-
-    Widget? favBadge;
-    if (isFavorite) {
-      favBadge = Positioned(
-        left: leftPad,
-        top: 8,
-        child: Container(
-          width: ringSize,
-          height: ringSize,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: Colors.green,
-            shape: BoxShape.circle,
-          ),
-          child: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 14, color: Colors.white),
-        ),
-      );
-    }
-
     Widget? histBadge;
     if (history != null) {
       final hasProgress = history.maxPage != null && history.maxPage! > 0;
       final progress = hasProgress
           ? (history.page / history.maxPage!).clamp(0.0, 1.0)
           : 0.0;
-      final label = hasProgress
-          ? "${(progress * 100).toInt()}"
-          : "${history.ep}";
-      histBadge = Positioned(
-        left: leftPad + (isFavorite ? ringSize + 4 : 0),
-        top: 8,
-        child: Container(
-          width: ringSize,
-          height: ringSize,
-          decoration: BoxDecoration(
-            color: const Color(0xE6000000), // 更实的心底，压在任意封面都清晰
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18),
-              width: 1,
-            ),
+      final text = hasProgress
+          ? "看到第${history.ep}话 · ${(progress * 100).toInt()}%"
+          : "第${history.ep}话";
+      histBadge = Container(
+        height: 22,
+        decoration: const BoxDecoration(
+          color: Color(0x8A000000), // 半透明黑底，压在任意封面都清晰
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
           ),
-          child: Stack(
-            children: [
-              if (hasProgress)
-                CustomPaint(
-                  size: const Size(ringSize, ringSize),
-                  painter: _ProgressRingPainter(
-                    progress: progress,
-                    progressColor: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              Center(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    height: 1.1,
-                  ),
-                  textAlign: TextAlign.center,
+        ),
+        child: Stack(
+          children: [
+            if (hasProgress)
+              FractionallySizedBox(
+                widthFactor: progress,
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.55),
                 ),
               ),
-            ],
-          ),
+            Center(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
       );
     }
 
-    return Stack(
-      children: [
-        Positioned.fill(child: child),
-        if (favBadge != null) favBadge,
-        if (histBadge != null) histBadge,
-      ],
-    );
+    Widget child = type == 'detailed'
+        ? _buildDetailedMode(context, histBadge, isFavorite)
+        : _buildBriefMode(context, histBadge, isFavorite);
+
+    return child;
   }
 
   Widget buildImage(BuildContext context) {
@@ -292,9 +259,27 @@ class ComicTile extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailedMode(BuildContext context) {
+  Widget _buildFavoriteBadge(BuildContext context) {
+    return SizedBox(
+      width: 20,
+      height: 30,
+      child: CustomPaint(
+        painter: _BookmarkRibbonPainter(Theme.of(context).colorScheme.primary),
+      ),
+    );
+  }
+
+  Widget _buildDetailedMode(BuildContext context, Widget? histBadge, bool isFavorite) {
     return LayoutBuilder(builder: (context, constrains) {
       final height = constrains.maxHeight - 16;
+
+      final favBadge = isFavorite
+          ? Positioned(
+              right: 0,
+              top: 0,
+              child: _buildFavoriteBadge(context),
+            )
+          : null;
 
       Widget image = Container(
         width: height * 0.68,
@@ -313,6 +298,26 @@ class ComicTile extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: buildImage(context),
       );
+
+      if (histBadge != null || favBadge != null) {
+        image = SizedBox(
+          width: height * 0.68,
+          child: Stack(
+            children: [
+              Positioned.fill(child: image),
+              if (favBadge != null) favBadge,
+              if (histBadge != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 22,
+                  child: histBadge,
+                ),
+            ],
+          ),
+        );
+      }
 
       if (heroID != null) {
         image = Hero(
@@ -357,9 +362,17 @@ class ComicTile extends StatelessWidget {
     });
   }
 
-  Widget _buildBriefMode(BuildContext context) {
+  Widget _buildBriefMode(BuildContext context, Widget? histBadge, bool isFavorite) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final favBadge = isFavorite
+            ? Positioned(
+                right: 0,
+                top: 0,
+                child: _buildFavoriteBadge(context),
+              )
+            : null;
+
         Widget image = Container(
           decoration: BoxDecoration(
             color: context.colorScheme.secondaryContainer,
@@ -397,7 +410,7 @@ class ComicTile extends StatelessWidget {
                       child: image,
                     ),
                     Align(
-                      alignment: Alignment.bottomRight,
+                      alignment: Alignment.topRight,
                       child: (() {
                         final subtitle =
                             comic.subtitle?.replaceAll('\n', '').trim();
@@ -448,13 +461,25 @@ class ComicTile extends StatelessWidget {
                             ),
                           ));
                         }
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: children,
+                        return Padding(
+                          padding: EdgeInsets.only(top: isFavorite ? 34 : 0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: children,
+                          ),
                         );
                       })(),
                     ),
+                    if (histBadge != null)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: 22,
+                        child: histBadge,
+                      ),
+                    if (favBadge != null) favBadge,
                   ],
                 ),
               ),
@@ -2022,39 +2047,110 @@ class PaginatedSliverGridComicsState
   }
 }
 
-class _ProgressRingPainter extends CustomPainter {
-  final double progress;
-  final Color progressColor;
+class _BookmarkRibbonPainter extends CustomPainter {
+  final Color color;
+  const _BookmarkRibbonPainter(this.color);
 
-  _ProgressRingPainter({required this.progress, required this.progressColor});
+  Path _createBookmarkPath(double w, double h) {
+    final r = w * 0.12;
+    final notch = w * 0.35; // V-cut depth
+    return Path()
+      ..moveTo(0, r)
+      ..quadraticBezierTo(0, 0, r, 0)
+      ..lineTo(w - r, 0)
+      ..quadraticBezierTo(w, 0, w, r)
+      ..lineTo(w, h)
+      ..lineTo(w / 2, h - notch)
+      ..lineTo(0, h)
+      ..close();
+  }
+
+  Path _createStarPath(double cx, double cy, double outerR, double innerR) {
+    final path = Path();
+    for (int i = 0; i < 10; i++) {
+      final angle = -math.pi / 2 + i * math.pi / 5;
+      final radius = i.isEven ? outerR : innerR;
+      final x = cx + radius * math.cos(angle);
+      final y = cy + radius * math.sin(angle);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+    return path;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    const strokeWidth = 3.5;
-    final radius = (size.width - strokeWidth) / 2;
+    final w = size.width;
+    final h = size.height;
 
-    final bgPaint = Paint()
+    final path = _createBookmarkPath(w, h);
+
+    // 1) drop shadow
+    canvas.drawShadow(path, Colors.black87, 3.0, false);
+
+    // 2) gradient fill
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color,
+          HSLColor.fromColor(color).withLightness(
+            (HSLColor.fromColor(color).lightness - 0.12).clamp(0.0, 1.0),
+          ).toColor(),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+    canvas.drawPath(path, fillPaint);
+
+    // 3) outer glow
+    final glowPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(path, glowPaint);
+
+    // 4) crisp white outline
+    final strokePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.95)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(path, strokePaint);
+
+    // 5) inner highlight
+    final highlightPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-    canvas.drawCircle(center, radius, bgPaint);
+      ..strokeWidth = 0.8;
+    final r = w * 0.12;
+    final highlightPath = Path()
+      ..moveTo(r * 0.5, r * 0.5)
+      ..lineTo(w - r * 0.5, r * 0.5)
+      ..lineTo(w - r * 0.5, h * 0.55);
+    canvas.drawPath(highlightPath, highlightPaint);
 
-    final progressPaint = Paint()
-      ..color = progressColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
-      math.pi * 2 * progress,
-      false,
-      progressPaint,
+    // 6) white star in the center
+    final starPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.98)
+      ..style = PaintingStyle.fill;
+    final starOuter = w * 0.31;
+    final starInner = starOuter * 0.42;
+    final starCenterX = w / 2;
+    final starCenterY = h * 0.42;
+    canvas.drawPath(
+      _createStarPath(starCenterX, starCenterY, starOuter, starInner),
+      starPaint,
     );
   }
 
   @override
-  bool shouldRepaint(_ProgressRingPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.progressColor != progressColor;
+  bool shouldRepaint(covariant CustomPainter old) => false;
 }
+
