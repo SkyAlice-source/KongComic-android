@@ -623,7 +623,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                         child: button.paddingHorizontal(4),
                       )
                     else
-                      ...[button, const Spacer()],
+                      ...[SizedBox(width: 36, height: 36, child: button), const Spacer()],
                   if (!small)
                     const SizedBox(width: 4),
                 ],
@@ -1771,48 +1771,62 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     return SafeArea(
       child: BottomAppBar(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child:             Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              // Selected count text — short and flex, won't push buttons out
+              Flexible(
+                child: Text(
                   count == 0
-                      ? "Select pages to share".tl
+                      ? "".tl
                       : "@count / @total selected"
                           .tlParams({"count": count, "total": total}),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: 2,
-                  softWrap: true,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => setState(() {
-                        if (allSelected) {
-                          _selected.clear();
-                        } else {
-                          _selected.addAll(List.generate(total, (i) => i));
-                        }
-                      }),
-                      child: Text(allSelected ? "Clear".tl : "Select All".tl),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: count == 0 ? null : _shareSelected,
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedShare01,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                      label: Text("Share (@count)".tlParams({"count": count})),
-                    ),
-                  ],
+              ),
+              const Spacer(),
+              // Select All / Clear button (compact)
+              TextButton(
+                onPressed: () => setState(() {
+                  if (allSelected) {
+                    _selected.clear();
+                  } else {
+                    _selected.addAll(List.generate(total, (i) => i));
+                  }
+                }),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-              ],
-            ),
+                child: Text(
+                  allSelected ? "Clear".tl : "Select All".tl,
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Share button (compact)
+              FilledButton.icon(
+                onPressed: count == 0 ? null : _shareSelected,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedShare01,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
+                label: Text(
+                  "Share (@count)".tlParams({"count": count}),
+                  style: const TextStyle(fontSize: 13),
+                ),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
