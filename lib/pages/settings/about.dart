@@ -9,6 +9,7 @@ class AboutSettings extends StatefulWidget {
 
 class _AboutSettingsState extends State<AboutSettings> {
   bool isCheckingUpdate = false;
+  bool isCheckingGithubUpdate = false;
 
   @override
   Widget build(BuildContext context) {
@@ -45,8 +46,8 @@ class _AboutSettingsState extends State<AboutSettings> {
           ],
         ).toSliver(),
         ListTile(
-          title: Text("Check for Updates".tl),
-          subtitle: Text("Check for new version, choose CDN or GitHub source".tl),
+          title: Text("Accelerated Source".tl),
+          subtitle: Text("Download via CDN proxy, faster in some regions".tl),
           trailing: Button.filled(
             isLoading: isCheckingUpdate,
             child: Text("Check".tl),
@@ -58,6 +59,26 @@ class _AboutSettingsState extends State<AboutSettings> {
                 if (mounted) {
                   setState(() {
                     isCheckingUpdate = false;
+                  });
+                }
+              });
+            },
+          ).fixHeight(32),
+        ).toSliver(),
+        ListTile(
+          title: Text("GitHub Source".tl),
+          subtitle: Text("Download via GitHub source".tl),
+          trailing: Button.outlined(
+            isLoading: isCheckingGithubUpdate,
+            child: Text("Check".tl),
+            onPressed: () {
+              setState(() {
+                isCheckingGithubUpdate = true;
+              });
+              checkGithubSource().then((_) {
+                if (mounted) {
+                  setState(() {
+                    isCheckingGithubUpdate = false;
                   });
                 }
               });
@@ -245,7 +266,17 @@ Future<void> checkAcceleratedUpdate() async {
   try {
     final value = await AppUpdate.checkAccelerated();
     if (value != null) {
-      await _showUpdateSourceDialog(value);
+      final abi = await App.getDeviceAbi();
+      final downloadUrl = value.pickUrlForCurrentDevice(abi);
+      if (downloadUrl == null) {
+        if (App.rootContext.mounted) {
+          App.rootContext.showMessage(
+            message: "No download available for this device".tl,
+          );
+        }
+        return;
+      }
+      await _showDownloadDialog(value, abi: abi, accelerated: true);
     } else {
       if (App.rootContext.mounted) {
         App.rootContext.showMessage(message: "No new version available".tl);
@@ -260,7 +291,24 @@ Future<void> checkAcceleratedUpdate() async {
 
 Future<void> checkGithubSource() async {
   try {
-    await AppUpdate.openReleasePageInBrowser();
+    final value = await AppUpdate.check();
+    if (value != null) {
+      final abi = await App.getDeviceAbi();
+      final downloadUrl = value.pickUrlForCurrentDevice(abi);
+      if (downloadUrl == null) {
+        if (App.rootContext.mounted) {
+          App.rootContext.showMessage(
+            message: "No download available for this device".tl,
+          );
+        }
+        return;
+      }
+      await _showDownloadDialog(value, abi: abi, accelerated: false);
+    } else {
+      if (App.rootContext.mounted) {
+        App.rootContext.showMessage(message: "No new version available".tl);
+      }
+    }
   } catch (_) {
     if (App.rootContext.mounted) {
       App.rootContext.showMessage(message: "Network error".tl);

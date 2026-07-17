@@ -170,7 +170,16 @@ class ComicTile extends StatelessWidget {
 
     Widget? histBadge;
     if (history != null) {
-      final text = "Ep @ep".tlParams({"ep": "${history.ep}"});
+      String text;
+      if (history.maxPage != null && history.maxPage! > 0) {
+        final progress = ((history.page / history.maxPage!) * 100).round();
+        text = "Ep @ep·@progress%".tlParams({
+          "ep": "${history.ep}",
+          "progress": "$progress",
+        });
+      } else {
+        text = "Ep @ep".tlParams({"ep": "${history.ep}"});
+      }
       histBadge = Container(
         height: 22,
         padding: const EdgeInsets.symmetric(horizontal: 8),
