@@ -7,11 +7,22 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application>
-        <!-- LeakCanary registers a second launcher icon ("leaks") in debug builds.
-             Remove the alias so only the app icon shows; leak detection still works
-             via LeakActivity (notification/tap). Release builds don't include LeakCanary. -->
+        <!-- LeakCanary registers a second launcher icon ("leaks") in debug builds
+             and a dynamic shortcut visible on long-press of the app icon.
+             Remove the activity-alias and the auto-init provider so only the
+             main app icon appears with no empty "leaks" entry on long-press.
+             Leak detection can still be triggered manually via the LeakActivity
+             notification. Release builds don't include LeakCanary. -->
         <activity-alias
             android:name="leakcanary.internal.activity.LeakLauncherActivity"
             tools:node="remove" />
+        <!-- Block LeakCanary's auto-install which registers the dynamic launcher
+             shortcut. The AppWatcherInstaller ContentProvider's auto-init is
+             what creates the "leaks" entry on long-press at startup. Removing
+             it prevents that shortcut while retaining the LeakActivity for
+             manual leak review via notification. -->
+        <provider
+            android:name="leakcanary.internal.AppWatcherInstaller"
+            tools:node="removeAll" />
     </application>
 </manifest>

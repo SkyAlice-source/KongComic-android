@@ -12,43 +12,43 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("外观")),
+        SliverAppbar(title: Text("Appearance".tl)),
         SelectSetting(
-          title: "外观",
+          title: "Appearance".tl,
           settingKey: "theme_mode",
           optionTranslation: {
-            "system": "跟随手机",
-            "light": "日间",
-            "dark": "夜间",
-            "amoled": "纯黑·省电",
+            "system": "System",
+            "light": "Light",
+            "dark": "Dark",
+            "amoled": "AMOLED",
           },
           onChanged: () async {
             App.forceRebuild();
           },
         ).toSliver(),
         SelectSetting(
-          title: "主题色",
+          title: "Theme Color".tl,
           settingKey: "color",
           optionTranslation: {
-            "system": "自动",
-            "red": "红",
-            "pink": "粉",
-            "purple": "紫",
-            "green": "绿",
-            "orange": "橙",
-            "blue": "蓝",
+            "system": "Auto",
+            "red": "Red",
+            "pink": "Pink",
+            "purple": "Purple",
+            "green": "Green",
+            "orange": "Orange",
+            "blue": "Blue",
           },
           onChanged: () async {
             App.forceRebuild();
           },
         ).toSliver(),
         SelectSetting(
-          title: "语言",
+          title: "Language".tl,
           settingKey: "language",
           optionTranslation: {
-            "system": "跟随系统",
-            "zh-CN": "简体中文",
-            "zh-TW": "繁體中文",
+            "system": "System",
+            "zh-CN": "Simplified Chinese",
+            "zh-TW": "Traditional Chinese",
             "en-US": "English",
           },
           onChanged: () async {

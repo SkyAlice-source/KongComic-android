@@ -170,49 +170,29 @@ class ComicTile extends StatelessWidget {
 
     Widget? histBadge;
     if (history != null) {
-      final hasProgress = history.maxPage != null && history.maxPage! > 0;
-      final progress = hasProgress
-          ? (history.page / history.maxPage!).clamp(0.0, 1.0)
-          : 0.0;
-      final text = hasProgress
-          ? "看到第${history.ep}话 · ${(progress * 100).toInt()}%"
-          : "第${history.ep}话";
+      final text = "Ep @ep".tlParams({"ep": "${history.ep}"});
       histBadge = Container(
         height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: const BoxDecoration(
-          color: Color(0x8A000000), // 半透明黑底，压在任意封面都清晰
+          color: Color(0x8A000000),
           borderRadius: BorderRadius.only(
             bottomLeft: Radius.circular(8),
             bottomRight: Radius.circular(8),
           ),
         ),
-        child: Stack(
-          children: [
-            if (hasProgress)
-              FractionallySizedBox(
-                widthFactor: progress,
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withValues(alpha: 0.55),
-                ),
-              ),
-            Center(
-              child: Text(
-                text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  height: 1.2,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+        child: Center(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
             ),
-          ],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       );
     }

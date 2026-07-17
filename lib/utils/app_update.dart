@@ -35,6 +35,32 @@ class AppUpdate {
   static const _releasesUrl =
       "https://api.github.com/repos/SkyAlice-source/KongComic-android/releases/latest";
 
+  /// Accelerated (proxy) API endpoint for users who cannot directly access
+  /// GitHub Releases API. Uses the same response format.
+  static const _acceleratedApiUrl =
+      "https://ghproxy.net/https://api.github.com/repos/SkyAlice-source/KongComic-android/releases/latest";
+
+  /// Base URL prefix for accelerated asset downloads via proxy.
+  static const _acceleratedDownloadPrefix =
+      "https://ghproxy.net/";
+
+  /// Check for update through the accelerated (proxy) source.
+  /// Same return/throw semantics as [check].
+  static Future<AppUpdateInfo?> checkAccelerated() async {
+    final res = await AppDio().get(
+      _acceleratedApiUrl,
+      options: Options(
+        responseType: ResponseType.json,
+        receiveTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 15),
+      ),
+    );
+    if (res.statusCode != 200 || res.data is! Map) {
+      throw Exception("Accelerated source: unexpected response ${res.statusCode}");
+    }
+    return _parseRelease(res.data);
+  }
+
   /// Ping the GitHub Releases API. Returns null if the network is reachable
   /// but there is no update, [AppUpdateInfo] if there is, or throws if the
   /// network itself is unavailable.
@@ -54,14 +80,29 @@ class AppUpdate {
     if (res.statusCode != 200 || res.data is! Map) {
       throw Exception("Unexpected response: ${res.statusCode}");
     }
-    final data = res.data as Map;
+    return _parseRelease(res.data);
+  }
+
+  static bool _isNewerVersion(String candidate, String current) {
+    final a = candidate.split(".");
+    final b = current.split(".");
+    for (var i = 0; i < a.length && i < b.length; i++) {
+      final ai = int.tryParse(a[i]) ?? 0;
+      final bi = int.tryParse(b[i]) ?? 0;
+      if (ai > bi) return true;
+      if (ai < bi) return false;
+    }
+    return false;
+  }
+
+  /// Shared release data parser used by both [check] and [checkAccelerated].
+  static AppUpdateInfo? _parseRelease(Map data) {
     final tag = (data["tag_name"] as String?) ?? "";
     final version = tag.startsWith("v") ? tag.substring(1) : tag;
     if (version.isEmpty) {
       throw Exception("Empty tag_name in release");
     }
     // Strip pre-release (-beta, -rc.1) and build metadata (+build123)
-    // so that only the core numeric segments are compared.
     final coreVersion = version.split(RegExp(r'[-+]')).first;
     if (!_isNewerVersion(coreVersion, App.appVersion)) {
       return null;
@@ -91,18 +132,6 @@ class AppUpdate {
       releaseNotes: body,
       abiDownloads: downloads,
     );
-  }
-
-  static bool _isNewerVersion(String candidate, String current) {
-    final a = candidate.split(".");
-    final b = current.split(".");
-    for (var i = 0; i < a.length && i < b.length; i++) {
-      final ai = int.tryParse(a[i]) ?? 0;
-      final bi = int.tryParse(b[i]) ?? 0;
-      if (ai > bi) return true;
-      if (ai < bi) return false;
-    }
-    return false;
   }
 
   /// Download the APK in [info] matching [abi] and trigger the system
@@ -173,6 +202,86 @@ class AppUpdate {
       throw Exception("Downloaded APK is missing or empty");
     }
     // Lightweight integrity check: verify the APK's ZIP magic header.
+    final raf = apk.openSync();
+    final magic = raf.readSync(4);
+    raf.closeSync();
+    if (magic.length < 4 ||
+        magic[0] != 0x50 ||
+        magic[1] != 0x4B ||
+        magic[2] != 0x03 ||
+        magic[3] != 0x04) {
+      throw Exception("Downloaded APK is corrupted");
+    }
+    final ok = await App.installApk(savePath);
+    if (!ok) {
+      throw Exception("Failed to launch the system installer");
+    }
+  }
+
+  /// Download the APK through the accelerated proxy.
+  /// Same semantics as [downloadAndInstall], but asset URLs are proxied.
+  static Future<void> downloadAndInstallAccelerated(
+    AppUpdateInfo info, {
+    required String? abi,
+    void Function(double progress, int bytesPerSecond)? onProgress,
+    FileDownloaderHandle? handle,
+  }) async {
+    final url = info.pickUrlForCurrentDevice(abi);
+    if (url == null) {
+      throw Exception("No APK asset found in the latest release");
+    }
+    final proxiedUrl = "$_acceleratedDownloadPrefix$url";
+    final cacheDir = Directory(FilePath.join(App.cachePath, "update"));
+    if (!cacheDir.existsSync()) {
+      cacheDir.createSync(recursive: true);
+    }
+    final filename = "KongComic-${info.latestVersion}.apk";
+    final savePath = FilePath.join(cacheDir.path, filename);
+
+    final downloader = FileDownloader(proxiedUrl, savePath);
+    if (handle != null) {
+      handle._attach(downloader);
+    }
+    final completer = Completer<void>();
+    final stream = downloader.start();
+    StreamSubscription<DownloadingStatus>? sub;
+    try {
+      sub = stream.listen(
+        (status) {
+          if (handle != null && handle._canceled) {
+            downloader.stop();
+            if (!completer.isCompleted) {
+              completer.completeError(
+                StateError("Download canceled by user"),
+              );
+            }
+            return;
+          }
+          if (status.totalBytes > 0 && onProgress != null) {
+            onProgress(
+              status.downloadedBytes / status.totalBytes,
+              status.bytesPerSecond,
+            );
+          }
+          if (status.isFinished) {
+            if (!completer.isCompleted) completer.complete();
+          }
+        },
+        onError: (e, s) {
+          if (!completer.isCompleted) completer.completeError(e, s);
+        },
+      );
+      await completer.future;
+      await sub.cancel();
+    } catch (e) {
+      await sub?.cancel();
+      rethrow;
+    }
+
+    final apk = File(savePath);
+    if (!apk.existsSync() || apk.lengthSync() == 0) {
+      throw Exception("Downloaded APK is missing or empty");
+    }
     final raf = apk.openSync();
     final magic = raf.readSync(4);
     raf.closeSync();

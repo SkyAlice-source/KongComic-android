@@ -45,7 +45,8 @@ class _AboutSettingsState extends State<AboutSettings> {
           ],
         ).toSliver(),
         ListTile(
-          title: Text("Check for updates".tl),
+          title: Text("Check for Updates".tl),
+          subtitle: Text("Check for new version, choose CDN or GitHub source".tl),
           trailing: Button.filled(
             isLoading: isCheckingUpdate,
             child: Text("Check".tl),
@@ -53,10 +54,12 @@ class _AboutSettingsState extends State<AboutSettings> {
               setState(() {
                 isCheckingUpdate = true;
               });
-              checkUpdateUi().then((value) {
-                setState(() {
-                  isCheckingUpdate = false;
-                });
+              checkAcceleratedUpdate().then((_) {
+                if (mounted) {
+                  setState(() {
+                    isCheckingUpdate = false;
+                  });
+                }
               });
             },
           ).fixHeight(32),
@@ -64,13 +67,6 @@ class _AboutSettingsState extends State<AboutSettings> {
         _SwitchSetting(
           title: "Check for updates on startup".tl,
           settingKey: "checkUpdateOnStart",
-        ).toSliver(),
-        ListTile(
-          title: Text("GitHub".tl),
-          trailing: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 20),
-          onTap: () {
-            launchUrlString("https://github.com/SkyAlice-source/KongComic-android");
-          },
         ).toSliver(),
       ],
     );
@@ -97,7 +93,7 @@ Future<void> checkUpdateUi(
       await Future.delayed(const Duration(seconds: 2));
     }
     if (value != null) {
-      await _showUpdateDialog(value);
+      await _showUpdateSourceDialog(value);
     } else if (showMessageIfNoUpdate) {
       if (App.rootContext.mounted) {
         App.rootContext.showMessage(message: "No new version available".tl);
@@ -113,9 +109,8 @@ Future<void> checkUpdateUi(
   }
 }
 
-/// Show a dialog with a live progress bar. The user can cancel; cancelling
-/// stops the download but does not roll back any partial file.
-Future<void> _showUpdateDialog(AppUpdateInfo info) async {
+/// Show a dialog with new version info and let the user choose update source.
+Future<void> _showUpdateSourceDialog(AppUpdateInfo info) async {
   if (!App.rootContext.mounted) return;
   final abi = await App.getDeviceAbi();
   final downloadUrl = info.pickUrlForCurrentDevice(abi);
@@ -127,11 +122,88 @@ Future<void> _showUpdateDialog(AppUpdateInfo info) async {
     return;
   }
   if (!App.rootContext.mounted) return;
+
+  final choice = await showDialog<String>(
+    context: App.rootContext,
+    barrierDismissible: true,
+    builder: (ctx) {
+      return ContentDialog(
+        title: "New version available".tl,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text("Version @v"
+                    .tlParams({"v": info.latestVersion}))
+                .paddingHorizontal(16),
+            if (info.releaseNotes.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 180),
+                  child: SingleChildScrollView(
+                    child: Text(info.releaseNotes),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                "Choose download source:".tl,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(ctx).colorScheme.onSurface,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+        actions: [
+          Button.text(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text("Cancel".tl),
+          ),
+          Button.filled(
+            onPressed: () => Navigator.of(ctx).pop("accelerated"),
+            child: Text("Download via CDN".tl),
+          ),
+          const SizedBox(width: 8),
+          Button.outlined(
+            onPressed: () => Navigator.of(ctx).pop("github"),
+            child: Text("View on GitHub".tl),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (choice == null || !App.rootContext.mounted) return;
+
+  if (choice == "accelerated") {
+    await _showDownloadDialog(info, abi: abi, accelerated: true);
+  } else if (choice == "github") {
+    try {
+      await AppUpdate.openReleasePageInBrowser();
+    } catch (_) {
+      if (App.rootContext.mounted) {
+        App.rootContext.showMessage(message: "Network error".tl);
+      }
+    }
+  }
+}
+
+/// Show a dialog with a live progress bar. The user can cancel; cancelling
+/// stops the download but does not roll back any partial file.
+Future<void> _showDownloadDialog(AppUpdateInfo info, {String? abi, bool accelerated = false}) async {
+  if (!App.rootContext.mounted) return;
   showDialog(
     context: App.rootContext,
     barrierDismissible: false,
     builder: (context) {
-      return _UpdateDownloadDialog(info: info, abi: abi);
+      return _UpdateDownloadDialog(info: info, abi: abi, accelerated: accelerated);
     },
   );
 }
@@ -169,11 +241,39 @@ Future<void> _showNetworkErrorDialog() async {
   );
 }
 
+Future<void> checkAcceleratedUpdate() async {
+  try {
+    final value = await AppUpdate.checkAccelerated();
+    if (value != null) {
+      await _showUpdateSourceDialog(value);
+    } else {
+      if (App.rootContext.mounted) {
+        App.rootContext.showMessage(message: "No new version available".tl);
+      }
+    }
+  } catch (_) {
+    if (App.rootContext.mounted) {
+      App.rootContext.showMessage(message: "Network error".tl);
+    }
+  }
+}
+
+Future<void> checkGithubSource() async {
+  try {
+    await AppUpdate.openReleasePageInBrowser();
+  } catch (_) {
+    if (App.rootContext.mounted) {
+      App.rootContext.showMessage(message: "Network error".tl);
+    }
+  }
+}
+
 class _UpdateDownloadDialog extends StatefulWidget {
   final AppUpdateInfo info;
   final String? abi;
+  final bool accelerated;
 
-  const _UpdateDownloadDialog({required this.info, required this.abi});
+  const _UpdateDownloadDialog({required this.info, required this.abi, this.accelerated = false});
 
   @override
   State<_UpdateDownloadDialog> createState() => _UpdateDownloadDialogState();
@@ -205,7 +305,8 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
       _error = null;
     });
     try {
-      await AppUpdate.downloadAndInstall(
+      if (widget.accelerated) {
+        await AppUpdate.downloadAndInstallAccelerated(
         widget.info,
         abi: widget.abi,
         onProgress: (p, speed) {
@@ -217,6 +318,20 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
         },
         handle: _handle,
       );
+      } else {
+        await AppUpdate.downloadAndInstall(
+          widget.info,
+          abi: widget.abi,
+          onProgress: (p, speed) {
+            if (!mounted) return;
+            setState(() {
+              _progress = p;
+              _bytesPerSecond = speed;
+            });
+          },
+          handle: _handle,
+        );
+      }
       if (!mounted) return;
       setState(() {
         _installing = true;

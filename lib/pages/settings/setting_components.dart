@@ -235,7 +235,7 @@ class _DoubleLineSelectSettingsState extends State<_DoubleLineSelectSettings> {
             ),
         ],
       ),
-      subtitle: Text(widget.optionTranslation[value] ?? "None".tl),
+      subtitle: Text((widget.optionTranslation[value] ?? "None").tl),
       trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
       onTap: () {
         var renderBox = context.findRenderObject() as RenderBox;
@@ -255,7 +255,7 @@ class _DoubleLineSelectSettingsState extends State<_DoubleLineSelectSettings> {
                 (key) => PopupMenuItem(
                   value: key,
                   height: App.isMobile ? 46 : 40,
-                  child: Text(widget.optionTranslation[key]!),
+                  child: Text(widget.optionTranslation[key]!.tl),
                 ),
               )
               .toList(),
@@ -365,8 +365,8 @@ class _EndSelectorSelectSettingState extends State<_EndSelectorSelectSetting> {
         ],
       ),
       trailing: Select(
-        current: options[value],
-        values: options.values.toList(),
+        current: options[value]?.tl ?? "None".tl,
+        values: options.values.map((v) => v.tl).toList(),
         minWidth: 64,
         onTap: (index) {
           setState(() {

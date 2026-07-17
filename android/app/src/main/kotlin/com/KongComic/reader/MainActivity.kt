@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.ContentResolver
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ShortcutManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -54,6 +55,19 @@ class MainActivity : FlutterFragmentActivity() {
                 val text = intent.getStringExtra(Intent.EXTRA_TEXT)
                 if (text != null)
                     handleSharedText(text)
+            }
+        }
+
+        // Remove any stale LeakCanary dynamic shortcut that might have been
+        // registered by a previous install (e.g. before the manifest fix).
+        // This ensures long-press of the app icon stays clean in debug builds.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+            try {
+                val sm = getSystemService(ShortcutManager::class.java)
+                sm?.dynamicShortcuts?.firstOrNull { it.id == "leakcanary-launcher-shortcut" }
+                    ?.let { sm.removeDynamicShortcuts(listOf(it.id)) }
+            } catch (_: Exception) {
+                // Best-effort; safe to ignore
             }
         }
     }
