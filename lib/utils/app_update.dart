@@ -44,21 +44,81 @@ class AppUpdate {
   static const _acceleratedDownloadPrefix =
       "https://ghproxy.net/";
 
+  /// Maximum number of retries for transient network failures.
+  static const int _maxRetries = 2;
+
+  /// Helper: GET with simple retry for transient failures (timeout, 5xx).
+  /// Dio throws [DioException] on timeout; we catch it and retry.
+  static Future<Map<String, dynamic>> _fetchWithRetry(
+    String url, {
+    Duration timeout = const Duration(seconds: 10),
+    int maxRetries = _maxRetries,
+  }) async {
+    for (var attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        final res = await AppDio().get(
+          url,
+          options: Options(
+            responseType: ResponseType.json,
+            receiveTimeout: timeout,
+            sendTimeout: timeout,
+          ),
+        );
+        if (res.statusCode == 200 && res.data is Map) {
+          return res.data as Map<String, dynamic>;
+        }
+        // Non-retryable status codes (client errors: 4xx)
+        if (res.statusCode != null &&
+            res.statusCode! >= 400 &&
+            res.statusCode! < 500) {
+          throw DioException(
+            requestOptions: res.requestOptions,
+            response: res,
+            type: DioExceptionType.badResponse,
+            message: "HTTP ${res.statusCode}",
+          );
+        }
+        // Retry on 5xx
+        if (attempt < maxRetries) {
+          await Future.delayed(Duration(seconds: 1 << attempt)); // 1s, 2s
+          continue;
+        }
+        throw DioException(
+          requestOptions: res.requestOptions,
+          response: res,
+          type: DioExceptionType.badResponse,
+          message: "HTTP ${res.statusCode} after $maxRetries retries",
+        );
+      } on DioException catch (e) {
+        // Retry on timeout and connection errors; rethrow others immediately.
+        final retryable = e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.sendTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError ||
+            e.type == DioExceptionType.unknown;
+        if (retryable && attempt < maxRetries) {
+          await Future.delayed(Duration(seconds: 1 << attempt));
+          continue;
+        }
+        rethrow;
+      }
+    }
+    // Unreachable
+    throw DioException(
+      requestOptions: RequestOptions(path: url),
+      type: DioExceptionType.unknown,
+      message: "Request failed after $maxRetries retries",
+    );
+  }
+
   /// Check for update through the accelerated (proxy) source.
   /// Same return/throw semantics as [check].
   static Future<AppUpdateInfo?> checkAccelerated() async {
-    final res = await AppDio().get(
+    final data = await _fetchWithRetry(
       _acceleratedApiUrl,
-      options: Options(
-        responseType: ResponseType.json,
-        receiveTimeout: const Duration(seconds: 15),
-        sendTimeout: const Duration(seconds: 15),
-      ),
+      timeout: const Duration(seconds: 15),
     );
-    if (res.statusCode != 200 || res.data is! Map) {
-      throw Exception("Accelerated source: unexpected response ${res.statusCode}");
-    }
-    return _parseRelease(res.data);
+    return _parseRelease(data);
   }
 
   /// Ping the GitHub Releases API. Returns null if the network is reachable
@@ -69,18 +129,11 @@ class AppUpdate {
   /// from "no update available" — that's how the UI decides between in-app
   /// download and falling back to the browser.
   static Future<AppUpdateInfo?> check() async {
-    final res = await AppDio().get(
+    final data = await _fetchWithRetry(
       _releasesUrl,
-      options: Options(
-        responseType: ResponseType.json,
-        receiveTimeout: const Duration(seconds: 8),
-        sendTimeout: const Duration(seconds: 8),
-      ),
+      timeout: const Duration(seconds: 8),
     );
-    if (res.statusCode != 200 || res.data is! Map) {
-      throw Exception("Unexpected response: ${res.statusCode}");
-    }
-    return _parseRelease(res.data);
+    return _parseRelease(data);
   }
 
   static bool _isNewerVersion(String candidate, String current) {
@@ -96,7 +149,7 @@ class AppUpdate {
   }
 
   /// Shared release data parser used by both [check] and [checkAccelerated].
-  static AppUpdateInfo? _parseRelease(Map data) {
+  static AppUpdateInfo? _parseRelease(Map<String, dynamic> data) {
     final tag = (data["tag_name"] as String?) ?? "";
     final version = tag.startsWith("v") ? tag.substring(1) : tag;
     if (version.isEmpty) {
@@ -134,27 +187,19 @@ class AppUpdate {
     );
   }
 
-  /// Download the APK in [info] matching [abi] and trigger the system
-  /// installer. Reports progress via [onProgress]. Returns when the install
-  /// intent has been dispatched.
-  ///
-  /// Throws if no download URL is available, the download itself fails, or
-  /// the install intent cannot be launched.
-  static Future<void> downloadAndInstall(
-    AppUpdateInfo info, {
+  /// Core download-and-install logic shared by direct and accelerated paths.
+  static Future<void> _downloadAndInstallFromUrl(
+    String url,
+    String version, {
     required String? abi,
     void Function(double progress, int bytesPerSecond)? onProgress,
     FileDownloaderHandle? handle,
   }) async {
-    final url = info.pickUrlForCurrentDevice(abi);
-    if (url == null) {
-      throw Exception("No APK asset found in the latest release");
-    }
     final cacheDir = Directory(FilePath.join(App.cachePath, "update"));
     if (!cacheDir.existsSync()) {
       cacheDir.createSync(recursive: true);
     }
-    final filename = "KongComic-${info.latestVersion}.apk";
+    final filename = "KongComic-$version.apk";
     final savePath = FilePath.join(cacheDir.path, filename);
 
     final downloader = FileDownloader(url, savePath);
@@ -218,6 +263,31 @@ class AppUpdate {
     }
   }
 
+  /// Download the APK in [info] matching [abi] and trigger the system
+  /// installer. Reports progress via [onProgress]. Returns when the install
+  /// intent has been dispatched.
+  ///
+  /// Throws if no download URL is available, the download itself fails, or
+  /// the install intent cannot be launched.
+  static Future<void> downloadAndInstall(
+    AppUpdateInfo info, {
+    required String? abi,
+    void Function(double progress, int bytesPerSecond)? onProgress,
+    FileDownloaderHandle? handle,
+  }) async {
+    final url = info.pickUrlForCurrentDevice(abi);
+    if (url == null) {
+      throw Exception("No APK asset found in the latest release");
+    }
+    await _downloadAndInstallFromUrl(
+      url,
+      info.latestVersion,
+      abi: abi,
+      onProgress: onProgress,
+      handle: handle,
+    );
+  }
+
   /// Download the APK through the accelerated proxy.
   /// Same semantics as [downloadAndInstall], but asset URLs are proxied.
   static Future<void> downloadAndInstallAccelerated(
@@ -231,71 +301,13 @@ class AppUpdate {
       throw Exception("No APK asset found in the latest release");
     }
     final proxiedUrl = "$_acceleratedDownloadPrefix$url";
-    final cacheDir = Directory(FilePath.join(App.cachePath, "update"));
-    if (!cacheDir.existsSync()) {
-      cacheDir.createSync(recursive: true);
-    }
-    final filename = "KongComic-${info.latestVersion}.apk";
-    final savePath = FilePath.join(cacheDir.path, filename);
-
-    final downloader = FileDownloader(proxiedUrl, savePath);
-    if (handle != null) {
-      handle._attach(downloader);
-    }
-    final completer = Completer<void>();
-    final stream = downloader.start();
-    StreamSubscription<DownloadingStatus>? sub;
-    try {
-      sub = stream.listen(
-        (status) {
-          if (handle != null && handle._canceled) {
-            downloader.stop();
-            if (!completer.isCompleted) {
-              completer.completeError(
-                StateError("Download canceled by user"),
-              );
-            }
-            return;
-          }
-          if (status.totalBytes > 0 && onProgress != null) {
-            onProgress(
-              status.downloadedBytes / status.totalBytes,
-              status.bytesPerSecond,
-            );
-          }
-          if (status.isFinished) {
-            if (!completer.isCompleted) completer.complete();
-          }
-        },
-        onError: (e, s) {
-          if (!completer.isCompleted) completer.completeError(e, s);
-        },
-      );
-      await completer.future;
-      await sub.cancel();
-    } catch (e) {
-      await sub?.cancel();
-      rethrow;
-    }
-
-    final apk = File(savePath);
-    if (!apk.existsSync() || apk.lengthSync() == 0) {
-      throw Exception("Downloaded APK is missing or empty");
-    }
-    final raf = apk.openSync();
-    final magic = raf.readSync(4);
-    raf.closeSync();
-    if (magic.length < 4 ||
-        magic[0] != 0x50 ||
-        magic[1] != 0x4B ||
-        magic[2] != 0x03 ||
-        magic[3] != 0x04) {
-      throw Exception("Downloaded APK is corrupted");
-    }
-    final ok = await App.installApk(savePath);
-    if (!ok) {
-      throw Exception("Failed to launch the system installer");
-    }
+    await _downloadAndInstallFromUrl(
+      proxiedUrl,
+      info.latestVersion,
+      abi: abi,
+      onProgress: onProgress,
+      handle: handle,
+    );
   }
 
   /// Open the releases page in the user's default browser. Used as the

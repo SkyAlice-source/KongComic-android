@@ -120,13 +120,11 @@ android {
             def abi = output.getFilter(com.android.build.OutputFile.ABI)
             if (variant.buildType.name == "release") {
                 if (abi != null) {
-                    outputFileName = "KongComic-${variant.versionName}-${abi}.apk"
                     def abiVersionCode = project.ext.abiCodes.get(abi)
                     if (abiVersionCode != null) {
                         versionCodeOverride = variant.versionCode * 10 + abiVersionCode
                     }
                 } else {
-                    outputFileName = "KongComic-${variant.versionName}-universal.apk"
                     versionCodeOverride = variant.versionCode * 10
                 }
             } else if (variant.buildType.name == "debug") {

@@ -95,38 +95,56 @@ class _AboutSettingsState extends State<AboutSettings> {
 }
 
 Future<bool> checkUpdate() async {
-  // The new check uses GitHub Releases API directly so we can also fetch
-  // the per-ABI download URL. Kept for backward compatibility with the
-  // startup check; returns true iff a newer version is available.
+  // Startup check: tries GitHub first, falls back to accelerated source.
+  // Returns true iff a newer version is available.
   try {
     final info = await AppUpdate.check();
-    return info != null;
+    if (info != null) return true;
   } catch (_) {
-    return false;
+    // GitHub unreachable — try accelerated source
+    try {
+      final info = await AppUpdate.checkAccelerated();
+      return info != null;
+    } catch (_) {
+      return false;
+    }
   }
+  return false;
 }
 
 Future<void> checkUpdateUi(
     [bool showMessageIfNoUpdate = true, bool delay = false]) async {
+  // Try GitHub source first, fall back to accelerated source on failure
+  AppUpdateInfo? value;
   try {
-    final value = await AppUpdate.check();
-    if (delay) {
-      await Future.delayed(const Duration(seconds: 2));
-    }
-    if (value != null) {
-      await _showUpdateSourceDialog(value);
-    } else if (showMessageIfNoUpdate) {
-      if (App.rootContext.mounted) {
-        App.rootContext.showMessage(message: "No new version available".tl);
-      }
-    }
+    value = await AppUpdate.check();
   } catch (_) {
-    // The GitHub API itself is unreachable. Offer to open the release page
-    // in the user's browser so they can update manually.
-    if (delay) {
-      await Future.delayed(const Duration(seconds: 2));
+    // GitHub unreachable — fall back to accelerated source
+    try {
+      value = await AppUpdate.checkAccelerated();
+    } catch (_) {
+      // Both sources unreachable
+      if (delay) {
+        await Future.delayed(const Duration(seconds: 2));
+      }
+      if (showMessageIfNoUpdate) {
+        _showNetworkErrorDialog();
+      }
+      return;
     }
-    _showNetworkErrorDialog();
+  }
+
+  if (delay) {
+    await Future.delayed(const Duration(seconds: 2));
+  }
+
+  if (value != null) {
+    // Found an update
+    await _showUpdateSourceDialog(value);
+  } else if (showMessageIfNoUpdate) {
+    if (App.rootContext.mounted) {
+      App.rootContext.showMessage(message: "No new version available".tl);
+    }
   }
 }
 
