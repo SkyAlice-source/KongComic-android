@@ -748,6 +748,11 @@ class LocalFavoritesManager with ChangeNotifier {
 
   void batchMoveFavorites(
       String sourceFolder, String targetFolder, List<FavoriteItem> items) {
+    // 防止把漫画批量移动到它所在的同一文件夹：or ignore 会跳过插入，
+    // 但随后的 delete 仍会删除该行，导致漫画被静默删除
+    if (sourceFolder == targetFolder) {
+      return;
+    }
     if (!existsFolder(sourceFolder)) {
       throw Exception("Source folder does not exist");
     }

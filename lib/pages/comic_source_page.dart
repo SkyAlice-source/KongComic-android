@@ -392,6 +392,7 @@ class _ComicSourceListState extends State<_ComicSourceList> {
 
   @override
   void dispose() {
+    controller.dispose();
     super.dispose();
     if (changed) {
       appdata.settings['comicSourceListUrl'] = controller.text;

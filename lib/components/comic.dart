@@ -170,16 +170,13 @@ class ComicTile extends StatelessWidget {
 
     Widget? histBadge;
     if (history != null) {
-      String text;
-      if (history.maxPage != null && history.maxPage! > 0) {
-        final progress = ((history.page / history.maxPage!) * 100).round();
-        text = "Ep @ep·@progress%".tlParams({
-          "ep": "${history.ep}",
-          "progress": "$progress",
-        });
-      } else {
-        text = "Ep @ep".tlParams({"ep": "${history.ep}"});
-      }
+      final hasProgress = history.maxPage != null && history.maxPage! > 0;
+      final progress = hasProgress
+          ? (history.page / history.maxPage!).clamp(0.0, 1.0)
+          : 0.0;
+      final text = hasProgress
+          ? "第${history.ep}话 · ${(progress * 100).toInt()}%"
+          : "第${history.ep}话";
       histBadge = Container(
         height: 22,
         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -190,18 +187,33 @@ class ComicTile extends StatelessWidget {
             bottomRight: Radius.circular(8),
           ),
         ),
-        child: Center(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              height: 1.2,
+        child: Stack(
+          children: [
+            if (hasProgress)
+              FractionallySizedBox(
+                widthFactor: progress,
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.55),
+                ),
+              ),
+            Center(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          ],
         ),
       );
     }
@@ -250,10 +262,10 @@ class ComicTile extends StatelessWidget {
 
   Widget _buildFavoriteBadge(BuildContext context) {
     return SizedBox(
-      width: 20,
-      height: 30,
+      width: 16,
+      height: 24,
       child: CustomPaint(
-        painter: _BookmarkRibbonPainter(Theme.of(context).colorScheme.primary),
+        painter: _BookmarkRibbonPainter(),
       ),
     );
   }
@@ -451,7 +463,7 @@ class ComicTile extends StatelessWidget {
                           ));
                         }
                         return Padding(
-                          padding: EdgeInsets.only(top: isFavorite ? 34 : 0),
+                          padding: EdgeInsets.only(top: isFavorite ? 28 : 0),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -2037,27 +2049,60 @@ class PaginatedSliverGridComicsState
 }
 
 class _BookmarkRibbonPainter extends CustomPainter {
-  final Color color;
-  const _BookmarkRibbonPainter(this.color);
+  const _BookmarkRibbonPainter();
 
-  Path _createBookmarkPath(double w, double h) {
-    final r = w * 0.12;
-    final notch = w * 0.35; // V-cut depth
-    return Path()
-      ..moveTo(0, r)
-      ..quadraticBezierTo(0, 0, r, 0)
+  // 收藏标签配色：暖白底 + 香槟金框 + 金星
+  // 白底保证在任何彩色封面上都醒目跳脱，金色提供精致收藏感
+  static const Color _labelBg    = Color(0xFFF5F0E8); // 暖白（象牙白，不刺眼）
+  static const Color _goldLine   = Color(0xFFD4AF37); // 香槟金（描边）
+  static const Color _goldStar   = Color(0xFFD4AF37); // 金色（星星）
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;   // ~16
+    final h = size.height;  // ~24
+    final r = w * 0.18;          // top corner radius
+    final rectBottom = h * 0.82; // where the V-notch begins
+
+    // ── Bookmark body: rounded-top rectangle + V-notch bottom ──
+    final body = Path()
+      ..moveTo(r, 0)
       ..lineTo(w - r, 0)
       ..quadraticBezierTo(w, 0, w, r)
-      ..lineTo(w, h)
-      ..lineTo(w / 2, h - notch)
-      ..lineTo(0, h)
+      ..lineTo(w, rectBottom)
+      ..lineTo(w / 2, h)          // V notch down to the tip
+      ..lineTo(0, rectBottom)
+      ..lineTo(0, r)
+      ..quadraticBezierTo(0, 0, r, 0)
       ..close();
+
+    // Drop shadow — 让标签从封面浮起
+    canvas.drawShadow(body, Colors.black45, 2.5, false);
+
+    // Fill — 暖白色实体填充（最高对比度，任何背景上都清晰可见）
+    canvas.drawPath(body, Paint()..color = _labelBg);
+
+    // Gold outline — 香槟金勾勒书签轮廓
+    final strokePaint = Paint()
+      ..color = _goldLine
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(body, strokePaint);
+
+    // ── Six-point star: solid gold ──
+    final starCx = w / 2;
+    final starCy = h * 0.40;
+    final starOuterR = w * 0.33;
+    final starInnerR = starOuterR * 0.46;
+    final star = _createStarPath(starCx, starCy, starOuterR, starInnerR, 6);
+    canvas.drawPath(star, Paint()..color = _goldStar);
   }
 
-  Path _createStarPath(double cx, double cy, double outerR, double innerR) {
+  Path _createStarPath(double cx, double cy, double outerR, double innerR, int points) {
     final path = Path();
-    for (int i = 0; i < 10; i++) {
-      final angle = -math.pi / 2 + i * math.pi / 5;
+    for (int i = 0; i < points * 2; i++) {
+      final angle = -math.pi / 2 + i * math.pi / points;
       final radius = i.isEven ? outerR : innerR;
       final x = cx + radius * math.cos(angle);
       final y = cy + radius * math.sin(angle);
@@ -2072,74 +2117,6 @@ class _BookmarkRibbonPainter extends CustomPainter {
   }
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final path = _createBookmarkPath(w, h);
-
-    // 1) drop shadow
-    canvas.drawShadow(path, Colors.black87, 3.0, false);
-
-    // 2) gradient fill
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          color,
-          HSLColor.fromColor(color).withLightness(
-            (HSLColor.fromColor(color).lightness - 0.12).clamp(0.0, 1.0),
-          ).toColor(),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, w, h));
-    canvas.drawPath(path, fillPaint);
-
-    // 3) outer glow
-    final glowPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..strokeJoin = StrokeJoin.round
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(path, glowPaint);
-
-    // 4) crisp white outline
-    final strokePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.95)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..strokeJoin = StrokeJoin.round
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(path, strokePaint);
-
-    // 5) inner highlight
-    final highlightPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8;
-    final r = w * 0.12;
-    final highlightPath = Path()
-      ..moveTo(r * 0.5, r * 0.5)
-      ..lineTo(w - r * 0.5, r * 0.5)
-      ..lineTo(w - r * 0.5, h * 0.55);
-    canvas.drawPath(highlightPath, highlightPaint);
-
-    // 6) white star in the center
-    final starPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.98)
-      ..style = PaintingStyle.fill;
-    final starOuter = w * 0.31;
-    final starInner = starOuter * 0.42;
-    final starCenterX = w / 2;
-    final starCenterY = h * 0.42;
-    canvas.drawPath(
-      _createStarPath(starCenterX, starCenterY, starOuter, starInner),
-      starPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  bool shouldRepaint(covariant _BookmarkRibbonPainter old) => false;
 }
 

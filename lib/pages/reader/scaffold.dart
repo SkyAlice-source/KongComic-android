@@ -1429,6 +1429,12 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     });
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   /// Load an image from local cache only — no network. Returns null when the
   /// page was never preloaded, so its cell stays a placeholder until the user
   /// taps it to fetch on demand.

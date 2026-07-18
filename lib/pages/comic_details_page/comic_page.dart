@@ -766,17 +766,16 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     }
 
     String formatTime(String time) {
-      if (int.tryParse(time) != null) {
-        var t = int.tryParse(time);
-        if (t! > 1000000000000) {
-          return DateTime.fromMillisecondsSinceEpoch(
-            t,
-          ).toString().substring(0, 19);
-        } else {
-          return DateTime.fromMillisecondsSinceEpoch(
-            t * 1000,
-          ).toString().substring(0, 19);
-        }
+      var t = int.tryParse(time);
+      if (t != null && t > 1000000000000) {
+        return DateTime.fromMillisecondsSinceEpoch(
+          t,
+        ).toString().substring(0, 19);
+      }
+      if (t != null) {
+        return DateTime.fromMillisecondsSinceEpoch(
+          t * 1000,
+        ).toString().substring(0, 19);
       }
       if (time.contains('T') || time.contains('Z')) {
         var t = DateTime.parse(time);

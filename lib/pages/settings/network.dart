@@ -268,6 +268,8 @@ class __DNSOverridesState extends State<_DNSOverrides> {
     var map = <String, String>{};
     for (var entry in overrides) {
       map[entry.$1.text] = entry.$2.text;
+      entry.$1.dispose();
+      entry.$2.dispose();
     }
     appdata.settings['dnsOverrides'] = map;
     appdata.saveData();

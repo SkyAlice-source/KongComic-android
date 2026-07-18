@@ -1026,6 +1026,7 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     if (changed) {
       // Delay to ensure navigation is completed
       Future.delayed(const Duration(milliseconds: 200), () {

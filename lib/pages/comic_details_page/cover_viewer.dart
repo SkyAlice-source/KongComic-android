@@ -130,7 +130,10 @@ class _CoverViewerState extends State<_CoverViewer> {
 
       final data = await completer.future;
       final fileType = detectFileType(data);
-      await saveFile(filename: "cover_${widget.title}${fileType.ext}", data: data);
+      await saveFile(
+        filename: "cover_${widget.title.replaceAll(RegExp(r'[\\/:"*?<>|]'), '_')}${fileType.ext}",
+        data: data,
+      );
     } catch (e) {
       if (mounted) {
         context.showMessage(message: "Error".tl);

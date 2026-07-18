@@ -692,7 +692,19 @@
     "Webdav": "WebDAV",
     "comic not found": "未找到漫画",
     "or your requests are too frequent.": "或者你的请求太频繁。",
-    "webview": "网页视图"
+    "webview": "网页视图",
+    "Select at least one page": "请至少选择一页",
+    "Failed to load images": "图片加载失败",
+    "Download via GitHub source": "通过 GitHub 源下载",
+    "Choose download source:": "选择下载源：",
+    "Download via CDN": "通过 CDN 下载",
+    "View on GitHub": "在 GitHub 上查看",
+    "Connection reset": "连接被重置，请检查网络或代理后重试",
+    "Connection timed out": "连接超时，请检查网络或稍后再试",
+    "Connection handshake failed": "连接握手失败，可能被防火墙或代理拦截",
+    "Unable to connect server": "无法连接服务器，请检查网络或源站地址",
+    "Connection refused": "连接被拒绝，源站可能已关闭或地址错误",
+    "Server returned @code": "服务器返回 @code 错误，请稍后重试"
   },
   "zh_TW": {
     "Home": "首頁",
@@ -1387,6 +1399,18 @@
     "Webdav": "WebDAV",
     "comic not found": "未找到漫畫",
     "or your requests are too frequent.": "或者你的請求太頻繁。",
-    "webview": "網頁視圖"
+    "webview": "網頁視圖",
+    "Select at least one page": "請至少選擇一頁",
+    "Failed to load images": "圖片加載失敗",
+    "Download via GitHub source": "透過 GitHub 源下載",
+    "Choose download source:": "選擇下載源：",
+    "Download via CDN": "透過 CDN 下載",
+    "View on GitHub": "在 GitHub 上查看",
+    "Connection reset": "連線被重置，請檢查網路或代理後重試",
+    "Connection timed out": "連線逾時，請檢查網路或稍後再試",
+    "Connection handshake failed": "連線握手失敗，可能被防火牆或代理攔截",
+    "Unable to connect server": "無法連接伺服器，請檢查網路或源站地址",
+    "Connection refused": "連線被拒絕，源站可能已關閉或地址錯誤",
+    "Server returned @code": "伺服器返回 @code 錯誤，請稍後重試"
   }
 }

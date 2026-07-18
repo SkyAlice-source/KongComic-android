@@ -177,7 +177,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                   child: Text(
-                    "Selected @count".tlParams({"count": selectedComics.length}),
+                    "Selected @c comics".tlParams({"c": selectedComics.length}),
                     style: TextStyle(
                       fontSize: 14,
                       color: Theme.of(context).colorScheme.primary,

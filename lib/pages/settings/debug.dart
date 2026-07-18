@@ -13,6 +13,12 @@ class DebugPageState extends State<DebugPage> {
   var result = "";
 
   @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
       slivers: [
