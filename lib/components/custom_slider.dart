@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:kong_comic/foundation/app.dart';
 
 /// patched slider.dart with RtL support
@@ -113,10 +114,43 @@ class _CustomSliderState extends State<CustomSlider> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final theme = _SliderDefaultsM3(context);
+    final step = widget.divisions > 0
+        ? (widget.max - widget.min) / widget.divisions
+        : (widget.max - widget.min);
+    void increase() =>
+        widget.onChanged((value + step).clamp(widget.min, widget.max));
+    void decrease() =>
+        widget.onChanged((value - step).clamp(widget.min, widget.max));
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
       child: widget.max - widget.min > 0 ? LayoutBuilder(
-        builder: (context, constraints) => MouseRegion(
+        builder: (context, constraints) => Semantics(
+          slider: true,
+          value: "${value.toInt()}",
+          increasedValue:
+              "${(value + step).clamp(widget.min, widget.max).toInt()}",
+          decreasedValue:
+              "${(value - step).clamp(widget.min, widget.max).toInt()}",
+          onIncrease: increase,
+          onDecrease: decrease,
+          child: Focus(
+            focusNode: widget.focusNode,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                  increase();
+                  return KeyEventResult.handled;
+                }
+                if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                    event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  decrease();
+                  return KeyEventResult.handled;
+                }
+              }
+              return KeyEventResult.ignored;
+            },
+            child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
@@ -201,6 +235,8 @@ class _CustomSliderState extends State<CustomSlider> {
             ),
           ),
         ),
+            ),
+          ),
       ) : null,
     );
   }

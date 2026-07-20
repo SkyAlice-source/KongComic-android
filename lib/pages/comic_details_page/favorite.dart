@@ -594,9 +594,12 @@ class _HoverButtonState extends State<_HoverButton> {
   @override
   Widget build(BuildContext context) {
     final removeColor = context.colorScheme.error;
-    final removeHoverColor = Color.lerp(removeColor, Colors.black, 0.2)!;
     final addColor = context.colorScheme.primary;
-    final addHoverColor = Color.lerp(addColor, Colors.black, 0.2)!;
+    // 暗色模式下基色已偏深，向黑混合几乎无变化；改为按亮度选择混合目标，
+    // 保证悬停反馈在两种主题下都清晰可见。
+    final hoverTarget = context.isDarkMode ? Colors.white : Colors.black;
+    final removeHoverColor = Color.lerp(removeColor, hoverTarget, 0.2)!;
+    final addHoverColor = Color.lerp(addColor, hoverTarget, 0.2)!;
     
     return MouseRegion(
       onEnter: widget.enabled ? (_) => setState(() => isHovered = true) : null,

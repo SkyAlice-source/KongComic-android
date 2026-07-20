@@ -1,27 +1,33 @@
-import 'package:flutter/material.dart';
-
-/// 全局字号 token —— 收敛散落在各处的魔法数字，统一层级、便于整体调校。
+/// 全局字号 token —— 排版字号的唯一事实来源（single source of truth）。
+///
+/// - 非 const 场景：优先用 [StyledText] 的 `.sNN` 简写（它们委托到这里的常量）。
+/// - const 场景（`const TextStyle(...)`）：直接引用本类常量，不要裸写数字。
+///
+/// 字阶覆盖当前实际在用的全部尺寸，按展示/标题/正文/辅助分层。
+/// 新增字号时请先在此登记，避免再次出现散落的魔法数字。
 class AppFontSizes {
-  static const double display = 24;
-  static const double titleLarge = 20;
-  static const double title = 18;
-  static const double body = 16;
-  static const double bodySmall = 14;
-  static const double caption = 13;
-  static const double label = 12;
-  static const double tiny = 11;
-}
+  // 展示层
+  static const double s40 = 40;
+  static const double s36 = 36;
+  static const double s32 = 32;
+  static const double s28 = 28;
+  static const double s24 = 24;
 
-/// 中文行高基准 —— 中文默认 height 1.0 偏挤，统一抬到舒适区间。
-class AppLineHeights {
-  static const double display = 1.3;
-  static const double heading = 1.35;
-  static const double body = 1.45;
-  static const double dense = 1.4;
-}
+  // 标题层
+  static const double s22 = 22;
+  static const double s20 = 20;
+  static const double s18 = 18;
 
-extension TextStyleZh on TextStyle {
-  /// 给中文文本加舒适行高（默认 1.45），不改其它属性。
-  /// 用法: TextStyle(fontSize: 14).zh() 或 .zh(1.5)
-  TextStyle zh([double height = AppLineHeights.body]) => copyWith(height: height);
+  // 正文层
+  static const double s16 = 16;
+  static const double s15 = 15;
+  static const double s14 = 14;
+
+  // 辅助层
+  static const double s13 = 13;
+  static const double s12 = 12;
+  static const double s11 = 11;
+  static const double s10 = 10;
+  static const double s9 = 9;
+  static const double s8 = 8;
 }

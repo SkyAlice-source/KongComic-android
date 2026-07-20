@@ -57,7 +57,7 @@ class SideBarRoute<T> extends PopupRoute<T> {
         borderRadius: showSideBar
             ? const BorderRadius.horizontal(left: Radius.circular(16))
             : null,
-        color: Theme.of(context).colorScheme.surfaceTint,
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: context.brightness == ui.Brightness.dark ? [
           BoxShadow(
             color: Colors.white.withAlpha(50),
@@ -83,7 +83,7 @@ class SideBarRoute<T> extends PopupRoute<T> {
                           MediaQuery.of(context).viewInsets.bottom
                       : 0),
               color: useSurfaceTintColor
-                  ? Theme.of(context).colorScheme.surfaceTint.withAlpha(20)
+                  ? Theme.of(context).colorScheme.primary.withAlpha(20)
                   : null,
               child: body,
             ),

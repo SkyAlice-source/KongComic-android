@@ -147,7 +147,7 @@ class _SearchPageState extends State<SearchPage> {
                     child: Text(
                       source.name.substring(0, 1).toUpperCase(),
                       style: TextStyle(
-                        color: accentColor,
+                        color: sourceColor(colorIndex, cs.brightness),
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
                       ),
@@ -663,7 +663,7 @@ class _SearchPageState extends State<SearchPage> {
             child: Text(
               comicSource.name.substring(0, 1).toUpperCase(),
               style: TextStyle(
-                color: accentColor,
+                color: sourceColor(colorIndex, cs.brightness),
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),

@@ -310,18 +310,11 @@ class _AnimatedImageState extends State<AnimatedImage>
         );
       }
     } else if (_lastException != null) {
+      // 加载失败仅展示提示图标。不加 Semantics(image: true)——空标签的“图片”
+      // 播报对屏幕阅读器是噪音；封面本身是装饰性的（标题文字已传达信息）。
       result = const Center(
         child: HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 18),
       );
-
-      if (!widget.excludeFromSemantics) {
-        result = Semantics(
-          container: widget.semanticLabel != null,
-          image: true,
-          label: widget.semanticLabel ?? '',
-          child: result,
-        );
-      }
     } else {
       result = const Center();
     }

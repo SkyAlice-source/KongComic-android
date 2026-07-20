@@ -7,6 +7,7 @@ import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:flex_seed_scheme/flex_seed_scheme.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/components/rich_comment_content.dart';
 import 'package:kong_comic/foundation/app.dart';
@@ -44,7 +45,10 @@ part 'actions.dart';
 
 part 'cover_viewer.dart';
 
-const _chapterTextShadow = [Shadow(color: Colors.black54, blurRadius: 3)];
+const _chapterTextShadow = [
+  Shadow(color: Colors.black87, blurRadius: 4),
+  Shadow(color: Colors.black54, blurRadius: 1),
+];
 
 class ComicPage extends StatefulWidget {
   const ComicPage({
@@ -105,12 +109,15 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   bool showFAB = false;
 
-  /// Cover-extracted theme (Komikku-style auto theming for the detail page).
-  ColorScheme? _coverScheme;
+  /// Cover-extracted seed color (Komikku-style auto theming for the detail
+  /// page). Only the seed is cached — the [ColorScheme] is rebuilt from it in
+  /// [buildContent] using the *current* brightness/AMOLED state, so the page
+  /// re-themes correctly when the user switches light/dark/AMOLED at runtime.
+  Color? _coverSeed;
   bool _extractingCover = false;
 
   void _extractCoverTheme(ComicDetails data) {
-    if (_coverScheme != null || _extractingCover) return;
+    if (_coverSeed != null || _extractingCover) return;
     final coverUrl = widget.cover ?? data.cover;
     if (coverUrl.isEmpty) return;
     _extractingCover = true;
@@ -127,12 +134,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
           pg.vibrantColor?.color ??
           pg.dominantColor?.color;
       if (color != null && mounted) {
-        final brightness = Theme.of(context).brightness;
         setState(() {
-          _coverScheme = ColorScheme.fromSeed(
-            seedColor: color,
-            brightness: brightness,
-          );
+          _coverSeed = color;
         });
       }
     }).catchError((_) {
@@ -140,6 +143,34 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     }).whenComplete(() {
       _extractingCover = false;
     });
+  }
+
+  /// Builds the detail-page theme from the cover seed, mirroring the app's
+  /// [getTheme] construction (FlexTones.soft, transparent surfaceTint, AMOLED
+  /// pure-black surface ramp) so it stays consistent with the global theme.
+  ThemeData _coverTheme(BuildContext context) {
+    final base = Theme.of(context);
+    final seed = _coverSeed;
+    if (seed == null) return base;
+    final brightness = base.brightness;
+    final isDark = brightness == Brightness.dark;
+    final amoled = appdata.settings['theme_mode'] == 'amoled';
+    final coverScheme = SeedColorScheme.fromSeeds(
+      primaryKey: seed,
+      brightness: brightness,
+      tones: FlexTones.soft(brightness),
+    ).copyWith(
+      surfaceTint: Colors.transparent,
+      surface: amoled && isDark ? const Color(0xFF0A0A0A) : null,
+      surfaceContainerLowest:
+          amoled && isDark ? const Color(0xFF000000) : null,
+      surfaceContainerLow: amoled && isDark ? const Color(0xFF0F0F0F) : null,
+      surfaceContainer: amoled && isDark ? const Color(0xFF161616) : null,
+      surfaceContainerHigh: amoled && isDark ? const Color(0xFF1E1E1E) : null,
+      surfaceContainerHighest:
+          amoled && isDark ? const Color(0xFF242424) : null,
+    );
+    return base.copyWith(colorScheme: coverScheme);
   }
 
   @override
@@ -242,9 +273,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   @override
   Widget buildContent(BuildContext context, ComicDetails data) {
     _extractCoverTheme(data);
-    final pageTheme = _coverScheme == null
-        ? Theme.of(context)
-        : Theme.of(context).copyWith(colorScheme: _coverScheme);
+    final pageTheme = _coverTheme(context);
     return Theme(
       data: pageTheme,
       child: Scaffold(
@@ -637,9 +666,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                           child: Text(
                             "Downloading %s".tl.replaceAll("%s", "${(dlPct * 100).toInt()}%"),
                             style: TextStyle(
-                              color: context.colorScheme.onPrimary,
+                              color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
+                              shadows: _chapterTextShadow,
                             ),
                           ),
                         ),

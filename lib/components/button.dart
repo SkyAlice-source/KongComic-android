@@ -187,7 +187,10 @@ class _ButtonState extends State<Button> {
     if (width != null || height != null) {
       child = child.toCenter();
     }
-    return MouseRegion(
+    return Semantics(
+      button: true,
+      enabled: !isLoading,
+      child: MouseRegion(
       onEnter: (_) => setState(() => isHover = true),
       onExit: (_) => setState(() => isHover = false),
       cursor: SystemMouseCursors.click,
@@ -240,6 +243,7 @@ class _ButtonState extends State<Button> {
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -327,7 +331,10 @@ class _IconButtonState extends State<_IconButton> {
         strokeWidth: 1.5,
       ).paddingAll(2).fixWidth(iconSize).fixHeight(iconSize);
     }
-    return MouseRegion(
+    return Semantics(
+      button: true,
+      enabled: !widget.isLoading,
+      child: MouseRegion(
       onEnter: (_) => setState(() => isHover = true),
       onExit: (_) => setState(() => isHover = false),
       cursor: SystemMouseCursors.click,
@@ -353,6 +360,7 @@ class _IconButtonState extends State<_IconButton> {
             child: icon,
           ),
         ),
+      ),
       ),
     );
   }

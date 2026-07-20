@@ -223,7 +223,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           color: context.colorScheme.surface,
           border: Border(
             bottom: BorderSide(
-              color: Colors.grey.toOpacity(0.5),
+              color: context.colorScheme.outlineVariant,
               width: 0.5,
             ),
           ),
@@ -641,7 +641,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           border: isOpen
               ? Border(
                   top: BorderSide(
-                    color: Colors.grey.toOpacity(0.5),
+                    color: context.colorScheme.outlineVariant,
                     width: 0.5,
                   ),
                 )

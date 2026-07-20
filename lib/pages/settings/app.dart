@@ -341,9 +341,13 @@ class _LogsPageState extends State<LogsPage> {
                           child: Text(
                             logToShow[index].level.name,
                             style: TextStyle(
-                                color: logToShow[index].level.index == 0
-                                    ? Colors.white
-                                    : Colors.black),
+                                color: [
+                              Theme.of(context).colorScheme.onError,
+                              Theme.of(context).colorScheme.onErrorContainer,
+                              Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer
+                            ][logToShow[index].level.index]),
                           ),
                         ),
                       ),

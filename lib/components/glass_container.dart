@@ -195,22 +195,25 @@ class _LiquidGlassSurface extends AnimatedWidget {
         ? Colors.white.withValues(alpha: opacity)
         : Colors.white.withValues(alpha: opacity * 0.5);
 
-    // 折射渐变 — 模拟光线经过玻璃的折射感
+    // 折射渐变 — 模拟光线经过玻璃的折射感。
+    // 无显式 tintColor 时从主题 primary/tertiary 派生，跟随种子色/Material You，
+    // 避免固定蓝紫与用户选定的强调色（如红/绿）冲突。
+    final cs = Theme.of(context).colorScheme;
     final refractionColors = [
       baseColor,
       if (tintColor != null)
         tintColor!.withValues(alpha: opacity * 0.6)
       else if (isLight)
-        Colors.blue.withValues(alpha: opacity * 0.3)
+        cs.primary.withValues(alpha: opacity * 0.3)
       else
-        Colors.purple.withValues(alpha: opacity * 0.2),
+        cs.primary.withValues(alpha: opacity * 0.2),
       baseColor,
       if (tintColor != null)
         tintColor!.withValues(alpha: opacity * 0.3)
       else if (isLight)
-        Colors.amber.withValues(alpha: opacity * 0.15)
+        cs.tertiary.withValues(alpha: opacity * 0.15)
       else
-        Colors.cyan.withValues(alpha: opacity * 0.1),
+        cs.tertiary.withValues(alpha: opacity * 0.1),
       baseColor,
     ];
 

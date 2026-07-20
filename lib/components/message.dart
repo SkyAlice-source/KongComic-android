@@ -38,7 +38,9 @@ class _ToastOverlay extends StatelessWidget {
       right: 0,
       child: Align(
         alignment: Alignment.bottomCenter,
-        child: Material(
+        child: Semantics(
+          liveRegion: true,
+          child: Material(
           color: Theme.of(context).colorScheme.inverseSurface,
           borderRadius: BorderRadius.circular(8),
           elevation: 2,
@@ -73,6 +75,7 @@ class _ToastOverlay extends StatelessWidget {
               ),
             ),
           ),
+        ),
         ),
       ),
     );

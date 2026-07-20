@@ -35,6 +35,29 @@ String _prettifyErrorMessage(String raw) {
   return msg;
 }
 
+/// 统一加载指示器 —— 应用默认加载态的唯一实现。
+///
+/// 集中约定尺寸与线宽，替代各处 strokeWidth 不一（1.4/1.8/2/默认）的裸
+/// [CircularProgressIndicator]。新加载态请优先使用本组件，保持全局一致。
+class AppLoadingIndicator extends StatelessWidget {
+  const AppLoadingIndicator({super.key, this.size = 32, this.strokeWidth = 2});
+
+  final double size;
+
+  final double strokeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: CircularProgressIndicator(strokeWidth: strokeWidth),
+      ),
+    );
+  }
+}
+
 class NetworkError extends StatelessWidget {
   const NetworkError({
     super.key,
@@ -187,11 +210,7 @@ abstract class LoadingState<T extends StatefulWidget, S extends Object>
   Widget? buildFrame(BuildContext context, Widget child) => null;
 
   Widget buildLoading() {
-    return Center(
-      child: const CircularProgressIndicator(
-        strokeWidth: 2,
-      ).fixWidth(32).fixHeight(32),
-    );
+    return const AppLoadingIndicator();
   }
 
   void retry() {
@@ -352,9 +371,7 @@ abstract class MultiPageLoadingState<T extends StatefulWidget, S extends Object>
   }
 
   Widget buildLoading(BuildContext context) {
-    return Center(
-      child: const CircularProgressIndicator().fixWidth(32).fixHeight(32),
-    );
+    return const AppLoadingIndicator();
   }
 
   Widget buildError(BuildContext context, String error) {
