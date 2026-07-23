@@ -23,6 +23,6 @@
              manual leak review via notification. -->
         <provider
             android:name="leakcanary.internal.AppWatcherInstaller"
-            tools:node="removeAll" />
+            tools:node="remove" />
     </application>
 </manifest>

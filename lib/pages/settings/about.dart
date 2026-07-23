@@ -9,7 +9,16 @@ class AboutSettings extends StatefulWidget {
 
 class _AboutSettingsState extends State<AboutSettings> {
   bool isCheckingUpdate = false;
-  bool isCheckingGithubUpdate = false;
+
+  /// Opens the GitHub repository page in an external browser.
+  Future<void> _openGitHubRepo() async {
+    const url = "https://github.com/SkyAlice-source/KongComic-android";
+    if (!await launchUrlString(url, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        App.rootContext.showMessage(message: "Unable to open browser".tl);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,20 +26,14 @@ class _AboutSettingsState extends State<AboutSettings> {
       slivers: [
         SliverAppbar(title: Text("About".tl)),
         SizedBox(
-          height: 112,
+          height: 120,
           width: double.infinity,
           child: Center(
-            child: Container(
-              width: 112,
-              height: 112,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(136),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: const Image(
-                image: AssetImage("assets/app_icon.png"),
-                filterQuality: FilterQuality.medium,
-              ),
+            child: const Image(
+              image: AssetImage("assets/app_icon.png"),
+              width: 96,
+              height: 96,
+              filterQuality: FilterQuality.medium,
             ),
           ),
         ).paddingTop(16).toSliver(),
@@ -42,45 +45,24 @@ class _AboutSettingsState extends State<AboutSettings> {
               style: TextStyle(fontSize: 16),
             ),
             Text("KongComic is a free and open-source comic reader.".tl),
-            SizedBox(height: 8),
+            SizedBox(height: 4),
           ],
         ).toSliver(),
         ListTile(
-          title: Text("Accelerated Source".tl),
-          subtitle: Text("Download via CDN proxy, faster in some regions".tl),
+          title: Text("Source Code".tl),
+          trailing: const Icon(Icons.open_in_new, size: 18),
+          onTap: _openGitHubRepo,
+        ).toSliver(),
+        ListTile(
+          title: Text("Check for Updates".tl),
+          subtitle: Text("Automatically select the fastest source".tl),
           trailing: Button.filled(
             isLoading: isCheckingUpdate,
             child: Text("Check".tl),
             onPressed: () {
-              setState(() {
-                isCheckingUpdate = true;
-              });
-              checkAcceleratedUpdate().then((_) {
-                if (mounted) {
-                  setState(() {
-                    isCheckingUpdate = false;
-                  });
-                }
-              });
-            },
-          ).fixHeight(32),
-        ).toSliver(),
-        ListTile(
-          title: Text("GitHub Source".tl),
-          subtitle: Text("Download via GitHub source".tl),
-          trailing: Button.outlined(
-            isLoading: isCheckingGithubUpdate,
-            child: Text("Check".tl),
-            onPressed: () {
-              setState(() {
-                isCheckingGithubUpdate = true;
-              });
-              checkGithubSource().then((_) {
-                if (mounted) {
-                  setState(() {
-                    isCheckingGithubUpdate = false;
-                  });
-                }
+              setState(() => isCheckingUpdate = true);
+              checkUpdateUi(true, false).then((_) {
+                if (mounted) setState(() => isCheckingUpdate = false);
               });
             },
           ).fixHeight(32),

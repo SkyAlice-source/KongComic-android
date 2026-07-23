@@ -2,7 +2,7 @@ name: kong_comic
 description: "A comic app."
 publish_to: 'none'
 
-version: 1.2.28+148
+version: 1.2.29+149
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
@@ -94,6 +94,7 @@ dev_dependencies:
   flutter_to_debian: 
     git:
       url: https://github.com/venera-app/flutter_to_debian.git
+      ref: 3777c91b6b1cc0b7c03357c67ca216d4313c3db5
 
 flutter:
   uses-material-design: true
