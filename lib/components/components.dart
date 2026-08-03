@@ -37,6 +37,8 @@ import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/favorites/favorites_page.dart';
 import 'package:kong_comic/utils/translations.dart';
+import 'package:kong_comic/design_tokens.dart';
+export 'package:kong_comic/design_tokens.dart';
 
 part 'glass_container.dart';
 part 'image.dart';

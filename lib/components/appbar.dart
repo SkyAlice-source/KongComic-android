@@ -296,7 +296,7 @@ class _AppTabBarState extends State<AppTabBar> {
 
   static const tabPadding = EdgeInsets.symmetric(horizontal: 6, vertical: 6);
 
-  static const tabRadius = 8.0;
+  static const tabRadius = 16.0;
 
   _IndicatorPainter? painter;
 
@@ -349,7 +349,9 @@ class _AppTabBarState extends State<AppTabBar> {
     var old = painter;
     painter = _IndicatorPainter(
       controller: _controller,
-      color: context.colorScheme.primary,
+      // 跟随当前主题主色（含 Android 动态取色），保证与主页/全局强调色统一；
+      // 选中文字同步使用 onPrimary，在暗色（主色偏浅）下仍清晰可读。
+      color: Theme.of(context).colorScheme.primary,
       padding: tabPadding,
       radius: tabRadius,
     );
@@ -456,14 +458,17 @@ class _AppTabBarState extends State<AppTabBar> {
     return InkWell(
       onTap: () => onTabClicked(i),
       borderRadius: BorderRadius.circular(tabRadius),
+      // 禁用点击高亮 splash，避免切 tab 滑动时残留圆角矩形“框”
+      splashFactory: NoSplash.splashFactory,
+      overlayColor: WidgetStateProperty.all(Colors.transparent),
       child: KeyedSubtree(
         key: keys[i],
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: DefaultTextStyle(
-            style: DefaultTextStyle.of(context).style.copyWith(
+                style: DefaultTextStyle.of(context).style.copyWith(
                   color: i == _controller.animation?.value.round()
-                      ? context.colorScheme.primary
+                      ? context.colorScheme.onPrimary
                       : context.colorScheme.onSurface,
                   fontWeight: FontWeight.w500,
                 ),
@@ -565,13 +570,18 @@ class _IndicatorPainter extends CustomPainter {
     assert(tabIndex <= maxTabIndex);
     var (tabLeft, tabRight) = (offsets![tabIndex], offsets![tabIndex + 1]);
 
-    const horizontalPadding = 12.0;
+    // 胶囊背景块：高度固定、垂直居中于 tab，左右紧贴文字留少量边距，
+    // 替代原 3px 底部横线，在长列表 + 暗色背景下更醒目。
+    // 收窄高宽比，避免短标签（如"本地"）渲染成接近方形的圆角块。
+    const horizontalInset = 8.0;
+    const blockHeight = 32.0;
+    const top = (_AppTabBarState._kTabHeight - blockHeight) / 2;
 
     var rect = Rect.fromLTWH(
-      tabLeft + padding.left + horizontalPadding,
-      _AppTabBarState._kTabHeight - 3.6,
-      tabRight - tabLeft - padding.horizontal - horizontalPadding * 2,
-      3,
+      tabLeft + padding.left + horizontalInset,
+      top,
+      tabRight - tabLeft - padding.horizontal - horizontalInset * 2,
+      blockHeight,
     );
 
     return rect;
@@ -591,8 +601,10 @@ class _IndicatorPainter extends CustomPainter {
     final Rect toRect = indicatorRect(size, to);
     _currentRect = Rect.lerp(fromRect, toRect, (value - from).abs());
     final Paint paint = Paint()..color = color;
-    final RRect rrect = RRect.fromRectAndCorners(_currentRect!,
-        topLeft: Radius.circular(radius), topRight: Radius.circular(radius));
+    final RRect rrect = RRect.fromRectAndRadius(
+      _currentRect!,
+      Radius.circular(_currentRect!.height / 2),
+    );
     canvas.drawRRect(rrect, paint);
   }
 

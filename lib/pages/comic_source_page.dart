@@ -55,10 +55,11 @@ class ComicSourcePage extends StatelessWidget {
       if (ComicSourceManager().availableUpdates.containsKey(source.key)) {
         ComicSourceManager().availableUpdates.remove(source.key);
       }
-    } catch (e) {
+    } catch (e, s) {
       if (cancel) return;
       if (showLoading) {
-        App.rootContext.showMessage(message: e.toString());
+        Log.error("Update comic source", e, s);
+        App.rootContext.showMessage(message: "Failed to update source".tl);
       } else {
         rethrow;
       }
@@ -282,7 +283,7 @@ class _BodyState extends State<_Body> {
       var content = utf8.decode(bytes);
       await addSource(content, fileName);
     } catch (e, s) {
-      App.rootContext.showMessage(message: e.toString());
+      App.rootContext.showMessage(message: "Failed to add source".tl);
       Log.error("Add comic source", "$e\n$s");
     }
   }
@@ -713,7 +714,7 @@ class _CheckUpdatesButtonState extends State<_CheckUpdatesButton> {
           loadingController.setProgress(current / total);
         }
       } catch (e) {
-        context.showMessage(message: e.toString());
+        context.showMessage(message: "Failed to update sources".tl);
       }
       loadingController.close();
     }

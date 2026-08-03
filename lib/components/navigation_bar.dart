@@ -21,10 +21,18 @@ class PaneActionEntry {
 
   VoidCallback onTap;
 
+  /// 可选溢出菜单。提供时顶栏用 [PopupMenuButton] 渲染该操作，
+  /// 否则用普通 [IconButton]。
+  final List<PopupMenuEntry<dynamic>>? menu;
+
+  final void Function(dynamic)? onSelected;
+
   PaneActionEntry({
     required this.label,
     required this.icon,
     required this.onTap,
+    this.menu,
+    this.onSelected,
   });
 }
 
@@ -92,6 +100,14 @@ class NaviPaneState extends State<NaviPane>
 
   void Function()? mainViewUpdateHandler;
 
+  /// 当前页面可向全局顶栏注入的额外操作按钮（按页生效）。
+  /// 例如历史页的多选/清空/刷新。为 null 时仅显示全局 [paneActions]。
+  final pageActionsNotifier = ValueNotifier<List<PaneActionEntry>?>(null);
+
+  void _onPageActionsChanged() {
+    if (mounted) setState(() {});
+  }
+
   late AnimationController controller;
 
   final _naviItemTapListeners = <NaviItemTapListener>[];
@@ -144,6 +160,7 @@ class NaviPaneState extends State<NaviPane>
       vsync: this,
     );
     widget.observer.addListener(onNavigatorStateChange);
+    pageActionsNotifier.addListener(_onPageActionsChanged);
     super.initState();
   }
 
@@ -151,6 +168,7 @@ class NaviPaneState extends State<NaviPane>
   void dispose() {
     controller.dispose();
     widget.observer.removeListener(onNavigatorStateChange);
+    pageActionsNotifier.removeListener(_onPageActionsChanged);
     super.dispose();
   }
 
@@ -293,6 +311,11 @@ class NaviPaneState extends State<NaviPane>
 
   Widget buildTop() {
     final hideTitle = widget.topBarTitleHiddenPages.contains(currentPage);
+    final pageActions = pageActionsNotifier.value;
+    final actions = [
+      if (pageActions != null) ...pageActions,
+      ...widget.paneActions,
+    ];
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Container(
@@ -302,19 +325,32 @@ class NaviPaneState extends State<NaviPane>
         child: Row(
           children: [
             if (!hideTitle)
-              Text(
-                widget.paneItems[currentPage].label,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            const Spacer(),
-            for (var action in widget.paneActions)
-              Tooltip(
-                message: action.label,
-                child: IconButton(
-                  icon: action.icon,
-                  onPressed: action.onTap,
+              Expanded(
+                child: Text(
+                  widget.paneItems[currentPage].label,
+                  style: TextStyle(fontSize: kcTitleMain, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+            const Spacer(),
+            for (var action in actions)
+              if (action.menu != null)
+                Tooltip(
+                  message: action.label,
+                  child: PopupMenuButton<dynamic>(
+                    icon: action.icon,
+                    itemBuilder: (_) => action.menu!,
+                    onSelected: action.onSelected,
+                  ),
+                )
+              else
+                Tooltip(
+                  message: action.label,
+                  child: IconButton(
+                    icon: action.icon,
+                    onPressed: action.onTap,
+                  ),
+                ),
           ],
         ),
       ),
@@ -563,11 +599,11 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
             ),
             child: SizedBox(width: 18, height: 18, child: icon),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             widget.entry.label,
             style: TextStyle(
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
               color: isActive ? activeClr : inactiveClr.withValues(alpha: 0.7),
             ),

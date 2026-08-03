@@ -59,23 +59,71 @@ Future<bool> _deleteComic(
   return result;
 }
 
+/// 收藏页内部栏的“文件夹”上下文：降级为次级 chip（不再作为第二根标题栏）。
+/// 点击展开文件夹选择器，视觉权重明显低于全局主标题“收藏”。
+Widget _folderChip(BuildContext context, String title, VoidCallback? onTap) {
+  final cs = Theme.of(context).colorScheme;
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(kcChipRadius),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(kcChipRadius),
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedFolder01,
+            size: 16,
+            color: cs.primary,
+          ),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.38,
+            ),
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 2),
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedArrowDown01,
+            size: 14,
+            color: cs.onSurfaceVariant,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class NetworkFavoritePage extends StatelessWidget {
-  const NetworkFavoritePage(this.data, {super.key});
+  const NetworkFavoritePage(this.data, {this.controller, super.key});
 
   final FavoriteData data;
+
+  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context) {
     return data.multiFolder
-        ? _MultiFolderFavoritesPage(data)
-        : _NormalFavoritePage(data);
+        ? _MultiFolderFavoritesPage(data, controller)
+        : _NormalFavoritePage(data, controller);
   }
 }
 
 class _NormalFavoritePage extends StatefulWidget {
-  const _NormalFavoritePage(this.data);
+  const _NormalFavoritePage(this.data, this.controller);
 
   final FavoriteData data;
+
+  final ScrollController? controller;
 
   @override
   State<_NormalFavoritePage> createState() => _NormalFavoritePageState();
@@ -94,6 +142,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
   Widget build(BuildContext context) {
     return ComicList(
       key: comicListKey,
+      controller: widget.controller,
       leadingSliver: SliverAppbar(
         style:
             context.width < changePoint ? AppbarStyle.shadow : AppbarStyle.blur,
@@ -107,9 +156,10 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
                 )
               : null,
         ),
-        title: GestureDetector(
-          onTap: context.width < _kTwoPanelChangeWidth ? showFolders : null,
-          child: Text(widget.data.title),
+        title: _folderChip(
+          context,
+          widget.data.title,
+          context.width < _kTwoPanelChangeWidth ? showFolders : null,
         ),
         actions: [
           Tooltip(
@@ -147,9 +197,10 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
                 )
               : null,
         ),
-        title: GestureDetector(
-          onTap: context.width < _kTwoPanelChangeWidth ? showFolders : null,
-          child: Text(widget.data.title),
+        title: _folderChip(
+          context,
+          widget.data.title,
+          context.width < _kTwoPanelChangeWidth ? showFolders : null,
         ),
       ),
       loadPage: widget.data.loadComic == null
@@ -183,9 +234,11 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
 }
 
 class _MultiFolderFavoritesPage extends StatefulWidget {
-  const _MultiFolderFavoritesPage(this.data);
+  const _MultiFolderFavoritesPage(this.data, this.controller);
 
   final FavoriteData data;
+
+  final ScrollController? controller;
 
   @override
   State<_MultiFolderFavoritesPage> createState() =>
@@ -297,6 +350,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
       final keys = folders!.keys.toList();
 
       return SmoothCustomScrollView(
+        controller: widget.controller,
         slivers: [
           sliverAppBar,
           SliverGridViewWithFixedItemHeight(

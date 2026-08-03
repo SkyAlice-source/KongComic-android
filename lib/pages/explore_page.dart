@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kong_comic/components/components.dart';
+import 'package:kong_comic/components/scroll_top_fab.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
@@ -97,19 +98,13 @@ class _ExplorePageState extends State<ExplorePage>
     GlobalState.find<_SingleExplorePageState>(currentPageId).refresh();
   }
 
-  Widget buildFAB() => Material(
-        color: Colors.transparent,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
-          child: FloatingActionButton(
-            key: const Key("FAB"),
-            onPressed: () {
-              String currentPageId = pages[controller.index];
-              GlobalState.find<_SingleExplorePageState>(currentPageId).toTop();
-            },
-            child: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
-          ),
-        ),
+  Widget buildFAB() => ScrollTopFab(
+        avoidNavBar: true,
+        heroTag: 'exploreScrollTopFab',
+        onPressed: () {
+          String currentPageId = pages[controller.index];
+          GlobalState.find<_SingleExplorePageState>(currentPageId).toTop();
+        },
       );
 
   Tab buildTab(String i) {
@@ -207,7 +202,10 @@ class _ExplorePageState extends State<ExplorePage>
         ),
         Positioned(
           right: 16,
-          bottom: 90,
+          // 与历史页对齐：ScrollTopFab(avoidNavBar:true) 已在内部加 bottomBarHeight
+          // 抬升，这里只留 endFloat 默认的 16 边距。原 90 会导致发现页 FAB 比
+          // 历史页高出一大截（90 + bottomBarHeight vs 16 + bottomBarHeight）。
+          bottom: 16,
           child: ValueListenableBuilder<bool>(
             valueListenable: showFB,
             builder: (context, visible, _) => AnimatedSwitcher(

@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart';
 import 'package:kong_comic/components/components.dart';
+import 'package:kong_comic/components/scroll_top_fab.dart';
 import 'package:kong_comic/components/rich_comment_content.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
@@ -278,7 +279,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       data: pageTheme,
       child: Scaffold(
       floatingActionButton: showFAB
-          ? FloatingActionButton(
+          ? ScrollTopFab(
+              heroTag: 'comicScrollTopFab',
               onPressed: () {
                 scrollController.animateTo(
                   0,
@@ -286,7 +288,6 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   curve: Curves.ease,
                 );
               },
-              child: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
             )
           : null,
       body: SmoothCustomScrollView(
@@ -502,8 +503,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   iconColor: context.useTextColor(Colors.red),
                 ),
               _ActionButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedBookmark01, size: 20),
-                activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedBookmarkCheck01, size: 20),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
+                activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
                 isActive: isFavorite || isAddToLocalFav,
                 text: (isFavorite || isAddToLocalFav) ? 'Favorited'.tl : 'Favorite'.tl,
                 onPressed: openFavPanel,

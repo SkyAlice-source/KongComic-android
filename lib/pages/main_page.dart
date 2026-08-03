@@ -77,8 +77,8 @@ class _MainPageState extends State<MainPage> {
         ),
         PaneItemEntry(
           label: 'Favorites'.tl,
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedBookmark01, size: 22),
-          activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedBookmark01, size: 22),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 22),
+          activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 22),
         ),
         PaneItemEntry(
           label: 'Home'.tl,
@@ -120,7 +120,9 @@ class _MainPageState extends State<MainPage> {
       pageBuilder: (index) {
         return _pages[index];
       },
-      topBarTitleHiddenPages: const [1],
+      // 收藏页(1)与历史页(4)均显示全局粗体标题（"收藏"/"历史"），
+      // 操作按钮各自承载在页面内部 SliverAppbar，故无需隐藏任何全局标题。
+      topBarTitleHiddenPages: const [],
     );
   }
 }

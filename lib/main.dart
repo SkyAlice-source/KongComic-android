@@ -31,9 +31,12 @@ class _NeutralOverscrollScrollBehavior extends MaterialScrollBehavior {
     ScrollableDetails details,
   ) {
     if (Theme.of(context).platform == TargetPlatform.android) {
+      // 注意：不能用 colorScheme.outlineVariant —— SeedColorScheme.fromSeeds
+      // 整套配色都从主色种子派生，选绿/蓝等强调色时 outlineVariant 也带色相，
+      // 越界辉光会泛绿。这里用无色相的纯灰，暗色/亮色下都是中性辉光。
       return GlowingOverscrollIndicator(
         axisDirection: details.direction,
-        color: Theme.of(context).colorScheme.outlineVariant,
+        color: Colors.grey,
         child: child,
       );
     }
@@ -154,18 +157,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     setState(() {});
   }
 
+  /// 各主题色的种子色。
+  ///
+  /// - [red] 使用 Kong Coral 品牌色（提亮到 #E5402A，暗色模式下更清晰、对比更高），
+  ///   与 tab 胶囊指示器、书签徽章统一到同一品牌红，解决此前「双红不一致」问题。
+  /// - 其余颜色从 Flutter 出厂原色（Colors.red 等）替换为更精致、偏 2026 趋势的色相，
+  ///   避免默认 Material 原色过「玩具感」，同时保留足够饱和与明度以保证可读性。
   Color translateColorSetting() {
     return switch (appdata.settings['color']) {
-      'red' => Colors.red,
-      'pink' => Colors.pink,
-      'purple' => Colors.purple,
-      'green' => Colors.green,
-      'orange' => Colors.orange,
-      'blue' => Colors.blue,
-      'yellow' => Colors.yellow,
-      'cyan' => Colors.cyan,
-      'system' => Colors.blue,
-      _ => Colors.blue,
+      'red' => const Color(0xFFE5402A), // Kong Coral 品牌红
+      'pink' => const Color(0xFFE1468C), // 精致玫瑰红
+      'purple' => const Color(0xFF7C5CFC), // 雾紫罗兰
+      'green' => const Color(0xFF1FA971), // 沉静翡翠绿
+      'orange' => const Color(0xFFF2741F), // 暖橘
+      'blue' => const Color(0xFF2D7FF9), // 清爽蓝
+      'yellow' => const Color(0xFFF5B400), // 琥珀黄
+      'cyan' => const Color(0xFF13B5C9), // 青蓝
+      'system' => const Color(0xFF2D7FF9),
+      _ => const Color(0xFF2D7FF9),
     };
   }
 
@@ -202,8 +211,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
     final bool isDark = brightness == Brightness.dark;
     final Color bg = isDark
-        ? (amoled ? const Color(0xFF000000) : const Color(0xFF121212))
-        : const Color(0xFFF5F7FA);
+        ? (amoled ? const Color(0xFF000000) : const Color(0xFF141013))
+        : const Color(0xFFFBF7F4);
     return ThemeData(
       colorScheme: SeedColorScheme.fromSeeds(
         primaryKey: primary,

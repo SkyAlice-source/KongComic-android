@@ -132,7 +132,7 @@ class ComicTile extends StatelessWidget {
           },
         ),
         MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
           text: 'Add to favorites'.tl,
           onClick: () {
             addFavorite([comic]);
@@ -287,7 +287,7 @@ class ComicTile extends StatelessWidget {
         height: double.infinity,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(kcCardInnerRadius),
           boxShadow: [
             BoxShadow(
               color: context.colorScheme.outlineVariant,
@@ -328,7 +328,7 @@ class ComicTile extends StatelessWidget {
       }
 
       return InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kcCardRadius),
         onTap: _onTap,
         onLongPress: enableLongPressed ? () => _onLongPressed(context) : null,
         onSecondaryTapDown: (detail) => onSecondaryTap(detail, context),
@@ -377,14 +377,8 @@ class ComicTile extends StatelessWidget {
         Widget image = Container(
           decoration: BoxDecoration(
             color: context.colorScheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.toOpacity(0.2),
-                blurRadius: 2,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(kcCardInnerRadius),
+            boxShadow: [kcCardShadow(context)],
           ),
           clipBehavior: Clip.antiAlias,
           child: buildImage(context),
@@ -398,7 +392,7 @@ class ComicTile extends StatelessWidget {
         }
 
         return InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(kcCardRadius),
           onTap: _onTap,
           onLongPress: enableLongPressed ? () => _onLongPressed(context) : null,
           onSecondaryTapDown: (detail) => onSecondaryTap(detail, context),
@@ -974,7 +968,7 @@ class _SliverGridComics extends StatelessWidget {
                     context,
                   ).colorScheme.secondaryContainer.toOpacity(0.72)
                 : null,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(kcCardRadius),
           ),
           margin: const EdgeInsets.all(4),
           child: RepaintBoundary(child: comic),
@@ -1010,6 +1004,78 @@ String? isBlocked(Comic item) {
     }
   }
   return null;
+}
+
+/// 网格首屏骨架屏（shimmer），替换裸 spinner，长网格等待不再显空。
+class _ComicGridSkeleton extends StatelessWidget {
+  const _ComicGridSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+    // 与 SliverGridDelegateWithComics 列数估算接近，占位与真实网格同尺寸
+    final crossAxisCount = (w / 150).floor().clamp(2, 6);
+    return GridView.count(
+      crossAxisCount: crossAxisCount,
+      childAspectRatio: 0.7,
+      padding: const EdgeInsets.all(12),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      children: List.generate(12, (_) => const _ShimmerCard()),
+    );
+  }
+}
+
+class _ShimmerCard extends StatefulWidget {
+  const _ShimmerCard();
+
+  @override
+  State<_ShimmerCard> createState() => _ShimmerCardState();
+}
+
+class _ShimmerCardState extends State<_ShimmerCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final base = Theme.of(context).colorScheme.surfaceContainerHighest;
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.45, end: 1.0).animate(_controller),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: base,
+                borderRadius: BorderRadius.circular(kcCardInnerRadius),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            height: 10,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: base,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
 }
 
 class ComicList extends StatefulWidget {
@@ -1321,11 +1387,7 @@ class ComicListState extends State<ComicList> {
       return Column(
         children: [
           if (widget.errorLeading != null) widget.errorLeading!,
-          const Expanded(
-            child: Center(
-              child: CircularProgressIndicator(),
-            ),
-          ),
+          const Expanded(child: _ComicGridSkeleton()),
         ],
       );
     }
@@ -1372,11 +1434,7 @@ class ComicListState extends State<ComicList> {
       return Column(
         children: [
           if (widget.errorLeading != null) widget.errorLeading!,
-          const Expanded(
-            child: Center(
-              child: CircularProgressIndicator(),
-            ),
-          ),
+          const Expanded(child: _ComicGridSkeleton()),
         ],
       );
     }
@@ -2051,11 +2109,10 @@ class PaginatedSliverGridComicsState
 class _BookmarkRibbonPainter extends CustomPainter {
   const _BookmarkRibbonPainter();
 
-  // 收藏标签配色：暖白底 + 香槟金框 + 金星
-  // 白底保证在任何彩色封面上都醒目跳脱，金色提供精致收藏感
-  static const Color _labelBg    = Color(0xFFF5F0E8); // 暖白（象牙白，不刺眼）
-  static const Color _goldLine   = Color(0xFFD4AF37); // 香槟金（描边）
-  static const Color _goldStar   = Color(0xFFD4AF37); // 金色（星星）
+  // 收藏标签配色：Kong Coral 品牌红填充 + 白星
+  // 与全局收藏图标（心形）统一品牌色；珊瑚红在任意彩色封面上都醒目跳脱。
+  static const Color _labelBg = Color(0xFFE5402A); // Kong Coral 品牌红
+  static const Color _star    = Color(0xFFFFFFFF); // 纯白星，保持高对比
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2079,24 +2136,16 @@ class _BookmarkRibbonPainter extends CustomPainter {
     // Drop shadow — 让标签从封面浮起
     canvas.drawShadow(body, Colors.black45, 2.5, false);
 
-    // Fill — 暖白色实体填充（最高对比度，任何背景上都清晰可见）
+    // Fill — Kong Coral 实体填充（品牌色，任何背景上都清晰可见）
     canvas.drawPath(body, Paint()..color = _labelBg);
 
-    // Gold outline — 香槟金勾勒书签轮廓
-    final strokePaint = Paint()
-      ..color = _goldLine
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(body, strokePaint);
-
-    // ── Six-point star: solid gold ──
+    // ── Six-point star: solid white ──
     final starCx = w / 2;
     final starCy = h * 0.40;
     final starOuterR = w * 0.33;
     final starInnerR = starOuterR * 0.46;
     final star = _createStarPath(starCx, starCy, starOuterR, starInnerR, 6);
-    canvas.drawPath(star, Paint()..color = _goldStar);
+    canvas.drawPath(star, Paint()..color = _star);
   }
 
   Path _createStarPath(double cx, double cy, double outerR, double innerR, int points) {

@@ -708,7 +708,17 @@
     "Connection handshake failed": "连接握手失败，可能被防火墙或代理拦截",
     "Unable to connect server": "无法连接服务器，请检查网络或源站地址",
     "Connection refused": "连接被拒绝，源站可能已关闭或地址错误",
-    "Server returned @code": "服务器返回 @code 错误，请稍后重试"
+    "Server returned @code": "服务器返回 @code 错误，请稍后重试",
+    "Failed to favorite image": "收藏图片失败",
+    "Failed to export comics": "导出漫画失败",
+    "Failed to create folder": "创建文件夹失败",
+    "Failed to update source": "更新漫画源失败",
+    "Failed to add source": "添加漫画源失败",
+    "Failed to update sources": "更新漫画源失败",
+    "Long-press a comic image to favorite it; images are saved here.": "长按漫画图片收藏，图片会保存在这里",
+    "Go to \"Comic Source\" to add sources and discover more.": "前往「漫画源」添加源，发现更多精彩内容",
+    "No local comics yet? Tap \"Local\" above to add a comic folder.": "还没有本地漫画？点击上方「本地」添加漫画文件夹",
+    "No local comics yet? Tap + at the top right to add a folder.": "还没有本地漫画？点击右上角 + 添加文件夹"
   },
   "zh_TW": {
     "Home": "首頁",
@@ -1419,6 +1429,16 @@
     "Connection handshake failed": "連線握手失敗，可能被防火牆或代理攔截",
     "Unable to connect server": "無法連接伺服器，請檢查網路或源站地址",
     "Connection refused": "連線被拒絕，源站可能已關閉或地址錯誤",
-    "Server returned @code": "伺服器返回 @code 錯誤，請稍後重試"
+    "Server returned @code": "伺服器返回 @code 錯誤，請稍後重試",
+    "Failed to favorite image": "收藏圖片失敗",
+    "Failed to export comics": "導出漫畫失敗",
+    "Failed to create folder": "建立資料夾失敗",
+    "Failed to update source": "更新漫畫源失敗",
+    "Failed to add source": "添加漫畫源失敗",
+    "Failed to update sources": "更新漫畫源失敗",
+    "Long-press a comic image to favorite it; images are saved here.": "長按漫畫圖片收藏，圖片會保存在這裡",
+    "Go to \"Comic Source\" to add sources and discover more.": "前往「漫畫源」添加源，發現更多精彩內容",
+    "No local comics yet? Tap \"Local\" above to add a comic folder.": "還沒有本地漫畫？點擊上方「本地」添加漫畫資料夾",
+    "No local comics yet? Tap + at the top right to add a folder.": "還沒有本地漫畫？點擊右上角 + 添加資料夾"
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kong_comic/components/components.dart';
+import 'package:kong_comic/components/scroll_top_fab.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
@@ -23,6 +24,7 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   void dispose() {
     HistoryManager().removeListener(onUpdate);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -43,6 +45,9 @@ class _HistoryPageState extends State<HistoryPage> {
 
   /// GlobalKey to access the paginated grid's state for refresh.
   final _gridKey = GlobalKey<PaginatedSliverGridComicsState>();
+
+  /// Controls the scroll view so the FAB can scroll the list back to top.
+  final ScrollController _scrollController = ScrollController();
 
   /// Page loader for PaginatedSliverGridComics.
   Future<List<Comic>> _loadPage(int offset, int limit) async {
@@ -171,21 +176,17 @@ class _HistoryPageState extends State<HistoryPage> {
       },
       child: Scaffold(
         body: SmoothCustomScrollView(
+          controller: _scrollController,
           slivers: [
-            if (multiSelectMode)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Text(
-                    "Selected @c comics".tlParams({"c": selectedComics.length}),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
+            // 历史页操作承载在自身内部 SliverAppbar（pinned），与收藏页风格一致。
+            // 正常模式标题交给全局顶栏（粗体"历史"），此处不再重复显示；
+            // 仅多选模式在内部条显示"已选 N 部"，避免与全局标题重复。
+            SliverAppbar(
+              title: multiSelectMode
+                  ? Text("Selected @c comics".tlParams({"c": selectedComics.length}))
+                  : const SizedBox.shrink(),
+              actions: multiSelectMode ? _multiSelectActions() : _normalActions(),
+            ),
             PaginatedSliverGridComics(
               key: _gridKey,
               pageLoader: _loadPage,
@@ -233,108 +234,96 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           ],
         ),
-        floatingActionButton: _buildActionFab(),
+        floatingActionButton: _buildScrollTopFab(),
       ),
     );
   }
 
-  Widget _buildActionFab() {
-    final fabIcon = multiSelectMode
-        ? HugeIcons.strokeRoundedCheckList
-        : HugeIcons.strokeRoundedMoreVertical;
-    return PopupMenuButton<String>(
-      offset: const Offset(0, -8),
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Theme.of(context).colorScheme.primaryContainer,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+  /// 正常模式操作：多选 / 清空 / 刷新全部。
+  List<Widget> _normalActions() => [
+        Tooltip(
+          message: "Multi-Select".tl,
+          child: IconButton(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 20),
+            onPressed: () => setState(() => multiSelectMode = true),
+          ),
+        ),
+        Tooltip(
+          message: "Clear History".tl,
+          child: IconButton(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 20),
+            onPressed: _confirmClearHistory,
+          ),
+        ),
+        Tooltip(
+          message: "Refresh All Histories".tl,
+          child: IconButton(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 20),
+            onPressed: _refreshAllHistories,
+          ),
+        ),
+      ];
+
+  /// 多选模式操作：全选 / 删除 / 更多(反选·取消) / 退出。
+  List<Widget> _multiSelectActions() => [
+        Tooltip(
+          message: "Select All".tl,
+          child: IconButton(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 20),
+            onPressed: selectAll,
+          ),
+        ),
+        Tooltip(
+          message: "Delete".tl,
+          child: IconButton(
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedDelete01,
+              size: 20,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: _deleteSelected,
+          ),
+        ),
+        MenuButton(
+          entries: [
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedFlipHorizontal, size: 18),
+              text: "Invert Selection".tl,
+              onClick: invertSelection,
+            ),
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
+              text: "Deselect".tl,
+              onClick: deSelect,
             ),
           ],
         ),
-        child: HugeIcon(
-          icon: fabIcon,
-          size: 24,
-          color: Theme.of(context).colorScheme.onPrimaryContainer,
-        ),
-      ),
-      onSelected: (value) {
-        switch (value) {
-          case 'refresh':
-            _refreshAllHistories();
-            break;
-          case 'multiselect':
-            setState(() => multiSelectMode = true);
-            break;
-          case 'clear':
-            _confirmClearHistory();
-            break;
-          case 'select_all':
-            selectAll();
-            break;
-          case 'deselect':
-            deSelect();
-            break;
-          case 'invert':
-            invertSelection();
-            break;
-          case 'delete':
-            _deleteSelected();
-            break;
-          case 'exit':
-            setState(() {
+        Tooltip(
+          message: "Exit Multi-Select".tl,
+          child: IconButton(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 20),
+            onPressed: () => setState(() {
               multiSelectMode = false;
               selectedComics.clear();
-            });
-            break;
-        }
+            }),
+          ),
+        ),
+      ];
+
+  /// Scroll-to-top FAB，样式与发现页完全一致（统一组件）。
+  Widget _buildScrollTopFab() {
+    return ScrollTopFab(
+      avoidNavBar: true,
+      heroTag: 'historyScrollTopFab',
+      onPressed: () {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
       },
-      itemBuilder: (context) => multiSelectMode
-          ? [
-              PopupMenuItem(
-                value: 'select_all',
-                child: Text('Select All'.tl),
-              ),
-              PopupMenuItem(
-                value: 'deselect',
-                child: Text('Deselect'.tl),
-              ),
-              PopupMenuItem(
-                value: 'invert',
-                child: Text('Invert Selection'.tl),
-              ),
-              PopupMenuItem(
-                value: 'delete',
-                child: Text('Delete'.tl),
-              ),
-              PopupMenuItem(
-                value: 'exit',
-                child: Text('Exit Multi-Select'.tl),
-              ),
-            ]
-          : [
-              PopupMenuItem(
-                value: 'refresh',
-                child: Text('Refresh All Histories'.tl),
-              ),
-              PopupMenuItem(
-                value: 'multiselect',
-                child: Text('Multi-Select'.tl),
-              ),
-              PopupMenuItem(
-                value: 'clear',
-                child: Text('Clear History'.tl),
-              ),
-            ],
     );
   }
-
   void _deleteSelected() {
     if (selectedComics.isEmpty) return;
     final comicsToDelete = List<History>.from(selectedComics.keys);

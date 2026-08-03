@@ -430,7 +430,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       update();
     } catch (e, stackTrace) {
       Log.error("Image Favorite", e, stackTrace);
-      showToast(message: e.toString(), context: context, seconds: 1);
+      showToast(message: "Failed to favorite image".tl, context: context, seconds: 1);
     }
   }
 
@@ -855,10 +855,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           seconds: 1,
         );
       }
-    } catch (e) {
+    } catch (e, s) {
       if (!mounted) return;
+      Log.error("Update cover", e, s);
       showToast(
-        message: e.toString(),
+        message: "Failed to update cover".tl,
         context: context,
         seconds: 1,
       );
@@ -1494,8 +1495,9 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
       } else {
         showToast(message: "Failed to load image".tl, context: context);
       }
-    } catch (e) {
-      if (mounted) showToast(message: e.toString(), context: context);
+    } catch (e, s) {
+      Log.error("Load reader image", e, s);
+      if (mounted) showToast(message: "Failed to load image".tl, context: context);
     } finally {
       if (mounted) setState(() => _loading.remove(index));
     }

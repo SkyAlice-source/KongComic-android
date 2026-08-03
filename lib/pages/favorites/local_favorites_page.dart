@@ -4,9 +4,11 @@ const _localAllFolderLabel = '^_^[%local_all%]^_^';
 
 
 class _LocalFavoritesPage extends StatefulWidget {
-  const _LocalFavoritesPage({required this.folder, super.key});
+  const _LocalFavoritesPage({required this.folder, required this.controller, super.key});
 
   final String folder;
+
+  final ScrollController controller;
 
   @override
   State<_LocalFavoritesPage> createState() => _LocalFavoritesPageState();
@@ -198,7 +200,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
   @override
   void dispose() {
     LocalFavoritesManager().removeListener(updateComics);
-    scrollController.dispose();
     super.dispose();
   }
 
@@ -280,8 +281,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
       );
     }
   }
-
-  var scrollController = ScrollController();
 
   /// Build menu entries for a comic tile.
   List<MenuEntry> _buildMenuEntries(Comic c) {
@@ -415,7 +414,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
     }
 
     Widget body = SmoothCustomScrollView(
-      controller: scrollController,
+      controller: widget.controller,
       slivers: [
         if (!searchMode && !multiSelectMode)
           SliverAppbar(
@@ -812,7 +811,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
     );
     body = AppScrollBar(
       topPadding: 48,
-      controller: scrollController,
+      controller: widget.controller,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
         child: body,

@@ -57,8 +57,9 @@ Future<void> newFolder() async {
                       LocalFavoritesManager().createFolder(controller.text);
                       context.pop();
                       context.showMessage(message: "Created successfully".tl);
-                    } catch (e) {
-                      context.showMessage(message: e.toString());
+                    } catch (e, s) {
+                      Log.error("Create folder", e, s);
+                      context.showMessage(message: "Failed to create folder".tl);
                     }
                   }
                 },

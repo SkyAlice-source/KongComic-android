@@ -170,8 +170,10 @@ class _BannerState extends State<_Banner> {
                   setState(() { _currentIndex = next; widget.currentComicNotifier.value = _comics[_currentIndex]; _startTimer(); });
                 }
               },
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
+                child: AnimatedSwitcher(
+                duration: kcReduceMotion(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 300),
                 switchInCurve: Curves.easeOut,
                 switchOutCurve: Curves.easeIn,
                 transitionBuilder: (child, animation) {
@@ -488,8 +490,8 @@ class _HomeHintsState extends State<_HomeHints> {
     }
 
     final shown = <String>[
-      "前往「漫画源」添加源，发现更多精彩内容".tl,
-      "还没有本地漫画？点击上方「本地」添加漫画文件夹".tl,
+      'Go to "Comic Source" to add sources and discover more.'.tl,
+      'No local comics yet? Tap "Local" above to add a comic folder.'.tl,
     ].take(2).toList();
 
     return SliverToBoxAdapter(

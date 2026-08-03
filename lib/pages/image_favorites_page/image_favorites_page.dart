@@ -283,7 +283,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
             child: EmptyState(
               icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
               title: "No image favorites".tl,
-              subtitle: "长按漫画图片收藏，图片会保存在这里".tl,
+              subtitle: 'Long-press a comic image to favorite it; images are saved here.'.tl,
             ),
           )
         else

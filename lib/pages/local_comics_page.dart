@@ -366,7 +366,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
           PaginatedSliverGridComics(
             key: _gridKey,
             pageLoader: _loadPage,
-            emptySubtitle: "还没有本地漫画？点击右上角 + 添加文件夹",
+            emptySubtitle: 'No local comics yet? Tap + at the top right to add a folder.'.tl,
             selections: selectedComics,
             onLoadedComicsChanged: (comics) {
               _loadedComics = comics.cast<LocalComic>();
@@ -608,7 +608,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
       }
     } catch (e, s) {
       Log.error("Export Comics", e, s);
-      context.showMessage(message: e.toString());
+      context.showMessage(message: "Failed to export comics".tl);
       loadingController.close();
       return;
     } finally {
