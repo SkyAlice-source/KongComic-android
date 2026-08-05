@@ -114,13 +114,13 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                       color: isCurrent
                           ? context.colorScheme.primaryContainer.withValues(alpha: 0.5)
                           : context.colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(kcCardRadius),
                       child: InkWell(
                         onTap: () => state.read(i + 1),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(kcCardRadius),
                         child: Container(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(kcCardRadius),
                             border: Border.all(
                               color: isCurrent
                                   ? context.colorScheme.primary
@@ -339,13 +339,13 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                       color: isCurrent
                           ? context.colorScheme.primaryContainer.withValues(alpha: 0.5)
                           : context.colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(kcCardRadius),
                       child: InkWell(
                         onTap: () => state.read(chapterIndex + 1),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(kcCardRadius),
                         child: Container(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(kcCardRadius),
                             border: Border.all(
                               color: isCurrent
                                   ? context.colorScheme.primary

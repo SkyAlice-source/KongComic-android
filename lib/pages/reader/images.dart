@@ -371,7 +371,7 @@ class _GalleryModeState extends State<_GalleryMode>
                 ),
                 fit: _getImageFit(),
                 errorBuilder: (_, error, s, retry) {
-                  return NetworkError(message: error.toString(), retry: retry);
+                  return NetworkError(message: "Failed to load image".tl, retry: retry);
                 },
               );
             }

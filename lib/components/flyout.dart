@@ -181,9 +181,9 @@ class FlyoutContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return IntrinsicWidth(
       child: BlurEffect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kcRadius8),
         child: Material(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(kcRadius8),
           type: MaterialType.card,
           color: context.colorScheme.surface.toOpacity(0.82),
           child: Container(
@@ -192,7 +192,7 @@ class FlyoutContent extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(kcRadius8),
               border: context.brightness == ui.Brightness.dark
                   ? Border.all(color: context.colorScheme.outlineVariant)
                   : null,
@@ -203,7 +203,7 @@ class FlyoutContent extends StatelessWidget {
               children: [
                 Text(title,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
+                        fontWeight: FontWeight.bold, fontSize: kcSubtitle)),
                 if (content != null) content!,
                 const SizedBox(
                   height: 12,

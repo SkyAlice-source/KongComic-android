@@ -4,6 +4,14 @@ String _prettifyErrorMessage(String raw) {
   var msg = raw.replaceFirst(RegExp(r'^DioException\s*\[[^\]]+\]:\s*'), '');
   msg = msg.replaceFirst(RegExp(r'^Error:\s*SocketException:\s*'), '');
 
+  // 统一处理 "Invalid Status Code: 410" / "Invalid status code: 410"
+  final invalidStatusMatch =
+      RegExp(r'Invalid\s+[Ss]tatus\s+[Cc]ode:\s*(\d{3})').firstMatch(msg);
+  if (invalidStatusMatch != null) {
+    final code = int.tryParse(invalidStatusMatch.group(1)!);
+    return _friendlyHttpStatus(code);
+  }
+
   if (msg.contains('Connection reset by peer') ||
       msg.contains('连接被重置') ||
       msg.contains('Connection reset')) {
@@ -29,10 +37,34 @@ String _prettifyErrorMessage(String raw) {
   if (msg.contains('HTTP')) {
     final status = RegExp(r'HTTP[^\s]*\s+(\d+)').firstMatch(msg);
     if (status != null) {
-      return "Server returned @code".tlParams({"code": status.group(1) ?? '??'});
+      final code = int.tryParse(status.group(1)!);
+      return _friendlyHttpStatus(code);
     }
   }
   return msg;
+}
+
+String _friendlyHttpStatus(int? code) {
+  if (code == null) return "Network Error".tl;
+  if (code >= 500) {
+    return "This is server-side error, please try again later. Do not report this issue."
+        .tl;
+  }
+  final messages = <int, String>{
+    400: "The Request is invalid.".tl,
+    401: "The Request is unauthorized.".tl,
+    402: "Payment required.".tl,
+    403: "No permission to access the resource. Check your account or network.".tl,
+    404: "Not found.".tl,
+    405: "Method not allowed.".tl,
+    406: "Not acceptable.".tl,
+    408: "Request timeout.".tl,
+    409: "Conflict.".tl,
+    410: "The resource has been removed.".tl,
+    429: "Too many requests. Please try again later.".tl,
+  };
+  return messages[code] ??
+      "Server returned @code".tlParams({"code": code.toString()});
 }
 
 /// 统一加载指示器 —— 应用默认加载态的唯一实现。
@@ -81,61 +113,76 @@ class NetworkError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var cfe = CloudflareException.fromString(message);
+    final cs = context.colorScheme;
+    final displayMessage = _prettifyErrorMessage(
+      cfe == null ? message : "Cloudflare verification required".tl,
+    );
     Widget body = Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 28, color: context.colorScheme.error),
-                const SizedBox(width: 8),
-                Text(
-                  "Error".tl,
-                  style: ts.withColor(context.colorScheme.error).s16,
-                ),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedAlertCircle,
+              size: 44,
+              color: cs.error,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _prettifyErrorMessage(cfe == null ? message : "Cloudflare verification required".tl),
-            textAlign: TextAlign.center,
-            maxLines: 3,
-          ),
-          TextButton(
-            onPressed: () {
-              saveFile(
-                data: utf8.encode(Log().toString()),
-                filename: 'log.txt',
-              );
-            },
-            child: Text("Export logs".tl),
-          ),
-          const SizedBox(height: 8),
-          if (retry != null)
-            if (cfe != null)
-              FilledButton(
-                onPressed: () => passCloudflare(
-                  CloudflareException.fromString(message)!,
-                  retry!,
-                ),
-                child: Text('Verify'.tl),
-              )
-            else
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (action != null)
-                    action!.paddingRight(8),
-                  FilledButton(
-                    onPressed: retry,
-                    child: Text(buttonText ?? 'Retry'.tl),
-                  ),
-                ],
+            const SizedBox(height: 16),
+            Text(
+              "Error".tl,
+              style: TextStyle(
+                fontSize: kcSubtitle,
+                fontWeight: FontWeight.w600,
+                color: cs.error,
               ),
-        ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              displayMessage,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: kcBody,
+                color: cs.onSurfaceVariant,
+                height: 1.4,
+              ),
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 24),
+            if (retry != null)
+              if (cfe != null)
+                FilledButton(
+                  onPressed: () => passCloudflare(
+                    CloudflareException.fromString(message)!,
+                    retry!,
+                  ),
+                  child: Text('Verify'.tl),
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (action != null)
+                      action!.paddingRight(8),
+                    FilledButton.tonal(
+                      onPressed: retry,
+                      child: Text(buttonText ?? 'Retry'.tl),
+                    ),
+                  ],
+                ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                saveFile(
+                  data: utf8.encode(Log().toString()),
+                  filename: 'log.txt',
+                );
+              },
+              child: Text("Export logs".tl),
+            ),
+          ],
+        ),
       ),
     );
     if (withAppbar) {
@@ -146,7 +193,7 @@ class NetworkError extends StatelessWidget {
         ],
       );
     }
-  return Material(child: body);
+    return Material(child: body);
   }
 }
 

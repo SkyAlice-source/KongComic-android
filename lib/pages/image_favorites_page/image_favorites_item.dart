@@ -114,10 +114,10 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
           color: Theme.of(context).colorScheme.outlineVariant,
           width: 0.6,
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kcRadius8),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kcRadius8),
         onSecondaryTapDown: onSecondaryTap,
         onLongPress: onLongPress,
         onTap: () {
@@ -169,12 +169,12 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
       onLongPress: () {
         goPhotoView(image);
       },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(kcRadius8),
       child: Container(
         width: 98,
         height: 128,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(kcRadius8),
           color: isSelected
               ? Theme.of(context).colorScheme.primaryContainer
               : null,
@@ -185,7 +185,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
             Container(
               height: 128,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kcRadius8),
                 color: Theme.of(context).colorScheme.secondaryContainer,
               ),
               clipBehavior: Clip.antiAlias,
@@ -220,7 +220,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
             widget.imageFavoritesComic.title,
             style: const TextStyle(
               fontWeight: FontWeight.w500,
-              fontSize: 16.0,
+              fontSize: kcSubtitle,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -231,7 +231,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(kcRadius8),
           ),
           child: Text(
               "${imageFavorites.length}/${widget.imageFavoritesComic.maxPageFromEp}",
@@ -263,7 +263,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
           "$time | ${comicSource?.name ?? "Unknown"}",
           textAlign: TextAlign.left,
           style: const TextStyle(
-            fontSize: 12.0,
+            fontSize: kcCaption,
           ),
         ).paddingRight(8),
         if (tags.isNotEmpty)
@@ -274,7 +274,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                   .join(" "),
               textAlign: TextAlign.right,
               style: const TextStyle(
-                fontSize: 12.0,
+                fontSize: kcCaption,
                 overflow: TextOverflow.ellipsis,
               ),
               maxLines: 1,

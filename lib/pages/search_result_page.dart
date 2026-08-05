@@ -334,14 +334,14 @@ class _SuggestionsState extends State<_Suggestions> {
               Text(
                 subTitle,
                 style: TextStyle(
-                    fontSize: 14, color: Theme.of(context).colorScheme.outline),
+                    fontSize: kcBody, color: Theme.of(context).colorScheme.outline),
               )
           ],
         ),
         subtitle: (showMethod && showTranslation) ? Text(subTitle) : null,
         trailing: Text(
           value.right.name,
-          style: const TextStyle(fontSize: 13),
+          style: const TextStyle(fontSize: kcFont13),
         ),
         onTap: () => onSelected(value.left, value.right),
       );
@@ -355,7 +355,7 @@ class _SuggestionsState extends State<_Suggestions> {
           trailing: Tooltip(
             message: "Clear".tl,
             child: IconButton(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
               onPressed: () {
                 widget.controller.suggestions.clear();
                 widget.controller.remove();

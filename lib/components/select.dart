@@ -22,7 +22,7 @@ class Select extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: context.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(kcRadius4),
       ),
       child: InkWell(
         onTap: () {
@@ -274,12 +274,12 @@ class OptionChip extends StatelessWidget {
         border: isSelected
             ? Border.all(color: context.colorScheme.secondaryContainer)
             : Border.all(color: context.colorScheme.outline),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kcRadius8),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(kcRadius8),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

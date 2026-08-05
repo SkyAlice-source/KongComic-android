@@ -272,6 +272,14 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                     onPressed: openChapterComments,
                   ),
                 ),
+              if (context.reader.widget.forCoverSelection)
+                Tooltip(
+                  message: "Set as Cover".tl,
+                  child: IconButton(
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedImage02, size: 20),
+                    onPressed: pickPageForCover,
+                  ),
+                ),
               Tooltip(
                 message: "Settings".tl,
                 child: IconButton(
@@ -447,8 +455,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         message: "Collect the image".tl,
         child: IconButton(
           icon: isLiked()
-              ? HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 20, color: Colors.red)
-              : HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 20),
+              ? HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20, color: Colors.red)
+              : HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
           onPressed: addImageFavorite,
         ),
       ),
@@ -540,13 +548,6 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           ),
         ),
       Tooltip(
-        message: "Set as Cover".tl,
-        child: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedImage02, size: 20),
-          onPressed: setAsCover,
-        ),
-      ),
-      Tooltip(
         message: "Save Image".tl,
         child: IconButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 20),
@@ -555,7 +556,10 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       ),
       Tooltip(
         message: "Share".tl,
-        child: IconButton(icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 20), onPressed: share),
+        child: IconButton(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 20),
+          onPressed: share,
+        ),
       ),
     ];
 
@@ -602,7 +606,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                       padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.tertiaryContainer,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(kcRadius8),
                       ),
                       child: Center(
                         child: Text(
@@ -618,7 +622,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                     if (!small)
                       Material(
                         color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(kcRadius20),
                         clipBehavior: Clip.antiAlias,
                         child: button.paddingHorizontal(4),
                       )
@@ -664,6 +668,14 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   Widget buildSlider() {
     final displayPage = context.reader.page.clamp(1, context.reader.maxPage);
     final maxPage = context.reader.maxPage;
+    var epName =
+        context.reader.widget.chapters?.titles.elementAtOrNull(
+          context.reader.chapter - 1,
+        ) ??
+        "E${context.reader.chapter}";
+    if (epName.length > 10) {
+      epName = "${epName.substring(0, 10)}...";
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: SizedBox(
@@ -675,6 +687,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           max: maxPage.clamp(displayPage, 1 << 16).toDouble(),
           reversed: isReversed,
           divisions: (maxPage - 1).clamp(2, 1 << 16),
+          chapterText: epName,
           onChanged: (i) {
             context.reader.toPage(i.toInt());
           },
@@ -707,7 +720,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           Text(
             text,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: kcBody,
               foreground: Paint()
                 ..style = PaintingStyle.stroke
                 ..strokeWidth = 1.4
@@ -717,7 +730,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           Text(
             text,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: kcBody,
               color: Colors.white,
               shadows: [
                 Shadow(
@@ -826,6 +839,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             cid: context.reader.cid,
             eid: context.reader.eid,
             currentPage: (context.reader.page - 1).clamp(0, images.length - 1),
+            title: "Select Cover".tl,
           ),
         ),
       );
@@ -848,6 +862,65 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           seconds: 1,
         );
         update();
+      } else {
+        showToast(
+          message: "Failed to update cover".tl,
+          context: context,
+          seconds: 1,
+        );
+      }
+    } catch (e, s) {
+      if (!mounted) return;
+      Log.error("Update cover", e, s);
+      showToast(
+        message: "Failed to update cover".tl,
+        context: context,
+        seconds: 1,
+      );
+    }
+  }
+
+  /// Opens the image picker from within the reader (cover-selection mode)
+  /// and pops the reader after a successful cover update.
+  void pickPageForCover() async {
+    try {
+      final images = context.reader.images;
+      if (images == null || images.isEmpty) {
+        showToast(message: "No images available".tl, context: context);
+        return;
+      }
+
+      final result = await Navigator.of(context).push<_ImagePickerResult?>(
+        MaterialPageRoute(
+          builder: (_) => _ChapterImagePickerPage(
+            images: images,
+            sourceKey: context.reader.type.sourceKey,
+            cid: context.reader.cid,
+            eid: context.reader.eid,
+            currentPage: (context.reader.page - 1).clamp(0, images.length - 1),
+            title: "Select Cover".tl,
+          ),
+        ),
+      );
+
+      if (!mounted || result == null) return;
+      final data = result.data!;
+
+      final success = await CustomCoverManager.setCustomCover(
+        context.reader.type.sourceKey,
+        context.reader.cid,
+        null,
+        data: data,
+      );
+
+      if (!mounted) return;
+      if (success) {
+        showToast(
+          message: "Cover updated successfully".tl,
+          context: context,
+          seconds: 1,
+        );
+        Navigator.of(context).pop();
       } else {
         showToast(
           message: "Failed to update cover".tl,
@@ -966,7 +1039,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(kcRadius16),
           ),
           child: lastValue == 1
               ? HugeIcon(
@@ -987,7 +1060,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           height: 58,
           child: Material(
             color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(kcRadius16),
             elevation: 2,
             child: InkWell(
               onTap: () {
@@ -998,7 +1071,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                 }
                 setFloatingButton(0);
               },
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(kcRadius16),
               child: Center(
                 child: _getArrowIcon(
                   isReversed,
@@ -1282,7 +1355,7 @@ class _BatteryWidgetState extends State<_BatteryWidget> {
             Text(
               '$batteryLevel%',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: kcBody,
                 foreground: Paint()
                   ..style = PaintingStyle.stroke
                   ..strokeWidth = 1.4
@@ -1339,7 +1412,7 @@ class _ClockWidgetState extends State<_ClockWidget> {
         Text(
           _currentTime,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: kcBody,
             foreground: Paint()
               ..style = PaintingStyle.stroke
               ..strokeWidth = 1.4
@@ -1382,7 +1455,7 @@ class _ChapterImagePickerPage extends StatefulWidget {
     required this.cid,
     required this.eid,
     required this.currentPage,
-    this.title = "Select Cover Image",
+    this.title = "Select Cover",
     this.allowSelectAll = false,
   });
 
@@ -1562,6 +1635,40 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     }
   }
 
+  /// Multi-select: set the single selected image as comic cover.
+  Future<void> _setCoverSelected() async {
+    if (_selected.length != 1) return;
+    final index = _selected.first;
+    Uint8List? data = _loadedImages[index];
+    if (data == null && _cachedLoaded.contains(index)) {
+      data = await _loadImage(index);
+    }
+    if (data == null) {
+      await _loadOnDemand(index, autoSelect: false);
+      data = _loadedImages[index];
+    }
+    if (!mounted || data == null) {
+      showToast(message: "Failed to load image".tl, context: context);
+      return;
+    }
+    try {
+      final success = await CustomCoverManager.setCustomCover(
+        widget.sourceKey,
+        widget.cid,
+        null,
+        data: data,
+      );
+      if (!mounted) return;
+      if (success) {
+        showToast(message: "Cover updated successfully".tl, context: context, seconds: 1);
+      } else {
+        showToast(message: "Failed to update cover".tl, context: context, seconds: 1);
+      }
+    } catch (e) {
+      if (mounted) showToast(message: "Failed to update cover".tl, context: context, seconds: 1);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1571,10 +1678,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
         backgroundColor: Theme.of(context).colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: const CloseButton(),
         actions: null,
       ),
       body: Stack(
@@ -1668,11 +1772,11 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
                     color: Theme.of(context).colorScheme.primary,
                     width: 2.5,
                   ),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(kcRadius6),
                 )
               : null,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(kcRadius6),
             child: Image.memory(data, fit: BoxFit.cover),
           ),
         ),
@@ -1696,7 +1800,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
                     width: 2.5,
                   )
                 : null,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(kcRadius6),
           ),
           child: Center(
             child: loading
@@ -1708,7 +1812,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
                 : Text(
                     "${index + 1}",
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: kcSubtitle,
                       color: Theme.of(context).colorScheme.outline,
                     ),
                   ),
@@ -1727,11 +1831,11 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
           decoration: BoxDecoration(
             color: Colors.black54,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(kcRadius4),
           ),
           child: Text(
             "$page",
-            style: const TextStyle(color: Colors.white, fontSize: 11),
+            style: const TextStyle(color: Colors.white, fontSize: kcFont11),
           ),
         ),
       );
@@ -1743,13 +1847,13 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(kcRadius4),
           ),
           child: Text(
             "Current".tl,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onPrimary,
-              fontSize: 10,
+              fontSize: kcFont10,
             ),
           ),
         ),
@@ -1787,50 +1891,82 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
                 child: Text(
                   count == 0
                       ? "".tl
-                      : "@count / @total selected"
-                          .tlParams({"count": count, "total": total}),
-                  style: Theme.of(context).textTheme.bodySmall,
+                      : "@count/@total".tlParams({"count": count, "total": total}),
+                  style: TextStyle(
+                    fontSize: kcCaption,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const Spacer(),
-              // Select All / Clear button (compact)
-              TextButton(
-                onPressed: () => setState(() {
-                  if (allSelected) {
-                    _selected.clear();
-                  } else {
-                    _selected.addAll(List.generate(total, (i) => i));
-                  }
-                }),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              // Unified tonal pill style for all three action buttons
+              if (count == 1)
+                SizedBox(
+                  height: 32,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _setCoverSelected(),
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedImage02,
+                      size: 14,
+                    ),
+                    label: Text(
+                      "Set as Cover".tl,
+                      style: const TextStyle(fontSize: kcCaption),
+                    ),
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
                 ),
-                child: Text(
-                  allSelected ? "Clear".tl : "Select All".tl,
-                  style: const TextStyle(fontSize: 13),
+              if (count == 1) const SizedBox(width: 4),
+              // Select All / Clear button
+              SizedBox(
+                height: 32,
+                child: FilledButton.tonal(
+                  onPressed: () => setState(() {
+                    if (allSelected) {
+                      _selected.clear();
+                    } else {
+                      _selected.addAll(List.generate(total, (i) => i));
+                    }
+                  }),
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    allSelected ? "Clear".tl : "Select All".tl,
+                    style: const TextStyle(fontSize: kcCaption),
+                  ),
                 ),
               ),
               const SizedBox(width: 4),
-              // Share button (compact)
-              FilledButton.icon(
-                onPressed: count == 0 ? null : _shareSelected,
-                icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedShare01,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onPrimary,
-                ),
-                label: Text(
-                  "Share (@count)".tlParams({"count": count}),
-                  style: const TextStyle(fontSize: 13),
-                ),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              // Share button
+              SizedBox(
+                height: 32,
+                child: FilledButton.tonalIcon(
+                  onPressed: count == 0 ? null : _shareSelected,
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedShare01,
+                    size: 14,
+                  ),
+                  label: Text(
+                    "Share (@count)".tlParams({"count": count}),
+                    style: const TextStyle(fontSize: kcCaption),
+                  ),
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                 ),
               ),
             ],

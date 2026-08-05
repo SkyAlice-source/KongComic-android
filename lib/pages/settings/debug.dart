@@ -47,7 +47,7 @@ class DebugPageState extends State<DebugPage> {
               const SizedBox(height: 8),
               Text(
                 "JS Evaluator".tl,
-                style: const TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: kcSubtitle),
               ).toAlign(Alignment.centerLeft).paddingLeft(16),
               Container(
                 width: double.infinity,
@@ -61,7 +61,7 @@ class DebugPageState extends State<DebugPage> {
                   textAlignVertical: TextAlignVertical.top,
                   decoration: InputDecoration(
                     border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.all(8),
+                    contentPadding: const EdgeInsets.all(kcSpaceSm),
                   ),
                 ),
               ),
@@ -82,7 +82,7 @@ class DebugPageState extends State<DebugPage> {
               ).toAlign(Alignment.centerRight).paddingRight(16),
               Text(
                 "Result".tl,
-                style: const TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: kcSubtitle),
               ).toAlign(Alignment.centerLeft).paddingLeft(16),
               Container(
                 width: double.infinity,
@@ -90,7 +90,7 @@ class DebugPageState extends State<DebugPage> {
                 margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 decoration: BoxDecoration(
                   border: Border.all(color: context.colorScheme.outline),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(kcRadius4),
                 ),
                 child: SingleChildScrollView(
                   child: Text(result).paddingAll(4),

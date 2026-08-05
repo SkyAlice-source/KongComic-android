@@ -210,7 +210,7 @@ class _CategoryPage extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 5, 10),
       child: Text(
         title.tl,
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+        style: const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -222,7 +222,7 @@ class _CategoryPage extends StatelessWidget {
         children: [
           Text(
             title.tl,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w500),
           ),
           const Spacer(),
           IconButton(onPressed: onRefresh, icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18)),
@@ -250,20 +250,54 @@ class _CategoryPage extends StatelessWidget {
     });
   }
 
+  /// 基于标签名哈希生成柔和彩色，饱和度适中确保浅色底可读
+  static final List<Color> _tagPalette = [
+    const Color(0xFFBBDEFB), // 蓝 (更饱和)
+    const Color(0xFFF8BBD0), // 粉
+    const Color(0xFFC8E6C9), // 绿
+    const Color(0xFFFFCC80), // 橙
+    const Color(0xFFE1BEE7), // 紫
+    const Color(0xFF80DEEA), // 青
+    const Color(0xFFFFAB91), // 珊瑚/红
+    const Color(0xFFDCEDC8), // 浅绿
+    const Color(0xFFFFE082), // 黄
+    const Color(0xFFD1C4E9), // 深紫
+    const Color(0xFFB2DFDB), // 蓝灰
+    const Color(0xFFFFCDD2), // 暖红
+  ];
+
+  static Color _colorForTag(String label) {
+    var hash = label.hashCode.abs();
+    return _tagPalette[hash % _tagPalette.length];
+  }
+
   Widget buildTag(String label, VoidCallback onClick) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: Builder(
         builder: (context) {
           return Material(
-            borderRadius: const BorderRadius.all(Radius.circular(8)),
-            color: context.colorScheme.primaryContainer.toOpacity(0.72),
+            borderRadius: BorderRadius.circular(kcRadius8),
+            color: _colorForTag(label),
             child: InkWell(
-              borderRadius: const BorderRadius.all(Radius.circular(8)),
+              borderRadius: BorderRadius.circular(kcRadius8),
               onTap: onClick,
-              child: Padding(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(kcRadius8),
+                  border: Border.all(
+                    color: _colorForTag(label).withValues(alpha: 0.35),
+                    width: 0.5,
+                  ),
+                ),
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(label),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: kcBody,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85),
+                  ),
+                ),
               ),
             ),
           );

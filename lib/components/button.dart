@@ -172,7 +172,7 @@ class _ButtonState extends State<Button> {
       child: DefaultTextStyle(
         style: TextStyle(
           color: textColor,
-          fontSize: 14,
+          fontSize: kcBody,
         ),
         child: isLoading
             ? CircularProgressIndicator(
@@ -213,7 +213,7 @@ class _ButtonState extends State<Button> {
           ),
           decoration: BoxDecoration(
             color: buttonColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(kcRadius16),
             boxShadow: (isHover && !isLoading && (widget.type == ButtonType.filled || widget.type == ButtonType.normal))
                 ? [
                     BoxShadow(
@@ -356,7 +356,7 @@ class _IconButtonState extends State<_IconButton> {
                   : null,
               borderRadius: BorderRadius.circular((iconSize + 12) / 2),
             ),
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(kcSpaceXxs),
             child: icon,
           ),
         ),

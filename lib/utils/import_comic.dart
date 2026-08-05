@@ -32,7 +32,7 @@ class ImportComic {
       imported[selectedFolder] = [comic];
     } catch (e, s) {
       Log.error("Import Comic", e.toString(), s);
-      App.rootContext.showMessage(message: e.toString());
+      App.rootContext.showMessage(message: "Failed to import comic".tl);
     }
     controller.close();
     return registerComics(imported, false);
@@ -165,7 +165,7 @@ class ImportComic {
       await File(cache).deleteIgnoreError();
     } catch (e, s) {
       Log.error("Import Comic", e.toString(), s);
-      App.rootContext.showMessage(message: e.toString());
+      App.rootContext.showMessage(message: "Failed to import comic".tl);
     }
     controller.close();
     if (cancelled) return false;
@@ -232,7 +232,7 @@ class ImportComic {
       return registerComics(imported, false);
     } catch (e, s) {
       Log.error("Import Comic", e.toString(), s);
-      App.rootContext.showMessage(message: e.toString());
+      App.rootContext.showMessage(message: "Failed to import comic".tl);
       controller.close();
       return false;
     }
@@ -272,7 +272,7 @@ class ImportComic {
       }
     } catch (e, s) {
       Log.error("Import Comic", e.toString(), s);
-      App.rootContext.showMessage(message: e.toString());
+      App.rootContext.showMessage(message: "Failed to import comic".tl);
     }
     controller.close();
     if (cancelled) return false;

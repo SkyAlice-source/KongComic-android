@@ -320,7 +320,7 @@ class _BodyState extends State<_Body> {
       await addSource(res.data!, fileName);
     } catch (e, s) {
       if (cancel) return;
-      context.showMessage(message: e.toString());
+      context.showMessage(message: "Failed to add source".tl);
       Log.error("Add comic source", "$e\n$s");
     }
   }
@@ -420,7 +420,7 @@ class _ComicSourceListState extends State<_ComicSourceList> {
                 color: Theme.of(context).colorScheme.outlineVariant,
                 width: 0.6,
               ),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(kcRadius8),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -824,15 +824,15 @@ class _SliverComicSourceState extends State<_SliverComicSource> {
                 Text(source.name, style: ts.s18),
                 const SizedBox(width: 6),
                 if (source.account != null) ...[
-                  AppBadge("需登录", type: AppBadgeType.info, fontSize: 13),
+                  AppBadge("需登录", type: AppBadgeType.info, fontSize: kcFont13),
                   const SizedBox(width: 6),
                 ],
-                AppBadge(source.version, type: AppBadgeType.neutral, fontSize: 13),
+                AppBadge(source.version, type: AppBadgeType.neutral, fontSize: kcFont13),
                 if (hasUpdate) ...[
                   const SizedBox(width: 6),
                   Tooltip(
                     message: newVersion,
-                    child: AppBadge("New Version".tl, type: AppBadgeType.warning, fontSize: 13),
+                    child: AppBadge("New Version".tl, type: AppBadgeType.warning, fontSize: kcFont13),
                   ),
                 ],
               ],
@@ -1093,13 +1093,13 @@ class _LoginPageState extends State<_LoginPage> {
       appBar: const Appbar(title: Text('')),
       body: Center(
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(kcSpaceLg),
           constraints: const BoxConstraints(maxWidth: 400),
           child: AutofillGroup(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Login".tl, style: const TextStyle(fontSize: 24)),
+                Text("Login".tl, style: const TextStyle(fontSize: kcFont24)),
                 const SizedBox(height: 32),
                 if (widget.config.cookieFields == null)
                   TextField(

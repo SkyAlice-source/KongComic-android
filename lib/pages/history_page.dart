@@ -222,7 +222,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     },
                   ),
                   MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                     text: 'Remove'.tl,
                     color: context.colorScheme.error,
                     onClick: () {
@@ -292,7 +292,7 @@ class _HistoryPageState extends State<HistoryPage> {
               onClick: invertSelection,
             ),
             MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
               text: "Deselect".tl,
               onClick: deSelect,
             ),

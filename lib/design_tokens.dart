@@ -34,3 +34,32 @@ BoxShadow kcCardShadow(BuildContext context) {
 /// 系统“减弱动效”开启时返回 true，调用方应将 >150ms 的转场降级为瞬切。
 bool kcReduceMotion(BuildContext context) =>
     MediaQuery.of(context).disableAnimations;
+
+// ── 间距（精确值令牌，覆盖散落字面量，零视觉改动）──────
+const double kcSpaceXs = 4;
+const double kcSpaceXxs = 6;
+const double kcSpaceSm = 8;
+const double kcSpaceMd = 12;
+const double kcSpaceLg = 16;
+
+// ── 圆角（精确值令牌，覆盖散落字面量，零视觉改动）──────
+const double kcRadius3 = 3;
+const double kcRadius4 = 4;
+const double kcRadius6 = 6;
+const double kcRadius8 = 8;
+const double kcRadius10 = 10;
+const double kcRadius11 = 11;
+const double kcRadius16 = 16;
+const double kcRadius18 = 18;
+const double kcRadius20 = 20;
+const double kcRadius22 = 22;
+const double kcRadius24 = 24;
+const double kcRadius32 = 32;
+
+// ── 字号（精确值令牌，覆盖散落字面量，零视觉改动）──────
+const double kcFont10 = 10;
+const double kcFont11 = 11;
+const double kcFont13 = 13;
+const double kcFont15 = 15;
+const double kcFont22 = 22;
+const double kcFont24 = 24;

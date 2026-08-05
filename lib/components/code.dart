@@ -66,7 +66,7 @@ class _CodeEditorState extends State<CodeEditor> {
                   i.toString(),
                   style: TextStyle(
                     color: context.colorScheme.outline,
-                    fontSize: 13,
+                    fontSize: kcFont13,
                     height: 1.0,
                     fontFamily: 'Consolas',
                     fontFamilyFallback: ['Courier New', 'monospace'],
@@ -134,10 +134,10 @@ class _CodeEditorState extends State<CodeEditor> {
                               focusNode: _focusNode,
                               maxLines: null,
                               cursorHeight: 1.5 * 14,
-                              style: TextStyle(height: 1.5, fontSize: 14),
+                              style: TextStyle(height: 1.5, fontSize: kcBody),
                               decoration: InputDecoration(
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.all(8),
+                                contentPadding: EdgeInsets.all(kcSpaceSm),
                               ),
                               onChanged: (value) {
                                 widget.onChanged?.call(value);
@@ -194,7 +194,7 @@ class _CodeTextEditingController extends TextEditingController {
     var result = highlighter.highlight(text);
     style = TextStyle(
       height: 1.5,
-      fontSize: 14,
+      fontSize: kcBody,
       fontFamily: 'Consolas',
       fontFamilyFallback: ['Courier New', 'Roboto Mono', 'monospace'],
     );

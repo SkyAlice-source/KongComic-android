@@ -184,7 +184,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
           tooltip: "Select All".tl,
           onPressed: selectAll),
       IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
           tooltip: "Deselect".tl,
           onPressed: deSelect),
       buildMultiSelectMenu(),
@@ -402,7 +402,7 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
   Widget build(BuildContext context) {
     Widget tabBar = Material(
       color: Theme.of(context).scaffoldBackgroundColor,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(kcRadius8),
       child: AppTabBar(
         key: PageStorageKey(optionTypes),
         tabs: optionTypes.map((e) => Tab(text: e.tl, key: Key(e))).toList(),

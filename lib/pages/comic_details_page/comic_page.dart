@@ -321,7 +321,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       var history = HistoryManager().find(widget.id, ComicType.local);
       if (isFirst) {
         Future.microtask(() {
-          App.rootContext.to(() {
+          App.mainNavigatorKey?.currentContext?.toReplacement(() {
             return Reader(
               type: ComicType.local,
               cid: widget.id,
@@ -337,7 +337,6 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               tags: localComic.tags,
             );
           });
-          App.mainNavigatorKey!.currentContext!.pop();
         });
         isFirst = false;
       }
@@ -388,9 +387,23 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
         child: Text(comic.title),
       ),
       actions: [
-        IconButton(
-          onPressed: showMoreActions,
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 18),
+        // 复制（合并 ID / 标题）
+        Builder(
+          builder: (btnCtx) => IconButton(
+            onPressed: () => _showCopyMenu(btnCtx),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+            tooltip: "Copy".tl,
+          ),
+        ),
+        // 封面（合并 本地 / 漫画页）
+        Builder(
+          builder: (btnCtx) => IconButton(
+            onPressed: () => _showCoverMenu(btnCtx),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
+            tooltip: CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id)
+                ? "Change Cover".tl
+                : "Set Cover".tl,
+          ),
         ),
       ],
     );
@@ -410,7 +423,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               child: Container(
                 decoration: BoxDecoration(
                   color: context.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(kcCardRadius),
                   boxShadow: [
                     BoxShadow(
                       color: context.colorScheme.outlineVariant,
@@ -490,8 +503,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 ),
               if (data!.isLiked != null)
                 _ActionButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 18),
-                  activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 20),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedThumbsUp, size: 18),
+                  activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedThumbsUp, size: 20),
                   isActive: isLiked,
                   text:
                       ((data!.likesCount != null)
@@ -504,7 +517,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 ),
               _ActionButton(
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
-                activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
+                activeIcon: const Icon(Icons.favorite, size: 20, color: Color(0xFFD4381B)),
                 isActive: isFavorite || isAddToLocalFav,
                 text: (isFavorite || isAddToLocalFav) ? 'Favorited'.tl : 'Favorite'.tl,
                 onPressed: openFavPanel,
@@ -552,12 +565,12 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               child: SizedBox(
                 height: 44,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(kcRadius22),
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: continueRead,
-                      borderRadius: BorderRadius.circular(22),
+                      borderRadius: BorderRadius.circular(kcRadius22),
                       child: LayoutBuilder(builder: (context, constraints) {
                     final readPct = (history!.page / history!.maxPage!).clamp(0.0, 1.0);
                     // 构建集数文字
@@ -610,7 +623,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                                 epText,
                                 style: TextStyle(
                                   color: textColor,
-                                  fontSize: 12,
+                                  fontSize: kcCaption,
                                   fontWeight: FontWeight.w600,
                                   shadows: _chapterTextShadow,
                                 ),
@@ -624,7 +637,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                                     .replaceFirst("%s", "P$page/${history!.maxPage}"),
                                 style: TextStyle(
                                   color: textColor.withValues(alpha: 0.85),
-                                  fontSize: 10,
+                                  fontSize: kcFont10,
                                   fontWeight: FontWeight.w500,
                                   shadows: _chapterTextShadow,
                                 ),
@@ -647,7 +660,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               child: SizedBox(
                 height: 22,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(kcRadius11),
                   child: LayoutBuilder(builder: (context, constraints) {
                     final dlPct = _downloadTask!.progress.clamp(0.0, 1.0);
                     return Stack(
@@ -668,7 +681,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                             "Downloading %s".tl.replaceAll("%s", "${(dlPct * 100).toInt()}%"),
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 11,
+                              fontSize: kcFont11,
                               fontWeight: FontWeight.w600,
                               shadows: _chapterTextShadow,
                             ),
@@ -724,37 +737,32 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       VoidCallback? onTap,
       bool isTitle = false,
     }) {
-      Color bgColor;
-      Color textColor;
+      // 统一使用淡彩色 chip 风格（与分类页一致）
+      const infoPalette = [
+        Color(0xFFBBDEFB), // 蓝
+        Color(0xFFF8BBD0), // 粉
+        Color(0xFFC8E6C9), // 绿
+        Color(0xFFFFCC80), // 橙
+        Color(0xFFE1BEE7), // 紫
+        Color(0xFF80DEEA), // 青
+        Color(0xFFFFAB91), // 珊瑚
+        Color(0xFFDCEDC8), // 浅绿
+        Color(0xFFFFE082), // 黄
+        Color(0xFFD1C4E9), // 深紫
+        Color(0xFFB2DFDB), // 蓝灰
+        Color(0xFFFFCDD2), // 暖红
+      ];
+      final colorIndex = (i++) % infoPalette.length;
+      final bgColor = infoPalette[colorIndex];
+      final textColor = Theme.of(context).colorScheme.onSurface.toOpacity(0.85);
+      final borderColor = bgColor.toOpacity(0.35);
 
-      if (isTitle) {
-        const colors = [
-          Colors.blue,
-          Colors.cyan,
-          Colors.red,
-          Colors.pink,
-          Colors.purple,
-          Colors.indigo,
-          Colors.teal,
-          Colors.green,
-          Colors.lime,
-          Colors.yellow,
-        ];
-        var colorIndex = (i++) % (colors.length);
-        bgColor = context.useBackgroundColor(colors[colorIndex]);
-        textColor = context.useTextColor(colors[colorIndex]);
-      } else {
-        bgColor = context.colorScheme.primaryContainer;
-        textColor = context.colorScheme.onPrimaryContainer;
-      }
-
-      final borderRadius = BorderRadius.circular(12);
-
-      const padding = EdgeInsets.symmetric(horizontal: 16, vertical: 6);
+      final borderRadius = BorderRadius.circular(kcRadius8);
+      const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 6);
 
       Widget textWidget = Text(
         text,
-        style: TextStyle(color: textColor, fontSize: 13),
+        style: TextStyle(color: textColor, fontSize: kcFont13),
       ).padding(padding);
 
       if (onTap != null) {
@@ -785,12 +793,22 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 ),
               ]);
             },
-            child: textWidget,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: borderRadius,
+                border: Border.all(color: borderColor, width: 0.5),
+              ),
+              child: textWidget,
+            ),
           ),
         );
       } else {
         return Container(
-          decoration: BoxDecoration(color: bgColor, borderRadius: borderRadius),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: borderRadius,
+            border: Border.all(color: borderColor, width: 0.5),
+          ),
           child: textWidget,
         );
       }
@@ -927,6 +945,62 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     return _CommentsPart(comments: comic.comments!, showMore: showComments);
   }
 
+  void _showCopyMenu(BuildContext context) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final offset = renderBox?.localToGlobal(Offset(renderBox.size.width, renderBox.size.height));
+    showMenuX(
+      context,
+      offset ?? Offset(context.width - 16, kToolbarHeight + context.padding.top),
+      [
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+          text: "Copy Title".tl,
+          onClick: () {
+            Clipboard.setData(ClipboardData(text: comic.title));
+            context.showMessage(message: "Copied".tl);
+          },
+        ),
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+          text: "Copy ID".tl,
+          onClick: () {
+            Clipboard.setData(ClipboardData(text: comic.id));
+            context.showMessage(message: "Copied".tl);
+          },
+        ),
+      ],
+    );
+  }
+
+  void _showCoverMenu(BuildContext context) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final offset = renderBox?.localToGlobal(Offset(renderBox.size.width, renderBox.size.height));
+    showMenuX(
+      context,
+      offset ?? Offset(context.width - 16, kToolbarHeight + context.padding.top),
+      [
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
+          text: "Local Image".tl,
+          onClick: () => _changeCover(context),
+        ),
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
+          text: "From Comic Pages".tl,
+          onClick: () {
+            read(1, 1, null, true);
+          },
+        ),
+        if (CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id))
+          MenuEntry(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+            text: "Restore Default Cover".tl,
+            onClick: () => _restoreCover(context),
+          ),
+      ],
+    );
+  }
+
   void _viewCover(BuildContext context) {
     final imageProvider = CachedImageProvider(
       widget.cover ?? comic.cover,
@@ -1009,7 +1083,7 @@ class _ActionButton extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kcRadius18),
         border: Border.all(
           color: context.colorScheme.outlineVariant,
           width: 0.6,
@@ -1022,7 +1096,7 @@ class _ActionButton extends StatelessWidget {
           }
         },
         onLongPress: onLongPressed,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kcRadius18),
         child: IconTheme.merge(
           data: IconThemeData(size: 20, color: iconColor),
           child: Row(
@@ -1245,7 +1319,7 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: context.colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(kcRadius8),
           boxShadow: [
             BoxShadow(
               color: context.colorScheme.outlineVariant,

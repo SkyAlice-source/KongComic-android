@@ -69,7 +69,7 @@ class _DownloadSettingsState extends State<DownloadSettings> {
             child: Text(
               "Higher thread count speeds up downloads but increases memory and network load. 3-8 is recommended.".tl,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: kcCaption,
                 color: context.colorScheme.onSurfaceVariant,
               ),
             ),

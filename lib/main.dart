@@ -159,22 +159,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   /// 各主题色的种子色。
   ///
-  /// - [red] 使用 Kong Coral 品牌色（提亮到 #E5402A，暗色模式下更清晰、对比更高），
-  ///   与 tab 胶囊指示器、书签徽章统一到同一品牌红，解决此前「双红不一致」问题。
-  /// - 其余颜色从 Flutter 出厂原色（Colors.red 等）替换为更精致、偏 2026 趋势的色相，
-  ///   避免默认 Material 原色过「玩具感」，同时保留足够饱和与明度以保证可读性。
-  Color translateColorSetting() {
+  /// 各主题色的种子色。
+  ///
+  /// - [red] 使用 Kong Coral 品牌色 #E5402A，保留唯一暖红主题。
+  /// - 删除 [orange] 主题：与 red 在色相环上过于接近，造成「双红重复」。
+  /// - secondary 统一采用互补/冷暖对比色，让同一主题内的 primary 与 secondary
+  ///   拉开层次，避免整体看起来「一个颜色」。
+  /// 返回 (primary, secondary) 配色对。
+  (Color, Color) translateColorSetting() {
     return switch (appdata.settings['color']) {
-      'red' => const Color(0xFFE5402A), // Kong Coral 品牌红
-      'pink' => const Color(0xFFE1468C), // 精致玫瑰红
-      'purple' => const Color(0xFF7C5CFC), // 雾紫罗兰
-      'green' => const Color(0xFF1FA971), // 沉静翡翠绿
-      'orange' => const Color(0xFFF2741F), // 暖橘
-      'blue' => const Color(0xFF2D7FF9), // 清爽蓝
-      'yellow' => const Color(0xFFF5B400), // 琥珀黄
-      'cyan' => const Color(0xFF13B5C9), // 青蓝
-      'system' => const Color(0xFF2D7FF9),
-      _ => const Color(0xFF2D7FF9),
+      'red' => (const Color(0xFFE5402A), const Color(0xFF0EA5E9)), // 珊瑚红 + 冰蓝
+      'pink' => (const Color(0xFFE1468C), const Color(0xFF8B5CF6)), // 玫红 + 雾紫
+      'purple' => (const Color(0xFF7C5CFC), const Color(0xFFF97316)), // 罗兰紫 + 暖橘
+      'green' => (const Color(0xFF1FA971), const Color(0xFFF59E0B)), // 翠绿 + 琥珀
+      'blue' => (const Color(0xFF2D7FF9), const Color(0xFFF97316)), // 蔚蓝 + 暖橘
+      'yellow' => (const Color(0xFFF5B400), const Color(0xFF0EA5E9)), // 琥珀黄 + 冰蓝
+      'cyan' => (const Color(0xFF13B5C9), const Color(0xFF8B5CF6)), // 青蓝 + 雾紫
+      'system' => (const Color(0xFF2D7FF9), const Color(0xFFF97316)),
+      _ => (const Color(0xFF2D7FF9), const Color(0xFFF97316)),
     };
   }
 
@@ -255,7 +257,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // AppBar 标题统一降到 20px（仅 AppBar，不影响其它 titleLarge 用途）
       appBarTheme: AppBarTheme(
         titleTextStyle: TextStyle(
-          fontSize: 20,
+          fontSize: kcTitleLarge,
           height: 1.35,
           fontWeight: FontWeight.w500,
         ),
@@ -291,7 +293,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       if (appdata.settings['color'] != 'system' ||
           light == null ||
           dark == null) {
-        primary = translateColorSetting();
+        final scheme = translateColorSetting();
+        primary = scheme.$1;
+        secondary = scheme.$2;
       } else {
         primary = light.primary;
         secondary = light.secondary;

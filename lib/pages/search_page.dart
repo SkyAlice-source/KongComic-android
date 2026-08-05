@@ -113,7 +113,7 @@ class _SearchPageState extends State<SearchPage> {
                 child: Text(
                   "Multiple sources matched".tl,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: kcSubtitle,
                     fontWeight: FontWeight.w500,
                     color: cs.onSurface,
                   ),
@@ -124,7 +124,7 @@ class _SearchPageState extends State<SearchPage> {
                 child: Text(
                   id,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: kcFont13,
                     fontFamily: 'monospace',
                     color: cs.onSurfaceVariant,
                   ),
@@ -141,7 +141,7 @@ class _SearchPageState extends State<SearchPage> {
                     height: 36,
                     decoration: BoxDecoration(
                       color: accentColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(kcRadius8),
                     ),
                     alignment: Alignment.center,
                     child: Text(
@@ -149,7 +149,7 @@ class _SearchPageState extends State<SearchPage> {
                       style: TextStyle(
                         color: sourceColor(colorIndex, cs.brightness),
                         fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                        fontSize: kcSubtitle,
                       ),
                     ),
                   ),
@@ -429,7 +429,7 @@ class _SearchPageState extends State<SearchPage> {
                       color: _selectedSources.length == searchSources.length
                           ? cs.primaryContainer
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(kcRadius6),
                       border: Border.all(
                         color: _selectedSources.length == searchSources.length
                             ? cs.primary.withValues(alpha: 0.3)
@@ -447,7 +447,7 @@ class _SearchPageState extends State<SearchPage> {
                         Text(
                           "ALL".tl,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: kcFont13,
                             fontWeight: FontWeight.w500,
                             color: _selectedSources.length == searchSources.length
                                 ? cs.onPrimaryContainer
@@ -479,7 +479,7 @@ class _SearchPageState extends State<SearchPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: isSelected ? cs.primaryContainer : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(kcRadius6),
                       border: Border.all(
                         color: isSelected
                             ? cs.primary.withValues(alpha: 0.3)
@@ -499,7 +499,7 @@ class _SearchPageState extends State<SearchPage> {
                         Text(
                           source.name,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: kcFont13,
                             fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
                             color: isSelected ? cs.onPrimaryContainer : cs.onSurface,
                           ),
@@ -657,7 +657,7 @@ class _SearchPageState extends State<SearchPage> {
             height: 32,
             decoration: BoxDecoration(
               color: accentColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(kcRadius8),
             ),
             alignment: Alignment.center,
             child: Text(
@@ -665,7 +665,7 @@ class _SearchPageState extends State<SearchPage> {
               style: TextStyle(
                 color: sourceColor(colorIndex, cs.brightness),
                 fontWeight: FontWeight.w600,
-                fontSize: 14,
+                fontSize: kcBody,
               ),
             ),
           ),
@@ -677,7 +677,7 @@ class _SearchPageState extends State<SearchPage> {
             _searchTextController.text,
             maxLines: 1,
             overflow: TextOverflow.fade,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: kcCaption),
           ),
           trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
           onTap: () {
@@ -699,7 +699,7 @@ class _SearchPageState extends State<SearchPage> {
           height: 24,
           decoration: BoxDecoration(
             color: typeColor,
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: BorderRadius.circular(kcRadius3),
           ),
         ),
         title: Row(
@@ -716,7 +716,7 @@ class _SearchPageState extends State<SearchPage> {
               Text(
                 subTitle,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: kcBody,
                   color: Theme.of(context).colorScheme.outline,
                 ),
               )
@@ -726,7 +726,7 @@ class _SearchPageState extends State<SearchPage> {
         trailing: Text(
           value.right.name,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: kcCaption,
             color: typeColor,
             fontWeight: FontWeight.w500,
           ),
@@ -745,7 +745,7 @@ class _SearchPageState extends State<SearchPage> {
             trailing: Tooltip(
               message: "Clear".tl,
               child: IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                 onPressed: () {
                   suggestions.clear();
                   update();
@@ -780,7 +780,7 @@ class _SearchPageState extends State<SearchPage> {
             child: Container(
               height: 40,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(kcRadius20),
                 color: cs.surfaceContainerLow,
               ),
               clipBehavior: Clip.antiAlias,
@@ -791,7 +791,7 @@ class _SearchPageState extends State<SearchPage> {
                   hintText: 'Search'.tl,
                   hintStyle: TextStyle(
                     color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    fontSize: 14,
+                    fontSize: kcBody,
                   ),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -815,7 +815,7 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                 ),
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: kcBody,
                   color: cs.onSurface,
                 ),
                 textInputAction: TextInputAction.search,
@@ -853,7 +853,7 @@ class _SearchPageState extends State<SearchPage> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(kcRadius20),
                 color: cs.primary,
               ),
               child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18, color: cs.onPrimary),
@@ -897,7 +897,7 @@ class SearchOptionWidget extends StatelessWidget {
             child: Text(
               option.label.ts(sourceKey),
               style: TextStyle(
-                fontSize: 13,
+                fontSize: kcFont13,
                 fontWeight: FontWeight.w500,
                 color: cs.onSurfaceVariant,
               ),
@@ -929,7 +929,7 @@ class SearchOptionWidget extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: isSelected ? cs.primaryContainer : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(kcRadius6),
                       border: Border.all(
                         color: isSelected
                             ? cs.primary.withValues(alpha: 0.3)
@@ -940,7 +940,7 @@ class SearchOptionWidget extends StatelessWidget {
                     child: Text(
                       e.value.ts(sourceKey),
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: kcFont13,
                         color: isSelected ? cs.onPrimaryContainer : cs.onSurface,
                         fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
                       ),
@@ -986,7 +986,7 @@ class _SearchHistory extends StatelessWidget {
                 Text(
                   "Search History".tl,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: kcBody,
                     fontWeight: FontWeight.w500,
                     color: cs.onSurfaceVariant,
                   ),
@@ -1000,7 +1000,7 @@ class _SearchHistory extends StatelessWidget {
                     child: Text(
                       "Clear".tl,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: kcFont13,
                         color: cs.primary,
                       ),
                     ),
@@ -1022,7 +1022,7 @@ class _SearchHistory extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: cs.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(kcRadius6),
                       border: Border.all(color: cs.outlineVariant, width: 1),
                     ),
                     child: Row(
@@ -1031,7 +1031,7 @@ class _SearchHistory extends StatelessWidget {
                         Flexible(
                           child: Text(
                             item,
-                            style: TextStyle(fontSize: 13, color: cs.onSurface),
+                            style: TextStyle(fontSize: kcFont13, color: cs.onSurface),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1071,7 +1071,7 @@ class _EmptySearchHint extends StatelessWidget {
             Text(
               "Start typing to search".tl,
               style: TextStyle(
-                fontSize: 15,
+                fontSize: kcFont15,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.6),
               ),
             ),

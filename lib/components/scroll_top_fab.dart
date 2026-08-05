@@ -48,11 +48,16 @@ class ScrollTopFab extends StatelessWidget {
     final colors = scrollTopFabColors(context);
     final fab = FloatingActionButton(
       heroTag: heroTag,
+      mini: true,
       onPressed: onPressed,
       shape: CircleBorder(side: colors.side ?? BorderSide.none),
       backgroundColor: colors.background,
       foregroundColor: colors.foreground,
-      elevation: 2,
+      elevation: 0,
+      highlightElevation: 0,
+      focusElevation: 0,
+      hoverElevation: 0,
+      disabledElevation: 0,
       child: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
     );
     if (avoidNavBar) {

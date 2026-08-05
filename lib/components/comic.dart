@@ -139,7 +139,7 @@ class ComicTile extends StatelessWidget {
           },
         ),
         MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
           text: 'Block'.tl,
           onClick: () => block(context),
         ),
@@ -205,7 +205,7 @@ class ComicTile extends StatelessWidget {
                 text,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 10,
+                  fontSize: kcFont10,
                   fontWeight: FontWeight.w500,
                   height: 1.2,
                 ),
@@ -261,11 +261,28 @@ class ComicTile extends StatelessWidget {
   }
 
   Widget _buildFavoriteBadge(BuildContext context) {
-    return SizedBox(
-      width: 16,
-      height: 24,
-      child: CustomPaint(
-        painter: _BookmarkRibbonPainter(),
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.toOpacity(0.25),
+          width: 0.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.toOpacity(0.08),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.favorite,
+        size: 10,
+        color: Color(0xFFD4381B),
       ),
     );
   }
@@ -276,8 +293,8 @@ class ComicTile extends StatelessWidget {
 
       final favBadge = isFavorite
           ? Positioned(
-              right: 0,
-              top: 0,
+              right: 4,
+              top: 4,
               child: _buildFavoriteBadge(context),
             )
           : null;
@@ -437,7 +454,7 @@ class ComicTile extends StatelessWidget {
                                     ? const EdgeInsets.fromLTRB(4, 2, 4, 2)
                                     : const EdgeInsets.fromLTRB(5, 2, 5, 2),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(kcRadius8),
                               color: Colors.black.toOpacity(0.5),
                             ),
                             constraints: BoxConstraints(
@@ -647,7 +664,7 @@ class _ComicDescription extends StatelessWidget {
           title.trim(),
           style: const TextStyle(
             fontWeight: FontWeight.w500,
-            fontSize: 14.0,
+            fontSize: kcBody,
           ),
           maxLines: maxLines,
           overflow: TextOverflow.ellipsis,
@@ -657,7 +674,7 @@ class _ComicDescription extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(
-                fontSize: 10.0,
+                fontSize: kcFont10,
                 color: context.colorScheme.onSurface.toOpacity(0.7)),
             maxLines: 1,
             softWrap: true,
@@ -694,7 +711,7 @@ class _ComicDescription extends StatelessWidget {
                           color: s == "Unavailable"
                               ? context.colorScheme.errorContainer
                               : context.colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(kcRadius8),
                         ),
                         child: Center(
                           widthFactor: 1,
@@ -702,7 +719,7 @@ class _ComicDescription extends StatelessWidget {
                             enableTranslate
                                 ? TagsTranslation.translateTag(s)
                                 : s.split(':').last,
-                            style: const TextStyle(fontSize: 12),
+                            style: const TextStyle(fontSize: kcCaption),
                             softWrap: true,
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
@@ -727,7 +744,7 @@ class _ComicDescription extends StatelessWidget {
                   Text(
                     description,
                     style: const TextStyle(
-                      fontSize: 12.0,
+                      fontSize: kcCaption,
                     ),
                     maxLines: (tags == null || tags!.isEmpty) ? 3 : 2,
                     overflow: TextOverflow.ellipsis,
@@ -739,7 +756,7 @@ class _ComicDescription extends StatelessWidget {
               AppBadge(
                 "${badge![0].toUpperCase()}${badge!.substring(1).toLowerCase()}",
                 type: AppBadgeType.neutral,
-                fontSize: 12,
+                fontSize: kcCaption,
               ),
           ],
         )
@@ -970,7 +987,7 @@ class _SliverGridComics extends StatelessWidget {
                 : null,
             borderRadius: BorderRadius.circular(kcCardRadius),
           ),
-          margin: const EdgeInsets.all(4),
+          margin: const EdgeInsets.all(kcSpaceXs),
           child: RepaintBoundary(child: comic),
         );
       }, childCount: comics.length),
@@ -1018,7 +1035,7 @@ class _ComicGridSkeleton extends StatelessWidget {
     return GridView.count(
       crossAxisCount: crossAxisCount,
       childAspectRatio: 0.7,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(kcSpaceMd),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
       children: List.generate(12, (_) => const _ShimmerCard()),
@@ -1068,7 +1085,7 @@ class _ShimmerCardState extends State<_ShimmerCard>
             width: double.infinity,
             decoration: BoxDecoration(
               color: base,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(kcRadius4),
             ),
           ),
           const SizedBox(height: 24),
@@ -1210,9 +1227,9 @@ class ComicListState extends State<ComicList> {
           child: Center(
             child: Material(
               color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(kcRadius8),
               child: InkWell(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kcRadius8),
                 onTap: () {
                   String value = '';
                   showDialog(
@@ -1335,7 +1352,7 @@ class ComicListState extends State<ComicList> {
         } catch (e) {
           if (mounted) {
             setState(() {
-              _error = e.toString();
+              _error = "Failed to load comics".tl;
             });
           }
         }
@@ -2047,7 +2064,7 @@ class PaginatedSliverGridComicsState
               }
               return const Center(
                 child: Padding(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(kcSpaceLg),
                   child: SizedBox(
                     width: 24,
                     height: 24,
@@ -2093,9 +2110,9 @@ class PaginatedSliverGridComicsState
                       .secondaryContainer
                       .toOpacity(0.72)
                   : null,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(kcCardRadius),
             ),
-            margin: const EdgeInsets.all(4),
+            margin: const EdgeInsets.all(kcSpaceXs),
             child: RepaintBoundary(child: tile),
           );
         },
@@ -2106,66 +2123,4 @@ class PaginatedSliverGridComicsState
   }
 }
 
-class _BookmarkRibbonPainter extends CustomPainter {
-  const _BookmarkRibbonPainter();
-
-  // 收藏标签配色：Kong Coral 品牌红填充 + 白星
-  // 与全局收藏图标（心形）统一品牌色；珊瑚红在任意彩色封面上都醒目跳脱。
-  static const Color _labelBg = Color(0xFFE5402A); // Kong Coral 品牌红
-  static const Color _star    = Color(0xFFFFFFFF); // 纯白星，保持高对比
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;   // ~16
-    final h = size.height;  // ~24
-    final r = w * 0.18;          // top corner radius
-    final rectBottom = h * 0.82; // where the V-notch begins
-
-    // ── Bookmark body: rounded-top rectangle + V-notch bottom ──
-    final body = Path()
-      ..moveTo(r, 0)
-      ..lineTo(w - r, 0)
-      ..quadraticBezierTo(w, 0, w, r)
-      ..lineTo(w, rectBottom)
-      ..lineTo(w / 2, h)          // V notch down to the tip
-      ..lineTo(0, rectBottom)
-      ..lineTo(0, r)
-      ..quadraticBezierTo(0, 0, r, 0)
-      ..close();
-
-    // Drop shadow — 让标签从封面浮起
-    canvas.drawShadow(body, Colors.black45, 2.5, false);
-
-    // Fill — Kong Coral 实体填充（品牌色，任何背景上都清晰可见）
-    canvas.drawPath(body, Paint()..color = _labelBg);
-
-    // ── Six-point star: solid white ──
-    final starCx = w / 2;
-    final starCy = h * 0.40;
-    final starOuterR = w * 0.33;
-    final starInnerR = starOuterR * 0.46;
-    final star = _createStarPath(starCx, starCy, starOuterR, starInnerR, 6);
-    canvas.drawPath(star, Paint()..color = _star);
-  }
-
-  Path _createStarPath(double cx, double cy, double outerR, double innerR, int points) {
-    final path = Path();
-    for (int i = 0; i < points * 2; i++) {
-      final angle = -math.pi / 2 + i * math.pi / points;
-      final radius = i.isEven ? outerR : innerR;
-      final x = cx + radius * math.cos(angle);
-      final y = cy + radius * math.sin(angle);
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldRepaint(covariant _BookmarkRibbonPainter old) => false;
-}
 

@@ -95,7 +95,7 @@ class EmptyState extends StatelessWidget {
             Text(
               title,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: kcSubtitle,
                 fontWeight: FontWeight.w600,
                 color: cs.onSurfaceVariant,
               ),
@@ -106,7 +106,7 @@ class EmptyState extends StatelessWidget {
               Text(
                 subtitle!,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: kcFont13,
                   color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                   height: 1.4,
                 ),

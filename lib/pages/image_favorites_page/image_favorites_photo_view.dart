@@ -157,7 +157,7 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
             Text(
               text,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: kcBody,
                 foreground: Paint()
                   ..style = PaintingStyle.stroke
                   ..strokeWidth = 1.4
@@ -198,7 +198,7 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
               Expanded(
                 child: Text(
                   widget.comic.title,
-                  style: TextStyle(fontSize: 18),
+                  style: TextStyle(fontSize: kcTitleMain),
                 ),
               ),
               IconButton(

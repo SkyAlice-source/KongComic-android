@@ -437,7 +437,7 @@ Iterable<Widget> _buildExplorePagePart(
               Text(
                 part.title,
                 style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+                    const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w500),
               ),
               const Spacer(),
               if (part.viewMore != null)

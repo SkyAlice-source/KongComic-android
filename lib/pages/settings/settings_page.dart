@@ -217,7 +217,7 @@ class _SettingsPageState extends State<SettingsPage> {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(kcCardRadius),
           onTap: () {
             if (enableTwoViews) {
               setState(() => currentPage = id);
@@ -228,7 +228,7 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(kcCardRadius),
               border: Border.all(
                 color: selected ? cs.primary.withValues(alpha: 0.3) : Colors.transparent,
                 width: 1,
@@ -245,7 +245,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       Text(
                         name,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: kcSubtitle,
                           fontWeight: FontWeight.w600,
                           color: selected ? cs.onSurface : cs.onSurfaceVariant,
                         ),
@@ -254,7 +254,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       Text(
                         subtitle,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: kcCaption,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                         ),
                       ),

@@ -42,7 +42,7 @@ class _ToastOverlay extends StatelessWidget {
           liveRegion: true,
           child: Material(
           color: Theme.of(context).colorScheme.inverseSurface,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(kcRadius8),
           elevation: 2,
           textStyle:
               ts.withColor(Theme.of(context).colorScheme.onInverseSurface),
@@ -64,7 +64,7 @@ class _ToastOverlay extends StatelessWidget {
                       child: Text(
                         message,
                         style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w500),
+                            fontSize: kcSubtitle, fontWeight: FontWeight.w500),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -246,7 +246,7 @@ LoadingDialogController showLoadingDialog(
           content: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(kcRadius8),
               child: LinearProgressIndicator(
                 value: controller._progress,
                 minHeight: 14,
@@ -327,7 +327,7 @@ class ContentDialog extends StatelessWidget {
     );
     return Dialog(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kcRadius8),
         side: context.brightness == Brightness.dark
             ? BorderSide(color: context.colorScheme.outlineVariant)
             : BorderSide.none,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kong_comic/design_tokens.dart';
 
 /// 全站统一的语义色角标。
 /// 用法：AppBadge("New Version", type: AppBadgeType.warning)
@@ -40,7 +41,7 @@ class AppBadge extends StatelessWidget {
     return Container(
       padding: padding ??
           const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(kcRadius8)),
       child: Text(text, style: TextStyle(fontSize: fontSize, color: fg)),
     );
   }

@@ -169,7 +169,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
                             const SizedBox(height: 8),
                             Container(
                               alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(kcSpaceLg),
                               decoration: BoxDecoration(
                                 border: Border(
                                   top: BorderSide(
@@ -232,7 +232,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
       ),
       child: Material(
         color: context.colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(kcRadius24),
         child: Row(
           children: [
             Expanded(
@@ -249,7 +249,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
             ),
             if (sending)
               const Padding(
-                padding: EdgeInsets.all(8),
+                padding: EdgeInsets.all(kcSpaceSm),
                 child: SizedBox(
                   width: 24,
                   height: 24,
@@ -346,7 +346,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
               height: 36,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(kcRadius18),
                 color: Theme.of(context).colorScheme.secondaryContainer,
               ),
               child: (widget.comment.avatar == null ||
@@ -411,10 +411,10 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
           color: Theme.of(context).colorScheme.outlineVariant,
           width: 0.6,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kcRadius16),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kcRadius16),
         onTap: () {
           // Get the parent page's widget to access comicTitle and chapterTitle
           var parentState = context.findAncestorStateOfType<_ChapterCommentsPageState>();
@@ -455,10 +455,10 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
           color: Theme.of(context).colorScheme.outlineVariant,
           width: 0.6,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kcRadius16),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kcRadius16),
         onTap: () async {
           if (isLiking) return;
           setState(() {
@@ -491,10 +491,10 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
                 child: CircularProgressIndicator(),
               )
             else if (isLiked)
-              HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 16, color: context.useTextColor(Colors.red),
+              HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 16, color: context.useTextColor(Colors.red),
               )
             else
-              HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 16),
+              HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 16),
             const SizedBox(width: 8),
             Text(likes.toString()),
           ],
@@ -559,7 +559,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
     return Container(
       margin: const EdgeInsets.only(left: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kcRadius16),
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
           width: 0.6,
@@ -838,7 +838,7 @@ class _EmbeddedChapterCommentsPageState
       ),
       child: Material(
         color: context.colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(kcRadius24),
         child: Row(
           children: [
             Expanded(
@@ -855,7 +855,7 @@ class _EmbeddedChapterCommentsPageState
             ),
             if (sending)
               const Padding(
-                padding: EdgeInsets.all(8),
+                padding: EdgeInsets.all(kcSpaceSm),
                 child: SizedBox(
                   width: 24,
                   height: 24,

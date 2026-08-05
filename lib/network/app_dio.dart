@@ -61,8 +61,14 @@ class MyLogInterceptor implements Interceptor {
       final messages = <int, String>{
         400: "The Request is invalid.".tl,
         401: "The Request is unauthorized.".tl,
+        402: "Payment required.".tl,
         403: "No permission to access the resource. Check your account or network.".tl,
         404: "Not found.".tl,
+        405: "Method not allowed.".tl,
+        406: "Not acceptable.".tl,
+        408: "Request timeout.".tl,
+        409: "Conflict.".tl,
+        410: "The resource has been removed.".tl,
         429: "Too many requests. Please try again later.".tl,
       };
       return messages[statusCode] ?? "";

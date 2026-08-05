@@ -186,7 +186,7 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
             width: 82,
             height: double.infinity,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(kcRadius8),
               color: context.colorScheme.primaryContainer,
             ),
             clipBehavior: Clip.antiAlias,

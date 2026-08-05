@@ -8,6 +8,7 @@ import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:kong_comic/utils/translations.dart';
+import 'package:kong_comic/design_tokens.dart';
 
 const _kTitleBarHeight = 36.0;
 
@@ -132,7 +133,7 @@ class _WindowFrameState extends State<WindowFrame> {
                             child: Text(
                               'KongComic',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: kcFont13,
                                 color: (useDarkTheme ||
                                         context.brightness == Brightness.dark)
                                     ? Colors.white

@@ -655,7 +655,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                     text: "Select All".tl,
                     onClick: selectAll),
                 MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                     text: "Deselect".tl,
                     onClick: _cancel),
                 MenuEntry(
@@ -663,7 +663,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                     text: "Invert Selection".tl,
                     onClick: invertSelection),
                 MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 18),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
                     text: "Remove from favorites".tl,
                     onClick: () {
                       for (var c in selectedComics.keys) {
@@ -1106,7 +1106,7 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
           widget.onReorder(comics);
         },
         dragChildBoxDecoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(kcRadius16),
           color: lightenColor(
             Theme.of(context).splashColor.withAlpha(255),
             0.2,
@@ -1223,7 +1223,7 @@ class _LocalFavoritesFilterDialogState
   Widget build(BuildContext context) {
     Widget tabBar = Material(
       color: Theme.of(context).scaffoldBackgroundColor,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(kcRadius8),
       child: AppTabBar(
         key: PageStorageKey(optionTypes),
         tabs: optionTypes.map((e) => Tab(text: e.tl, key: Key(e))).toList(),

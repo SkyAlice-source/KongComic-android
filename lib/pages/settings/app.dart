@@ -545,10 +545,10 @@ class _WebdavSettingState extends State<_WebdavSetting> {
               duration: const Duration(milliseconds: 200),
               child: autoSync
                   ? Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(kcSpaceSm),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(kcRadius8),
                       ),
                       child: Row(
                         children: [
@@ -657,7 +657,7 @@ class _StorageConflictDialog extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: kcCaption,
               color: context.colorScheme.onSurfaceVariant,
               fontFamily: "monospace",
             ),
@@ -669,7 +669,7 @@ class _StorageConflictDialog extends StatelessWidget {
           Text(
             "Move your library and replace any files with the same name.".tl,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: kcCaption,
               color: context.colorScheme.onSurfaceVariant,
             ),
           ).paddingBottom(8),
@@ -680,7 +680,7 @@ class _StorageConflictDialog extends StatelessWidget {
           Text(
             "Move your library and skip files that already exist.".tl,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: kcCaption,
               color: context.colorScheme.onSurfaceVariant,
             ),
           ),

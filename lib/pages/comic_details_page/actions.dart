@@ -101,22 +101,28 @@ abstract mixin class _ComicPageActions {
   /// [page] the page number, start from 1
   ///
   /// [group] the chapter group number, start from 1
-  void read([int? ep, int? page, int? group]) {
-    App.rootContext
+  ///
+  /// [forCoverSelection] when true, shows a "Set as Cover" action in the reader
+  /// top bar so the user can pick a page as the comic cover.
+  void read([int? ep, int? page, int? group, bool forCoverSelection = false]) {
+    final context = App.mainNavigatorKey?.currentContext;
+    if (context == null) return;
+    context
         .to(
-      () => Reader(
-        type: comic.comicType,
-        cid: comic.id,
-        name: comic.title,
-        chapters: comic.chapters,
-        initialChapter: ep,
-        initialPage: page,
-        initialChapterGroup: group,
-        history: history ?? History.fromModel(model: comic, ep: 0, page: 0),
-        author: comic.findAuthor() ?? '',
-        tags: comic.plainTags,
-      )
-    )
+          () => Reader(
+            type: comic.comicType,
+            cid: comic.id,
+            name: comic.title,
+            chapters: comic.chapters,
+            initialChapter: ep,
+            initialPage: page,
+            initialChapterGroup: group,
+            history: history ?? History.fromModel(model: comic, ep: 0, page: 0),
+            author: comic.findAuthor() ?? '',
+            tags: comic.plainTags,
+            forCoverSelection: forCoverSelection,
+          )
+        )
         .then((_) {
       onReadEnd();
     });
@@ -319,35 +325,35 @@ abstract mixin class _ComicPageActions {
           context.padding.top,
         ),
         [
-          MenuEntry(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
-            text: "Copy Title".tl,
-            onClick: () {
-              Clipboard.setData(ClipboardData(text: comic.title));
-              context.showMessage(message: "Copied".tl);
-            },
-          ),
-          MenuEntry(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
-            text: "Copy ID".tl,
-            onClick: () {
-              Clipboard.setData(ClipboardData(text: comic.id));
-              context.showMessage(message: "Copied".tl);
-            },
-          ),
-          MenuEntry(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
-            text: CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id)
-                ? "Change Cover".tl
-                : "Change Cover".tl,
-            onClick: () => _changeCover(context),
-          ),
-          if (CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id))
+          // 下载
+          if (comic.chapters != null)
             MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-              text: "Restore Default Cover".tl,
-              onClick: () => _restoreCover(context),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
+              text: "Download".tl,
+              onClick: download,
             ),
+          // 评论
+          if (comicSource.commentsLoader != null)
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
+              text: (comic.commentCount ?? 'Comments'.tl).toString(),
+              onClick: showComments,
+            ),
+          // 浏览器打开
+          if (comic.url != null)
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedBrowser, size: 18),
+              text: "Open in Browser".tl,
+              onClick: () => launchUrlString(comic.url!),
+            ),
+          // 评分
+          if (comicSource.isLogged && comicSource.starRatingFunc != null)
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18),
+              text: "Rating".tl,
+              onClick: starRating,
+            ),
+          // 复制 URL
           if (comic.url != null)
             MenuEntry(
               icon: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
@@ -357,12 +363,20 @@ abstract mixin class _ComicPageActions {
                 context.showMessage(message: "Copied".tl);
               },
             ),
-          if (comic.url != null)
+          // 恢复默认封面
+          if (CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id))
             MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedBrowser, size: 18),
-              text: "Open in Browser".tl,
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+              text: "Restore Default Cover".tl,
+              onClick: () => _restoreCover(context),
+            ),
+          // Debug
+          if (appdata.settings['debug'] == true)
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 18),
+              text: "Debug Info".tl,
               onClick: () {
-                launchUrlString(comic.url!);
+                context.showMessage(message: comicSource.key);
               },
             ),
         ]);

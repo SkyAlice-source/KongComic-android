@@ -491,7 +491,7 @@ Future<void> importNetworkFolder(
       await fetchNext();
       updateDialog?.call();
     } catch (e) {
-      errorMsg = e.toString();
+      errorMsg = "Failed to move favorites".tl;
       updateDialog?.call();
       break;
     }

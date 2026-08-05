@@ -51,3 +51,6 @@ add_translation.py
 # Signing
 android/key.properties
 android/*.jks
+
+# AI-generated artifact (overview.md etc.)
+overview.md

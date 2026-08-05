@@ -451,7 +451,7 @@ class _SideNaviWidget extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final icon = enabled ? entry.activeIcon : entry.icon;
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(kcCardRadius),
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -459,7 +459,7 @@ class _SideNaviWidget extends StatelessWidget {
         height: 38,
         decoration: BoxDecoration(
           color: enabled ? colorScheme.primaryContainer : null,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(kcCardRadius),
         ),
         child: showTitle
             ? Row(
@@ -487,7 +487,7 @@ class _PaneActionWidget extends StatelessWidget {
     final icon = entry.icon;
     return InkWell(
       onTap: entry.onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(kcCardRadius),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -603,7 +603,7 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
           Text(
             widget.entry.label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: kcFont11,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
               color: isActive ? activeClr : inactiveClr.withValues(alpha: 0.7),
             ),

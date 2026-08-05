@@ -78,6 +78,7 @@ class Reader extends StatefulWidget {
     this.initialChapterGroup,
     required this.author,
     required this.tags,
+    this.forCoverSelection = false,
   });
 
   final ComicType type;
@@ -102,6 +103,10 @@ class Reader extends StatefulWidget {
   final int? initialChapterGroup;
 
   final History history;
+
+  /// When true, shows a "Set as Cover" action in the top bar
+  /// so the user can pick a page from the comic to use as cover.
+  final bool forCoverSelection;
 
   @override
   State<Reader> createState() => _ReaderState();

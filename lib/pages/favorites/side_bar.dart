@@ -243,7 +243,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
               ),
               decoration: BoxDecoration(
                 color: context.colorScheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kcRadius8),
               ),
               child: Text(count.toString()),
             ),

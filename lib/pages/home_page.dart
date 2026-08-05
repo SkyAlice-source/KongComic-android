@@ -214,16 +214,16 @@ class _BannerState extends State<_Banner> {
       items.add(Positioned(
         left: pos, top: topOff, width: cardW,
         child: Transform.scale(scale: scale,
-          child: ClipRRect(borderRadius: BorderRadius.circular(10),
+          child: ClipRRect(borderRadius: BorderRadius.circular(kcRadius10),
               child: Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0),
                   boxShadow: [
                     BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
                   ],
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(kcRadius10),
                 ),
-                child: ClipRRect(borderRadius: BorderRadius.circular(8),
+                child: ClipRRect(borderRadius: BorderRadius.circular(kcRadius8),
                   child: SizedBox(height: cardW * 1.4, child: _buildCover(comic)),
                 ),
               ),
@@ -244,12 +244,12 @@ class _BannerState extends State<_Banner> {
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
           ],
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(kcCardRadius),
         ),
-        child: ClipRRect(borderRadius: BorderRadius.circular(12),
+        child: ClipRRect(borderRadius: BorderRadius.circular(kcCardRadius),
           child: Container(
-            decoration: BoxDecoration(border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0), borderRadius: BorderRadius.circular(12)),
-            child: ClipRRect(borderRadius: BorderRadius.circular(10),
+            decoration: BoxDecoration(border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0), borderRadius: BorderRadius.circular(kcCardRadius)),
+            child: ClipRRect(borderRadius: BorderRadius.circular(kcRadius10),
               child: SizedBox(width: cardW, height: cardW * 1.4, child: _buildCover(comic)),
             ),
           ),
@@ -311,21 +311,21 @@ class _ComicInfoSection extends StatelessWidget {
             // 漫画名占三行高度
             SizedBox(height: 72, child: Align(alignment: Alignment.bottomLeft,
               child: Text(comic.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: cs.onSurface)))),
+                style: TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w700, color: cs.onSurface)))),
             const SizedBox(height: 6),
             if (comic.author.isNotEmpty || comic.tags.isNotEmpty)
               Padding(padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   comic.author.isNotEmpty ? comic.author : comic.tags.first,
                   maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
+                  style: TextStyle(fontSize: kcFont13, color: cs.onSurfaceVariant))),
             if (progress != null)
               Padding(padding: const EdgeInsets.only(bottom: 4),
-                child: Text(progress, style: TextStyle(fontSize: 13, color: cs.onSurface))),
-            Text("Total %s chapters".tl.replaceAll("%s", "${history?.maxPage ?? '?'}"), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                child: Text(progress, style: TextStyle(fontSize: kcFont13, color: cs.onSurface))),
+            Text("Total %s chapters".tl.replaceAll("%s", "${history?.maxPage ?? '?'}"), style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant)),
             if (updatedTime != null)
               Padding(padding: const EdgeInsets.only(top: 4),
-                child: Text("Updated %s".tl.replaceAll("%s", updatedTime), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
+                child: Text("Updated %s".tl.replaceAll("%s", updatedTime), style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant))),
             const SizedBox(height: 12),
             SizedBox(width: double.infinity, height: 44,
               child: ElevatedButton(
@@ -333,8 +333,8 @@ class _ComicInfoSection extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)), elevation: 0),
-                child: Text("Read Now".tl, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kcRadius22)), elevation: 0),
+                child: Text("Read Now".tl, style: TextStyle(fontSize: kcSubtitle, fontWeight: FontWeight.w600)),
               ),
             ),
           ]),
@@ -401,13 +401,13 @@ class _FlatBox extends StatelessWidget {
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(kcRadius22),
             color: cs.surfaceContainerLow,
           ),
           child: Row(children: [
             icon,
             const SizedBox(width: 8),
-            Expanded(child: Text(label, style: TextStyle(fontSize: 14, color: cs.onSurface))),
+            Expanded(child: Text(label, style: TextStyle(fontSize: kcBody, color: cs.onSurface))),
             if (value != null)
               Container(
                 margin: const EdgeInsets.only(right: 12),
@@ -418,7 +418,7 @@ class _FlatBox extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: Text(value!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: alert ? cs.onErrorContainer : cs.onPrimaryContainer)),
+                  child: Text(value!, style: TextStyle(fontSize: kcFont11, fontWeight: FontWeight.w600, color: alert ? cs.onErrorContainer : cs.onPrimaryContainer)),
                 ),
               ),
           ]),
@@ -518,7 +518,7 @@ class _HintCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kcRadius18),
       ),
       child: Row(
         children: [
@@ -528,7 +528,7 @@ class _HintCard extends StatelessWidget {
             child: Text(
               text,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: kcBody,
                 color: cs.onSurfaceVariant,
                 height: 1.45,
               ),

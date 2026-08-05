@@ -96,8 +96,8 @@ class _ComicThumbnailsState extends State<_ComicThumbnails> {
               }
               return Padding(
                 padding: context.width < changePoint
-                    ? const EdgeInsets.all(4)
-                    : const EdgeInsets.all(8),
+                    ? const EdgeInsets.all(kcSpaceXs)
+                    : const EdgeInsets.all(kcSpaceSm),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -108,13 +108,13 @@ class _ComicThumbnailsState extends State<_ComicThumbnails> {
                         const BorderRadius.all(Radius.circular(8)),
                         child: Container(
                           foregroundDecoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(kcRadius8),
                             border: Border.all(
                               color: Theme.of(context).colorScheme.outline,
                             ),
                           ),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(kcRadius8),
                           ),
                           width: double.infinity,
                           height: double.infinity,

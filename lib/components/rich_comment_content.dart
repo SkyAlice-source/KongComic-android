@@ -7,6 +7,7 @@ import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/image_provider/cached_image.dart';
 import 'package:kong_comic/utils/app_links.dart';
 import 'package:kong_comic/utils/ext.dart';
+import 'package:kong_comic/design_tokens.dart';
 
 /// A widget that displays comment content with support for rich text formatting.
 ///
@@ -293,7 +294,7 @@ class _RichCommentContentState extends State<RichCommentContent> {
             children: images.map((e) {
               Widget image = Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(kcRadius8),
                   color: Theme.of(context).colorScheme.surfaceContainerLow,
                 ),
                 width: 100,

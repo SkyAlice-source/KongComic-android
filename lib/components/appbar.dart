@@ -99,7 +99,7 @@ class _AppbarState extends State<Appbar> {
           ),
           Expanded(
             child: DefaultTextStyle(
-              style: DefaultTextStyle.of(context).style.copyWith(fontSize: 20),
+              style: DefaultTextStyle.of(context).style.copyWith(fontSize: kcTitleLarge),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               child: widget.title,
@@ -212,7 +212,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
         ),
         Expanded(
           child: DefaultTextStyle(
-            style: DefaultTextStyle.of(context).style.copyWith(fontSize: 20),
+            style: DefaultTextStyle.of(context).style.copyWith(fontSize: kcTitleLarge),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             child: title,
@@ -964,7 +964,7 @@ class TabActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(kcRadius8),
       child: Container(
         height: _kTabHeight,
         padding: const EdgeInsets.symmetric(horizontal: 12),

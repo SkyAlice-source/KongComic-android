@@ -42,7 +42,7 @@ class _AboutSettingsState extends State<AboutSettings> {
             SizedBox(height: 8),
             Text(
               App.appVersion,
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(fontSize: kcSubtitle),
             ),
             Text("KongComic is a free and open-source comic reader.".tl),
             SizedBox(height: 4),
@@ -173,7 +173,7 @@ Future<void> _showUpdateSourceDialog(AppUpdateInfo info) async {
               child: Text(
                 "Choose download source:".tl,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: kcBody,
                   fontWeight: FontWeight.w500,
                   color: Theme.of(ctx).colorScheme.onSurface,
                 ),

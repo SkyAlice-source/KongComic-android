@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/design_tokens.dart';
 
 /// patched slider.dart with RtL support
 class _SliderDefaultsM3 extends SliderThemeData {
@@ -71,7 +72,7 @@ class _SliderDefaultsM3 extends SliderThemeData {
 }
 
 class CustomSlider extends StatefulWidget {
-  const CustomSlider({required this.min, required this.max, required this.value, required this.divisions, required this.onChanged, required this.focusNode, this.reversed = false, super.key});
+  const CustomSlider({required this.min, required this.max, required this.value, required this.divisions, required this.onChanged, required this.focusNode, this.reversed = false, this.chapterText, super.key});
 
   final double min;
 
@@ -86,6 +87,9 @@ class CustomSlider extends StatefulWidget {
   final FocusNode? focusNode;
 
   final bool reversed;
+
+  /// Optional chapter/episode name shown before the page counter.
+  final String? chapterText;
 
   @override
   State<CustomSlider> createState() => _CustomSliderState();
@@ -176,59 +180,54 @@ class _CustomSliderState extends State<CustomSlider> {
             child: SizedBox(
               height: 32,
               child: Center(
-                child: SizedBox(
-                  height: 32,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // 背景轨道
-                      Positioned.fill(
-                        child: Center(
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.all(Radius.circular(14)),
+                  child: SizedBox(
+                    height: 28,
+                    child: Stack(
+                      children: [
+                        // 背景轨道
+                        Positioned.fill(
                           child: Container(
-                            width: double.infinity,
-                            height: 28,
-                            decoration: BoxDecoration(
-                                color: theme.inactiveTrackColor,
-                                borderRadius: const BorderRadius.all(Radius.circular(14))),
+                            color: theme.inactiveTrackColor,
                           ),
                         ),
-                      ),
-                      // 激活轨道
-                      Positioned(
-                        top: 0,
-                        bottom: 0,
-                        left: widget.reversed ? null : 0,
-                        right: widget.reversed ? 0 : null,
-                        child: Align(
-                          alignment: widget.reversed ? Alignment.centerRight : Alignment.centerLeft,
+                        // 激活轨道
+                        Positioned(
+                          top: 0,
+                          bottom: 0,
+                          left: widget.reversed ? null : 0,
+                          right: widget.reversed ? 0 : null,
                           child: Container(
                             width: constraints.maxWidth * ((value - widget.min) / (widget.max - widget.min)),
-                            height: 28,
-                            decoration: BoxDecoration(
-                                color: theme.activeTrackColor,
-                                borderRadius: const BorderRadius.all(Radius.circular(14))),
+                            color: theme.activeTrackColor,
                           ),
                         ),
-                      ),
-                      // 文字覆盖层
-                      Positioned.fill(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            children: [
-                              Text(
-                                "${value.toInt()}/${widget.max.toInt()}",
-                                style: TextStyle(
-                                  color: colorScheme.onPrimary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                        // 文字覆盖层
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  widget.chapterText != null && widget.chapterText!.isNotEmpty
+                                      ? "${widget.chapterText} · ${value.toInt()}/${widget.max.toInt()}"
+                                      : "${value.toInt()}/${widget.max.toInt()}",
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
+                                    fontSize: kcFont11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

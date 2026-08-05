@@ -35,7 +35,6 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
             "pink": "Pink",
             "purple": "Purple",
             "green": "Green",
-            "orange": "Orange",
             "blue": "Blue",
           },
           onChanged: () async {

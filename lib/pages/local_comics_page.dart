@@ -137,7 +137,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
         },
       ),
       MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedHeartAdd, size: 18),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
         text: "Add to favorites".tl,
         onClick: () {
           addFavorite(selectedComics.keys.toList());
@@ -211,7 +211,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
           tooltip: "Select All".tl,
           onPressed: selectAll),
       IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
           tooltip: "Deselect".tl,
           onPressed: deSelect),
       IconButton(
@@ -706,7 +706,7 @@ void showDeleteChaptersPopWindow(BuildContext context, LocalComic comic) {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(kcSpaceSm),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [

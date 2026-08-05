@@ -113,7 +113,7 @@ class _GlassContainerState extends State<GlassContainer>
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBorderRadius = widget.borderRadius ?? BorderRadius.circular(20);
+    final effectiveBorderRadius = widget.borderRadius ?? BorderRadius.circular(kcRadius20);
     final effectiveBorder = widget.border ?? GlassContainer.iosBorder(context);
     final effectiveShadow = widget.boxShadow ?? GlassContainer.liquidShadow(context);
     final brightness = Theme.of(context).brightness;
@@ -283,7 +283,7 @@ class GlassBottomBar extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   color: glassColor,
-                  borderRadius: BorderRadius.circular(32),
+                  borderRadius: BorderRadius.circular(kcRadius32),
                   border: Border.all(
                     color: isDark
                         ? Colors.white.withValues(alpha: 0.08)
@@ -385,7 +385,7 @@ class GlassCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
     final primary = cs.primary;
-    final effectiveBorderRadius = borderRadius ?? BorderRadius.circular(16);
+    final effectiveBorderRadius = borderRadius ?? BorderRadius.circular(kcRadius16);
 
     Widget card;
     if (isDark) {
@@ -394,7 +394,7 @@ class GlassCard extends StatelessWidget {
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
-            padding: padding ?? const EdgeInsets.all(16),
+            padding: padding ?? const EdgeInsets.all(kcSpaceLg),
             decoration: BoxDecoration(
               color: cs.surfaceContainerHigh,
               borderRadius: effectiveBorderRadius ,
@@ -433,7 +433,7 @@ class GlassCard extends StatelessWidget {
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
-            padding: padding ?? const EdgeInsets.all(16),
+            padding: padding ?? const EdgeInsets.all(kcSpaceLg),
             decoration: BoxDecoration(
               borderRadius: effectiveBorderRadius ,
               gradient: LinearGradient(
