@@ -331,9 +331,15 @@ class _ComicInfoSection extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () => context.to(() => ComicPage(id: comic.id, sourceKey: comic.type.comicSource?.key ?? '', cover: comic.coverPath, title: comic.name)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kcRadius22)), elevation: 0),
+                  backgroundColor: appdata.settings['theme_mode'] == 'amoled'
+                      ? const Color(0xFF242424)
+                      : Theme.of(context).colorScheme.primary,
+                  foregroundColor: appdata.settings['theme_mode'] == 'amoled'
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.onPrimary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kcRadius22)),
+                  elevation: 0,
+                ),
                 child: Text("Read Now".tl, style: TextStyle(fontSize: kcSubtitle, fontWeight: FontWeight.w600)),
               ),
             ),

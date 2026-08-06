@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/components/scroll_top_fab.dart';
 import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/history.dart';
@@ -211,6 +212,11 @@ class _HistoryPageState extends State<HistoryPage> {
                   : null,
               badgeBuilder: (c) {
                 return ComicSource.find(c.sourceKey)?.name;
+              },
+              badgeColorBuilder: (c) {
+                final brightness = Theme.of(context).brightness;
+                final amoled = appdata.settings['theme_mode'] == 'amoled';
+                return kcTagColor(c.sourceKey.hashCode, brightness, amoled: amoled);
               },
               menuBuilder: (c) {
                 return [

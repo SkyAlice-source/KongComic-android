@@ -35,6 +35,7 @@ class ComicTile extends StatelessWidget {
     required this.comic,
     this.enableLongPressed = true,
     this.badge,
+    this.badgeColor,
     this.menuOptions,
     this.onTap,
     this.onLongPressed,
@@ -48,6 +49,9 @@ class ComicTile extends StatelessWidget {
   final bool enableLongPressed;
 
   final String? badge;
+
+  /// 可选 badge 底色，按业务维度（如漫画源）区分颜色；null 时由 [_ComicDescription] 走中性色。
+  final Color? badgeColor;
 
   final List<MenuEntry>? menuOptions;
 
@@ -177,43 +181,50 @@ class ComicTile extends StatelessWidget {
       final text = hasProgress
           ? "第${history.ep}话 · ${(progress * 100).toInt()}%"
           : "第${history.ep}话";
-      histBadge = Container(
-        height: 22,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: const BoxDecoration(
-          color: Color(0x8A000000),
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(8),
-            bottomRight: Radius.circular(8),
-          ),
+      histBadge = ClipRRect(
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(kcCardInnerRadius),
+          bottomRight: Radius.circular(kcCardInnerRadius),
         ),
-        child: Stack(
-          children: [
-            if (hasProgress)
-              FractionallySizedBox(
-                widthFactor: progress,
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withValues(alpha: 0.55),
+        child: Container(
+          height: 16,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.55),
+          ),
+          child: Stack(
+            children: [
+              if (hasProgress)
+                FractionallySizedBox(
+                  widthFactor: progress,
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.70),
+                  ),
+                ),
+              Center(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: kcFont10,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.60),
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            Center(
-              child: Text(
-                text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: kcFont10,
-                  fontWeight: FontWeight.w500,
-                  height: 1.2,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -329,7 +340,7 @@ class ComicTile extends StatelessWidget {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  height: 22,
+                  height: 16,
                   child: histBadge,
                 ),
             ],
@@ -365,6 +376,7 @@ class ComicTile extends StatelessWidget {
                   subtitle: comic.subtitle ?? '',
                   description: comic.description,
                   badge: badge ?? comic.language,
+                  badgeColor: badgeColor,
                   tags: comic.tags,
                   maxLines: 2,
                   enableTranslate:
@@ -488,7 +500,7 @@ class ComicTile extends StatelessWidget {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        height: 22,
+                        height: 16,
                         child: histBadge,
                       ),
                     if (favBadge != null) favBadge,
@@ -634,6 +646,7 @@ class _ComicDescription extends StatelessWidget {
     required this.description,
     required this.enableTranslate,
     this.badge,
+    this.badgeColor,
     this.maxLines = 2,
     this.tags,
     this.rating,
@@ -643,6 +656,7 @@ class _ComicDescription extends StatelessWidget {
   final String subtitle;
   final String description;
   final String? badge;
+  final Color? badgeColor;
   final List<String>? tags;
   final int maxLines;
   final bool enableTranslate;
@@ -756,6 +770,7 @@ class _ComicDescription extends StatelessWidget {
               AppBadge(
                 "${badge![0].toUpperCase()}${badge!.substring(1).toLowerCase()}",
                 type: AppBadgeType.neutral,
+                backgroundColor: badgeColor,
                 fontSize: kcCaption,
               ),
           ],
@@ -950,7 +965,9 @@ class _SliverGridComics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverGrid(
+    return AnimatedBuilder(
+      animation: appdata.settings,
+      builder: (context, _) => SliverGrid(
       delegate: SliverChildBuilderDelegate((context, index) {
         if (index == comics.length - 1) {
           onLastItemBuild?.call();
@@ -992,6 +1009,7 @@ class _SliverGridComics extends StatelessWidget {
         );
       }, childCount: comics.length),
       gridDelegate: SliverGridDelegateWithComics(),
+      ),
     );
   }
 }
@@ -1883,6 +1901,7 @@ class PaginatedSliverGridComics extends StatefulWidget {
     this.onLoadedComicsChanged,
     this.allFavorite = false,
     this.emptySubtitle,
+    this.badgeColorBuilder,
   });
 
   /// Loads a page of comics starting at [offset].
@@ -1898,6 +1917,9 @@ class PaginatedSliverGridComics extends StatefulWidget {
   final Map<Comic, bool>? selections;
 
   final String? Function(Comic)? badgeBuilder;
+
+  /// 可选：返回 badge 自定义底色，用于按业务维度（如漫画源）区分颜色。
+  final Color? Function(Comic)? badgeColorBuilder;
 
   final List<MenuEntry> Function(Comic)? menuBuilder;
 
@@ -2050,7 +2072,9 @@ class PaginatedSliverGridComicsState
     // Main grid: childCount = comics + 1 (footer slot)
     final showFooter = _hasMore || _isLoading;
 
-    return SliverGrid(
+    return AnimatedBuilder(
+      animation: appdata.settings,
+      builder: (context, _) => SliverGrid(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           // Footer slot
@@ -2085,6 +2109,7 @@ class PaginatedSliverGridComicsState
           final tile = ComicTile(
             comic: comic,
             badge: badge,
+            badgeColor: widget.badgeColorBuilder?.call(comic),
             menuOptions: widget.menuBuilder?.call(comic),
             onTap: widget.onTap != null
                 ? () => widget.onTap!(comic, _heroIDs[index])
@@ -2119,6 +2144,7 @@ class PaginatedSliverGridComicsState
         childCount: _comics.length + (showFooter ? 1 : 0),
       ),
       gridDelegate: SliverGridDelegateWithComics(),
+      ),
     );
   }
 }

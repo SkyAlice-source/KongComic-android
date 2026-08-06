@@ -1113,11 +1113,14 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
           ),
         ),
         builder: (children) {
-          return GridView(
-            key: _key,
-            controller: _scrollController,
-            gridDelegate: SliverGridDelegateWithComics(),
-            children: children,
+          return AnimatedBuilder(
+            animation: appdata.settings,
+            builder: (context, _) => GridView(
+              key: _key,
+              controller: _scrollController,
+              gridDelegate: SliverGridDelegateWithComics(),
+              children: children,
+            ),
           );
         },
         children: tiles,

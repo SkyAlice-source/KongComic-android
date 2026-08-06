@@ -11,12 +11,19 @@ class AppBadge extends StatelessWidget {
   final double fontSize;
   final EdgeInsetsGeometry? padding;
 
+  /// 可选的自定义底色/字色，优先级高于 [type]。
+  /// 用于需要按业务维度（如漫画源）区分颜色的场景。
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+
   const AppBadge(
     this.text, {
     super.key,
     this.type = AppBadgeType.neutral,
     this.fontSize = 13,
     this.padding,
+    this.backgroundColor,
+    this.foregroundColor,
   });
 
   @override
@@ -24,19 +31,24 @@ class AppBadge extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     late final Color bg;
     late final Color fg;
-    switch (type) {
-      case AppBadgeType.info:
-        bg = cs.primaryContainer;
-        fg = cs.onPrimaryContainer;
-      case AppBadgeType.warning:
-        bg = cs.errorContainer;
-        fg = cs.onErrorContainer;
-      case AppBadgeType.success:
-        bg = cs.tertiaryContainer;
-        fg = cs.onTertiaryContainer;
-      case AppBadgeType.neutral:
-        bg = cs.surfaceContainer;
-        fg = cs.onSurfaceVariant;
+    if (backgroundColor != null) {
+      bg = backgroundColor!;
+      fg = foregroundColor ?? kcTagTextColor(bg);
+    } else {
+      switch (type) {
+        case AppBadgeType.info:
+          bg = cs.primaryContainer;
+          fg = cs.onPrimaryContainer;
+        case AppBadgeType.warning:
+          bg = cs.errorContainer;
+          fg = cs.onErrorContainer;
+        case AppBadgeType.success:
+          bg = cs.tertiaryContainer;
+          fg = cs.onTertiaryContainer;
+        case AppBadgeType.neutral:
+          bg = cs.surfaceContainer;
+          fg = cs.onSurfaceVariant;
+      }
     }
     return Container(
       padding: padding ??

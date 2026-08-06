@@ -35,14 +35,12 @@ class AppUpdate {
   static const _releasesUrl =
       "https://api.github.com/repos/SkyAlice-source/KongComic-android/releases/latest";
 
-  /// Accelerated (proxy) API endpoint for users who cannot directly access
-  /// GitHub Releases API. Uses the same response format.
-  static const _acceleratedApiUrl =
-      "https://ghproxy.net/https://api.github.com/repos/SkyAlice-source/KongComic-android/releases/latest";
-
-  /// Base URL prefix for accelerated asset downloads via proxy.
-  static const _acceleratedDownloadPrefix =
-      "https://ghproxy.net/";
+  /// Fallback release notes shown when a GitHub release has no description
+  /// body. Kept concise and accurate to recent changes.
+  static const String _defaultReleaseNotes =
+      "本次更新包含：发现、收藏、历史页面新增列表 / 网格布局切换；"
+      "默认主题改为跟随系统；亮色主题色彩更鲜明；"
+      "并修复若干问题、优化使用体验。";
 
   /// Maximum number of retries for transient network failures.
   static const int _maxRetries = 2;
@@ -111,16 +109,6 @@ class AppUpdate {
     );
   }
 
-  /// Check for update through the accelerated (proxy) source.
-  /// Same return/throw semantics as [check].
-  static Future<AppUpdateInfo?> checkAccelerated() async {
-    final data = await _fetchWithRetry(
-      _acceleratedApiUrl,
-      timeout: const Duration(seconds: 15),
-    );
-    return _parseRelease(data);
-  }
-
   /// Ping the GitHub Releases API. Returns null if the network is reachable
   /// but there is no update, [AppUpdateInfo] if there is, or throws if the
   /// network itself is unavailable.
@@ -148,7 +136,7 @@ class AppUpdate {
     return false;
   }
 
-  /// Shared release data parser used by both [check] and [checkAccelerated].
+  /// Shared release data parser used by [check].
   static AppUpdateInfo? _parseRelease(Map<String, dynamic> data) {
     final tag = (data["tag_name"] as String?) ?? "";
     final version = tag.startsWith("v") ? tag.substring(1) : tag;
@@ -161,6 +149,7 @@ class AppUpdate {
       return null;
     }
     final body = (data["body"] as String?) ?? "";
+    final releaseNotes = body.trim().isEmpty ? _defaultReleaseNotes : body;
     final assets = (data["assets"] as List?) ?? const [];
     final downloads = <String, String>{};
     for (final a in assets) {
@@ -182,12 +171,12 @@ class AppUpdate {
     }
     return AppUpdateInfo(
       latestVersion: coreVersion,
-      releaseNotes: body,
+      releaseNotes: releaseNotes,
       abiDownloads: downloads,
     );
   }
 
-  /// Core download-and-install logic shared by direct and accelerated paths.
+  /// Core download-and-install logic for the direct GitHub asset URL.
   static Future<void> _downloadAndInstallFromUrl(
     String url,
     String version, {
@@ -281,28 +270,6 @@ class AppUpdate {
     }
     await _downloadAndInstallFromUrl(
       url,
-      info.latestVersion,
-      abi: abi,
-      onProgress: onProgress,
-      handle: handle,
-    );
-  }
-
-  /// Download the APK through the accelerated proxy.
-  /// Same semantics as [downloadAndInstall], but asset URLs are proxied.
-  static Future<void> downloadAndInstallAccelerated(
-    AppUpdateInfo info, {
-    required String? abi,
-    void Function(double progress, int bytesPerSecond)? onProgress,
-    FileDownloaderHandle? handle,
-  }) async {
-    final url = info.pickUrlForCurrentDevice(abi);
-    if (url == null) {
-      throw Exception("No APK asset found in the latest release");
-    }
-    final proxiedUrl = "$_acceleratedDownloadPrefix$url";
-    await _downloadAndInstallFromUrl(
-      proxiedUrl,
       info.latestVersion,
       abi: abi,
       onProgress: onProgress,

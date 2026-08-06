@@ -407,8 +407,8 @@ class _SearchPageState extends State<SearchPage> {
         children: [
           Expanded(
             child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 // ALL 全选按钮
                 GestureDetector(

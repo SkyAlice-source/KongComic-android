@@ -55,7 +55,7 @@ class _AboutSettingsState extends State<AboutSettings> {
         ).toSliver(),
         ListTile(
           title: Text("Check for Updates".tl),
-          subtitle: Text("Automatically select the fastest source".tl),
+          subtitle: Text("Download directly from GitHub".tl),
           trailing: Button.filled(
             isLoading: isCheckingUpdate,
             child: Text("Check".tl),
@@ -77,43 +77,31 @@ class _AboutSettingsState extends State<AboutSettings> {
 }
 
 Future<bool> checkUpdate() async {
-  // Startup check: tries GitHub first, falls back to accelerated source.
+  // Startup check against the GitHub Releases API.
   // Returns true iff a newer version is available.
   try {
     final info = await AppUpdate.check();
-    if (info != null) return true;
+    return info != null;
   } catch (_) {
-    // GitHub unreachable — try accelerated source
-    try {
-      final info = await AppUpdate.checkAccelerated();
-      return info != null;
-    } catch (_) {
-      return false;
-    }
+    return false;
   }
-  return false;
 }
 
 Future<void> checkUpdateUi(
     [bool showMessageIfNoUpdate = true, bool delay = false]) async {
-  // Try GitHub source first, fall back to accelerated source on failure
+  // Check against GitHub only.
   AppUpdateInfo? value;
   try {
     value = await AppUpdate.check();
   } catch (_) {
-    // GitHub unreachable — fall back to accelerated source
-    try {
-      value = await AppUpdate.checkAccelerated();
-    } catch (_) {
-      // Both sources unreachable
-      if (delay) {
-        await Future.delayed(const Duration(seconds: 2));
-      }
-      if (showMessageIfNoUpdate) {
-        _showNetworkErrorDialog();
-      }
-      return;
+    // GitHub unreachable
+    if (delay) {
+      await Future.delayed(const Duration(seconds: 2));
     }
+    if (showMessageIfNoUpdate) {
+      _showNetworkErrorDialog();
+    }
+    return;
   }
 
   if (delay) {
@@ -122,7 +110,7 @@ Future<void> checkUpdateUi(
 
   if (value != null) {
     // Found an update
-    await _showUpdateSourceDialog(value);
+    await _showUpdateDialog(value);
   } else if (showMessageIfNoUpdate) {
     if (App.rootContext.mounted) {
       App.rootContext.showMessage(message: "No new version available".tl);
@@ -130,8 +118,30 @@ Future<void> checkUpdateUi(
   }
 }
 
-/// Show a dialog with new version info and let the user choose update source.
-Future<void> _showUpdateSourceDialog(AppUpdateInfo info) async {
+/// Build a Markdown stylesheet that follows the current app theme.
+MarkdownStyleSheet _mdStyleSheet(BuildContext context) {
+  final theme = Theme.of(context);
+  final base = theme.textTheme.bodyMedium!;
+  return MarkdownStyleSheet.fromTheme(theme).copyWith(
+    p: base,
+    listBullet: base,
+    a: base.copyWith(
+      color: theme.colorScheme.primary,
+      decoration: TextDecoration.underline,
+    ),
+    code: base.copyWith(
+      fontFamily: "monospace",
+      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+    ),
+    h1: theme.textTheme.titleLarge,
+    h2: theme.textTheme.titleMedium,
+    h3: theme.textTheme.titleSmall,
+    blockSpacing: 8,
+  );
+}
+
+/// Show a simple "new version available" prompt with the GitHub download.
+Future<void> _showUpdateDialog(AppUpdateInfo info) async {
   if (!App.rootContext.mounted) return;
   final abi = await App.getDeviceAbi();
   final downloadUrl = info.pickUrlForCurrentDevice(abi);
@@ -163,22 +173,13 @@ Future<void> _showUpdateSourceDialog(AppUpdateInfo info) async {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 180),
                   child: SingleChildScrollView(
-                    child: Text(info.releaseNotes),
+                    child: MarkdownBody(
+                      data: info.releaseNotes,
+                      styleSheet: _mdStyleSheet(ctx),
+                    ),
                   ),
                 ),
               ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                "Choose download source:".tl,
-                style: TextStyle(
-                  fontSize: kcBody,
-                  fontWeight: FontWeight.w500,
-                  color: Theme.of(ctx).colorScheme.onSurface,
-                ),
-              ),
-            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -187,14 +188,14 @@ Future<void> _showUpdateSourceDialog(AppUpdateInfo info) async {
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text("Cancel".tl),
           ),
-          Button.filled(
-            onPressed: () => Navigator.of(ctx).pop("accelerated"),
-            child: Text("Download via CDN".tl),
-          ),
-          const SizedBox(width: 8),
           Button.outlined(
             onPressed: () => Navigator.of(ctx).pop("github"),
             child: Text("View on GitHub".tl),
+          ),
+          const SizedBox(width: 8),
+          Button.filled(
+            onPressed: () => Navigator.of(ctx).pop("update"),
+            child: Text("Update now".tl),
           ),
         ],
       );
@@ -203,8 +204,8 @@ Future<void> _showUpdateSourceDialog(AppUpdateInfo info) async {
 
   if (choice == null || !App.rootContext.mounted) return;
 
-  if (choice == "accelerated") {
-    await _showDownloadDialog(info, abi: abi, accelerated: true);
+  if (choice == "update") {
+    await _showDownloadDialog(info, abi: abi);
   } else if (choice == "github") {
     try {
       await AppUpdate.openReleasePageInBrowser();
@@ -218,13 +219,13 @@ Future<void> _showUpdateSourceDialog(AppUpdateInfo info) async {
 
 /// Show a dialog with a live progress bar. The user can cancel; cancelling
 /// stops the download but does not roll back any partial file.
-Future<void> _showDownloadDialog(AppUpdateInfo info, {String? abi, bool accelerated = false}) async {
+Future<void> _showDownloadDialog(AppUpdateInfo info, {String? abi}) async {
   if (!App.rootContext.mounted) return;
   showDialog(
     context: App.rootContext,
     barrierDismissible: false,
     builder: (context) {
-      return _UpdateDownloadDialog(info: info, abi: abi, accelerated: accelerated);
+      return _UpdateDownloadDialog(info: info, abi: abi);
     },
   );
 }
@@ -262,66 +263,11 @@ Future<void> _showNetworkErrorDialog() async {
   );
 }
 
-Future<void> checkAcceleratedUpdate() async {
-  try {
-    final value = await AppUpdate.checkAccelerated();
-    if (value != null) {
-      final abi = await App.getDeviceAbi();
-      final downloadUrl = value.pickUrlForCurrentDevice(abi);
-      if (downloadUrl == null) {
-        if (App.rootContext.mounted) {
-          App.rootContext.showMessage(
-            message: "No download available for this device".tl,
-          );
-        }
-        return;
-      }
-      await _showDownloadDialog(value, abi: abi, accelerated: true);
-    } else {
-      if (App.rootContext.mounted) {
-        App.rootContext.showMessage(message: "No new version available".tl);
-      }
-    }
-  } catch (_) {
-    if (App.rootContext.mounted) {
-      App.rootContext.showMessage(message: "Network error".tl);
-    }
-  }
-}
-
-Future<void> checkGithubSource() async {
-  try {
-    final value = await AppUpdate.check();
-    if (value != null) {
-      final abi = await App.getDeviceAbi();
-      final downloadUrl = value.pickUrlForCurrentDevice(abi);
-      if (downloadUrl == null) {
-        if (App.rootContext.mounted) {
-          App.rootContext.showMessage(
-            message: "No download available for this device".tl,
-          );
-        }
-        return;
-      }
-      await _showDownloadDialog(value, abi: abi, accelerated: false);
-    } else {
-      if (App.rootContext.mounted) {
-        App.rootContext.showMessage(message: "No new version available".tl);
-      }
-    }
-  } catch (_) {
-    if (App.rootContext.mounted) {
-      App.rootContext.showMessage(message: "Network error".tl);
-    }
-  }
-}
-
 class _UpdateDownloadDialog extends StatefulWidget {
   final AppUpdateInfo info;
   final String? abi;
-  final bool accelerated;
 
-  const _UpdateDownloadDialog({required this.info, required this.abi, this.accelerated = false});
+  const _UpdateDownloadDialog({required this.info, required this.abi});
 
   @override
   State<_UpdateDownloadDialog> createState() => _UpdateDownloadDialogState();
@@ -353,8 +299,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
       _error = null;
     });
     try {
-      if (widget.accelerated) {
-        await AppUpdate.downloadAndInstallAccelerated(
+      await AppUpdate.downloadAndInstall(
         widget.info,
         abi: widget.abi,
         onProgress: (p, speed) {
@@ -366,20 +311,6 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
         },
         handle: _handle,
       );
-      } else {
-        await AppUpdate.downloadAndInstall(
-          widget.info,
-          abi: widget.abi,
-          onProgress: (p, speed) {
-            if (!mounted) return;
-            setState(() {
-              _progress = p;
-              _bytesPerSecond = speed;
-            });
-          },
-          handle: _handle,
-        );
-      }
       if (!mounted) return;
       setState(() {
         _installing = true;
@@ -422,7 +353,10 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 180),
                 child: SingleChildScrollView(
-                  child: Text(widget.info.releaseNotes),
+                  child: MarkdownBody(
+                    data: widget.info.releaseNotes,
+                    styleSheet: _mdStyleSheet(context),
+                  ),
                 ),
               ),
             ),

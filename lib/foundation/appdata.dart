@@ -172,7 +172,7 @@ class Settings with ChangeNotifier {
   Settings._create();
 
   final _data = <String, dynamic>{
-    'comicDisplayMode': 'detailed', // detailed, brief
+    'comicDisplayMode': 'brief', // detailed, brief
     'comicTileScale': 1.00, // 0.75-1.25
     'color': 'system', // red, pink, purple, green, orange, blue
     'theme_mode': 'system', // light, dark, system

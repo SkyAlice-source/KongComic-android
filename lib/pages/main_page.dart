@@ -42,7 +42,21 @@ class _MainPageState extends State<MainPage> {
     _navigatorKey = GlobalKey();
     App.mainNavigatorKey = _navigatorKey;
     index = int.tryParse(appdata.settings['initialPage'].toString()) ?? 0;
+    // MainPage 挂在主干 Navigator 路由里，App.forceRebuild()（作用于 MyApp）
+    // 不会重建本 State，导致顶栏 paneActions 缓存的布局切换图标不刷新。
+    // 改为直接监听 settings，任何 comicDisplayMode 变化都让本页重建并刷新图标/文案。
+    appdata.settings.addListener(_onSettingsChanged);
     super.initState();
+  }
+
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    appdata.settings.removeListener(_onSettingsChanged);
+    super.dispose();
   }
 
   final _pages = [
@@ -62,6 +76,13 @@ class _MainPageState extends State<MainPage> {
   ];
 
   var index = 2; // Home tab (index 2)
+
+  /// 列表/网格切换按钮仅在「收藏(1)/发现(3)/历史(4)」显示，
+  /// 这三个页面都用 comicDisplayMode 渲染漫画。
+  bool get _showLayoutToggle => index == 1 || index == 3 || index == 4;
+
+  /// 当前是否为详细列表模式（detailed）。否则为简洁网格（brief）。
+  bool get _isDetailedLayout => appdata.settings['comicDisplayMode'] != 'brief';
 
   @override
   Widget build(BuildContext context) {
@@ -102,6 +123,23 @@ class _MainPageState extends State<MainPage> {
         });
       },
       paneActions: [
+        if (_showLayoutToggle)
+          PaneActionEntry(
+            icon: HugeIcon(
+              icon: _isDetailedLayout
+                  ? HugeIcons.strokeRoundedGridView
+                  : HugeIcons.strokeRoundedListView,
+              size: 22,
+            ),
+            label: _isDetailedLayout
+                ? "Switch to grid view".tl
+                : "Switch to list view".tl,
+            onTap: () {
+              appdata.settings['comicDisplayMode'] =
+                  _isDetailedLayout ? 'brief' : 'detailed';
+              appdata.saveData();
+            },
+          ),
         PaneActionEntry(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 22),
           label: "Search".tl,

@@ -36,6 +36,8 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
             "purple": "Purple",
             "green": "Green",
             "blue": "Blue",
+            "yellow": "Yellow",
+            "cyan": "Cyan",
           },
           onChanged: () async {
             App.forceRebuild();

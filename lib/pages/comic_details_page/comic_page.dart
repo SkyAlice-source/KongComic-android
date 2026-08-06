@@ -148,28 +148,24 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   /// Builds the detail-page theme from the cover seed, mirroring the app's
   /// [getTheme] construction (FlexTones.soft, transparent surfaceTint, AMOLED
-  /// pure-black surface ramp) so it stays consistent with the global theme.
+  /// soft-black surface ramp) so it stays consistent with the global theme.
+  ///
+  /// AMOLED 模式下直接回退到 base（已由全局主题强制为中性灰阶），
+  /// 避免封面取色引入彩色，违背「纯黑外观去掉所有主题色」的要求。
   ThemeData _coverTheme(BuildContext context) {
     final base = Theme.of(context);
     final seed = _coverSeed;
-    if (seed == null) return base;
     final brightness = base.brightness;
     final isDark = brightness == Brightness.dark;
     final amoled = appdata.settings['theme_mode'] == 'amoled';
+    if (amoled && isDark) return base;
+    if (seed == null) return base;
     final coverScheme = SeedColorScheme.fromSeeds(
-      primaryKey: seed,
+      primaryKey: isDark ? kcSoftenColorForDark(seed) : seed,
       brightness: brightness,
       tones: FlexTones.soft(brightness),
     ).copyWith(
       surfaceTint: Colors.transparent,
-      surface: amoled && isDark ? const Color(0xFF0A0A0A) : null,
-      surfaceContainerLowest:
-          amoled && isDark ? const Color(0xFF000000) : null,
-      surfaceContainerLow: amoled && isDark ? const Color(0xFF0F0F0F) : null,
-      surfaceContainer: amoled && isDark ? const Color(0xFF161616) : null,
-      surfaceContainerHigh: amoled && isDark ? const Color(0xFF1E1E1E) : null,
-      surfaceContainerHighest:
-          amoled && isDark ? const Color(0xFF242424) : null,
     );
     return base.copyWith(colorScheme: coverScheme);
   }
@@ -737,24 +733,34 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       VoidCallback? onTap,
       bool isTitle = false,
     }) {
-      // 统一使用淡彩色 chip 风格（与分类页一致）
-      const infoPalette = [
-        Color(0xFFBBDEFB), // 蓝
-        Color(0xFFF8BBD0), // 粉
-        Color(0xFFC8E6C9), // 绿
-        Color(0xFFFFCC80), // 橙
-        Color(0xFFE1BEE7), // 紫
-        Color(0xFF80DEEA), // 青
-        Color(0xFFFFAB91), // 珊瑚
-        Color(0xFFDCEDC8), // 浅绿
-        Color(0xFFFFE082), // 黄
-        Color(0xFFD1C4E9), // 深紫
-        Color(0xFFB2DFDB), // 蓝灰
-        Color(0xFFFFCDD2), // 暖红
-      ];
-      final colorIndex = (i++) % infoPalette.length;
-      final bgColor = infoPalette[colorIndex];
-      final textColor = Theme.of(context).colorScheme.onSurface.toOpacity(0.85);
+      final cs = Theme.of(context).colorScheme;
+
+      // 类目标题 chip：中性灰底，退到背景层，不与值 chip 抢色，建立「标签：值」层级
+      if (isTitle) {
+        final borderRadius = BorderRadius.circular(kcRadius8);
+        const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 6);
+        final Widget titleWidget = Text(
+          text,
+          style: TextStyle(
+            color: cs.onSurfaceVariant,
+            fontSize: kcFont13,
+            fontWeight: FontWeight.w600,
+          ),
+        ).padding(padding);
+        return Container(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: borderRadius,
+          ),
+          child: titleWidget,
+        );
+      }
+
+      // 值 chip：按主题亮度/AMOLED 切换调色板，保持彩色区分（与分类页一致）
+      final brightness = Theme.of(context).brightness;
+      final amoled = appdata.settings['theme_mode'] == 'amoled';
+      final bgColor = kcTagColor(i++, brightness, amoled: amoled);
+      final textColor = kcTagTextColor(bgColor);
       final borderColor = bgColor.toOpacity(0.35);
 
       final borderRadius = BorderRadius.circular(kcRadius8);

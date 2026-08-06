@@ -250,25 +250,10 @@ class _CategoryPage extends StatelessWidget {
     });
   }
 
-  /// 基于标签名哈希生成柔和彩色，饱和度适中确保浅色底可读
-  static final List<Color> _tagPalette = [
-    const Color(0xFFBBDEFB), // 蓝 (更饱和)
-    const Color(0xFFF8BBD0), // 粉
-    const Color(0xFFC8E6C9), // 绿
-    const Color(0xFFFFCC80), // 橙
-    const Color(0xFFE1BEE7), // 紫
-    const Color(0xFF80DEEA), // 青
-    const Color(0xFFFFAB91), // 珊瑚/红
-    const Color(0xFFDCEDC8), // 浅绿
-    const Color(0xFFFFE082), // 黄
-    const Color(0xFFD1C4E9), // 深紫
-    const Color(0xFFB2DFDB), // 蓝灰
-    const Color(0xFFFFCDD2), // 暖红
-  ];
-
-  static Color _colorForTag(String label) {
+  /// 基于标签名哈希生成 chip 底色；AMOLED 模式下用灰阶。
+  static Color _colorForTag(String label, Brightness brightness, bool amoled) {
     var hash = label.hashCode.abs();
-    return _tagPalette[hash % _tagPalette.length];
+    return kcTagColor(hash, brightness, amoled: amoled);
   }
 
   Widget buildTag(String label, VoidCallback onClick) {
@@ -276,9 +261,12 @@ class _CategoryPage extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: Builder(
         builder: (context) {
+          final brightness = Theme.of(context).brightness;
+          final amoled = appdata.settings['theme_mode'] == 'amoled';
+          final bg = _colorForTag(label, brightness, amoled);
           return Material(
             borderRadius: BorderRadius.circular(kcRadius8),
-            color: _colorForTag(label),
+            color: bg,
             child: InkWell(
               borderRadius: BorderRadius.circular(kcRadius8),
               onTap: onClick,
@@ -286,7 +274,7 @@ class _CategoryPage extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(kcRadius8),
                   border: Border.all(
-                    color: _colorForTag(label).withValues(alpha: 0.35),
+                    color: bg.withValues(alpha: 0.35),
                     width: 0.5,
                   ),
                 ),
@@ -295,7 +283,7 @@ class _CategoryPage extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: kcBody,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85),
+                    color: kcTagTextColor(bg),
                   ),
                 ),
               ),

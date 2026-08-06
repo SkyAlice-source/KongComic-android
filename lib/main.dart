@@ -153,6 +153,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
   }
 
+  @override
+  void didChangePlatformBrightness() {
+    // theme_mode='system' 时跟随系统明暗切换，OS 主题变化即时生效（无需重启）。
+    setState(() {});
+  }
+
   void forceRebuild() {
     setState(() {});
   }
@@ -168,15 +174,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   /// 返回 (primary, secondary) 配色对。
   (Color, Color) translateColorSetting() {
     return switch (appdata.settings['color']) {
-      'red' => (const Color(0xFFE5402A), const Color(0xFF0EA5E9)), // 珊瑚红 + 冰蓝
-      'pink' => (const Color(0xFFE1468C), const Color(0xFF8B5CF6)), // 玫红 + 雾紫
-      'purple' => (const Color(0xFF7C5CFC), const Color(0xFFF97316)), // 罗兰紫 + 暖橘
-      'green' => (const Color(0xFF1FA971), const Color(0xFFF59E0B)), // 翠绿 + 琥珀
-      'blue' => (const Color(0xFF2D7FF9), const Color(0xFFF97316)), // 蔚蓝 + 暖橘
-      'yellow' => (const Color(0xFFF5B400), const Color(0xFF0EA5E9)), // 琥珀黄 + 冰蓝
-      'cyan' => (const Color(0xFF13B5C9), const Color(0xFF8B5CF6)), // 青蓝 + 雾紫
-      'system' => (const Color(0xFF2D7FF9), const Color(0xFFF97316)),
-      _ => (const Color(0xFF2D7FF9), const Color(0xFFF97316)),
+      'red' => (const Color(0xFFFF453A), const Color(0xFF0EA5E9)), // 高饱和珊瑚红 + 鲜天蓝
+      'pink' => (const Color(0xFFFF2D55), const Color(0xFF8B5CF6)), // 高饱和玫红 + 电光紫
+      'purple' => (const Color(0xFFBF5AF2), const Color(0xFFFF9F0A)), // 高饱和紫 + 鲜橙
+      'green' => (const Color(0xFF30D158), const Color(0xFFFF9F0A)), // 高饱和草绿 + 鲜橙
+      'blue' => (const Color(0xFF0A84FF), const Color(0xFFFF9F0A)), // 高饱和蓝 + 鲜橙
+      'yellow' => (const Color(0xFFFFD60A), const Color(0xFF0EA5E9)), // 高饱和黄 + 鲜天蓝
+      'cyan' => (const Color(0xFF5AC8FA), const Color(0xFF8B5CF6)), // 高饱和青 + 电光紫
+      'system' => (const Color(0xFF0A84FF), const Color(0xFFFF9F0A)),
+      _ => (const Color(0xFF0A84FF), const Color(0xFFFF9F0A)),
     };
   }
 
@@ -212,25 +218,79 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ];
     }
     final bool isDark = brightness == Brightness.dark;
+    // 暗色模式下（非 AMOLED）柔化主题色种子，降低饱和度/亮度，避免刺眼。
+    final effectivePrimary = isDark && !amoled
+        ? kcSoftenColorForDark(primary)
+        : primary;
+    final effectiveSecondary = isDark && !amoled && secondary != null
+        ? kcSoftenColorForDark(secondary)
+        : secondary;
+    final effectiveTertiary = isDark && !amoled && tertiary != null
+        ? kcSoftenColorForDark(tertiary)
+        : tertiary;
+    // AMOLED 模式用柔和黑底，避免纯 #000000 的割裂感。
     final Color bg = isDark
-        ? (amoled ? const Color(0xFF000000) : const Color(0xFF141013))
+        ? (amoled ? const Color(0xFF0A0A0A) : const Color(0xFF141013))
         : const Color(0xFFFBF7F4);
-    return ThemeData(
-      colorScheme: SeedColorScheme.fromSeeds(
-        primaryKey: primary,
-        secondaryKey: secondary,
-        tertiaryKey: tertiary,
+
+    final ColorScheme scheme;
+    if (amoled && isDark) {
+      // AMOLED/纯黑外观：去掉所有彩色主题色，用中性灰阶，保证对比清晰。
+      scheme = SeedColorScheme.fromSeeds(
+        primaryKey: Colors.white,
+        secondaryKey: const Color(0xFFB0B0B0),
+        tertiaryKey: const Color(0xFF808080),
         brightness: brightness,
         tones: FlexTones.soft(brightness),
       ).copyWith(
         surfaceTint: Colors.transparent,
-        surface: amoled && isDark ? const Color(0xFF0A0A0A) : null,
-        surfaceContainerLowest: amoled && isDark ? const Color(0xFF000000) : null,
-        surfaceContainerLow: amoled && isDark ? const Color(0xFF0F0F0F) : null,
-        surfaceContainer: amoled && isDark ? const Color(0xFF161616) : null,
-        surfaceContainerHigh: amoled && isDark ? const Color(0xFF1E1E1E) : null,
-        surfaceContainerHighest: amoled && isDark ? const Color(0xFF242424) : null,
-      ),
+        // 纯黑外观下把 primary/secondary/tertiary 也压成中性灰白，
+        // 避免 SeedColorScheme 处理白色种子时意外偏色。
+        // 选中 tab/活跃图标用柔和浅灰而非纯白，减少纯黑底上的刺眼感。
+        primary: const Color(0xFFE0E0E0),
+        onPrimary: Colors.black,
+        secondary: const Color(0xFFB0B0B0),
+        onSecondary: Colors.black,
+        tertiary: const Color(0xFF808080),
+        onTertiary: Colors.white,
+        surface: const Color(0xFF0F0F0F),
+        surfaceContainerLowest: const Color(0xFF050505),
+        surfaceContainerLow: const Color(0xFF0F0F0F),
+        surfaceContainer: const Color(0xFF161616),
+        surfaceContainerHigh: const Color(0xFF1E1E1E),
+        surfaceContainerHighest: const Color(0xFF262626),
+        onSurface: Colors.white,
+        onSurfaceVariant: const Color(0xFFB0B0B0),
+        outline: const Color(0xFF3A3A3A),
+        outlineVariant: const Color(0xFF2A2A2A),
+        // 派生容器色一并压成中性灰，确保任何使用 primaryContainer/
+        // secondaryContainer/surfaceVariant 的组件（如主页计数徽标）在
+        // 纯黑外观下都不会泄漏主题色。
+        primaryContainer: const Color(0xFF2A2A2A),
+        onPrimaryContainer: Colors.white,
+        secondaryContainer: const Color(0xFF2A2A2A),
+        onSecondaryContainer: Colors.white,
+        tertiaryContainer: const Color(0xFF2A2A2A),
+        onTertiaryContainer: Colors.white,
+        inverseSurface: const Color(0xFFE0E0E0),
+        inversePrimary: const Color(0xFFB0B0B0),
+      );
+    } else {
+      scheme = SeedColorScheme.fromSeeds(
+        primaryKey: effectivePrimary,
+        secondaryKey: effectiveSecondary,
+        tertiaryKey: effectiveTertiary,
+        brightness: brightness,
+        // 暗色（非 AMOLED）保留 soft 柔化，避免刺眼；亮色改用 vivid，让主题色
+        // 种子（如珊瑚红 #FFFF453A）的饱和度在亮底上充分释放，解决「亮色发灰」。
+        tones: isDark ? FlexTones.soft(brightness) : FlexTones.vivid(brightness),
+      ).copyWith(
+        surfaceTint: Colors.transparent,
+      );
+    }
+
+    final theme = ThemeData(
+      colorScheme: scheme,
       // Material 默认底色统一为页面背景色，避免各页顶栏/tab栏出现白条
       canvasColor: bg,
       scaffoldBackgroundColor: bg,
@@ -274,6 +334,63 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         interactive: true,
       ),
     );
+
+    // AMOLED/纯黑外观：去掉彩色按钮，改为黑灰底 + 白字 + 细描边，
+    // 在柔和纯黑背景上呈现「黑灰高对比」的精髓。
+    if (amoled && isDark) {
+      const buttonBg = Color(0xFF242424);
+      const buttonBorder = Color(0xFF3D3D3D);
+      final overlay = WidgetStatePropertyAll(
+        Colors.white.withValues(alpha: 0.08),
+      );
+      final shape = WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      );
+      return theme.copyWith(
+        filledButtonTheme: FilledButtonThemeData(
+          style: ButtonStyle(
+            backgroundColor: const WidgetStatePropertyAll(buttonBg),
+            foregroundColor: const WidgetStatePropertyAll(Colors.white),
+            side: const WidgetStatePropertyAll(
+              BorderSide(color: buttonBorder, width: 1),
+            ),
+            overlayColor: overlay,
+            shape: shape,
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ButtonStyle(
+            backgroundColor: const WidgetStatePropertyAll(buttonBg),
+            foregroundColor: const WidgetStatePropertyAll(Colors.white),
+            shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+            elevation: const WidgetStatePropertyAll(0),
+            side: const WidgetStatePropertyAll(
+              BorderSide(color: buttonBorder, width: 1),
+            ),
+            overlayColor: overlay,
+            shape: shape,
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: ButtonStyle(
+            foregroundColor: const WidgetStatePropertyAll(Colors.white),
+            side: const WidgetStatePropertyAll(
+              BorderSide(color: buttonBorder, width: 1),
+            ),
+            overlayColor: overlay,
+            shape: shape,
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: ButtonStyle(
+            foregroundColor: const WidgetStatePropertyAll(Colors.white),
+            overlayColor: overlay,
+            shape: shape,
+          ),
+        ),
+      );
+    }
+    return theme;
   }
 
   @override
