@@ -156,6 +156,7 @@ class _CategoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sourceKey = findComicSourceKey();
     var children = <Widget>[];
     if (data.enableRankingPage || data.buttons.isNotEmpty) {
       children.add(buildTitle(data.title));
@@ -165,11 +166,19 @@ class _CategoryPage extends StatelessWidget {
           child: Wrap(
             children: [
               if (data.enableRankingPage)
-                buildTag("Ranking".tl, () {
-                  context.to(() => RankingPage(categoryKey: data.key));
-                }),
+                buildTag(
+                  "Ranking".tl,
+                  () {
+                    context.to(() => RankingPage(categoryKey: data.key));
+                  },
+                  sourceKey: sourceKey,
+                ),
               for (var buttonData in data.buttons)
-                buildTag(buttonData.label.tl, buttonData.onTap),
+                buildTag(
+                  buttonData.label.tl,
+                  buttonData.onTap,
+                  sourceKey: sourceKey,
+                ),
             ],
           ),
         ),
@@ -244,26 +253,38 @@ class _CategoryPage extends StatelessWidget {
   }
 
   Widget buildCategory(CategoryItem c) {
-    return buildTag(c.label, () {
-      var context = App.mainNavigatorKey!.currentContext!;
-      c.target.jump(context);
-    });
+    final sourceKey = findComicSourceKey();
+    return buildTag(
+      c.label,
+      () {
+        var context = App.mainNavigatorKey!.currentContext!;
+        c.target.jump(context);
+      },
+      sourceKey: sourceKey,
+    );
   }
 
-  /// 基于标签名哈希生成 chip 底色；AMOLED 模式下用灰阶。
-  static Color _colorForTag(String label, Brightness brightness, bool amoled) {
-    var hash = label.hashCode.abs();
+  /// 基于标签名 + 所属漫画源生成 chip 底色；AMOLED 模式下用灰阶。
+  /// 混入 sourceKey 的哈希后，同一漫画源下的不同标签颜色错开，
+  /// 不同漫画源之间的整体色调也不会因标签名相同而撞车。
+  static Color _colorForTag(
+    String label,
+    Brightness brightness,
+    bool amoled, {
+    String? sourceKey,
+  }) {
+    var hash = label.hashCode.abs() + (sourceKey?.hashCode ?? 0).abs();
     return kcTagColor(hash, brightness, amoled: amoled);
   }
 
-  Widget buildTag(String label, VoidCallback onClick) {
+  Widget buildTag(String label, VoidCallback onClick, {String? sourceKey}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: Builder(
         builder: (context) {
           final brightness = Theme.of(context).brightness;
-          final amoled = appdata.settings['theme_mode'] == 'amoled';
-          final bg = _colorForTag(label, brightness, amoled);
+          final amoled = appdata.isAmoledMode;
+          final bg = _colorForTag(label, brightness, amoled, sourceKey: sourceKey);
           return Material(
             borderRadius: BorderRadius.circular(kcRadius8),
             color: bg,

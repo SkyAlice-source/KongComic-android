@@ -788,6 +788,8 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
             key: _gridKey,
             pageLoader: _loadPage,
             selections: selectedComics,
+            showSourceOnCover: false,
+            showBottomSourceDate: true,
             onLoadedComicsChanged: (loaded) {
               _loadedComics = loaded.cast<FavoriteItem>();
             },
@@ -801,6 +803,8 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
           SliverGridComics(
             comics: searchMode ? searchResults : filterComics(comics),
             selections: selectedComics,
+            showSourceOnCover: false,
+            showBottomSourceDate: true,
             menuBuilder: (c) {
               return _buildMenuEntries(c);
             },

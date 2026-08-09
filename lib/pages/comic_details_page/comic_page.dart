@@ -147,27 +147,38 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   }
 
   /// Builds the detail-page theme from the cover seed, mirroring the app's
-  /// [getTheme] construction (FlexTones.soft, transparent surfaceTint, AMOLED
-  /// soft-black surface ramp) so it stays consistent with the global theme.
+  /// [getTheme] construction (transparent surfaceTint, AMOLED soft-black
+  /// surface ramp) so it stays consistent with the global theme.
   ///
   /// AMOLED 模式下直接回退到 base（已由全局主题强制为中性灰阶），
   /// 避免封面取色引入彩色，违背「纯黑外观去掉所有主题色」的要求。
+  /// 暗彩模式下对封面取色做 kcDarkColorful 转换并配合 vivid tones，
+  /// 保证饱和度与全局暗彩一致，明显比浅色更深更艳、不再发灰发浅。
   ThemeData _coverTheme(BuildContext context) {
     final base = Theme.of(context);
     final seed = _coverSeed;
     final brightness = base.brightness;
     final isDark = brightness == Brightness.dark;
-    final amoled = appdata.settings['theme_mode'] == 'amoled';
+    final amoled = appdata.isAmoledMode;
     if (amoled && isDark) return base;
     if (seed == null) return base;
-    final coverScheme = SeedColorScheme.fromSeeds(
-      primaryKey: isDark ? kcSoftenColorForDark(seed) : seed,
+    // 浅色直接取种子生成 vivid 配色；暗彩则复用全局暗彩逻辑：
+    // 用浅色 vivid 配色经 kcDarkColorful 加深加饱和后覆盖到暗色彩色方案，
+    // 避免 FlexTones 在暗色下把 primary 映射到 tone 80（浅色）导致发浅。
+    final lightScheme = SeedColorScheme.fromSeeds(
+      primaryKey: seed,
+      brightness: Brightness.light,
+      tones: FlexTones.vivid(Brightness.light),
+    ).copyWith(surfaceTint: Colors.transparent);
+    if (!isDark) return base.copyWith(colorScheme: lightScheme);
+    final darkBase = SeedColorScheme.fromSeeds(
+      primaryKey: kcDarkColorful(seed),
       brightness: brightness,
-      tones: FlexTones.soft(brightness),
-    ).copyWith(
-      surfaceTint: Colors.transparent,
+      tones: FlexTones.vivid(brightness),
+    ).copyWith(surfaceTint: Colors.transparent);
+    return base.copyWith(
+      colorScheme: kcDarkColorfulFromLight(lightScheme, darkBase),
     );
-    return base.copyWith(colorScheme: coverScheme);
   }
 
   @override
@@ -539,7 +550,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
             Row(
               children: [
                 Expanded(
-                  child: FilledButton.tonal(
+                  child: FilledButton(
                     onPressed: download,
                     child: Text("Download".tl),
                   ),
@@ -758,7 +769,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
       // 值 chip：按主题亮度/AMOLED 切换调色板，保持彩色区分（与分类页一致）
       final brightness = Theme.of(context).brightness;
-      final amoled = appdata.settings['theme_mode'] == 'amoled';
+      final amoled = appdata.isAmoledMode;
       final bgColor = kcTagColor(i++, brightness, amoled: amoled);
       final textColor = kcTagTextColor(bgColor);
       final borderColor = bgColor.toOpacity(0.35);
@@ -1243,6 +1254,11 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 骨架屏占位块使用中性灰，避免在深色模式下受主题色影响而偏蓝/偏紫。
+    final neutralPlaceholder = context.isDarkMode
+        ? const Color(0xFF2A2A2A)
+        : const Color(0xFFE8E8E8);
+
     Widget buildContainer(
       double? width,
       double? height, {
@@ -1253,23 +1269,25 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
         height: height,
         width: width,
         decoration: BoxDecoration(
-          color: color ?? context.colorScheme.surfaceContainerLow,
+          color: color ?? neutralPlaceholder,
           borderRadius: BorderRadius.circular(radius ?? 4),
         ),
       );
     }
 
     return Shimmer(
-      color: context.isDarkMode ? Colors.grey.shade700 : Colors.white,
+      color: context.isDarkMode ? Colors.grey.shade600 : Colors.white,
       child: Column(
         children: [
-          Appbar(title: Text(""), backgroundColor: context.colorScheme.surface),
+          Appbar(
+              title: Text(""),
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(width: 16),
-              buildImage(context),
+              buildImage(context, neutralPlaceholder),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -1307,7 +1325,7 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
     );
   }
 
-  Widget buildImage(BuildContext context) {
+  Widget buildImage(BuildContext context, Color placeholderColor) {
     Widget child;
     if (cover != null) {
       child = AnimatedImage(
@@ -1324,7 +1342,7 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
       tag: "cover$heroID",
       child: Container(
         decoration: BoxDecoration(
-          color: context.colorScheme.primaryContainer,
+          color: placeholderColor,
           borderRadius: BorderRadius.circular(kcRadius8),
           boxShadow: [
             BoxShadow(

@@ -143,6 +143,9 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
     return ComicList(
       key: comicListKey,
       controller: widget.controller,
+      showSourceOnCover: false,
+      showBottomSourceDate: true,
+      openLocalIfAvailable: true,
       leadingSliver: SliverAppbar(
         style:
             context.width < changePoint ? AppbarStyle.shadow : AppbarStyle.blur,
@@ -211,6 +214,33 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
           : (next) => widget.data.loadNext!(next),
       menuBuilder: (comic) {
         return [
+          MenuEntry(
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedDownload04,
+              size: 18,
+              color: context.colorScheme.primary,
+            ),
+            color: context.colorScheme.primary,
+            text: "Download".tl,
+            onClick: () {
+              var source = ComicSource.find(comic.sourceKey);
+              if (source == null) {
+                context.showMessage(message: "Source not found".tl);
+                return;
+              }
+              if (LocalManager().isDownloaded(
+                  comic.id, ComicType.fromKey(comic.sourceKey))) {
+                context.showMessage(message: "Already downloaded".tl);
+                return;
+              }
+              LocalManager().addTask(ImagesDownloadTask(
+                source: source,
+                comicId: comic.id,
+                comicTitle: comic.title,
+              ));
+              context.showMessage(message: "Download started".tl);
+            },
+          ),
           MenuEntry(
             icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
             text: "Remove".tl,
@@ -612,6 +642,9 @@ class _FavoriteFolder extends StatelessWidget {
       key: comicListKey,
       enablePageStorage: true,
       allFavorite: true,
+      showSourceOnCover: false,
+      showBottomSourceDate: true,
+      openLocalIfAvailable: true,
       leadingSliver: SliverAppbar(
         title: Text(title),
         actions: [
@@ -636,6 +669,33 @@ class _FavoriteFolder extends StatelessWidget {
           : (next) => data.loadNext!(next, folderID),
       menuBuilder: (comic) {
         return [
+          MenuEntry(
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedDownload04,
+              size: 18,
+              color: context.colorScheme.primary,
+            ),
+            color: context.colorScheme.primary,
+            text: "Download".tl,
+            onClick: () {
+              var source = ComicSource.find(comic.sourceKey);
+              if (source == null) {
+                context.showMessage(message: "Source not found".tl);
+                return;
+              }
+              if (LocalManager().isDownloaded(
+                  comic.id, ComicType.fromKey(comic.sourceKey))) {
+                context.showMessage(message: "Already downloaded".tl);
+                return;
+              }
+              LocalManager().addTask(ImagesDownloadTask(
+                source: source,
+                comicId: comic.id,
+                comicTitle: comic.title,
+              ));
+              context.showMessage(message: "Download started".tl);
+            },
+          ),
           MenuEntry(
             icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
             text: "Remove".tl,

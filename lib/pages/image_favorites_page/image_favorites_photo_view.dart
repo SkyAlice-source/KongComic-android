@@ -247,6 +247,29 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
             );
           },
         ),
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
+          text: "Cache Image".tl,
+          onClick: () async {
+            var ok = await ImageFavoritesProvider.cacheImage(images[currentPage]);
+            App.rootContext.showMessage(
+              message: ok ? "Cached".tl : "Failed to cache".tl,
+            );
+          },
+        ),
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
+          text: "Cache All".tl,
+          onClick: () async {
+            int ok = 0;
+            for (var img in images) {
+              if (await ImageFavoritesProvider.cacheImage(img)) ok++;
+            }
+            App.rootContext.showMessage(
+              message: "Cached @c images".tlParams({"c": ok}),
+            );
+          },
+        ),
       ],
     );
   }

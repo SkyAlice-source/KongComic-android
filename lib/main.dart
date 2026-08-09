@@ -218,20 +218,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ];
     }
     final bool isDark = brightness == Brightness.dark;
-    // 暗色模式下（非 AMOLED）柔化主题色种子，降低饱和度/亮度，避免刺眼。
+    // 暗色模式下（非 AMOLED）采用「暗彩」风格：提高主题色饱和度、压低亮度，
+    // 得到比浅色更深更艳的暗彩观感（纯黑 AMOLED 分支另走中性灰）。
     final effectivePrimary = isDark && !amoled
-        ? kcSoftenColorForDark(primary)
+        ? kcDarkColorful(primary)
         : primary;
     final effectiveSecondary = isDark && !amoled && secondary != null
-        ? kcSoftenColorForDark(secondary)
+        ? kcDarkColorful(secondary)
         : secondary;
     final effectiveTertiary = isDark && !amoled && tertiary != null
-        ? kcSoftenColorForDark(tertiary)
+        ? kcDarkColorful(tertiary)
         : tertiary;
-    // AMOLED 模式用柔和黑底，避免纯 #000000 的割裂感。
+    // 浅色模式底色统一纯白，与 AppBar/导航栏/卡片保持一致，消除加载时底色割裂；
+    // 暗彩（非 AMOLED）压到接近纯黑但保留一丝暖度，与纯黑 AMOLED 区分。
     final Color bg = isDark
-        ? (amoled ? const Color(0xFF0A0A0A) : const Color(0xFF141013))
-        : const Color(0xFFFBF7F4);
+        ? (amoled ? const Color(0xFF0A0A0A) : const Color(0xFF100D0F))
+        : Colors.white;
 
     final ColorScheme scheme;
     if (amoled && isDark) {
@@ -276,17 +278,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         inversePrimary: const Color(0xFFB0B0B0),
       );
     } else {
-      scheme = SeedColorScheme.fromSeeds(
+      // 暗彩：刻意比浅色更深、更艳。
+      // FlexTones.vivid 在暗色下会把 primary 映射到 tone 80（浅色），导致暗彩
+      // accent 与浅色饱和度几乎一致、且偏浅（截图里按钮仍是浅蓝）。这里先生成
+      // 同一套种子在浅色下的 vivid 配色，再把它逐个 accent 经 kcDarkColorful
+      // 加深加饱和后覆盖到暗色彩色方案上，保证暗彩明显比浅色更深更艳且对比可读。
+      final lightScheme = SeedColorScheme.fromSeeds(
+        primaryKey: primary,
+        secondaryKey: secondary,
+        tertiaryKey: tertiary,
+        brightness: Brightness.light,
+        tones: FlexTones.vivid(Brightness.light),
+      ).copyWith(surfaceTint: Colors.transparent);
+      final darkBase = SeedColorScheme.fromSeeds(
         primaryKey: effectivePrimary,
         secondaryKey: effectiveSecondary,
         tertiaryKey: effectiveTertiary,
         brightness: brightness,
-        // 暗色（非 AMOLED）保留 soft 柔化，避免刺眼；亮色改用 vivid，让主题色
-        // 种子（如珊瑚红 #FFFF453A）的饱和度在亮底上充分释放，解决「亮色发灰」。
-        tones: isDark ? FlexTones.soft(brightness) : FlexTones.vivid(brightness),
-      ).copyWith(
-        surfaceTint: Colors.transparent,
-      );
+        tones: FlexTones.vivid(brightness),
+      ).copyWith(surfaceTint: Colors.transparent);
+      scheme = kcDarkColorfulFromLight(lightScheme, darkBase);
     }
 
     final theme = ThemeData(
@@ -426,8 +437,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         debugShowCheckedModeBanner: false,
         theme: getTheme(primary, secondary, tertiary, Brightness.light),
         navigatorKey: App.rootNavigatorKey,
-        darkTheme: getTheme(primary, secondary, tertiary, Brightness.dark,
-            amoled: appdata.settings['theme_mode'] == 'amoled'),
+        darkTheme: getTheme(
+          primary,
+          secondary,
+          tertiary,
+          Brightness.dark,
+          amoled: appdata.isAmoledMode,
+        ),
         themeMode: switch (appdata.settings['theme_mode']) {
           'light' => ThemeMode.light,
           'dark' => ThemeMode.dark,

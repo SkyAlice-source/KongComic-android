@@ -265,15 +265,33 @@ class OptionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = context.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = cs.primary;
+    final bg = isSelected
+        ? (isDark
+            ? primary.withValues(alpha: 0.12)
+            : cs.secondaryContainer)
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.10)
+            : cs.surface);
+    final borderColor = isSelected
+        ? (isDark
+            ? primary.withValues(alpha: 0.20)
+            : cs.secondaryContainer)
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.14)
+            : cs.outline);
+    final textColor = isSelected
+        ? (isDark ? primary : cs.onSecondaryContainer)
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.95)
+            : cs.onSurface);
     return AnimatedContainer(
       duration: _fastAnimationDuration,
       decoration: BoxDecoration(
-        color: isSelected
-            ? context.colorScheme.secondaryContainer
-            : context.colorScheme.surface,
-        border: isSelected
-            ? Border.all(color: context.colorScheme.secondaryContainer)
-            : Border.all(color: context.colorScheme.outline),
+        color: bg,
+        border: Border.all(color: borderColor),
         borderRadius: BorderRadius.circular(kcRadius8),
       ),
       child: Material(
@@ -283,7 +301,10 @@ class OptionChip extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text(text),
+            child: Text(
+              text,
+              style: TextStyle(color: textColor),
+            ),
           ),
         ),
       ),

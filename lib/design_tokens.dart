@@ -82,26 +82,28 @@ const List<Color> kcTagPaletteLight = [
 ];
 
 /// 暗色模式：深色高饱和底 + 白色字，避免浅色 chip 在暗底上刺眼且看不清。
+/// 亮度适度提高，确保「暗彩」模式下标签仍鲜艳不发灰。
 const List<Color> kcTagPaletteDark = [
-  Color(0xFF1E40AF), // 深蓝
-  Color(0xFF9D174D), // 深粉
-  Color(0xFF166534), // 深绿
-  Color(0xFF9A3412), // 深橙
-  Color(0xFF7E22CE), // 深紫
-  Color(0xFF0E7490), // 深青
-  Color(0xFF9F1239), // 深玫瑰
-  Color(0xFF3F6212), // 深橄榄
-  Color(0xFFA16207), // 深金黄
-  Color(0xFF581C87), // 暗紫
-  Color(0xFF115E59), // 深青绿
-  Color(0xFF991B1B), // 深暖红
+  Color(0xFF2563EB), // 鲜蓝
+  Color(0xFFDB2777), // 鲜粉
+  Color(0xFF16A34A), // 鲜绿
+  Color(0xFFEA580C), // 鲜橙
+  Color(0xFF9333EA), // 鲜紫
+  Color(0xFF0891B2), // 鲜青
+  Color(0xFFE11D48), // 鲜玫瑰
+  Color(0xFF65A30D), // 鲜橄榄
+  Color(0xFFD97706), // 鲜金黄
+  Color(0xFF7C3AED), // 亮紫
+  Color(0xFF0D9488), // 鲜青绿
+  Color(0xFFDC2626), // 鲜暖红
 ];
 
-/// AMOLED/纯黑模式下所有标签统一的单一中性灰底。
+/// AMOLED/纯黑模式下所有标签统一的「黑色透明感」底色。
 ///
-/// 用单一灰而非多档灰阶，呼应「纯黑外观统一灰暗度、去掉所有主题色」的要求，
-/// 避免按哈希取色导致的深浅不一。
-const Color kcTagAmoledGray = Color(0xFF242424);
+/// 用半透明白叠加在纯黑底上（≈#282828），比上一版 0x1A 更深一度，
+/// 让玻璃质感更明显、更有层次，同时仍保持纯黑外观统一灰暗度、去掉主题色。
+/// 注意：文字色需配合 kcTagTextColor 的 alpha 感知逻辑。
+const Color kcTagAmoledGray = Color(0x28FFFFFF);
 
 /// 根据主题亮度与 AMOLED 开关返回对应 palette 中的颜色。
 ///
@@ -125,9 +127,65 @@ Color kcSoftenColorForDark(Color color, {double saturationFactor = 0.85, double 
       .toColor();
 }
 
+/// 把任意颜色转为「暗彩」风格：大幅提高饱和度、明显压低亮度，
+/// 让暗色模式下的主题色比浅色更深、更艳，避免发灰发浅。
+/// 按钮/标签等 accent 在深色底上保持足够对比，但不再像浅色那样泛白。
+Color kcDarkColorful(Color color,
+    {double saturationFactor = 1.45, double lightnessFactor = 0.62}) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl
+      .withSaturation((hsl.saturation * saturationFactor).clamp(0.0, 1.0))
+      .withLightness((hsl.lightness * lightnessFactor).clamp(0.0, 1.0))
+      .toColor();
+}
+
 /// 根据 chip 背景亮度自动选黑/白文字，保证 WCAG 对比度。
+///
+/// 注意：Color.computeLuminance 会忽略 alpha，而 AMOLED 下 kcTagAmoledGray
+/// 已是半透明白叠加（实际在黑底上呈暗灰）。若直接算 luminance 会误判为「白底→黑字」，
+/// 导致透明白底上用黑字看不清。因此先与黑底混合得到真实呈现色，再判断。
 Color kcTagTextColor(Color background) {
-  return background.computeLuminance() > 0.5
+  final effective = Color.alphaBlend(background, Colors.black);
+  return effective.computeLuminance() > 0.5
       ? Colors.black.withValues(alpha: 0.87)
       : Colors.white.withValues(alpha: 0.95);
+}
+
+/// 根据背景亮度返回可读的文字色（不透明），用于按钮等实心组件。
+Color kcOnColor(Color background) {
+  return background.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+}
+
+/// 基于「浅色 vivid 配色」生成「暗彩」配色。
+///
+/// 这是修正暗彩饱和度问题的核心：FlexTones.vivid 在暗色下会把 primary 映射到
+/// tone 80（浅色），导致暗彩 accent 与浅色饱和度几乎一致、且偏浅（截图里按钮
+/// 仍是浅蓝）。这里先拿到同一套种子在浅色下的 vivid 结果，再把它逐个 accent
+/// 经 [kcDarkColorful] 加深、加饱和后覆盖到暗色彩色方案上，从而确保暗彩明显比
+/// 浅色更深、更艳，而文字色按亮度自动取黑/白，对比可读。
+///
+/// [light] 为同一套种子在浅色下的 vivid ColorScheme；[darkBase] 为暗色 vivid
+/// ColorScheme（仅取它的表面/中性色与容器色，accent 被覆盖）。
+ColorScheme kcDarkColorfulFromLight(
+  ColorScheme light,
+  ColorScheme darkBase, {
+  double saturationFactor = 1.25,
+  double lightnessFactor = 0.8,
+}) {
+  Color dc(Color c) => kcDarkColorful(
+        c,
+        saturationFactor: saturationFactor,
+        lightnessFactor: lightnessFactor,
+      );
+  final p = dc(light.primary);
+  final s = dc(light.secondary);
+  final t = dc(light.tertiary);
+  return darkBase.copyWith(
+    primary: p,
+    onPrimary: kcOnColor(p),
+    secondary: s,
+    onSecondary: kcOnColor(s),
+    tertiary: t,
+    onTertiary: kcOnColor(t),
+  );
 }

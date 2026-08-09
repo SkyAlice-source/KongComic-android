@@ -32,6 +32,12 @@ class ImageFavoritesProvider
     StreamController<ImageChunkEvent>? chunkEvents,
     void Function()? checkStop,
   ) async {
+    // 1. Persistent offline copy (single image). Lives under App.dataPath so
+    //    it survives app restarts and is not trimmed by the system cache.
+    final localFile = localImageFile(imageFavorite);
+    if (localFile.existsSync()) {
+      return await localFile.readAsBytes();
+    }
     var imageKey = imageFavorite.imageKey;
     var localImage = await getImageFromLocal();
     checkStop?.call();
@@ -88,6 +94,43 @@ class ImageFavoritesProvider
     var file = File(FilePath.join(App.cachePath, 'image_favorites', fileName));
     if (file.existsSync()) {
       await file.delete();
+    }
+    // also drop the persistent offline copy if present
+    final local = localImageFile(imageFavorite);
+    if (local.existsSync()) {
+      await local.delete();
+    }
+  }
+
+  /// Persistent local file for a single favorited image, keyed by stable
+  /// identifiers (id + sourceKey + eid + page) so it does not depend on the
+  /// network image key.
+  static File localImageFile(ImageFavorite f) {
+    return File(FilePath.join(
+      App.dataPath,
+      'image_favorites_local',
+      '${f.id}_${f.sourceKey}_${f.eid}_${f.page}',
+    ));
+  }
+
+  /// Download and persist a single favorited image to [localImageFile] so it
+  /// can be viewed offline later. Returns true on success.
+  static Future<bool> cacheImage(ImageFavorite f) async {
+    try {
+      final provider = ImageFavoritesProvider(f);
+      var key = f.imageKey;
+      if (key.isEmpty) {
+        key = await provider.getImageKey();
+      }
+      final data = await provider.getImageFromNetwork(key, null, null);
+      final file = localImageFile(f);
+      if (!file.existsSync()) {
+        file.createSync(recursive: true);
+      }
+      await file.writeAsBytes(data);
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 

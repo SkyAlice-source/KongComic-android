@@ -979,8 +979,14 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   }
 
   void _openSideBar(Widget widget, {double width = 400}) {
-    Navigator.of(context, rootNavigator: true).push(
-      SideBarRoute(widget, width: width, dismissible: true),
+    // Route chapter/settings sidebars through the main navigator (the same
+    // stack the reader page lives in) so closing the drawer returns to the
+    // reader instead of popping past it back to the comic source.
+    showSideBar(
+      context,
+      widget,
+      width: width,
+      dismissible: true,
     );
   }
 
@@ -1029,69 +1035,63 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   }
 
   Widget buildEpChangeButton() {
-    final extraWidth = context.padding.left + context.padding.right;
     if (context.reader.widget.chapters == null) return const SizedBox();
-    switch (showFloatingButtonValue) {
-      case 0:
-        return Container(
-          width: 58 + extraWidth,
-          height: 58,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(kcRadius16),
-          ),
-          child: lastValue == 1
-              ? HugeIcon(
-                  icon: HugeIcons.strokeRoundedArrowRight01,
-                  size: 24,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                )
-              : HugeIcon(
-                  icon: HugeIcons.strokeRoundedArrowLeft01,
-                  size: 24,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
+    final bool isNext = showFloatingButtonValue == 1;
+    final bool isPrev = showFloatingButtonValue == -1;
+    // Keep the same Backward01 / Forward01 icon family, swapping them when the
+    // reading direction is reversed.
+    HugeIcon iconFor(bool next) => HugeIcon(
+          icon: isReversed
+              ? (next
+                  ? HugeIcons.strokeRoundedBackward01
+                  : HugeIcons.strokeRoundedForward01)
+              : (next
+                  ? HugeIcons.strokeRoundedForward01
+                  : HugeIcons.strokeRoundedBackward01),
+          size: 20,
         );
-      case -1:
-      case 1:
-        return SizedBox(
-          width: 58 + extraWidth,
-          height: 58,
-          child: Material(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(kcRadius16),
-            elevation: 2,
-            child: InkWell(
-              onTap: () {
-                if (showFloatingButtonValue == 1) {
-                  context.reader.toNextChapter();
-                } else if (showFloatingButtonValue == -1) {
-                  context.reader.toPrevChapter();
-                }
-                setFloatingButton(0);
-              },
-              borderRadius: BorderRadius.circular(kcRadius16),
-              child: Center(
-                child: _getArrowIcon(
-                  isReversed,
-                  showFloatingButtonValue,
-                ),
-              ),
-            ),
-          ),
-        );
+    // Use the same circular, surface-tinted style as the back-to-top FAB so
+    // the button is clearly visible over any comic page in both light and dark
+    // themes.
+    final colors = scrollTopFabColors(context);
+    final buttonStyle = IconButton.styleFrom(
+      backgroundColor: colors.background,
+      foregroundColor: colors.foreground,
+      disabledBackgroundColor:
+          colors.background.withValues(alpha: colors.background.a * 0.5),
+      disabledForegroundColor:
+          colors.foreground.withValues(alpha: colors.foreground.a * 0.5),
+      shape: CircleBorder(side: colors.side ?? BorderSide.none),
+      padding: EdgeInsets.zero,
+    );
+    if (showFloatingButtonValue == 0) {
+      // Off-screen hint that remembers the last swipe direction.
+      return SizedBox(
+        width: 56,
+        height: 56,
+        child: IconButton(
+          style: buttonStyle,
+          onPressed: null,
+          icon: lastValue == 1 ? iconFor(true) : iconFor(false),
+        ),
+      );
     }
-    return const SizedBox();
-  }
-
-  Widget _getArrowIcon(bool reversed, int value) {
-    final color = Theme.of(context).colorScheme.onPrimaryContainer;
-    if (reversed) {
-      return value == 1 ? HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 24, color: color) : HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 24, color: color);
-    } else {
-      return value == 1 ? HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 24, color: color) : HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 24, color: color);
-    }
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: IconButton(
+        style: buttonStyle,
+        onPressed: () {
+          if (isNext) {
+            context.reader.toNextChapter();
+          } else if (isPrev) {
+            context.reader.toPrevChapter();
+          }
+          setFloatingButton(0);
+        },
+        icon: iconFor(isNext),
+      ),
+    );
   }
 
   /// If there is only one image on screen, return it.

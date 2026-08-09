@@ -14,6 +14,23 @@ class Appdata with Init {
 
   final Settings settings = Settings._create();
 
+  /// 当前实际是否处于纯黑（AMOLED）外观。
+  ///
+  /// - 用户显式选择 theme_mode='amoled' 时返回 true；
+  /// - theme_mode='system' 且系统当前为暗色时也返回 true，
+  ///   使系统跟随暗色使用纯黑主题；
+  /// - theme_mode='light' 或系统为亮色时返回 false（此时若 theme_mode='dark'
+  ///   则走独立的暗彩模式）。
+  bool get isAmoledMode {
+    final mode = settings['theme_mode'] as String? ?? 'system';
+    if (mode == 'amoled') return true;
+    if (mode == 'system') {
+      return PlatformDispatcher.instance.platformBrightness ==
+          Brightness.dark;
+    }
+    return false;
+  }
+
   var searchHistory = <String>[];
 
   bool _isSavingData = false;
@@ -189,7 +206,7 @@ class Settings with ChangeNotifier {
     'blockedCommentWords': [],
     'defaultSearchTarget': null,
     'autoPageTurningInterval': 5, // in seconds
-    'readerMode': 'galleryLeftToRight', // values of [ReaderMode]
+    'readerMode': 'continuousTopToBottom', // values of [ReaderMode]
     'readerScreenPicNumberForLandscape': 1, // 1 - 5
     'readerScreenPicNumberForPortrait': 1, // 1 - 5
     'enableTapToTurnPages': true,

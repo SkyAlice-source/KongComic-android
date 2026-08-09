@@ -42,6 +42,10 @@ class ComicTile extends StatelessWidget {
     this.heroID,
     this.isFavorite,
     this.history,
+    this.showSourceOnCover = true,
+    this.showBottomSourceDate = false,
+    this.badgeAsTopLeftSource = false,
+    this.openLocalIfAvailable = false,
   });
 
   final Comic comic;
@@ -70,11 +74,34 @@ class ComicTile extends StatelessWidget {
   /// A null value here means "no history record" (or history display is disabled).
   final History? history;
 
+  /// When false, the brief-mode top-right metadata pill is hidden entirely.
+  final bool showSourceOnCover;
+
+  /// When true, the brief-mode shows source/date as a bottom pill above the
+  /// history progress bar.
+  final bool showBottomSourceDate;
+
+  /// When true and [badge] is non-null, use [badge] as the top-left source
+  /// pill instead of the comic subtitle (author).
+  final bool badgeAsTopLeftSource;
+
+  /// When true, tapping the tile opens the locally-downloaded copy if one
+  /// exists (offline reading), otherwise falls back to the online ComicPage.
+  /// Used by the favorites pages so downloaded comics can be read without network.
+  final bool openLocalIfAvailable;
 
   void _onTap() {
     if (onTap != null) {
       onTap!();
       return;
+    }
+    if (openLocalIfAvailable) {
+      final type = ComicType.fromKey(comic.sourceKey);
+      final local = LocalManager().find(comic.id, type);
+      if (local != null) {
+        local.read();
+        return;
+      }
     }
     App.mainNavigatorKey?.currentContext?.to(
       () => ComicPage(
@@ -298,6 +325,68 @@ class ComicTile extends StatelessWidget {
     );
   }
 
+  /// Builds the source/date pill shown at the bottom of the cover in brief
+  /// mode for favorites. The text is taken from [comic.description] (which
+  /// favorites set to "source | date") with a fallback to the source name.
+  Widget _buildBottomMetadataPill(
+      BuildContext context, BoxConstraints constraints) {
+    String? text;
+    if (comic.description.isNotEmpty) {
+      text = comic.description;
+    } else {
+      final source = ComicSource.find(comic.sourceKey);
+      text = source?.name ??
+          (comic.sourceKey.isEmpty ? null : comic.sourceKey);
+    }
+    text = text
+        ?.split('|')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .join(' · ');
+
+    final fontSize = constraints.maxWidth < 80
+        ? 8.0
+        : constraints.maxWidth < 150
+            ? 10.0
+            : 12.0;
+
+    if (text == null || text.isEmpty) {
+      return const SizedBox();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.only(
+        bottomLeft: Radius.circular(kcCardInnerRadius),
+        bottomRight: Radius.circular(kcCardInnerRadius),
+      ),
+      child: Container(
+        height: 16,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.55),
+        ),
+        child: Center(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: fontSize,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withValues(alpha: 0.60),
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDetailedMode(BuildContext context, Widget? histBadge, bool isFavorite) {
     return LayoutBuilder(builder: (context, constrains) {
       final height = constrains.maxHeight - 16;
@@ -434,31 +523,110 @@ class ComicTile extends StatelessWidget {
                       child: image,
                     ),
                     Align(
+                      alignment: Alignment.topLeft,
+                      child: (() {
+                        String? text;
+                        if (badgeAsTopLeftSource &&
+                            badge != null &&
+                            badge!.isNotEmpty) {
+                          text = badge;
+                        } else {
+                          text = comic.subtitle?.replaceAll('\n', '').trim();
+                        }
+                        if (text == null || text.isEmpty) {
+                          return const SizedBox();
+                        }
+                        final fontSize = constraints.maxWidth < 80
+                            ? 8.0
+                            : constraints.maxWidth < 150
+                                ? 10.0
+                                : 12.0;
+                        return Container(
+                          margin: const EdgeInsets.fromLTRB(2, 0, 2, 2),
+                          padding: constraints.maxWidth < 80
+                              ? const EdgeInsets.fromLTRB(3, 1, 3, 1)
+                              : constraints.maxWidth < 150
+                                  ? const EdgeInsets.fromLTRB(4, 2, 4, 2)
+                                  : const EdgeInsets.fromLTRB(5, 2, 5, 2),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(kcRadius8),
+                            color: Colors.black.toOpacity(0.5),
+                          ),
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * 0.62,
+                          ),
+                          child: Text(
+                            text,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: fontSize,
+                              color: Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      })(),
+                    ),
+                    Align(
                       alignment: Alignment.topRight,
                       child: (() {
-                        final subtitle =
-                            comic.subtitle?.replaceAll('\n', '').trim();
-                        final text = comic.description.isNotEmpty
-                            ? comic.description.split('|').join('\n')
-                            : (subtitle?.isNotEmpty == true ? subtitle : null);
+                        // Pages like Discover want a clean cover and never show
+                        // the top-right metadata pill.
+                        if (!showSourceOnCover) {
+                          return const SizedBox();
+                        }
+                        // When a history progress pill is already shown at the
+                        // bottom AND the cover's description badge repeats the
+                        // same chapter/page info, skip it to avoid clutter.
+                        // Favorites use the same area for source/date metadata,
+                        // which is not duplicated by the history pill, so keep it.
+                        // Note: history pages pass History.toComic() (a Comic),
+                        // so `comic is History` does not work; use history.
+                        if (history != null) {
+                          final desc = comic.description.toLowerCase();
+                          final isChapterLike = desc.contains('第') ||
+                              desc.contains('话') ||
+                              desc.contains('章') ||
+                              desc.contains('页') ||
+                              desc.contains('%');
+                          if (isChapterLike) {
+                            return const SizedBox();
+                          }
+                        }
+                        // Unify the chapter/page, source/date, or other metadata
+                        // into a single right-aligned pill so it never stacks into
+                        // multiple floating badges and covers the cover.
+                        // If no metadata is available, show the comic source so
+                        // favorites/grid views always expose where the comic is
+                        // from.
+                        String? text;
+                        if (comic.description.isNotEmpty) {
+                          text = comic.description;
+                        } else {
+                          final source = ComicSource.find(comic.sourceKey);
+                          text = source?.name ??
+                              (comic.sourceKey.isEmpty ? null : comic.sourceKey);
+                        }
+                        text = text
+                            ?.split('|')
+                            .map((e) => e.trim())
+                            .where((e) => e.isNotEmpty)
+                            .join(' · ');
+
                         final fortSize = constraints.maxWidth < 80
                             ? 8.0
                             : constraints.maxWidth < 150
                                 ? 10.0
                                 : 12.0;
 
-                        if (text == null) {
+                        if (text == null || text.isEmpty) {
                           return const SizedBox();
                         }
 
-                        var children = <Widget>[];
-                        var lines = text.split('\n');
-                        lines.removeWhere((e) => e.trim().isEmpty);
-                        if (lines.length > 3) {
-                          lines = lines.sublist(0, 3);
-                        }
-                        for (var line in lines) {
-                          children.add(Container(
+                        return Padding(
+                          padding: EdgeInsets.only(top: isFavorite ? 28 : 0),
+                          child: Container(
                             margin: const EdgeInsets.fromLTRB(2, 0, 2, 2),
                             padding: constraints.maxWidth < 80
                                 ? const EdgeInsets.fromLTRB(3, 1, 3, 1)
@@ -473,7 +641,7 @@ class ComicTile extends StatelessWidget {
                               maxWidth: constraints.maxWidth,
                             ),
                             child: Text(
-                              line,
+                              text,
                               style: TextStyle(
                                 fontWeight: FontWeight.w500,
                                 fontSize: fortSize,
@@ -483,14 +651,6 @@ class ComicTile extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                          ));
-                        }
-                        return Padding(
-                          padding: EdgeInsets.only(top: isFavorite ? 28 : 0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: children,
                           ),
                         );
                       })(),
@@ -504,6 +664,14 @@ class ComicTile extends StatelessWidget {
                         child: histBadge,
                       ),
                     if (favBadge != null) favBadge,
+                    if (showBottomSourceDate)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: histBadge != null ? 16 : 0,
+                        height: 16,
+                        child: _buildBottomMetadataPill(context, constraints),
+                      ),
                   ],
                 ),
               ),
@@ -711,35 +879,47 @@ class _ComicDescription extends StatelessWidget {
                   runAlignment: WrapAlignment.start,
                   clipBehavior: Clip.antiAlias,
                   crossAxisAlignment: WrapCrossAlignment.end,
-                  spacing: 4,
-                  runSpacing: 3,
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
                     for (var s in processedTags)
-                      Container(
-                        height: 21,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth * 0.45,
-                        ),
-                        decoration: BoxDecoration(
-                          color: s == "Unavailable"
-                              ? context.colorScheme.errorContainer
-                              : context.colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(kcRadius8),
-                        ),
-                        child: Center(
-                          widthFactor: 1,
-                          child: Text(
-                            enableTranslate
-                                ? TagsTranslation.translateTag(s)
-                                : s.split(':').last,
-                            style: const TextStyle(fontSize: kcCaption),
-                            softWrap: true,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
+                      Builder(builder: (context) {
+                        final brightness = Theme.of(context).brightness;
+                        final amoled = appdata.isAmoledMode;
+                        final bg = s == "Unavailable"
+                            ? context.colorScheme.errorContainer
+                            : kcTagColor(s.hashCode, brightness,
+                                amoled: amoled);
+                        return Container(
+                          height: 21,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 8),
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * 0.45,
                           ),
-                        ),
-                      ),
+                          decoration: BoxDecoration(
+                            color: bg,
+                            borderRadius: BorderRadius.circular(kcRadius8),
+                          ),
+                          child: Center(
+                            widthFactor: 1,
+                            child: Text(
+                              enableTranslate
+                                  ? TagsTranslation.translateTag(s)
+                                  : s.split(':').last,
+                              style: TextStyle(
+                                fontSize: kcCaption,
+                                color: s == "Unavailable"
+                                    ? context.colorScheme.onErrorContainer
+                                    : kcTagTextColor(bg),
+                              ),
+                              softWrap: true,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        );
+                      }),
                   ],
                 ),
               ).toAlign(Alignment.topCenter);
@@ -790,13 +970,31 @@ class SliverGridComics extends StatefulWidget {
       this.onTap,
       this.onLongPressed,
       this.selections,
-      this.allFavorite = false});
+      this.allFavorite = false,
+      this.showSourceOnCover = true,
+      this.showBottomSourceDate = false,
+      this.badgeAsTopLeftSource = false,
+      this.openLocalIfAvailable = false});
 
   final List<Comic> comics;
 
   /// favorites folders where all listed comics are already in a favorite
   /// folder). Skips the LocalFavoritesManager lookup.
   final bool allFavorite;
+
+  /// When false, the brief-mode top-right metadata pill is hidden entirely.
+  final bool showSourceOnCover;
+
+  /// When true, the brief-mode shows source/date as a bottom pill above the
+  /// history progress bar.
+  final bool showBottomSourceDate;
+
+  /// When true and [badgeBuilder] returns non-null, use that badge as the
+  /// top-left source pill instead of the comic subtitle (author).
+  final bool badgeAsTopLeftSource;
+
+  /// When true, tap opens a locally-downloaded copy if available (offline).
+  final bool openLocalIfAvailable;
 
   final Map<Comic, bool>? selections;
 
@@ -921,6 +1119,10 @@ class _SliverGridComicsState extends State<SliverGridComics> {
       favoriteStatus: _favoriteStatus,
       historyStatus: _historyStatus,
       allFavorite: widget.allFavorite,
+      showSourceOnCover: widget.showSourceOnCover,
+      showBottomSourceDate: widget.showBottomSourceDate,
+      badgeAsTopLeftSource: widget.badgeAsTopLeftSource,
+      openLocalIfAvailable: widget.openLocalIfAvailable,
     );
   }
 }
@@ -938,6 +1140,10 @@ class _SliverGridComics extends StatelessWidget {
     this.favoriteStatus,
     this.historyStatus,
     this.allFavorite = false,
+    this.showSourceOnCover = true,
+    this.showBottomSourceDate = false,
+    this.badgeAsTopLeftSource = false,
+    this.openLocalIfAvailable = false,
   });
 
 
@@ -962,6 +1168,14 @@ class _SliverGridComics extends StatelessWidget {
   final Map<String, History>? historyStatus;
 
   final bool allFavorite;
+
+  final bool showSourceOnCover;
+
+  final bool showBottomSourceDate;
+
+  final bool badgeAsTopLeftSource;
+
+  final bool openLocalIfAvailable;
 
   @override
   Widget build(BuildContext context) {
@@ -989,6 +1203,10 @@ class _SliverGridComics extends StatelessWidget {
           heroID: heroIDs[index],
           isFavorite: favoriteStatus?[comics[index].id],
           history: historyStatus?[comics[index].id],
+          showSourceOnCover: showSourceOnCover,
+          showBottomSourceDate: showBottomSourceDate,
+          badgeAsTopLeftSource: badgeAsTopLeftSource,
+          openLocalIfAvailable: openLocalIfAvailable,
         );
         if (selection == null) {
           return RepaintBoundary(child: comic);
@@ -1126,6 +1344,10 @@ class ComicList extends StatefulWidget {
     this.refreshHandlerCallback,
     this.enablePageStorage = false,
     this.allFavorite = false,
+    this.showSourceOnCover = true,
+    this.showBottomSourceDate = false,
+    this.badgeAsTopLeftSource = false,
+    this.openLocalIfAvailable = false,
   });
 
   final Future<Res<List<Comic>>> Function(int page)? loadPage;
@@ -1149,6 +1371,20 @@ class ComicList extends StatefulWidget {
   /// When true, every comic is treated as favorited (used by network
   /// favorites folders). Skips the LocalFavoritesManager lookup.
   final bool allFavorite;
+
+  /// When false, the brief-mode top-right metadata pill is hidden entirely.
+  final bool showSourceOnCover;
+
+  /// When true, the brief-mode shows source/date as a bottom pill above the
+  /// history progress bar.
+  final bool showBottomSourceDate;
+
+  /// When true and [badgeBuilder] returns non-null, use that badge as the
+  /// top-left source pill instead of the comic subtitle (author).
+  final bool badgeAsTopLeftSource;
+
+  /// When true, tap opens a locally-downloaded copy if available (offline).
+  final bool openLocalIfAvailable;
 
   @override
   State<ComicList> createState() => ComicListState();
@@ -1436,6 +1672,10 @@ class ComicListState extends State<ComicList> {
           comics: _data[_page] ?? const [],
           menuBuilder: widget.menuBuilder,
           allFavorite: widget.allFavorite,
+          showSourceOnCover: widget.showSourceOnCover,
+          showBottomSourceDate: widget.showBottomSourceDate,
+          badgeAsTopLeftSource: widget.badgeAsTopLeftSource,
+          openLocalIfAvailable: widget.openLocalIfAvailable,
         ),
         if (_data[_page]!.length > 6 && _maxPage != 1)
           _buildSliverPageSelector(),
@@ -1482,6 +1722,10 @@ class ComicListState extends State<ComicList> {
           comics: _data.values.expand((element) => element).toList(),
           menuBuilder: widget.menuBuilder,
           allFavorite: widget.allFavorite,
+          showSourceOnCover: widget.showSourceOnCover,
+          showBottomSourceDate: widget.showBottomSourceDate,
+          badgeAsTopLeftSource: widget.badgeAsTopLeftSource,
+          openLocalIfAvailable: widget.openLocalIfAvailable,
           onLastItemBuild: () {
             if (_error == null && (_maxPage == null || _data.length < _maxPage!)) {
               _loadPage(_data.length + 1);
@@ -1902,6 +2146,10 @@ class PaginatedSliverGridComics extends StatefulWidget {
     this.allFavorite = false,
     this.emptySubtitle,
     this.badgeColorBuilder,
+    this.showSourceOnCover = true,
+    this.showBottomSourceDate = false,
+    this.badgeAsTopLeftSource = false,
+    this.openLocalIfAvailable = false,
   });
 
   /// Loads a page of comics starting at [offset].
@@ -1936,6 +2184,20 @@ class PaginatedSliverGridComics extends StatefulWidget {
 
   /// Subtitle shown in the empty state.
   final String? emptySubtitle;
+
+  /// When false, the brief-mode top-right metadata pill is hidden entirely.
+  final bool showSourceOnCover;
+
+  /// When true, the brief-mode shows source/date as a bottom pill above the
+  /// history progress bar.
+  final bool showBottomSourceDate;
+
+  /// When true and [badgeBuilder] returns non-null, use that badge as the
+  /// top-left source pill instead of the comic subtitle (author).
+  final bool badgeAsTopLeftSource;
+
+  /// When true, tap opens a locally-downloaded copy if available (offline).
+  final bool openLocalIfAvailable;
 
   @override
   State<PaginatedSliverGridComics> createState() =>
@@ -2120,6 +2382,10 @@ class PaginatedSliverGridComicsState
             heroID: _heroIDs[index],
             isFavorite: _favoriteStatus[comic.id],
             history: _historyStatus[comic.id],
+            showSourceOnCover: widget.showSourceOnCover,
+            showBottomSourceDate: widget.showBottomSourceDate,
+            badgeAsTopLeftSource: widget.badgeAsTopLeftSource,
+            openLocalIfAvailable: widget.openLocalIfAvailable,
           );
 
           if (widget.selections == null) {

@@ -19,6 +19,14 @@ import 'package:kong_comic/utils/translations.dart';
 
 import 'local_comics_page.dart';
 
+/// 平板/宽屏下英雄卡（封面大卡）的最大宽度，避免随屏宽线性放大导致卡片过大。
+/// 手机屏宽 * 0.54 恒定小于此值，故手机版外观完全不变。
+const double _maxHeroCardWidth = 420;
+
+/// 平板/宽屏下主页内容列的最大宽度，超出则居中留白，避免单列拉满全屏。
+/// 手机屏宽 < 该值，约束等价为不约束，外观与手机版一致。
+const double _maxHomeContentWidth = 900;
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
@@ -39,14 +47,14 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    var widget = LayoutBuilder(
+    final content = LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight;
         // dock 浮层高度（含底部安全区），内容需避让以免被遮挡
         final dockHeight = 58.0 + MediaQuery.of(context).padding.bottom;
         // 中间卡片内在高度：主卡宽 sw*0.54、高 cardW*1.4
         final sw = MediaQuery.of(context).size.width;
-        final cardW = sw * 0.54;
+        final cardW = (sw * 0.54).clamp(0.0, _maxHeroCardWidth);
         final cardHeight = cardW * 1.4;
         // 可用内容区高度（减去顶部状态栏和底部dock）
         final contentArea = availableHeight - context.padding.top - dockHeight;
@@ -72,7 +80,17 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
-    return context.width > changePoint ? widget.paddingHorizontal(8) : widget;
+    // 宽屏/平板：限制内容最大宽度并居中，避免单列在宽屏上拉满全屏、
+    // 按钮/卡片被过度拉伸。手机宽度 < changePoint，分支不进入，外观与手机版一致。
+    if (context.width > changePoint) {
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _maxHomeContentWidth),
+          child: content,
+        ),
+      );
+    }
+    return content;
   }
 }
 
@@ -150,7 +168,7 @@ class _BannerState extends State<_Banner> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sw = MediaQuery.of(context).size.width;
-    final cardW = sw * 0.54;
+    final cardW = (sw * 0.54).clamp(0.0, _maxHeroCardWidth);
     return SliverToBoxAdapter(
       child: SizedBox(height: widget.height,
         child: Stack(
@@ -237,7 +255,7 @@ class _BannerState extends State<_Banner> {
   Widget _buildSingleCard(BuildContext context, FavoriteItem comic, {double? width}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sw = MediaQuery.of(context).size.width;
-    final cardW = width ?? sw * 0.54;
+    final cardW = width ?? (sw * 0.54).clamp(0.0, _maxHeroCardWidth);
     return Column(mainAxisSize: MainAxisSize.min, children: [
       Container(
         decoration: BoxDecoration(
@@ -331,10 +349,10 @@ class _ComicInfoSection extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () => context.to(() => ComicPage(id: comic.id, sourceKey: comic.type.comicSource?.key ?? '', cover: comic.coverPath, title: comic.name)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: appdata.settings['theme_mode'] == 'amoled'
+                  backgroundColor: appdata.isAmoledMode
                       ? const Color(0xFF242424)
                       : Theme.of(context).colorScheme.primary,
-                  foregroundColor: appdata.settings['theme_mode'] == 'amoled'
+                  foregroundColor: appdata.isAmoledMode
                       ? Colors.white
                       : Theme.of(context).colorScheme.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kcRadius22)),

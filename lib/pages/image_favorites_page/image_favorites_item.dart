@@ -101,6 +101,21 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
             goPhotoView(widget.imageFavoritesComic.images.first);
           },
         ),
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
+          text: 'Cache All Images'.tl,
+          onClick: () async {
+            var images = widget.imageFavoritesComic.images;
+            if (images.isEmpty) return;
+            int ok = 0;
+            for (var img in images) {
+              if (await ImageFavoritesProvider.cacheImage(img)) ok++;
+            }
+            App.rootContext.showMessage(
+              message: "Cached @c images".tlParams({"c": ok}),
+            );
+          },
+        ),
       ],
     );
   }
@@ -152,6 +167,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
   Widget buildItem(BuildContext context, int index) {
     var image = imageFavorites[index];
     bool isSelected = widget.selectedImageFavorites[image] ?? false;
+    final cached = ImageFavoritesProvider.localImageFile(image).existsSync();
     int curPage = image.page;
     String pageText = curPage == firstPage
         ? '@a Cover'.tlParams({"a": image.epName})
@@ -188,18 +204,41 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                 borderRadius: BorderRadius.circular(kcRadius8),
                 color: Theme.of(context).colorScheme.secondaryContainer,
               ),
-              clipBehavior: Clip.antiAlias,
-              child: Hero(
-                tag: "${image.sourceKey}${image.ep}${image.page}",
-                child: AnimatedImage(
-                  image: ImageFavoritesProvider(image),
-                  width: 96,
-                  height: 128,
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.medium,
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Hero(
+                        tag: "${image.sourceKey}${image.ep}${image.page}",
+                        child: AnimatedImage(
+                          image: ImageFavoritesProvider(image),
+                          width: 96,
+                          height: 128,
+                          fit: BoxFit.cover,
+                          filterQuality: FilterQuality.medium,
+                        ),
+                      ),
+                    ),
+                    if (cached)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: HugeIcon(
+                            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                            size: 12,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
             Text(
               pageText,
               style: ts.s10,

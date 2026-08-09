@@ -192,6 +192,8 @@ class _HistoryPageState extends State<HistoryPage> {
               key: _gridKey,
               pageLoader: _loadPage,
               selections: selectedComics,
+              showSourceOnCover: false,
+              badgeAsTopLeftSource: true,
               onLoadedComicsChanged: (comics) {
                 _loadedComics = comics.cast<History>();
               },
@@ -215,7 +217,7 @@ class _HistoryPageState extends State<HistoryPage> {
               },
               badgeColorBuilder: (c) {
                 final brightness = Theme.of(context).brightness;
-                final amoled = appdata.settings['theme_mode'] == 'amoled';
+                final amoled = appdata.isAmoledMode;
                 return kcTagColor(c.sourceKey.hashCode, brightness, amoled: amoled);
               },
               menuBuilder: (c) {

@@ -13,6 +13,7 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/components/custom_slider.dart';
+import 'package:kong_comic/components/scroll_top_fab.dart';
 import 'package:kong_comic/components/rich_comment_content.dart';
 import 'package:kong_comic/components/window_frame.dart';
 import 'package:kong_comic/foundation/app.dart';

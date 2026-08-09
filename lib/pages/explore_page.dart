@@ -303,6 +303,7 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
         loadNext: data.loadNext,
         key: const PageStorageKey("comic_list"),
         controller: scrollController,
+        showSourceOnCover: false,
         refreshHandlerCallback: (c) {
           refreshHandler = c;
         },
@@ -381,6 +382,7 @@ class _MixedExplorePageState
         if (cache.isNotEmpty) {
           yield SliverGridComics(
             comics: (cache),
+            showSourceOnCover: false,
           );
           yield const SliverToBoxAdapter(child: Divider());
           cache.clear();
@@ -394,6 +396,7 @@ class _MixedExplorePageState
     if (cache.isNotEmpty) {
       yield SliverGridComics(
         comics: (cache),
+        showSourceOnCover: false,
       );
     }
   }
@@ -456,7 +459,10 @@ Iterable<Widget> _buildExplorePagePart(
   }
 
   Widget buildComics(ExplorePagePart part) {
-    return SliverGridComics(comics: part.comics);
+    return SliverGridComics(
+      comics: part.comics,
+      showSourceOnCover: false,
+    );
   }
 
   yield buildTitle(part);
