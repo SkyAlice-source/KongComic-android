@@ -10,6 +10,7 @@ import 'package:kong_comic/pages/auth_page.dart';
 import 'package:kong_comic/pages/main_page.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:workmanager/workmanager.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'components/components.dart';
 import 'components/window_frame.dart';
@@ -18,6 +19,7 @@ import 'foundation/appdata.dart';
 import 'headless.dart';
 import 'init.dart';
 import 'pages/follow_updates_page.dart';
+import 'package:kong_comic/utils/auto_backup.dart';
 
 /// 全局滚动行为：把 Android 越界辉光颜色从强调色改为中性灰，
 /// 避免选了绿/蓝等强调色时列表四边泛绿。iOS 橡皮筋回弹手感保持不变。
@@ -53,6 +55,7 @@ void main(List<String> args) {
   overrideIO(() {
     runZonedGuarded(() async {
       WidgetsFlutterBinding.ensureInitialized();
+      await Workmanager().initialize(backupCallbackDispatcher);
       await init();
       runApp(const MyApp());
       if (App.isDesktop) {
@@ -354,8 +357,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       final overlay = WidgetStatePropertyAll(
         Colors.white.withValues(alpha: 0.08),
       );
-      final shape = WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      final shape = WidgetStatePropertyAll<OutlinedBorder>(
+        const StadiumBorder(),
       );
       return theme.copyWith(
         filledButtonTheme: FilledButtonThemeData(

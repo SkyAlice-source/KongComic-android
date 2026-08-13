@@ -6,6 +6,7 @@ import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/utils/data_sync.dart';
+import 'package:kong_comic/utils/notifications.dart';
 import 'package:kong_comic/utils/translations.dart';
 import '../foundation/global_state.dart';
 import 'package:kong_comic/foundation/follow_updates.dart';
@@ -21,22 +22,17 @@ class _FollowUpdatesWidgetState
     extends AutomaticGlobalState<FollowUpdatesWidget> {
   int _count = 0;
 
-  String? get folder => appdata.settings["followUpdatesFolder"];
+  List<String> get folders => getEffectiveFollowFolders();
 
   void getCount() {
-    if (folder == null) {
+    final fs = folders;
+    if (fs.isEmpty) {
       _count = 0;
       return;
     }
-    if (!LocalFavoritesManager().folderNames.contains(folder)) {
-      _count = 0;
-      appdata.settings["followUpdatesFolder"] = null;
-      Future.microtask(() {
-        appdata.saveData();
-      });
-    } else {
-      _count = LocalFavoritesManager().countUpdates(folder!);
-    }
+    _count = fs
+        .map((f) => LocalFavoritesManager().countUpdates(f))
+        .fold(0, (a, b) => a + b);
   }
 
   void updateCount() {
@@ -109,10 +105,15 @@ class FollowUpdatesPage extends StatefulWidget {
 }
 
 class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
-  String? get folder => appdata.settings["followUpdatesFolder"];
+  List<String> get folders => getEffectiveFollowFolders();
 
   var updatedComics = <FavoriteItemWithUpdateInfo>[];
   var allComics = <FavoriteItemWithUpdateInfo>[];
+
+  /// When false (default), only the "Updates" section is shown. The large
+  /// "All Comics" list is hidden to avoid flooding the screen, and can be
+  /// toggled on demand.
+  bool _showAll = false;
 
   /// Sort comics by update time in descending order with nulls at the end.
   void sortComics() {
@@ -139,14 +140,24 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
     });
   }
 
+  /// All comics across the followed folders, optionally filtered to only the
+  /// ones that have a new update.
+  Map<String, List<FavoriteItemWithUpdateInfo>> _comicsGroupedByFolder(
+      bool onlyUpdated) {
+    final map = <String, List<FavoriteItemWithUpdateInfo>>{};
+    for (final f in folders) {
+      final list = LocalFavoritesManager().getComicsWithUpdatesInfo(f);
+      final filtered =
+          onlyUpdated ? list.where((c) => c.hasNewUpdate).toList() : list;
+      if (filtered.isNotEmpty) map[f] = filtered;
+    }
+    return map;
+  }
+
   @override
   void initState() {
     super.initState();
-    if (folder != null) {
-      allComics = LocalFavoritesManager().getComicsWithUpdatesInfo(folder!);
-      sortComics();
-      updatedComics = allComics.where((c) => c.hasNewUpdate).toList();
-    }
+    updateComics();
   }
 
   @override
@@ -155,13 +166,13 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
       body: SmoothCustomScrollView(
         slivers: [
           SliverAppbar(title: Text('Follow Updates'.tl)),
-          if (folder == null)
+          if (folders.isEmpty)
             buildNotConfigured(context)
           else
             buildConfigured(context),
-          SliverPadding(padding: const EdgeInsets.only(top: 8)),
-          buildUpdatedComics(),
-          buildAllComics(),
+          const SliverPadding(padding: EdgeInsets.only(top: 8)),
+          ...buildUpdatedComics(),
+          ...buildAllComics(),
         ],
       ),
     );
@@ -186,13 +197,13 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
               title: Text("Not Configured".tl),
             ),
             Text(
-              "Choose a folder to follow updates.".tl,
+              "Choose folders to follow updates.".tl,
               style: ts.s16,
             ).paddingHorizontal(16),
             const SizedBox(height: 8),
             FilledButton.tonal(
               onPressed: showSelector,
-              child: Text("Choose Folder".tl),
+              child: Text("Select Folders".tl),
             ).paddingHorizontal(16).toAlign(Alignment.centerRight),
             const SizedBox(height: 16),
           ],
@@ -216,8 +227,12 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ListTile(
-              leading: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18),
-              title: Text(folder!),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 18),
+              title: Text("Following @c folders"
+                  .tlParams({'c': folders.length})),
+              subtitle: folders.contains('*')
+                  ? Text("All folders".tl)
+                  : null,
             ),
             Text(
               "Automatic update checking enabled.".tl,
@@ -233,7 +248,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
               children: [
                 TextButton(
                   onPressed: showSelector,
-                  child: Text("Change Folder".tl),
+                  child: Text("Change Folders".tl),
                 ),
                 FilledButton.tonal(
                   onPressed: checkNow,
@@ -249,159 +264,316 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
     );
   }
 
-  Widget buildUpdatedComics() {
-    return SliverMainAxisGroup(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                  width: 0.6,
-                ),
+  /// Groups comics by their source (漫画源) name, sorted alphabetically.
+  Map<String, List<FavoriteItemWithUpdateInfo>> _groupBySource(
+      List<FavoriteItemWithUpdateInfo> comics) {
+    final map = <String, List<FavoriteItemWithUpdateInfo>>{};
+    for (var c in comics) {
+      final key = c.type.comicSource?.name ?? "Unknown";
+      (map[key] ??= []).add(c);
+    }
+    final entries = map.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return Map.fromEntries(entries);
+  }
+
+  /// A sub-header showing the source name and how many comics it has.
+  Widget _sourceHeader(String source, int count) {
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Row(
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedGlobe,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(source, style: ts.s16),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(kcRadius8),
+              ),
+              child: Text(
+                '@c'.tlParams({'c': count}),
+                style: ts.s14,
               ),
             ),
-            child: Row(
-              children: [
-                HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  "Updates".tl,
-                  style: ts.s18,
-                ),
-                const Spacer(),
-                if (updatedComics.isNotEmpty)
-                  IconButton(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-                    onPressed: () {
-                      showConfirmDialog(
-                        context: App.rootContext,
-                        title: "Mark all as read".tl,
-                        content: "Do you want to mark all as read?".tl,
-                        onConfirm: () {
-                          for (var comic in updatedComics) {
-                            LocalFavoritesManager().markAsRead(
-                              comic.id,
-                              comic.type,
-                            );
-                          }
-                          updateFollowUpdatesUI();
-                          appdata.saveData();
-                        },
-                      );
-                    },
-                  ),
-              ],
-            ),
-          ),
+            const Spacer(),
+          ],
         ),
-        if (updatedComics.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Text(
-                    "The comic will be marked as no updates as soon as you read it."
-                        .tl)
-                .paddingHorizontal(16)
-                .paddingVertical(4),
-          ),
-        if (updatedComics.isNotEmpty)
-          SliverGridComics(comics: updatedComics)
-        else
-          SliverToBoxAdapter(
-            child: Row(
-              children: [
-                Container(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(kcRadius16),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        "No updates found".tl,
-                        style: ts.s16,
-                      ),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          ),
-      ],
+      ),
     );
   }
 
-  Widget buildAllComics() {
-    return SliverMainAxisGroup(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                  width: 0.6,
-                ),
-              ),
+  /// A folder-level header showing its name, total comics, and updated count.
+  Widget _folderHeader(String folder, int total, int updated) {
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 4),
+        child: Row(
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedFolder01,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
             ),
-            child: Row(
-              children: [
-                HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  "All Comics".tl,
-                  style: ts.s18,
+            const SizedBox(width: 6),
+            Text(folder, style: ts.s16),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(kcRadius8),
+              ),
+              child: Text('@total'.tlParams({'total': total}), style: ts.s14),
+            ),
+            if (updated > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(kcRadius8),
                 ),
-              ],
+                child: Text('@updated updated'.tlParams({'updated': updated}),
+                    style: ts.s14),
+              ),
+            ],
+            const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Render one folder's comics (grouped by source) as a flat list of slivers.
+  List<Widget> _folderGroup(String folder, List<FavoriteItemWithUpdateInfo> comics) {
+    final groups = _groupBySource(comics);
+    final slivers = <Widget>[_folderHeader(
+      folder,
+      comics.length,
+      comics.where((c) => c.hasNewUpdate).length,
+    )];
+    groups.forEach((source, items) {
+      slivers.add(_sourceHeader(source, items.length));
+      slivers.add(SliverGridComics(comics: items));
+    });
+    return slivers;
+  }
+
+  List<Widget> buildUpdatedComics() {
+    final header = SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+              width: 0.6,
             ),
           ),
         ),
-        SliverGridComics(comics: allComics),
-      ],
+        child: Row(
+          children: [
+            HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              "Updates".tl,
+              style: ts.s18,
+            ),
+            const Spacer(),
+            if (updatedComics.isNotEmpty)
+              IconButton(
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+                onPressed: () {
+                  showConfirmDialog(
+                    context: App.rootContext,
+                    title: "Mark all as read".tl,
+                    content: "Do you want to mark all as read?".tl,
+                    onConfirm: () {
+                      for (var comic in updatedComics) {
+                        LocalFavoritesManager().markAsRead(
+                          comic.id,
+                          comic.type,
+                        );
+                      }
+                      updateFollowUpdatesUI();
+                      appdata.saveData();
+                    },
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
     );
+
+    final grouped = _comicsGroupedByFolder(true);
+    if (grouped.isEmpty) {
+      return [
+        header,
+        SliverToBoxAdapter(
+          child: Row(
+            children: [
+              Container(
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(kcRadius16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "No updates found".tl,
+                      style: ts.s16,
+                    ),
+                  ],
+                ),
+              )
+            ],
+          ),
+        ),
+      ];
+    }
+
+    final slivers = <Widget>[
+      header,
+      SliverToBoxAdapter(
+        child: Text(
+                "The comic will be marked as no updates as soon as you read it."
+                    .tl)
+            .paddingHorizontal(16)
+            .paddingVertical(4),
+      ),
+    ];
+    grouped.forEach((folder, comics) {
+      slivers.addAll(_folderGroup(folder, comics));
+    });
+    return slivers;
+  }
+
+  List<Widget> buildAllComics() {
+    if (!_showAll) return [];
+
+    final header = SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+              width: 0.6,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              "All Comics".tl,
+              style: ts.s18,
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _showAll = false;
+                });
+              },
+              child: Text("Hide".tl),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final grouped = _comicsGroupedByFolder(false);
+    if (grouped.isEmpty) {
+      return [header];
+    }
+
+    final slivers = <Widget>[header];
+    grouped.forEach((folder, comics) {
+      slivers.addAll(_folderGroup(folder, comics));
+    });
+    return slivers;
   }
 
   void showSelector() {
-    var folders = LocalFavoritesManager().folderNames;
-    if (folders.isEmpty) {
+    var allFolders = LocalFavoritesManager().folderNames;
+    if (allFolders.isEmpty) {
       context.showMessage(message: "No folders available".tl);
       return;
     }
-    String? selectedFolder;
+    final current = getEffectiveFollowFolders();
+    final allSelected =
+        current.isNotEmpty && current.length == allFolders.length;
+    final Set<String> selected =
+        allSelected ? {...allFolders} : {...current};
+    var allToggle = current.contains('*') || allSelected;
+
     showDialog(
       context: App.rootContext,
       builder: (context) {
         return StatefulBuilder(builder: (context, setState) {
           return ContentDialog(
-            title: "Choose Folder".tl,
-            content: Column(
-              children: [
-                ListTile(
-                  title: Text("Folder".tl),
-                  trailing: Select(
-                    minWidth: 120,
-                    current: selectedFolder,
-                    values: folders,
-                    onTap: (i) {
+            title: "Select Folders".tl,
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 340,
+              child: Column(
+                children: [
+                  CheckboxListTile(
+                    title: Text("All Folders".tl),
+                    value: allToggle,
+                    onChanged: (v) {
                       setState(() {
-                        selectedFolder = folders[i];
+                        allToggle = v ?? false;
+                        if (allToggle) selected.addAll(allFolders);
                       });
                     },
                   ),
-                ),
-              ],
+                  const Divider(),
+                  Expanded(
+                    child: ListView(
+                      children: allFolders.map((f) {
+                        return CheckboxListTile(
+                          title: Text(f),
+                          value: allToggle ? true : selected.contains(f),
+                          onChanged: allToggle
+                              ? null
+                              : (v) {
+                                  setState(() {
+                                    if (v == true) {
+                                      selected.add(f);
+                                    } else {
+                                      selected.remove(f);
+                                    }
+                                  });
+                                },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
             ),
             actions: [
-              if (appdata.settings["followUpdatesFolder"] != null)
+              if (getEffectiveFollowFolders().isNotEmpty)
                 TextButton(
                   onPressed: () {
                     disable();
@@ -410,12 +582,13 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
                   child: Text("Disable".tl),
                 ),
               FilledButton(
-                onPressed: selectedFolder == null
-                    ? null
-                    : () {
+                onPressed: (allToggle || selected.isNotEmpty)
+                    ? () {
                         context.pop();
-                        setFolder(selectedFolder!);
-                      },
+                        final list = allToggle ? ['*'] : selected.toList();
+                        setFolders(list);
+                      }
+                    : null,
                 child: Text("Confirm".tl),
               ),
             ],
@@ -426,95 +599,134 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
   }
 
   void disable() {
-    appdata.settings["followUpdatesFolder"] = null;
+    appdata.settings["followUpdatesFolders"] = <String>[];
     appdata.saveData();
     updateFollowUpdatesUI();
   }
 
-  void setFolder(String folder) async {
+  void setFolders(List<String> selected) async {
     FollowUpdatesService._cancelChecking?.call();
-    LocalFavoritesManager().prepareTableForFollowUpdates(folder);
+    final resolved = selected.contains('*')
+        ? LocalFavoritesManager().folderNames
+        : selected;
 
-    var count = LocalFavoritesManager().count(folder);
+    for (final f in resolved) {
+      LocalFavoritesManager().prepareTableForFollowUpdates(f);
+    }
 
-    if (count > 0) {
+    appdata.settings["followUpdatesFolders"] = selected;
+    appdata.saveData();
+    updateFollowUpdatesUI();
+
+    if (resolved.isNotEmpty) {
       bool isCanceled = false;
-      void onCancel() {
+      FollowUpdatesService._cancelChecking = () {
         isCanceled = true;
-      }
+      };
 
-      var loadingController = showLoadingDialog(
-        App.rootContext,
-        withProgress: true,
-        cancelButtonText: "Cancel".tl,
-        onCancel: onCancel,
-        message: "Updating comics...".tl,
-      );
+      await AppNotifications.requestPermission();
+      await AppNotifications.showComicUpdateCheck();
 
-      await for (var progress in updateFolder(folder, true)) {
+      int updated = 0;
+      int errors = 0;
+      await for (var progress in updateFolders(resolved, true)) {
         if (isCanceled) {
+          await AppNotifications.cancelComicUpdate();
+          FollowUpdatesService._cancelChecking = null;
           return;
         }
-        loadingController.setProgress(progress.current / progress.total);
+        updated = progress.updated;
+        errors = progress.errors;
+        await AppNotifications.showComicUpdateProgress(
+          current: progress.current,
+          total: progress.total,
+          updated: progress.updated,
+          errors: progress.errors,
+        );
       }
 
-      loadingController.close();
+      FollowUpdatesService._cancelChecking = null;
+      await AppNotifications.showComicUpdateComplete(
+        updated: updated,
+        errors: errors,
+      );
     }
 
     setState(() {
-      appdata.settings["followUpdatesFolder"] = folder;
       updatedComics = [];
-      allComics = LocalFavoritesManager().getComicsWithUpdatesInfo(folder);
-      sortComics();
+      allComics = [];
+      updateComics();
     });
-    appdata.saveData();
   }
 
   void checkNow() async {
+    final folders = this.folders;
+    if (folders.isEmpty) return;
     FollowUpdatesService._cancelChecking?.call();
     await Future.delayed(const Duration(milliseconds: 50));
 
     bool isCanceled = false;
-    void onCancel() {
+    FollowUpdatesService._cancelChecking = () {
       isCanceled = true;
-    }
+    };
 
-    var loadingController = showLoadingDialog(
-      App.rootContext,
-      withProgress: true,
-      cancelButtonText: "Cancel".tl,
-      onCancel: onCancel,
-      message: "Updating comics...".tl,
-    );
+    await AppNotifications.requestPermission();
+    await AppNotifications.showComicUpdateCheck();
 
     int updated = 0;
+    int errors = 0;
 
-    await for (var progress in updateFolder(folder!, true)) {
+    await for (var progress in updateFolders(folders, true)) {
       if (isCanceled) {
+        await AppNotifications.cancelComicUpdate();
+        FollowUpdatesService._cancelChecking = null;
         return;
       }
-      loadingController.setProgress(progress.current / progress.total);
       updated = progress.updated;
+      errors = progress.errors;
+      await AppNotifications.showComicUpdateProgress(
+        current: progress.current,
+        total: progress.total,
+        updated: progress.updated,
+        errors: progress.errors,
+      );
     }
 
-    loadingController.close();
+    FollowUpdatesService._cancelChecking = null;
+    await AppNotifications.showComicUpdateComplete(
+      updated: updated,
+      errors: errors,
+    );
 
     if (updated > 0) {
       GlobalState.findOrNull<_FollowUpdatesWidgetState>()?.updateCount();
       updateComics();
+      showUpdateBanner(
+        count: updatedComics.length,
+        coverPath: updatedComics.firstOrNull?.coverPath,
+        title: '@c updates'.tlParams({'c': updatedComics.length}),
+        subtitle: updatedComics.firstOrNull?.name ?? 'Follow Updates'.tl,
+        onTap: () => App.mainNavigatorKey?.currentContext
+            ?.to(() => FollowUpdatesPage()),
+      );
     }
   }
 
   void updateComics() {
-    if (folder == null) {
+    final folders = this.folders;
+    if (folders.isEmpty) {
       setState(() {
         allComics = [];
         updatedComics = [];
       });
       return;
     }
+    final all = <FavoriteItemWithUpdateInfo>[];
+    for (final f in folders) {
+      all.addAll(LocalFavoritesManager().getComicsWithUpdatesInfo(f));
+    }
     setState(() {
-      allComics = LocalFavoritesManager().getComicsWithUpdatesInfo(folder!);
+      allComics = all;
       sortComics();
       updatedComics = allComics.where((c) => c.hasNewUpdate).toList();
     });
@@ -537,8 +749,8 @@ abstract class FollowUpdatesService {
     if (_isChecking) {
       return;
     }
-    var folder = appdata.settings["followUpdatesFolder"];
-    if (folder == null) {
+    var folders = getEffectiveFollowFolders();
+    if (folders.isEmpty) {
       return;
     }
     bool isCanceled = false;
@@ -554,18 +766,46 @@ abstract class FollowUpdatesService {
     }
 
     int updated = 0;
+    int errors = 0;
     try {
-      await for (var progress in updateFolder(folder, false)) {
+      await AppNotifications.showComicUpdateCheck();
+      await for (var progress in updateFolders(folders, false)) {
         if (isCanceled) {
+          await AppNotifications.cancelComicUpdate();
           return;
         }
         updated = progress.updated;
+        errors = progress.errors;
+        await AppNotifications.showComicUpdateProgress(
+          current: progress.current,
+          total: progress.total,
+          updated: progress.updated,
+          errors: progress.errors,
+        );
       }
+      await AppNotifications.showComicUpdateComplete(
+        updated: updated,
+        errors: errors,
+      );
     } finally {
       _cancelChecking = null;
       _isChecking = false;
       if (updated > 0) {
         updateFollowUpdatesUI();
+        final comics = <FavoriteItemWithUpdateInfo>[];
+        for (final f in getEffectiveFollowFolders()) {
+          comics.addAll(LocalFavoritesManager().getUpdates(f));
+        }
+        if (comics.isNotEmpty) {
+          showUpdateBanner(
+            count: comics.length,
+            coverPath: comics.firstOrNull?.coverPath,
+            title: '@c updates'.tlParams({'c': comics.length}),
+            subtitle: comics.firstOrNull?.name ?? 'Follow Updates'.tl,
+            onTap: () => App.mainNavigatorKey?.currentContext
+                ?.to(() => FollowUpdatesPage()),
+          );
+        }
       }
     }
   }
@@ -574,6 +814,15 @@ abstract class FollowUpdatesService {
   static void initChecker() {
     if (_isInitialized) return;
     _isInitialized = true;
+
+    // Migrate the old single-folder setting to the new list-based one.
+    final old = appdata.settings["followUpdatesFolder"];
+    if (old is String) {
+      appdata.settings["followUpdatesFolders"] = [old];
+      appdata.settings["followUpdatesFolder"] = null;
+      appdata.saveData();
+    }
+
     _check();
     DataSync().addListener(updateFollowUpdatesUI);
     // A short interval will not affect the performance since every comic has a check time.

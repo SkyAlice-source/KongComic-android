@@ -64,7 +64,8 @@ Future<File> exportAppData([bool sync = true]) async {
   return cacheFile;
 }
 
-Future<bool> importAppData(File file, [bool checkVersion = false]) async {
+Future<bool> importAppData(File file,
+    [bool checkVersion = false, bool merge = false]) async {
   var needRestart = false;
   var cacheDirPath = FilePath.join(App.cachePath, 'temp_data');
   var cacheDir = Directory(cacheDirPath);
@@ -86,6 +87,33 @@ Future<bool> importAppData(File file, [bool checkVersion = false]) async {
       if (version is int && version <= appdata.settings["dataVersion"]) {
         return false;
       }
+    }
+    if (merge) {
+      // 合并模式：保留当前数据，仅把备份中缺失的部分追加进来。
+      if (await localFavoriteFile.exists()) {
+        LocalFavoritesManager().mergeFrom(localFavoriteFile.path);
+      }
+      if (await historyFile.exists()) {
+        HistoryManager().mergeFrom(historyFile.path);
+      }
+      // 复制备份中缺失的封面，避免覆盖本地已有的自定义封面。
+      var coversDir = FilePath.join(cacheDirPath, "covers");
+      if (Directory(coversDir).existsSync()) {
+        var targetCoversDir = FilePath.join(App.dataPath, "covers");
+        if (!Directory(targetCoversDir).existsSync()) {
+          Directory(targetCoversDir).createSync(recursive: true);
+        }
+        for (var file in Directory(coversDir).listSync()) {
+          if (file is File) {
+            var targetPath = FilePath.join(targetCoversDir, file.name);
+            if (!File(targetPath).existsSync()) {
+              await file.copy(targetPath);
+            }
+          }
+        }
+      }
+      // 合并模式下保留当前设置、Cookies、隐式数据与下载路径，不做替换。
+      return false;
     }
     if (await historyFile.exists()) {
       HistoryManager().close();
@@ -164,6 +192,68 @@ Future<bool> importAppData(File file, [bool checkVersion = false]) async {
       needRestart = true;
     }
     return needRestart;
+  } finally {
+    cacheDir.deleteIgnoreError(recursive: true);
+  }
+}
+
+/// 检测备份是否与当前数据存在重复（漫画源 + 名字）。
+/// 用于导入时决定是否需要询问用户「覆盖」还是「合并」。
+Future<bool> importHasDuplicates(File file) async {
+  var cacheDirPath = FilePath.join(App.cachePath, 'temp_duplicate_check');
+  var cacheDir = Directory(cacheDirPath);
+  if (cacheDir.existsSync()) {
+    cacheDir.deleteSync(recursive: true);
+  }
+  cacheDir.createSync();
+  try {
+    await Isolate.run(() {
+      ZipFile.openAndExtract(file.path, cacheDirPath);
+    });
+    var localFavoriteFile = cacheDir.joinFile("local_favorite.db");
+    var historyFile = cacheDir.joinFile("history.db");
+    // 当前收藏的 (name|type) 集合
+    var currentFav = <String>{};
+    for (var comic in LocalFavoritesManager().allComics()) {
+      currentFav.add("${comic.name}|${comic.type.value}");
+    }
+    if (await localFavoriteFile.exists()) {
+      var db = sqlite3.open(localFavoriteFile.path);
+      try {
+        var tables = db
+            .select("SELECT name FROM sqlite_master WHERE type='table';")
+            .map((e) => e["name"] as String)
+            .toList();
+        tables.removeWhere((e) => e == "folder_order" || e == "folder_sync");
+        for (var folder in tables) {
+          for (var row in db.select('SELECT name, type FROM "$folder";')) {
+            if (currentFav.contains("${row['name']}|${row['type']}")) {
+              return true;
+            }
+          }
+        }
+      } finally {
+        db.dispose();
+      }
+    }
+    // 当前历史的 (title|type) 集合
+    var currentHist = <String>{};
+    for (var h in HistoryManager().getAll()) {
+      currentHist.add("${h.title}|${h.type.value}");
+    }
+    if (await historyFile.exists()) {
+      var db = sqlite3.open(historyFile.path);
+      try {
+        for (var row in db.select("SELECT title, type FROM history;")) {
+          if (currentHist.contains("${row['title']}|${row['type']}")) {
+            return true;
+          }
+        }
+      } finally {
+        db.dispose();
+      }
+    }
+    return false;
   } finally {
     cacheDir.deleteIgnoreError(recursive: true);
   }

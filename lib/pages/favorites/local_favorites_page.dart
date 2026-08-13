@@ -540,6 +540,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                               widget.folder,
                               value.toString(),
                             );
+                            BookshelfLayout.onFolderRenamed(
+                              widget.folder,
+                              value.toString(),
+                            );
                             favPage.folderList?.updateFolders();
                             favPage.setFolder(false, value.toString());
                             return null;

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -20,6 +22,8 @@ import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'package:kong_comic/utils/import_comic.dart';
 import 'package:kong_comic/utils/app_update.dart';
+import 'package:kong_comic/utils/auto_backup.dart';
+import 'package:kong_comic/utils/notifications.dart';
 
 part 'reader.dart';
 part 'explore_settings.dart';

@@ -404,6 +404,52 @@ void clearUnfavoritedHistory() {
     return History.fromRow(res.first);
   }
 
+  /// Merge history and image favorites from a backup database into the
+  /// current database.
+  ///
+  /// - history: a row whose `id` already exists is only overwritten when the
+  ///   backup's record is newer (larger `time`), so local reading progress is
+  ///   never silently lost.
+  /// - image_favorites: rows that don't already exist are inserted; existing
+  ///   rows are left untouched.
+  void mergeFrom(String backupDbPath) {
+    _db.execute("ATTACH DATABASE ? AS backup", [backupDbPath]);
+    try {
+      _db.execute("""
+        INSERT INTO history (id, title, subtitle, cover, time, type, ep, page, readEpisode, max_page, chapter_group)
+        SELECT id, title, subtitle, cover, time, type, ep, page, readEpisode, max_page, chapter_group
+        FROM backup.history
+        ON CONFLICT(id) DO UPDATE SET
+          title = excluded.title,
+          subtitle = excluded.subtitle,
+          cover = excluded.cover,
+          time = excluded.time,
+          type = excluded.type,
+          ep = excluded.ep,
+          page = excluded.page,
+          readEpisode = excluded.readEpisode,
+          max_page = excluded.max_page,
+          chapter_group = excluded.chapter_group
+        WHERE excluded.time > history.time;
+      """);
+      var backupTables = _db
+          .select("SELECT name FROM backup.sqlite_master WHERE type == 'table';")
+          .map((e) => e["name"] as String)
+          .toList();
+      if (backupTables.contains("image_favorites")) {
+        _db.execute("""
+          INSERT OR IGNORE INTO image_favorites
+          SELECT * FROM backup.image_favorites;
+        """);
+      }
+    } finally {
+      _db.execute("DETACH DATABASE backup");
+    }
+    updateCache();
+    notifyListeners();
+    ImageFavoriteManager().notifyListeners();
+  }
+
   /// Batch-query history records for multiple comic IDs in a single SQL query.
   /// Returns a Map keyed by comic id. Only includes IDs that have history.
   /// Also populates the LRU cache with the results.

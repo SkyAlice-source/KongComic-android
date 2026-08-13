@@ -34,12 +34,28 @@ String _prettifyErrorMessage(String raw) {
   if (msg.contains('Connection refused')) {
     return "Connection refused".tl;
   }
+  if (msg.contains('Failed to fetch') ||
+      msg.contains('NetworkError') ||
+      msg.contains('Network Error')) {
+    return "Network Error".tl;
+  }
   if (msg.contains('HTTP')) {
     final status = RegExp(r'HTTP[^\s]*\s+(\d+)').firstMatch(msg);
     if (status != null) {
       final code = int.tryParse(status.group(1)!);
       return _friendlyHttpStatus(code);
     }
+  }
+  // 源解析返回空对象导致的 JS 属性访问错误（如 CopyManga loadInfo null）
+  if (msg.contains("cannot read property") ||
+      msg.contains("Cannot read properties") ||
+      msg.contains("undefined is not an object") ||
+      msg.contains("null is not an object") ||
+      msg.contains("TypeError")) {
+    final sourceMatch = RegExp(r'\(([^:]+):\d+:\d+\)').firstMatch(msg);
+    final sourceName = sourceMatch?.group(1) ?? "Source";
+    return "@source: Source returned empty data, the comic may have been removed or the source is temporarily unavailable."
+        .tlParams({"source": sourceName});
   }
   return msg;
 }

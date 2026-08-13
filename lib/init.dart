@@ -19,6 +19,8 @@ import 'package:kong_comic/utils/opencc.dart';
 import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'foundation/appdata.dart';
+import 'package:kong_comic/utils/auto_backup.dart';
+import 'package:kong_comic/utils/notifications.dart';
 
 Timer? _heartbeatTimer;
 
@@ -66,6 +68,8 @@ Future<void> init() async {
   }
   CacheManager().setLimitSize(appdata.settings['cacheSize']);
   _checkOldConfigs();
+  await initAutoBackup().wait();
+  await AppNotifications.init().wait();
 
   // Non-critical path - schedule to run after the UI is rendered
   _scheduleDeferredInit();

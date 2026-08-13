@@ -82,6 +82,161 @@ class _ToastOverlay extends StatelessWidget {
   }
 }
 
+/// Active update banner entry, so we never stack multiple banners.
+OverlayEntry? _activeUpdateBanner;
+
+/// Shows an in-app notification banner at the top of the screen when followed
+/// comics get new updates. The banner shows a cover thumbnail + title and is
+/// tappable to open the Follow Updates page. It auto-dismisses after a few
+/// seconds. Reuses the same [OverlayWidgetState] channel as [showToast].
+void showUpdateBanner({
+  required int count,
+  required String? coverPath,
+  required String title,
+  required String subtitle,
+  VoidCallback? onTap,
+}) {
+  final state = App.rootContext.findAncestorStateOfType<OverlayWidgetState>();
+  if (state == null) return;
+
+  _activeUpdateBanner?.remove();
+
+  final entry = OverlayEntry(
+    builder: (context) => _UpdateBannerOverlay(
+      count: count,
+      coverPath: coverPath,
+      title: title,
+      subtitle: subtitle,
+      onTap: onTap,
+    ),
+  );
+  _activeUpdateBanner = entry;
+  state.addOverlay(entry);
+  Timer(const Duration(seconds: 4), () {
+    if (_activeUpdateBanner == entry) {
+      state.remove(entry);
+      _activeUpdateBanner = null;
+    }
+  });
+}
+
+class _UpdateBannerOverlay extends StatelessWidget {
+  const _UpdateBannerOverlay({
+    required this.count,
+    required this.coverPath,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final int count;
+  final String? coverPath;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Positioned(
+      top: top + 8,
+      left: 8,
+      right: 8,
+      child: SafeArea(
+        top: false,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: -1.2, end: 0),
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+          builder: (context, value, child) => Transform.translate(
+            offset: Offset(0, value * (top + 120)),
+            child: child,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(kcRadius16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    if (coverPath != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(kcRadius8),
+                        child: CachedNetworkImage(
+                          imageUrl: coverPath!,
+                          width: 46,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            width: 46,
+                            height: 60,
+                            color: colorScheme.surfaceContainerHighest,
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            width: 46,
+                            height: 60,
+                            color: colorScheme.surfaceContainerHighest,
+                            child: HugeIcon(
+                              icon: HugeIcons.strokeRoundedImage01,
+                              size: 20,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ).paddingRight(12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            title,
+                            style: ts.s16,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: ts.s14.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedArrowRight01,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ).paddingLeft(8),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class OverlayWidget extends StatefulWidget {
   const OverlayWidget(this.child, {super.key});
 

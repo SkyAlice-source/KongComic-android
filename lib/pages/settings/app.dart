@@ -126,11 +126,15 @@ class _AppSettingsState extends State<AppSettings> {
               final now = DateTime.now();
               final dateStr =
                   "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-              final targetName = "KongComic_$dateStr.kongcomic";
+              final suffix = _randomFileSuffix();
+              final targetName = "KongComic_${dateStr}_$suffix.kongcomic";
               final targetPath = FilePath.join(App.cachePath, targetName);
               final renamed = await file.copy(targetPath);
               file.deleteIgnoreError();
               await saveFile(filename: targetName, file: renamed);
+              if (context.mounted) {
+                context.showMessage(message: "Export completed".tl);
+              }
             } catch (e, s) {
               Log.error("Export data", e.toString(), s);
               context.showMessage(message: "Failed to export data".tl);
@@ -149,12 +153,25 @@ class _AppSettingsState extends State<AppSettings> {
               var cacheFile =
                   File(FilePath.join(App.cachePath, "import_data_temp"));
               var needRestart = false;
+              var cancelled = false;
               try {
                 await file.saveTo(cacheFile.path);
                 if (file.name.endsWith('picadata')) {
                   await importPicaData(cacheFile);
                 } else {
-                  needRestart = await importAppData(cacheFile);
+                  var hasDuplicates = await importHasDuplicates(cacheFile);
+                  if (hasDuplicates) {
+                    var choice = await _showImportModeDialog(context);
+                    if (choice == null || choice == _ConflictChoice.cancel) {
+                      cancelled = true;
+                      context.showMessage(message: "Import cancelled".tl);
+                    } else {
+                      needRestart = await importAppData(
+                          cacheFile, false, choice == _ConflictChoice.merge);
+                    }
+                  } else {
+                    needRestart = await importAppData(cacheFile);
+                  }
                 }
               } catch (e, s) {
                 Log.error("Import data", e.toString(), s);
@@ -164,21 +181,75 @@ class _AppSettingsState extends State<AppSettings> {
                 cacheFile.deleteIgnoreError();
                 App.forceRebuild();
               }
-              if (needRestart && context.mounted) {
+              if (cancelled) {
+                // 已显示取消提示，无需额外反馈
+              } else if (needRestart && context.mounted) {
                 context.showMessage(
                     message: "Restart app to complete data import".tl);
+              } else if (context.mounted) {
+                context.showMessage(message: "Import completed".tl);
               }
             }
           },
           actionTitle: 'Import'.tl,
         ).toSliver(),
-        _CallbackSetting(
-          title: "Data Sync".tl,
-          callback: () async {
-            showPopUpWidget(context, const _WebdavSetting());
-          },
-          actionTitle: 'Set'.tl,
-        ).toSliver(),
+        if (App.isAndroid)
+          _SwitchSetting(
+            title: "Auto Backup".tl,
+            settingKey: 'autoBackupEnabled',
+            subtitle: "Periodically back up your data to the Download folder".tl,
+            onChanged: () async {
+              await initAutoBackup();
+              setState(() {});
+            },
+          ).toSliver(),
+        if (App.isAndroid)
+          _CallbackSetting(
+            title: "Backup Interval".tl,
+            subtitle:
+                "${appdata.settings['autoBackupInterval'] ?? 7} @days".tl,
+            callback: () async {
+              final options = ["1", "3", "7", "14", "30"];
+              final current =
+                  (appdata.settings['autoBackupInterval'] as int? ?? 7);
+              var index = options.indexOf(current.toString());
+              if (index < 0) index = 2;
+              final result = await showSelectDialog(
+                title: "Backup Interval".tl,
+                options: options.map((e) => "$e @days".tl).toList(),
+                initialIndex: index,
+              );
+              if (result != null) {
+                appdata.settings['autoBackupInterval'] =
+                    int.parse(options[result]);
+                await appdata.saveData();
+                await initAutoBackup();
+                setState(() {});
+              }
+            },
+            actionTitle: 'Set'.tl,
+          ).toSliver(),
+        if (App.isAndroid)
+          _CallbackSetting(
+            title: "Back Up Now".tl,
+            callback: () async {
+              var controller = showLoadingDialog(context);
+              try {
+                await performAutoBackup();
+                if (context.mounted) {
+                  context.showMessage(message: "Backup created".tl);
+                }
+              } catch (e, s) {
+                Log.error("Backup", e.toString(), s);
+                if (context.mounted) {
+                  context.showMessage(message: "Backup failed".tl);
+                }
+              } finally {
+                controller.close();
+              }
+            },
+            actionTitle: 'Backup'.tl,
+          ).toSliver(),
         _SettingPartTitle(
           title: "User".tl,
           icon: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18),
@@ -630,6 +701,13 @@ class _WebdavSettingState extends State<_WebdavSetting> {
 
 enum _ConflictChoice { overwrite, merge, cancel }
 
+const _fileSuffixChars = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+String _randomFileSuffix() {
+  final rand = Random.secure();
+  return List.generate(6, (_) => _fileSuffixChars[rand.nextInt(_fileSuffixChars.length)]).join();
+}
+
 class _StorageConflictDialog extends StatelessWidget {
   const _StorageConflictDialog({
     required this.existingCount,
@@ -686,6 +764,73 @@ class _StorageConflictDialog extends StatelessWidget {
           ),
         ],
       ),
+      actions: [
+        Button.text(
+          onPressed: () => context.pop(_ConflictChoice.cancel),
+          child: Text("Cancel".tl),
+        ),
+        Button.text(
+          onPressed: () => context.pop(_ConflictChoice.merge),
+          child: Text("Merge".tl),
+        ),
+        Button.filled(
+          onPressed: () => context.pop(_ConflictChoice.overwrite),
+          child: Text("Overwrite".tl),
+        ),
+      ],
+    );
+  }
+}
+
+/// 导入备份时，若检测到与本地数据重复，询问用户「覆盖」还是「合并」。
+Future<_ConflictChoice?> _showImportModeDialog(BuildContext context) async {
+  return showDialog<_ConflictChoice?>(
+    context: context,
+    builder: (ctx) => _ImportConflictDialog(),
+  );
+}
+
+class _ImportConflictDialog extends StatelessWidget {
+  const _ImportConflictDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return ContentDialog(
+      title: "Duplicate data found".tl,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "The backup contains comics or reading history that already exist on this device. How do you want to import?"
+                .tl,
+          ).paddingBottom(16),
+          Text(
+            "Overwrite".tl,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text(
+            "Replace all local data with the backup. Current data will be lost."
+                .tl,
+            style: TextStyle(
+              fontSize: kcCaption,
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+          ).paddingBottom(8),
+          Text(
+            "Merge".tl,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text(
+            "Keep local data and append only the items missing from the backup."
+                .tl,
+            style: TextStyle(
+              fontSize: kcCaption,
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ).paddingHorizontal(20).paddingVertical(4),
       actions: [
         Button.text(
           onPressed: () => context.pop(_ConflictChoice.cancel),

@@ -613,6 +613,41 @@ class LocalFavoritesManager with ChangeNotifier {
     return (res.first["source_key"], res.first["source_folder"]);
   }
 
+  /// Merge favorites from a backup database into the current database.
+  /// Folders that don't exist are created, and comics that don't exist in a
+  /// folder are added. Existing comics are left untouched.
+  void mergeFrom(String backupDbPath) {
+    _db.execute("ATTACH DATABASE ? AS backup", [backupDbPath]);
+    try {
+      var tables = _db.select("""
+        SELECT name FROM backup.sqlite_master WHERE type == 'table';
+      """);
+      var folders = tables
+          .map((e) => e["name"] as String)
+          .where((name) => name != "folder_order" && name != "folder_sync")
+          .toList();
+      for (var folder in folders) {
+        if (!existsFolder(folder)) {
+          createFolder(folder, true);
+        }
+        var rows = _db.select('select * from backup."$folder";');
+        for (var row in rows) {
+          var comic = FavoriteItem.fromRow(row);
+          addComic(folder, comic, null, null, false);
+        }
+      }
+      // Merge folder_sync links for folders that aren't already linked.
+      _db.execute("""
+        INSERT OR IGNORE INTO folder_sync
+        SELECT * FROM backup.folder_sync;
+      """);
+      initCounts();
+      notifyListeners();
+    } finally {
+      _db.execute("DETACH DATABASE backup");
+    }
+  }
+
   bool comicExists(String folder, String id, ComicType type) {
     var res = _db.select("""
       select * from "$folder"
@@ -646,7 +681,7 @@ class LocalFavoritesManager with ChangeNotifier {
   /// add comic to a folder.
   /// return true if success, false if already exists
   bool addComic(String folder, FavoriteItem comic,
-      [int? order, String? updateTime]) {
+      [int? order, String? updateTime, bool notify = true]) {
     if (!existsFolder(folder)) {
       throw Exception("Folder does not exists");
     }
@@ -703,7 +738,7 @@ class LocalFavoritesManager with ChangeNotifier {
     }
     var hash = comic.id.hashCode ^ comic.type.value;
     _hashedIds[hash] = (_hashedIds[hash] ?? 0) + 1;
-    notifyListeners();
+    if (notify) notifyListeners();
     return true;
   }
 
@@ -1287,15 +1322,14 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   void markAsRead(String id, ComicType type) {
-    var folder = appdata.settings['followUpdatesFolder'];
-    if (folder == null || !existsFolder(folder)) {
-      return;
+    for (final f in folderNames) {
+      if (!existsFolder(f)) continue;
+      _db.execute("""
+        update "$f"
+        set has_new_update = 0
+        where id == ? and type == ?;
+      """, [id, type.value]);
     }
-    _db.execute("""
-      update "$folder"
-      set has_new_update = 0
-      where id == ? and type == ?;
-    """, [id, type.value]);
   }
 
   void close() {

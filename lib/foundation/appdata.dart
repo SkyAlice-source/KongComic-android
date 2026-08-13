@@ -240,7 +240,7 @@ class Settings with ChangeNotifier {
     'autoAddLanguageFilter': 'none', // none, chinese, english, japanese
     'comicSourceListUrl': _defaultSourceListUrl,
     'preloadImageCount': 4,
-    'followUpdatesFolder': null,
+    'followUpdatesFolders': <String>[], // selected folders for follow-updates; contains '*' to mean all folders
     'initialPage': '0',
     'comicListDisplayMode': 'paging', // paging, continuous
     'showPageNumberInReader': true,
@@ -263,6 +263,8 @@ class Settings with ChangeNotifier {
         false, // show chapter comments at end of chapter
     'homeBannerFolders': <String>[], // empty = all folders
     'exitConfirm': true, // 根页面侧滑/系统返回时确认退出（仅 Android 生效）
+    'autoBackupEnabled': false, // 自动备份总开关
+    'autoBackupInterval': 7, // 自动备份间隔（天），默认 7 天
   };
 
   operator [](String key) {

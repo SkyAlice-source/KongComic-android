@@ -205,7 +205,7 @@ Future<void> _showUpdateDialog(AppUpdateInfo info) async {
   if (choice == null || !App.rootContext.mounted) return;
 
   if (choice == "update") {
-    await _showDownloadDialog(info, abi: abi);
+    await _startBackgroundUpdateDownload(info, abi: abi);
   } else if (choice == "github") {
     try {
       await AppUpdate.openReleasePageInBrowser();
@@ -217,17 +217,50 @@ Future<void> _showUpdateDialog(AppUpdateInfo info) async {
   }
 }
 
-/// Show a dialog with a live progress bar. The user can cancel; cancelling
-/// stops the download but does not roll back any partial file.
-Future<void> _showDownloadDialog(AppUpdateInfo info, {String? abi}) async {
-  if (!App.rootContext.mounted) return;
-  showDialog(
-    context: App.rootContext,
-    barrierDismissible: false,
-    builder: (context) {
-      return _UpdateDownloadDialog(info: info, abi: abi);
-    },
-  );
+/// Download the update APK in the background and report progress through
+/// the system notification shade so the screen stays free.
+Future<void> _startBackgroundUpdateDownload(
+  AppUpdateInfo info, {
+  String? abi,
+}) async {
+  if (!App.isAndroid) {
+    // Fallback to the browser on non-Android platforms.
+    await AppUpdate.openReleasePageInBrowser();
+    return;
+  }
+  await AppNotifications.requestPermission();
+  if (App.rootContext.mounted) {
+    App.rootContext.showMessage(message: "Downloading update in the background".tl);
+  }
+  unawaited(_backgroundUpdateDownload(info, abi: abi));
+}
+
+Future<void> _backgroundUpdateDownload(
+  AppUpdateInfo info, {
+  String? abi,
+}) async {
+  try {
+    await AppNotifications.showAppUpdateCheck();
+    await AppUpdate.downloadAndInstall(
+      info,
+      abi: abi,
+      onProgress: (progress, speed) {
+        final max = 100;
+        final current = (progress * max).round();
+        AppNotifications.showAppUpdateDownload(
+          progress: current,
+          maxProgress: max,
+          bytesPerSecond: speed,
+        );
+      },
+    );
+    await AppNotifications.showAppUpdateComplete();
+  } catch (e, s) {
+    AppUpdate.safeLog(e, s);
+    await AppNotifications.showAppUpdateComplete(
+      error: "Download failed".tl,
+    );
+  }
 }
 
 Future<void> _showNetworkErrorDialog() async {
