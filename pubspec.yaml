@@ -2,7 +2,7 @@ name: kong_comic
 description: "A comic app."
 publish_to: 'none'
 
-version: 1.2.33+153
+version: 1.2.34+154
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
@@ -18,7 +18,7 @@ dependencies:
   flutter_qjs:
     git:
       url: https://github.com/SkyAlice-source/flutter_qjs
-      ref: 8feae95df7fb00455df129ad7a0dfec1d0e8d8e4
+      ref: 2f2b2094f678180bfd3c342ef71413f98eb7e5c1
   crypto: ^3.0.6
   dio: ^5.9.2
   html: ^0.15.6
@@ -56,9 +56,9 @@ dependencies:
   local_auth_darwin: ^2.0.3
   wakelock_plus: ^1.2.14
   flutter_saf:
-    git: 
+    git:
       url: https://github.com/SkyAlice-source/flutter_saf
-      ref: fe182cdf40e5fa6230f451bc1d643b860f610d13
+      ref: f616f5bc1db1706ea0402e900a42a67d3d3449fc
   dynamic_color: ^1.8.1
   syntax_highlight: ^0.4.0
   flutter_7zip:

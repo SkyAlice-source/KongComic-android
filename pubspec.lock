@@ -465,8 +465,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "8feae95df7fb00455df129ad7a0dfec1d0e8d8e4"
-      resolved-ref: "8feae95df7fb00455df129ad7a0dfec1d0e8d8e4"
+      ref: "2f2b2094f678180bfd3c342ef71413f98eb7e5c1"
+      resolved-ref: "2f2b2094f678180bfd3c342ef71413f98eb7e5c1"
       url: "https://github.com/SkyAlice-source/flutter_qjs"
     source: git
     version: "0.3.7"
@@ -482,8 +482,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: fe182cdf40e5fa6230f451bc1d643b860f610d13
-      resolved-ref: fe182cdf40e5fa6230f451bc1d643b860f610d13
+      ref: f616f5bc1db1706ea0402e900a42a67d3d3449fc
+      resolved-ref: f616f5bc1db1706ea0402e900a42a67d3d3449fc
       url: "https://github.com/SkyAlice-source/flutter_saf"
     source: git
     version: "0.0.1"
