@@ -733,7 +733,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                     text: "Read".tl,
                     onClick: () {
                       final c = selectedComics.keys.first as FavoriteItem;
-                      App.rootContext.to(() => ReaderWithLoading(
+                      // Push onto the main navigator so back returns to the
+                      // local favorites page instead of the home page.
+                      App.mainNavigatorKey?.currentContext?.to(() => ReaderWithLoading(
                             id: c.id,
                             sourceKey: c.sourceKey,
                           )

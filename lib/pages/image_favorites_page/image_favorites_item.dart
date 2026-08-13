@@ -30,12 +30,15 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
   }
 
   void goReaderPage(ImageFavoritesComic comic, int ep, int page) {
-    App.rootContext.to(
+    // Push onto the main navigator (same stack as ImageFavoritesPage) so the
+    // reader's back button returns here instead of popping to the home page.
+    App.mainNavigatorKey?.currentContext?.to(
       () => ReaderWithLoading(
         id: comic.id,
         sourceKey: comic.sourceKey,
         initialEp: ep,
         initialPage: page,
+        imageFavoritesComic: comic,
       ),
     );
   }

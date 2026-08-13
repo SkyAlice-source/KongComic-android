@@ -781,13 +781,14 @@
     "Failed to add source": "添加漫画源失败",
     "Failed to import comic": "导入漫画失败",
     "Failed to load comics": "加载漫画失败",
-    "Failed to load image": "图片加载失败",
     "Failed to move favorites": "移动收藏失败",
     "Failed to update sources": "更新漫画源失败",
     "Long-press a comic image to favorite it; images are saved here.": "长按漫画图片收藏，图片会保存在这里",
     "Go to \"Comic Source\" to add sources and discover more.": "前往「漫画源」添加源，发现更多精彩内容",
     "No local comics yet? Tap \"Local\" above to add a comic folder.": "还没有本地漫画？点击上方「本地」添加漫画文件夹",
-    "No local comics yet? Tap + at the top right to add a folder.": "还没有本地漫画？点击右上角 + 添加文件夹"
+    "No local comics yet? Tap + at the top right to add a folder.": "还没有本地漫画？点击右上角 + 添加文件夹",
+    "App Update": "应用更新",
+    "App update downloads": "应用更新下载"
   },
   "zh_TW": {
     "Duplicate data found": "發現重複資料",
@@ -1463,7 +1464,7 @@
     "Select Cover Image": "選擇封面圖片",
     "Current": "當前頁",
     "No images available": "沒有可用圖片",
-    "Failed to load image": "圖片加載失敗",
+    "Failed to load image": "圖片載入失敗",
     "ALL": "全部",
     "Reader Settings": "閱讀器設置",
     "Reading mode, page turning, zoom": "閱讀模式、翻頁、縮放",
@@ -1571,12 +1572,13 @@
     "Failed to add source": "添加漫畫源失敗",
     "Failed to import comic": "導入漫畫失敗",
     "Failed to load comics": "載入漫畫失敗",
-    "Failed to load image": "圖片載入失敗",
     "Failed to move favorites": "移動收藏失敗",
     "Failed to update sources": "更新漫畫源失敗",
     "Long-press a comic image to favorite it; images are saved here.": "長按漫畫圖片收藏，圖片會保存在這裡",
     "Go to \"Comic Source\" to add sources and discover more.": "前往「漫畫源」添加源，發現更多精彩內容",
     "No local comics yet? Tap \"Local\" above to add a comic folder.": "還沒有本地漫畫？點擊上方「本地」添加漫畫資料夾",
-    "No local comics yet? Tap + at the top right to add a folder.": "還沒有本地漫畫？點擊右上角 + 添加資料夾"
+    "No local comics yet? Tap + at the top right to add a folder.": "還沒有本地漫畫？點擊右上角 + 添加資料夾",
+    "App Update": "應用更新",
+    "App update downloads": "應用更新下載"
   }
 }

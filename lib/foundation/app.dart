@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:kong_comic/foundation/history.dart';
 
+import 'package:package_info_plus/package_info_plus.dart';
+
 import 'appdata.dart';
 import 'favorites.dart';
 import 'local.dart';
@@ -16,7 +18,9 @@ export "context.dart";
 
 class _App {
   final version = "1.6.4";
-  final appVersion = "1.2.34";
+  // Populated from package_info_plus during [init] so the About page and the
+  // update check always reflect the real build version (no manual bump needed).
+  String appVersion = "1.2.36";
 
   bool get isAndroid => Platform.isAndroid;
 
@@ -96,6 +100,13 @@ class _App {
     dataPath = (await getApplicationSupportDirectory()).path;
     if (isAndroid) {
       externalStoragePath = (await getExternalStorageDirectory())!.path;
+    }
+    // Reflect the real build version in [appVersion] (About page + update check).
+    try {
+      final info = await PackageInfo.fromPlatform();
+      appVersion = info.version;
+    } catch (_) {
+      // Keep the compile-time default if PackageInfo is unavailable.
     }
     isInitialized = true;
   }

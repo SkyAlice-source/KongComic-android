@@ -237,13 +237,18 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
             var comic = widget.comic;
             var ep = images[currentPage].ep;
             var page = images[currentPage].page;
-            App.rootContext.to(
+            // The gallery lives on the root navigator; close it first, then push
+            // the reader onto the main navigator so its back button returns to
+            // the image favorites page instead of the home page.
+            Navigator.of(context).pop();
+            App.mainNavigatorKey?.currentContext?.to(
               () => ReaderWithLoading(
                 id: comic.id,
                 sourceKey: comic.sourceKey,
                 initialEp: ep,
                 initialPage: page,
-              )
+                imageFavoritesComic: comic,
+              ),
             );
           },
         ),

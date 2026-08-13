@@ -3,6 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/cache_manager.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/local.dart';
@@ -128,6 +129,17 @@ class ImageFavoritesProvider
         file.createSync(recursive: true);
       }
       await file.writeAsBytes(data);
+      // Mirror into the app image cache so the reader (which is CacheManager
+      // first) can serve this cached favorite offline without further change.
+      // The cache key matches ImageDownloader._loadComicImage's key.
+      try {
+        await CacheManager().writeCache(
+          "${f.imageKey}@${f.sourceKey}@${f.id}@${f.eid}",
+          data,
+        );
+      } catch (_) {
+        // Non-fatal: the persistent localImageFile copy is still available.
+      }
       return true;
     } catch (e) {
       return false;

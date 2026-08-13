@@ -7,6 +7,7 @@ class ReaderWithLoading extends StatefulWidget {
     required this.sourceKey,
     this.initialEp,
     this.initialPage,
+    this.imageFavoritesComic,
   });
 
   final String id;
@@ -16,6 +17,11 @@ class ReaderWithLoading extends StatefulWidget {
   final int? initialEp;
 
   final int? initialPage;
+
+  /// When set, the reader was opened from an image favorite. The image_favorites
+  /// DB already stores the chapter structure, so [loadData] builds [ReaderProps]
+  /// locally (instant, fully offline) instead of a network loadComicInfo call.
+  final ImageFavoritesComic? imageFavoritesComic;
 
   @override
   State<ReaderWithLoading> createState() => _ReaderWithLoadingState();
@@ -36,11 +42,51 @@ class _ReaderWithLoadingState
       initialChapterGroup: data.history.group,
       author: data.author,
       tags: data.tags,
+      imageFavoritesComic: widget.imageFavoritesComic,
     );
   }
 
   @override
   Future<Res<ReaderProps>> loadData() async {
+    // Local-first path for image favorites: the image_favorites DB already
+    // stores the chapter structure (ep/eid/epName/maxPage), so we can build
+    // ReaderProps without a network loadComicInfo call. This makes opening a
+    // cached favorite instant and fully offline-capable. Any missing data
+    // still falls through to the network path below (unchanged behavior).
+    if (widget.imageFavoritesComic != null) {
+      final fav = widget.imageFavoritesComic!;
+      final chaptersMap = <String, String>{};
+      for (final ep in fav.imageFavoritesEp) {
+        chaptersMap[ep.eid] = ep.epName.isEmpty ? "Ep ${ep.ep}" : ep.epName;
+      }
+      final history = HistoryManager().find(
+            widget.id,
+            ComicType.fromKey(widget.sourceKey),
+          ) ??
+          History.fromMap({
+            'type': ComicType.fromKey(widget.sourceKey).value,
+            'title': fav.title,
+            'subtitle': fav.subTitle,
+            'cover': '',
+            'id': widget.id,
+            'ep': widget.initialEp ?? 0,
+            'page': widget.initialPage ?? 0,
+            'readEpisode': <String>[],
+            'max_page': fav.maxPage,
+          });
+      return Res(
+        ReaderProps(
+          type: ComicType.fromKey(widget.sourceKey),
+          cid: widget.id,
+          name: fav.title,
+          chapters: ComicChapters(chaptersMap),
+          history: history,
+          author: fav.author,
+          tags: fav.tags,
+        ),
+      );
+    }
+
     var comicSource = ComicSource.find(widget.sourceKey);
     var history = HistoryManager().find(
       widget.id,

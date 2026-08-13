@@ -6,6 +6,13 @@ const _updateChannelId = 'kongcomic_updates';
 const _updateChannelNameKey = 'Updates';
 const _updateChannelDescKey = 'Comic update checks and app update downloads';
 
+// Dedicated, higher-priority channel for the user-initiated app-update
+// download so its progress reliably appears in the status bar (instead of
+// being collapsed like the low-importance comic-update checks).
+const _appUpdateChannelId = 'kongcomic_app_update';
+const _appUpdateChannelNameKey = 'App Update';
+const _appUpdateChannelDescKey = 'App update downloads';
+
 const _appUpdateNotificationId = 10001;
 const _comicUpdateNotificationId = 20000;
 
@@ -50,13 +57,18 @@ class AppNotifications {
     bool indeterminate = false,
     bool ongoing = true,
     bool autoCancel = false,
+    String channelId = _updateChannelId,
+    String channelNameKey = _updateChannelNameKey,
+    String channelDescKey = _updateChannelDescKey,
+    Importance importance = Importance.low,
+    Priority priority = Priority.low,
   }) {
     return AndroidNotificationDetails(
-      _updateChannelId,
-      _updateChannelNameKey.tl,
-      channelDescription: _updateChannelDescKey.tl,
-      importance: Importance.low,
-      priority: Priority.low,
+      channelId,
+      channelNameKey.tl,
+      channelDescription: channelDescKey.tl,
+      importance: importance,
+      priority: priority,
       showProgress: progress != null && maxProgress != null && maxProgress > 0,
       maxProgress: maxProgress ?? 0,
       progress: progress ?? 0,
@@ -79,6 +91,11 @@ class AppNotifications {
           title: "Checking for updates".tl,
           body: "Looking for the latest version...".tl,
           indeterminate: true,
+          channelId: _appUpdateChannelId,
+          channelNameKey: _appUpdateChannelNameKey,
+          channelDescKey: _appUpdateChannelDescKey,
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
         ),
       ),
     );
@@ -106,6 +123,11 @@ class AppNotifications {
           body: body,
           progress: progress,
           maxProgress: maxProgress,
+          channelId: _appUpdateChannelId,
+          channelNameKey: _appUpdateChannelNameKey,
+          channelDescKey: _appUpdateChannelDescKey,
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
         ),
       ),
     );
@@ -124,6 +146,11 @@ class AppNotifications {
             body: error,
             ongoing: false,
             autoCancel: true,
+            channelId: _appUpdateChannelId,
+            channelNameKey: _appUpdateChannelNameKey,
+            channelDescKey: _appUpdateChannelDescKey,
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
           ),
         ),
       );
@@ -138,6 +165,11 @@ class AppNotifications {
             body: "Follow the system prompt to install.".tl,
             ongoing: false,
             autoCancel: true,
+            channelId: _appUpdateChannelId,
+            channelNameKey: _appUpdateChannelNameKey,
+            channelDescKey: _appUpdateChannelDescKey,
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
           ),
         ),
       );

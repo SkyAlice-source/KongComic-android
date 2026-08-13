@@ -79,7 +79,13 @@ class _ReaderImagesState extends State<_ReaderImages> {
       var cp = reader.widget.chapters?.ids.elementAtOrNull(reader.chapter - 1);
       final loadPages = reader.type.comicSource?.loadComicPages;
       if (loadPages == null) {
+        // No source loader: try offline favorites before giving up.
         if (!mounted) return;
+        if (await _tryLoadOfflineFavorites()) {
+          if (!mounted) return;
+          context.readerScaffold.update();
+          return;
+        }
         setState(() {
           error = "Source does not implement loadComicPages";
           reader.isLoading = false;
@@ -93,6 +99,15 @@ class _ReaderImagesState extends State<_ReaderImages> {
       );
       if (!mounted) return;
       if (res.error) {
+        // Network chapter load failed (e.g. offline). If opened from an image
+        // favorite, fall back to the locally-stored favorited pages so the
+        // cached images stay readable. Otherwise the error is surfaced as
+        // before.
+        if (await _tryLoadOfflineFavorites()) {
+          if (!mounted) return;
+          context.readerScaffold.update();
+          return;
+        }
         setState(() {
           error = res.errorMessage;
           reader.isLoading = false;
@@ -112,6 +127,38 @@ class _ReaderImagesState extends State<_ReaderImages> {
     }
     if (!mounted) return;
     context.readerScaffold.update();
+  }
+
+  /// When the network chapter load fails (e.g. offline) but this reader was
+  /// opened from an image favorite, fall back to the locally-stored favorited
+  /// pages so the cached images remain readable. Builds a per-page image-key
+  /// list for the current chapter: favorited pages get their known imageKey
+  /// (served offline via CacheManager), non-favorited pages are left empty and
+  /// will show an error when reached (they were never cached). Returns true if
+  /// a (partial) image list was built.
+  Future<bool> _tryLoadOfflineFavorites() async {
+    final fav = reader.widget.imageFavoritesComic;
+    if (fav == null) return false;
+    final epData =
+        fav.imageFavoritesEp.where((e) => e.ep == reader.chapter).firstOrNull;
+    if (epData == null) return false;
+    final images = List<String>.filled(epData.maxPage, "");
+    for (final f in epData.imageFavorites) {
+      if (f.page >= 1 && f.page <= epData.maxPage) {
+        images[f.page - 1] = f.imageKey;
+      }
+    }
+    if (!mounted) return false;
+    setState(() {
+      reader.images = images;
+      reader.isLoading = false;
+      inProgress = false;
+      _handleJumpToLastPage();
+      Future.microtask(() {
+        reader.updateHistory();
+      });
+    });
+    return true;
   }
 
   @override

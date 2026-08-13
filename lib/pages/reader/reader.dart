@@ -80,6 +80,7 @@ class Reader extends StatefulWidget {
     required this.author,
     required this.tags,
     this.forCoverSelection = false,
+    this.imageFavoritesComic,
   });
 
   final ComicType type;
@@ -108,6 +109,11 @@ class Reader extends StatefulWidget {
   /// When true, shows a "Set as Cover" action in the top bar
   /// so the user can pick a page from the comic to use as cover.
   final bool forCoverSelection;
+
+  /// When set, the reader was opened from an image favorite. Used by the
+  /// images loader to fall back to locally-stored favorited pages when the
+  /// network chapter load fails (offline reading of cached favorites).
+  final ImageFavoritesComic? imageFavoritesComic;
 
   @override
   State<Reader> createState() => _ReaderState();
