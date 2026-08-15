@@ -18,10 +18,12 @@
   </a>
 </p>
 
+<!-- 截图暂隐藏
 <p align="center">
   <img src="doc/Screenshot_20260625_030823.png" width="200" />
   <img src="doc/Screenshot_20260625_030912.png" width="200" />
 </p>
+-->
 
 ---
 
@@ -39,10 +41,16 @@
 
 ## 🔧 自行构建
 
+环境要求：
+- Flutter 3.44+（Dart 3.8+）
+- JDK 17
+
 ```bash
 flutter pub get
 flutter build apk --release --split-per-abi
 ```
+
+> 推送 `v*` 标签后，GitHub Actions 会自动构建并发布带签名的 Release APK，无需本地手动打包。
 
 ## 📄 许可
 

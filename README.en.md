@@ -18,10 +18,12 @@
   </a>
 </p>
 
+<!-- Screenshots hidden for now
 <p align="center">
   <img src="doc/Screenshot_20260625_030823.png" width="200" />
   <img src="doc/Screenshot_20260625_030912.png" width="200" />
 </p>
+-->
 
 ---
 
@@ -39,10 +41,16 @@ Download APK from [Releases](https://github.com/SkyAlice-source/KongComic-androi
 
 ## 🔧 Build from source
 
+Requirements:
+- Flutter 3.44+ (Dart 3.8+)
+- JDK 17
+
 ```bash
 flutter pub get
 flutter build apk --release --split-per-abi
 ```
+
+> Pushing a `v*` tag triggers GitHub Actions to build and publish a signed Release APK automatically.
 
 ## 📄 License
 
