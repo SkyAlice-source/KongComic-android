@@ -268,7 +268,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         return;
       }
       if (res.error) {
-        _setError("${"Error".tl}: ${res.errorMessage}");
+        _setError("${"Error".tl}: ${friendlyError(res.errorMessage!)}");
         return;
       } else {
         comic = res.data;
@@ -316,7 +316,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       });
       if (res.error) {
         Log.error("Download", res.errorMessage!);
-        _setError("${"Error".tl}: ${res.errorMessage}");
+        _setError("${"Error".tl}: ${friendlyError(res.errorMessage!)}");
         return;
       } else {
         _cover = res.data;
@@ -342,7 +342,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         }
         if (res.error) {
           Log.error("Download", res.errorMessage!);
-          _setError("${"Error".tl}: ${res.errorMessage}");
+          _setError("${"Error".tl}: ${friendlyError(res.errorMessage!)}");
           return;
         } else {
           _images = {'': res.data};
@@ -377,7 +377,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
           }
           if (res.error) {
             Log.error("Download", res.errorMessage!);
-            _setError("${"Error".tl}: ${res.errorMessage}");
+            _setError("${"Error".tl}: ${friendlyError(res.errorMessage!)}");
             return;
           } else {
             _images![i] = res.data;

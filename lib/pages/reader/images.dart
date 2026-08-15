@@ -70,7 +70,7 @@ class _ReaderImagesState extends State<_ReaderImages> {
       } catch (e) {
         if (!mounted) return;
         setState(() {
-          error = e.toString();
+          error = friendlyError(e);
           reader.isLoading = false;
           inProgress = false;
         });
@@ -223,6 +223,12 @@ class _GalleryModeState extends State<_GalleryMode>
   late PageController controller;
 
   int get preCacheCount => appdata.settings["preloadImageCount"];
+
+  /// Reader-wide image zoom factor (1.0 - 2.0) from the "display scale" setting.
+  double get _imageDisplayScaleFactor {
+    final scale = (appdata.settings['imageDisplayScale'] as num?)?.toInt() ?? 100;
+    return scale.clamp(100, 200) / 100.0;
+  }
 
   var photoViewControllers = <int, PhotoViewController>{};
 
@@ -406,6 +412,14 @@ class _GalleryModeState extends State<_GalleryMode>
             photoViewControllers[index] ??= PhotoViewController();
 
             if (reader.imagesPerPage == 1 || pageImages.length == 1) {
+              // photo_view's `fit` only accepts contain/fitWidth/fitHeight and
+              // silently ignores BoxFit.cover, so the "cover" mode previously
+              // behaved exactly like contain (leaving side gaps on some comics).
+              // Map "cover" to an explicit covered initialScale, which it does
+              // support, so the page truly fills the screen with no white bars.
+              final fitMode = appdata.settings['imageFitMode'] ?? 'contain';
+              final useCover = fitMode == 'cover';
+              final factor = _imageDisplayScaleFactor;
               return PhotoViewGalleryPageOptions(
                 // High filter quality keeps zoomed-in pages crisp (gallery
                 // mode decodes full-resolution images for pinch-to-zoom).
@@ -416,7 +430,12 @@ class _GalleryModeState extends State<_GalleryMode>
                   context,
                   startIndex + 1,
                 ),
-                fit: _getImageFit(),
+                fit: useCover ? BoxFit.contain : _getImageFit(),
+                initialScale: useCover
+                    ? PhotoViewComputedScale.covered * factor
+                    : PhotoViewComputedScale.contained * factor,
+                minScale: PhotoViewComputedScale.contained * factor,
+                maxScale: PhotoViewComputedScale.covered * 10.0 * factor,
                 errorBuilder: (_, error, s, retry) {
                   return NetworkError(message: "Failed to load image".tl, retry: retry);
                 },
@@ -424,11 +443,13 @@ class _GalleryModeState extends State<_GalleryMode>
             }
 
             final viewportSize = MediaQuery.of(context).size;
+            final factor = _imageDisplayScaleFactor;
             return PhotoViewGalleryPageOptions.customChild(
               childSize: viewportSize,
               controller: photoViewControllers[index],
-              minScale: PhotoViewComputedScale.contained * 1.0,
-              maxScale: PhotoViewComputedScale.covered * 10.0,
+              initialScale: PhotoViewComputedScale.contained * factor,
+              minScale: PhotoViewComputedScale.contained * factor,
+              maxScale: PhotoViewComputedScale.covered * 10.0 * factor,
               child: buildPageImages(pageImages, startIndex),
             );
           }
@@ -802,6 +823,12 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   int get preCacheCount => appdata.settings["preloadImageCount"];
 
+  /// Reader-wide image zoom factor (1.0 - 2.0) from the "display scale" setting.
+  double get _imageDisplayScaleFactor {
+    final scale = (appdata.settings['imageDisplayScale'] as num?)?.toInt() ?? 100;
+    return scale.clamp(100, 200) / 100.0;
+  }
+
   /// Whether the user was scrolling the page.
   /// The gesture detector has a delay to detect tap event.
   /// To handle the tap event, we need to know if the user was scrolling before the delay.
@@ -811,7 +838,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   void delayedSetIsScrolling(bool value) {
     Future.delayed(
-      const Duration(milliseconds: 300),
+      AppAnimations.duration(const Duration(milliseconds: 300)),
       () => delayedIsScrolling = value,
     );
   }
@@ -1054,7 +1081,16 @@ class _ContinuousModeState extends State<_ContinuousMode>
           );
         }
         double? width, height;
-        if (reader.mode == ReaderMode.continuousLeftToRight ||
+        // In "cover" mode, the image must be constrained to the viewport size
+        // so BoxFit.cover actually fills the screen and crops page margins.
+        // Without this, continuous mode gives the image only one dimension
+        // (e.g. width for top-to-bottom), which makes cover behave like fitWidth
+        // and leaves white page margins visible.
+        if (appdata.settings['imageFitMode'] == 'cover') {
+          final size = MediaQuery.of(context).size;
+          width = size.width;
+          height = size.height;
+        } else if (reader.mode == ReaderMode.continuousLeftToRight ||
             reader.mode == ReaderMode.continuousRightToLeft) {
           height = double.infinity;
         } else {
@@ -1223,11 +1259,13 @@ class _ContinuousModeState extends State<_ContinuousMode>
       width = height * 0.7;
     }
 
+    final factor = _imageDisplayScaleFactor;
     return PhotoView.customChild(
       backgroundDecoration: BoxDecoration(color: context.colorScheme.surface),
       childSize: Size(width, height),
-      minScale: 1.0,
-      maxScale: 2.5,
+      initialScale: factor,
+      minScale: factor,
+      maxScale: math.max(2.5, factor * 2.5),
       strictScale: true,
       controller: photoViewController,
       onScaleUpdate: onScaleUpdate,

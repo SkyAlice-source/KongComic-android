@@ -551,7 +551,7 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
     controller = AnimationController(
       value: widget.enabled ? 1 : 0,
       vsync: this,
-      duration: _fastAnimationDuration,
+      duration: AppAnimations.duration(const Duration(milliseconds: 160)),
     );
   }
 
@@ -787,18 +787,21 @@ class _NaviMainViewState extends State<_NaviMainView> {
   void onScroll(double offset) {
     if (state.currentPage == 0 || state.currentPage == 2) return;
     final diff = offset - _lastScrollOffset;
-    if (diff > 10 && (_showBottomBar || _showTopBar)) {
+    // 50px 阈值：避免轻微滚动/惯性滑动误隐藏上下导航
+    // 触发隐藏/显示或超阈值后更新基准，防止 diff 累积失效
+    if (diff > 50 && (_showBottomBar || _showTopBar)) {
       setState(() {
         _showBottomBar = false;
         _showTopBar = false;
       });
-    } else if (diff < -10 && (!_showBottomBar || !_showTopBar)) {
+      _lastScrollOffset = offset;
+    } else if (diff < -50 && (!_showBottomBar || !_showTopBar)) {
       setState(() {
         _showBottomBar = true;
         _showTopBar = true;
       });
-    }
-    if (diff.abs() > 5) {
+      _lastScrollOffset = offset;
+    } else if (diff.abs() >= 50) {
       _lastScrollOffset = offset;
     }
   }
@@ -840,7 +843,7 @@ class _NaviMainViewState extends State<_NaviMainView> {
             children: [
               if (shouldShowAppBar)
                 AnimatedSize(
-                  duration: const Duration(milliseconds: 200),
+                  duration: AppAnimations.duration(const Duration(milliseconds: 200)),
                   curve: Curves.easeInOut,
                   alignment: Alignment.topCenter,
                   child: _showTopBar
@@ -860,7 +863,7 @@ class _NaviMainViewState extends State<_NaviMainView> {
                       return false;
                     },
                     child: AnimatedSwitcher(
-                      duration: _fastAnimationDuration,
+                      duration: AppAnimations.duration(const Duration(milliseconds: 160)),
                       child: state.buildMainViewContent(),
                     ),
                   ),
@@ -874,7 +877,7 @@ class _NaviMainViewState extends State<_NaviMainView> {
               right: 0.0,
               bottom: 0.0,
               child: AnimatedSize(
-                duration: const Duration(milliseconds: 200),
+                duration: AppAnimations.duration(const Duration(milliseconds: 200)),
                 curve: Curves.easeInOut,
                 alignment: Alignment.bottomCenter,
                 child: _showBottomBar

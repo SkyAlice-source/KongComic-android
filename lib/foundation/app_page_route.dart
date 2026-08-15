@@ -59,7 +59,7 @@ mixin _AppRouteTransitionMixin<T> on PageRoute<T> {
   Widget buildContent(BuildContext context);
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 300);
+  Duration get transitionDuration => AppAnimations.duration(const Duration(milliseconds: 300));
 
   @override
   Color? get barrierColor => null;

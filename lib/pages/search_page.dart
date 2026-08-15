@@ -54,7 +54,7 @@ class _SearchPageState extends State<SearchPage> {
 
     // ID 直接跳转：仅当唯一匹配时直接跳转，多源匹配时由建议列表选择
     var matchedSources = <ComicSource>[];
-    for (var source in ComicSource.all()) {
+    for (var source in ComicSource.enabled()) {
       if (source.idMatcher?.hasMatch(keyword) ?? false) {
         matchedSources.add(source);
       }
@@ -181,7 +181,7 @@ class _SearchPageState extends State<SearchPage> {
 
   bool canHandleUrl(String text) {
     if (!text.isURL) return false;
-    for (var source in ComicSource.all()) {
+    for (var source in ComicSource.enabled()) {
       if (source.linkHandler != null) {
         var uri = Uri.parse(text);
         if (source.linkHandler!.domains.contains(uri.host)) {
@@ -203,7 +203,7 @@ class _SearchPageState extends State<SearchPage> {
     } else {
       var text = _searchTextController.text;
 
-      for (var comicSource in ComicSource.all()) {
+      for (var comicSource in ComicSource.enabled()) {
         if (comicSource.idMatcher?.hasMatch(text) ?? false) {
           suggestions.add(Pair(
             "**${comicSource.key}**",
@@ -287,7 +287,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void findSearchSources() {
-    var all = ComicSource.all()
+    var all = ComicSource.enabled()
         .where((e) => e.searchPageData != null)
         .map((e) => e.key)
         .toList();

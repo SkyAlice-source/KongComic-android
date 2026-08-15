@@ -199,6 +199,8 @@ class Settings with ChangeNotifier {
     'explore_pages': [],
     'categories': [],
     'favorites': [],
+    'sourceOrder': <String>[], // custom display/reorder of comic sources
+    'disabledSources': <String>[], // keys of disabled (hidden) comic sources
     'searchSources': null,
     'showFavoriteStatusOnTile': true,
     'showHistoryStatusOnTile': true,
@@ -222,7 +224,8 @@ class Settings with ChangeNotifier {
     'longPressZoomPosition': "press", // press, center
     'checkUpdateOnStart': true,
     'limitImageWidth': true,
-    'imageFitMode': 'contain',
+    'imageFitMode': 'fitWidth',
+    'imageDisplayScale': 100, // 100% - 200%, zoom applied in reader
     'webdav': [], // empty means not configured
     "disableSyncFields": "", // "field1, field2, ..."
     'dataVersion': 0,

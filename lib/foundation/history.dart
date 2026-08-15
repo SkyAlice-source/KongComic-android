@@ -513,6 +513,30 @@ void clearUnfavoritedHistory() {
     return res.map((element) => History.fromRow(element)).toList();
   }
 
+  /// 按关键词分页搜索历史记录（标题/副标题匹配，时间倒序）。
+  List<History> searchPaginated(
+    String keyword, {
+    required int limit,
+    required int offset,
+  }) {
+    var res = _db.select("""
+      select * from history
+      where title like ? or subtitle like ?
+      order by time DESC
+      LIMIT ? OFFSET ?;
+    """, ['%$keyword%', '%$keyword%', limit, offset]);
+    return res.map((element) => History.fromRow(element)).toList();
+  }
+
+  /// 搜索历史记录的总数。
+  int searchCount(String keyword) {
+    var res = _db.select("""
+      select COUNT(*) as cnt from history
+      where title like ? or subtitle like ?;
+    """, ['%$keyword%', '%$keyword%']);
+    return res.first['cnt'] as int;
+  }
+
   /// Total number of history records.
   int getHistoryCount() {
     var res = _db.select('SELECT COUNT(*) as cnt FROM history;');

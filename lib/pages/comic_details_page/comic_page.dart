@@ -291,7 +291,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               onPressed: () {
                 scrollController.animateTo(
                   0,
-                  duration: const Duration(milliseconds: 200),
+                  duration: AppAnimations.duration(const Duration(milliseconds: 200)),
                   curve: Curves.ease,
                 );
               },
@@ -323,7 +323,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     if (widget.sourceKey == 'local') {
       var localComic = LocalManager().find(widget.id, ComicType.local);
       if (localComic == null) {
-        return const Res.error('Local comic not found');
+        return Res.error('Local comic not found'.tl);
       }
       var history = HistoryManager().find(widget.id, ComicType.local);
       if (isFirst) {
@@ -352,7 +352,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     }
     var comicSource = ComicSource.find(widget.sourceKey);
     if (comicSource == null) {
-      return const Res.error('Comic source not found');
+      return Res.error('Comic source not found'.tl);
     }
     isAddToLocalFav = LocalFavoritesManager().isExist(
       widget.id,
@@ -390,7 +390,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     yield SliverAppbar(
       title: AnimatedOpacity(
         opacity: showAppbarTitle ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 200),
+        duration: AppAnimations.duration(const Duration(milliseconds: 200)),
         child: Text(comic.title),
       ),
       actions: [

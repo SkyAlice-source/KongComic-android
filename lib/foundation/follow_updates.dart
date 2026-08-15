@@ -4,6 +4,7 @@ import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/utils/channel.dart';
+import 'package:kong_comic/utils/translations.dart';
 
 class ComicUpdateResult {
   final bool updated;
@@ -19,7 +20,7 @@ Future<ComicUpdateResult> updateComic(
     try {
       var comicSource = c.type.comicSource;
       if (comicSource == null) {
-        return ComicUpdateResult(false, "Comic source not found");
+        return ComicUpdateResult(false, "Comic source not found".tl);
       }
       var newInfo = (await comicSource.loadComicInfo!(c.id)).data;
 
@@ -106,6 +107,9 @@ void _updateItemsBase(
   int errors = 0;
   int updated = 0;
 
+  /// 追更检查的最小间隔天数（与 v1.2.36 行为一致：每天至多检查一次）。
+  const intervalDays = 1;
+
   stream.add(UpdateProgress(total, current, errors, updated));
 
   var toUpdate = <_UpdateTask>[];
@@ -114,7 +118,7 @@ void _updateItemsBase(
     if (!ignoreCheckTime) {
       var lastCheckTime = t.comic.lastCheckTime;
       if (lastCheckTime != null &&
-          DateTime.now().difference(lastCheckTime).inDays < 1) {
+          DateTime.now().difference(lastCheckTime).inDays < intervalDays) {
         current++;
         stream.add(UpdateProgress(total, current, errors, updated));
         continue;

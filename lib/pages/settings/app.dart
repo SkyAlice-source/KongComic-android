@@ -13,6 +13,16 @@ class _AppSettingsState extends State<AppSettings> {
     return SmoothCustomScrollView(
       slivers: [
         SliverAppbar(title: Text("APP".tl)),
+        SelectSetting(
+          title: "Initial Page".tl,
+          settingKey: "initialPage",
+          optionTranslation: {
+            '0': "Categories".tl,
+            '1': "Favorites".tl,
+            '2': "Home".tl,
+            '3': "Explore".tl,
+          },
+        ).toSliver(),
         _SettingPartTitle(
           title: "Data".tl,
           icon: HugeIcon(icon: HugeIcons.strokeRoundedDatabase, size: 18),
@@ -467,6 +477,12 @@ class _WebdavSettingState extends State<_WebdavSetting> {
   bool isTesting = false;
   bool upload = true;
 
+  // 输入框 controller（缓存 + dispose，避免 rebuild 丢输入/内存泄漏）
+  late final TextEditingController _urlController;
+  late final TextEditingController _userController;
+  late final TextEditingController _passController;
+  late final TextEditingController _disableSyncController;
+
   @override
   void initState() {
     super.initState();
@@ -477,13 +493,25 @@ class _WebdavSettingState extends State<_WebdavSetting> {
       disableSync = appdata.settings['disableSyncFields'];
     }
     var configs = appdata.settings['webdav'] as List;
-    if (configs.whereType<String>().length != 3) {
-      return;
+    if (configs.whereType<String>().length == 3) {
+      url = configs[0];
+      user = configs[1];
+      pass = configs[2];
     }
-    url = configs[0];
-    user = configs[1];
-    pass = configs[2];
     autoSync = appdata.implicitData['webdavAutoSync'] ?? true;
+    _urlController = TextEditingController(text: url);
+    _userController = TextEditingController(text: user);
+    _passController = TextEditingController(text: pass);
+    _disableSyncController = TextEditingController(text: disableSync);
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _userController.dispose();
+    _passController.dispose();
+    _disableSyncController.dispose();
+    super.dispose();
   }
 
   void onAutoSyncChanged(bool value) {
@@ -508,7 +536,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                 hintText: "A valid WebDav directory URL".tl,
                 border: OutlineInputBorder(),
               ),
-              controller: TextEditingController(text: url),
+              controller: _urlController,
               onChanged: (value) => url = value,
             ),
             const SizedBox(height: 12),
@@ -517,7 +545,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                 labelText: "Username".tl,
                 border: const OutlineInputBorder(),
               ),
-              controller: TextEditingController(text: user),
+              controller: _userController,
               onChanged: (value) => user = value,
             ),
             const SizedBox(height: 12),
@@ -526,7 +554,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                 labelText: "Password".tl,
                 border: const OutlineInputBorder(),
               ),
-              controller: TextEditingController(text: pass),
+              controller: _passController,
               onChanged: (value) => pass = value,
             ),
             const SizedBox(height: 12),
@@ -576,7 +604,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                   },
                 ),
               ),
-              controller: TextEditingController(text: disableSync),
+              controller: _disableSyncController,
               onChanged: (value) => disableSync = value,
             ),
             const SizedBox(height: 12),

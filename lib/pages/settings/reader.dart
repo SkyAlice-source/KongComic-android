@@ -399,6 +399,23 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
           useDeviceSettings: useDeviceSpecificSettings,
         ).toSliver(),
+        _SliderSetting(
+          title: 'Image display scale'.tl,
+          settingsIndex: 'imageDisplayScale',
+          interval: 1,
+          min: 100,
+          max: 200,
+          divisions: null,
+          roundToInt: true,
+          valueSuffix: '%',
+          onChanged: () {
+            setState(() {});
+            widget.onChanged?.call('imageDisplayScale');
+          },
+          comicId: isEnabledSpecificSettings ? widget.comicId : null,
+          comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+          useDeviceSettings: useDeviceSpecificSettings,
+        ).toSliver(),
         _SwitchSetting(
           title: 'Limit image width'.tl,
           subtitle: 'When using Continuous(Top to Bottom) mode'.tl,
@@ -532,6 +549,11 @@ class _ReaderSettingsState extends State<ReaderSettings> {
             useDeviceSettings: useDeviceSpecificSettings,
           ),
         ),
+        // 全局章节顺序（不参与漫画/设备级覆盖）
+        _SwitchSetting(
+          title: "Reverse default chapter order".tl,
+          settingKey: "reverseChapterOrder",
+        ).toSliver(),
       ],
     );
   }

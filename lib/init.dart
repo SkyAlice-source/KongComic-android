@@ -112,7 +112,7 @@ void _scheduleDeferredInit() {
 
 void _checkOldConfigs() {
   if (appdata.settings['searchSources'] == null) {
-    appdata.settings['searchSources'] = ComicSource.all()
+    appdata.settings['searchSources'] = ComicSource.enabled()
         .where((e) => e.searchPageData != null)
         .map((e) => e.key)
         .toList();

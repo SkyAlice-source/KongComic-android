@@ -287,7 +287,8 @@ class ImageFavoriteManager with ChangeNotifier {
         finalImageFavoritesEp[epIndex]["imageFavorites"] = finalImageFavorites;
       }
       if (tempImageFavoritesEp.isEmpty) {
-        throw "Error: No ImageFavoritesEp";
+        Log.error("ImageFavorites", "No ImageFavoritesEp to insert");
+        throw "Unknown error".tl;
       }
       _db.execute("""
       insert or replace into image_favorites(id, title, sub_title, author, tags, translated_tags, time, max_page, source_key, image_favorites_ep, other)

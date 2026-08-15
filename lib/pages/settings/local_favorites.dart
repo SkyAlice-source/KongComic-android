@@ -60,14 +60,13 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
           actionTitle: 'Delete'.tl,
         ).toSliver(),
         SelectSetting(
-          title: "Click favorite".tl,
+          title: "Click favorite item".tl,
           settingKey: "onClickFavorite",
           optionTranslation: {
             "viewDetail": "View Detail".tl,
             "read": "Read".tl,
           },
         ).toSliver(),
-        _HomeBannerFoldersSetting().toSliver(),
       ],
     );
   }

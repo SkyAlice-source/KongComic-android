@@ -178,8 +178,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
     );
   }
 
-  Widget buildNotConfigured(BuildContext context) {
-    return SliverToBoxAdapter(
+  Widget buildNotConfigured(BuildContext context) {    return SliverToBoxAdapter(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
@@ -212,6 +211,16 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
     );
   }
 
+  /// 追更检查间隔选项（天）
+  static const _intervalDaysList = [1, 3, 7];
+
+  String _intervalLabel(int days) => switch (days) {
+        1 => "Daily".tl,
+        3 => "Every 3 days".tl,
+        7 => "Weekly".tl,
+        _ => "Daily".tl,
+      };
+
   Widget buildConfigured(BuildContext context) {
     return SliverToBoxAdapter(
       child: Container(
@@ -238,10 +247,30 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
               "Automatic update checking enabled.".tl,
               style: ts.s14,
             ).paddingHorizontal(16),
-            Text(
-              "The app will check for updates at most once a day.".tl,
-              style: ts.s14,
-            ).paddingHorizontal(16),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              title: Text("Check update interval".tl),
+              subtitle: Text(
+                "Checks each comic at most once per interval".tl,
+                style: ts.s12,
+              ),
+              trailing: Select(
+                minWidth: 96,
+                current: _intervalLabel(
+                  (appdata.settings['followUpdateInterval'] as num?)
+                          ?.toInt() ??
+                      1,
+                ),
+                values: [for (var d in _intervalDaysList) _intervalLabel(d)],
+                onTap: (i) {
+                  setState(() {
+                    appdata.settings['followUpdateInterval'] =
+                        _intervalDaysList[i];
+                    appdata.saveData();
+                  });
+                },
+              ),
+            ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -825,8 +854,10 @@ abstract class FollowUpdatesService {
 
     _check();
     DataSync().addListener(updateFollowUpdatesUI);
-    // A short interval will not affect the performance since every comic has a check time.
-    _timer = Timer.periodic(const Duration(minutes: 10), (timer) {
+    // 每本漫画有 1 天的检查间隔过滤（见 updateFolder），
+    // 这里 1 小时轮询一次只为按时触发，实际每本每天最多检查 1 次；
+    // 大部分漫画周更/月更，无需更频繁的唤醒。
+    _timer = Timer.periodic(const Duration(hours: 1), (timer) {
       _check();
     });
   }

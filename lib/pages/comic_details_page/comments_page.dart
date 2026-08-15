@@ -91,7 +91,7 @@ class _CommentsPageState extends State<CommentsPage> {
       return;
     }
     if (res.error) {
-      context.showMessage(message: res.errorMessage ?? "Unknown Error".tl);
+      context.showMessage(message: friendlyError(res.errorMessage ?? "Unknown Error".tl));
     } else {
       var filteredComments =
           res.data.where((c) => !_shouldBlockComment(c)).toList();
@@ -126,7 +126,7 @@ class _CommentsPageState extends State<CommentsPage> {
       );
     } else if (_error != null) {
       return NetworkError(
-        message: _error!,
+        message: friendlyError(_error!),
         retry: () {
           setState(() {
             _loading = true;
@@ -282,7 +282,7 @@ class _CommentsPageState extends State<CommentsPage> {
                       maxPage = null;
                     });
                   } else {
-                    context.showMessage(message: b.errorMessage ?? "Error".tl);
+                    context.showMessage(message: friendlyError(b.errorMessage ?? "Error".tl));
                     setState(() {
                       sending = false;
                     });

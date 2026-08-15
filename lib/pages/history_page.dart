@@ -41,6 +41,16 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
+  /// 退出搜索模式，恢复完整历史列表。
+  void _exitSearch() {
+    setState(() {
+      searchMode = false;
+      searchKeyword = '';
+      searchController.clear();
+    });
+    _gridKey.currentState?.refresh();
+  }
+
   /// Comics currently loaded by the paginated grid.
   List<History> _loadedComics = [];
 
@@ -52,10 +62,22 @@ class _HistoryPageState extends State<HistoryPage> {
 
   /// Page loader for PaginatedSliverGridComics.
   Future<List<Comic>> _loadPage(int offset, int limit) async {
+    if (searchMode && searchKeyword.trim().isNotEmpty) {
+      return HistoryManager()
+          .searchPaginated(searchKeyword.trim(), limit: limit, offset: offset);
+    }
     return HistoryManager().getAllPaginated(limit: limit, offset: offset);
   }
 
   bool multiSelectMode = false;
+
+  /// 搜索模式与关键词
+  bool searchMode = false;
+
+  String searchKeyword = '';
+
+  final searchController = TextEditingController();
+
   Map<History, bool> selectedComics = {};
 
   void selectAll() {
@@ -166,13 +188,15 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !multiSelectMode,
+      canPop: !multiSelectMode && !searchMode,
       onPopInvokedWithResult: (didPop, result) {
         if (multiSelectMode) {
           setState(() {
             multiSelectMode = false;
             selectedComics.clear();
           });
+        } else if (searchMode) {
+          _exitSearch();
         }
       },
       child: Scaffold(

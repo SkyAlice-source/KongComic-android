@@ -34,7 +34,7 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
   String? error;
 
   void findData() {
-    for (final source in ComicSource.all()) {
+    for (final source in ComicSource.enabled()) {
       if (source.categoryData?.key == widget.categoryKey) {
         if (source.categoryComicsData == null) {
           throw "The comic source ${source.name} does not support category comics";

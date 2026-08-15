@@ -30,11 +30,12 @@ class _ExplorePageState extends State<ExplorePage>
 
   void onSettingsChanged() {
     var explorePages = List<String>.from(appdata.settings["explore_pages"] ?? []);
-    var all = ComicSource.all()
+    var all = ComicSource.enabled()
         .map((e) => e.explorePages)
         .expand((e) => e.map((e) => e.title))
         .toList();
     explorePages = explorePages.where((e) => all.contains(e)).toList();
+    _sortBySourceOrder(explorePages);
     if (!pages.isEqualTo(explorePages)) {
       setState(() {
         pages = explorePages;
@@ -44,6 +45,26 @@ class _ExplorePageState extends State<ExplorePage>
         );
       });
     }
+  }
+
+  /// Sorts explore-page titles by their owning source's position in
+  /// [sourceOrder], preserving relative order within the same source.
+  void _sortBySourceOrder(List<String> list) {
+    final order = appdata.settings['sourceOrder'];
+    int orderOf(String title) {
+      for (var s in ComicSource.enabled()) {
+        if (s.explorePages.any((e) => e.title == title)) {
+          if (order is List) {
+            final i = order.indexOf(s.key);
+            if (i != -1) return i;
+          }
+          return 1 << 30;
+        }
+      }
+      return 1 << 30;
+    }
+
+    list.sort((a, b) => orderOf(a).compareTo(orderOf(b)));
   }
 
   void onNaviItemTapped(int index) {
@@ -63,11 +84,12 @@ class _ExplorePageState extends State<ExplorePage>
   @override
   void initState() {
     pages = List<String>.from(appdata.settings["explore_pages"]);
-    var all = ComicSource.all()
+    var all = ComicSource.enabled()
         .map((e) => e.explorePages)
         .expand((e) => e.map((e) => e.title))
         .toList();
     pages = pages.where((e) => all.contains(e)).toList();
+    _sortBySourceOrder(pages);
     controller = TabController(
       length: pages.length,
       vsync: this,
@@ -108,7 +130,7 @@ class _ExplorePageState extends State<ExplorePage>
       );
 
   Tab buildTab(String i) {
-    var comicSource = ComicSource.all()
+    var comicSource = ComicSource.enabled()
         .firstWhere((e) => e.explorePages.any((e) => e.title == i));
     return Tab(text: i.ts(comicSource.key), key: Key(i));
   }
@@ -246,6 +268,8 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
 
   late final String comicSourceKey;
 
+  bool _notFound = false;
+
   bool _wantKeepAlive = true;
 
   var scrollController = ScrollController();
@@ -263,17 +287,19 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
   @override
   void initState() {
     super.initState();
-    for (var source in ComicSource.all()) {
+    for (var source in ComicSource.enabled()) {
       for (var d in source.explorePages) {
         if (d.title == widget.title) {
           data = d;
           comicSourceKey = source.key;
+          appdata.settings.addListener(onSettingsChanged);
           return;
         }
       }
     }
     appdata.settings.addListener(onSettingsChanged);
-    throw "Explore Page ${widget.title} Not Found!";
+    // 源已被移除：标记为未找到，build 显示空状态而不是 throw 崩溃
+    _notFound = true;
   }
 
   @override
@@ -286,6 +312,13 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (_notFound) {
+      return EmptyState(
+        icon: const Icon(Icons.explore_outlined),
+        title: "Explore Page Not Found".tl,
+        subtitle: "The comic source may have been removed.".tl,
+      );
+    }
     if (data.loadMultiPart != null) {
       return _MultiPartExplorePage(
         key: const PageStorageKey("comic_list"),

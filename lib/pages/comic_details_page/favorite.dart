@@ -189,7 +189,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
     var res = await widget.comicSource.favoriteData!.loadFolders!(widget.cid);
     if (!mounted) return;
     if (res.error) {
-      context.showMessage(message: res.errorMessage!);
+      context.showMessage(message: friendlyError(res.errorMessage!));
       setState(() {
         isLoadingFolders = false;
       });
@@ -342,7 +342,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
                         context.pop();
                       }
                     } else {
-                      context.showMessage(message: res.errorMessage!);
+                      context.showMessage(message: friendlyError(res.errorMessage!));
                     }
                     setState(() {
                       isLoading = false;
@@ -433,7 +433,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
                           context.pop();
                         }
                       } else {
-                        context.showMessage(message: res.errorMessage!);
+                        context.showMessage(message: friendlyError(res.errorMessage!));
                       }
                       setState(() {
                         _itemLoading[id] = false;
@@ -607,7 +607,7 @@ class _HoverButtonState extends State<_HoverButton> {
       child: GestureDetector(
         onTap: widget.enabled ? widget.onTap : null,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: AppAnimations.duration(const Duration(milliseconds: 200)),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: widget.enabled

@@ -403,6 +403,9 @@ class _SliderSetting extends StatefulWidget {
     this.comicId,
     this.comicSource,
     this.useDeviceSettings = false,
+    this.valueSuffix = '',
+    this.divisions,
+    this.roundToInt = false,
   });
 
   final String title;
@@ -422,6 +425,15 @@ class _SliderSetting extends StatefulWidget {
   final String? comicSource;
 
   final bool useDeviceSettings;
+
+  final String valueSuffix;
+
+  /// When null, the slider is continuous (free drag). Otherwise snaps to
+  /// the given number of divisions.
+  final int? divisions;
+
+  /// When true, the value is rounded to the nearest integer before storing.
+  final bool roundToInt;
 
   @override
   State<_SliderSetting> createState() => _SliderSettingState();
@@ -443,52 +455,35 @@ class _SliderSettingState extends State<_SliderSetting> {
             .toDouble();
     return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       title: Text(widget.title, softWrap: true, maxLines: 2),
-      trailing: Text(value.toString(), style: ts.s12),
+      trailing: Text('${value.toInt()}${widget.valueSuffix}', style: ts.s12),
       subtitle: Slider(
         value: value,
         onChanged: (value) {
-          if (value.toInt() == value) {
-            setState(() {
-              if (widget.comicId != null) {
-                appdata.settings.setReaderSetting(
-                  widget.comicId!,
-                  widget.comicSource!,
-                  widget.settingsIndex,
-                  value.toInt(),
-                );
-              } else if (widget.useDeviceSettings) {
-                appdata.settings.setDeviceReaderSetting(
-                  widget.settingsIndex,
-                  value.toInt(),
-                );
-              } else {
-                appdata.settings[widget.settingsIndex] = value.toInt();
-              }
-              appdata.saveData();
-            });
-          } else {
-            setState(() {
-              if (widget.comicId != null) {
-                appdata.settings.setReaderSetting(
-                  widget.comicId!,
-                  widget.comicSource!,
-                  widget.settingsIndex,
-                  value,
-                );
-              } else if (widget.useDeviceSettings) {
-                appdata.settings.setDeviceReaderSetting(
-                  widget.settingsIndex,
-                  value,
-                );
-              } else {
-                appdata.settings[widget.settingsIndex] = value;
-              }
-              appdata.saveData();
-            });
-          }
+          final v = widget.roundToInt
+              ? value.round()
+              : (value.toInt() == value ? value.toInt() : value);
+          setState(() {
+            if (widget.comicId != null) {
+              appdata.settings.setReaderSetting(
+                widget.comicId!,
+                widget.comicSource!,
+                widget.settingsIndex,
+                v,
+              );
+            } else if (widget.useDeviceSettings) {
+              appdata.settings.setDeviceReaderSetting(
+                widget.settingsIndex,
+                v,
+              );
+            } else {
+              appdata.settings[widget.settingsIndex] = v;
+            }
+            appdata.saveData();
+          });
           widget.onChanged?.call();
         },
-        divisions: ((widget.max - widget.min) / widget.interval).toInt(),
+        divisions: widget.divisions ??
+            ((widget.max - widget.min) / widget.interval).toInt(),
         min: widget.min,
         max: widget.max,
       ),

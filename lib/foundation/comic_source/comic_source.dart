@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_qjs/flutter_qjs.dart';
 import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/res.dart';
@@ -42,6 +43,31 @@ class ComicSourceManager with ChangeNotifier, Init {
   factory ComicSourceManager() => _instance ??= ComicSourceManager._create();
 
   List<ComicSource> all() => List.from(_sources);
+
+  /// Keys of sources the user has disabled. A disabled source is kept on disk
+  /// but excluded from search / explore / category / favorites surfaces.
+  List<String> get disabledKeys =>
+      List<String>.from(appdata.settings['disabledSources'] ?? []);
+
+  bool isDisabled(String key) => disabledKeys.contains(key);
+
+  void setSourceDisabled(String key, bool disabled) {
+    final list = disabledKeys;
+    if (disabled && list.contains(key)) return;
+    if (!disabled && !list.contains(key)) return;
+    if (disabled) {
+      list.add(key);
+    } else {
+      list.remove(key);
+    }
+    appdata.settings['disabledSources'] = list;
+    appdata.saveData();
+    notifyListeners();
+  }
+
+  /// Sources that are not disabled, i.e. visible across the app.
+  List<ComicSource> enabled() =>
+      _sources.where((s) => !isDisabled(s.key)).toList();
 
   ComicSource? find(String key) =>
       _sources.firstWhereOrNull((element) => element.key == key);
@@ -109,6 +135,9 @@ class ComicSourceManager with ChangeNotifier, Init {
 
 class ComicSource {
   static List<ComicSource> all() => ComicSourceManager().all();
+
+  /// Sources that are not disabled by the user.
+  static List<ComicSource> enabled() => ComicSourceManager().enabled();
 
   static ComicSource? find(String key) => ComicSourceManager().find(key);
 

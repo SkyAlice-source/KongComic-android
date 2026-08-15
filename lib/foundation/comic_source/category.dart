@@ -78,6 +78,9 @@ class RandomCategoryPart extends BaseCategoryPart {
   @override
   bool get enableRandom => true;
 
+  /// 缓存的随机结果。避免每次 build 都重新随机（滚动/切 tab 回来会重排）。
+  List<CategoryItem>? _cached;
+
   List<CategoryItem> _categories() {
     if (randomNumber >= all.length) {
       return all;
@@ -86,11 +89,19 @@ class RandomCategoryPart extends BaseCategoryPart {
     return all.sublist(start, start + randomNumber);
   }
 
+  /// 重新随机并刷新缓存。由分类页的刷新按钮调用。
+  void refresh() {
+    _cached = _categories();
+  }
+
   @override
-  List<CategoryItem> get categories => _categories();
+  List<CategoryItem> get categories {
+    _cached ??= _categories();
+    return _cached!;
+  }
 
   /// A [BaseCategoryPart] that show a part of random tags on category page.
-  const RandomCategoryPart(
+  RandomCategoryPart(
     this.title,
     this.all,
     this.randomNumber,

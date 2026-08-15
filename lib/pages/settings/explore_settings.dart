@@ -52,10 +52,6 @@ class _ExploreSettingsState extends State<ExploreSettings> {
           title: "Show history on comic tile".tl,
           settingKey: "showHistoryStatusOnTile",
         ).toSliver(),
-        _SwitchSetting(
-          title: "Reverse default chapter order".tl,
-          settingKey: "reverseChapterOrder",
-        ).toSliver(),
         _PopupWindowSetting(
           title: "Keyword blocking".tl,
           builder: () => const _ManageBlockingWordView(),
@@ -89,23 +85,15 @@ class _ExploreSettingsState extends State<ExploreSettings> {
           },
         ).toSliver(),
         SelectSetting(
-          title: "Initial Page".tl,
-          settingKey: "initialPage",
-          optionTranslation: {
-            '0': "Categories".tl,
-            '1': "Favorites".tl,
-            '2': "Home".tl,
-            '3': "Explore".tl,
-          },
-        ).toSliver(),
-        SelectSetting(
-          title: "Display mode of comic list".tl,
+          title: "Load mode of comic list".tl,
           settingKey: "comicListDisplayMode",
           optionTranslation: {
             "paging": "Paging".tl,
             "Continuous": "Continuous".tl,
           },
         ).toSliver(),
+        // 主页轮播来源（来自本地收藏文件夹）
+        _HomeBannerFoldersSetting().toSliver(),
       ],
     );
   }

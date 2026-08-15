@@ -45,7 +45,7 @@ Future<bool> _deleteComic(
                   setState(() {
                     loading = false;
                   });
-                  context.showMessage(message: res.errorMessage!);
+                  context.showMessage(message: friendlyError(res.errorMessage!));
                 }
               },
               child: Text("Confirm".tl),
@@ -362,7 +362,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
           appBar,
           Expanded(
             child: NetworkError(
-              message: _errorMessage!,
+              message: friendlyError(_errorMessage!),
               withAppbar: false,
               retry: () {
                 setState(() {
@@ -543,7 +543,7 @@ class _FolderTile extends StatelessWidget {
                     setState(() {
                       loading = false;
                     });
-                    context.showMessage(message: res.errorMessage!);
+                    context.showMessage(message: friendlyError(res.errorMessage!));
                   }
                 },
                 child: Text("Confirm".tl),
@@ -607,7 +607,7 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
             });
             widget.data.addFolder!(controller.text).then((b) {
               if (b.error) {
-                context.showMessage(message: b.errorMessage!);
+                context.showMessage(message: friendlyError(b.errorMessage!));
                 setState(() {
                   loading = false;
                 });

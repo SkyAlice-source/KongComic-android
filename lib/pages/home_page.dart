@@ -405,10 +405,11 @@ class _BottomModules extends StatelessWidget {
   const _BottomModules();
   @override Widget build(BuildContext context) {
     final cc = ComicSource.all().length;
+    final imgCount = ImageFavoriteManager().length;
     return SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), child: Row(children: [
-      Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 20), label: "Image Favorites".tl, onTap: () => context.to(() => const ImageFavoritesPage()))),
+      Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 20), label: "Image Favorites".tl, value: imgCount > 0 ? "$imgCount" : null, onTap: () => context.to(() => const ImageFavoritesPage()))),
       const SizedBox(width: 10),
-      Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedAppStore, size: 20), label: "Comic Source".tl, value: "$cc", onTap: () => context.to(() => const ComicSourcePage()))),
+      Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 20), label: "Comic Source".tl, value: "$cc", onTap: () => context.to(() => const ComicSourcePage()))),
     ])));
   }
 }
@@ -483,7 +484,7 @@ class _HomeHintsState extends State<_HomeHints> {
     setState(() {
       _localCount = LocalManager().count;
       _favoriteCount = LocalFavoritesManager().totalComics;
-      _sourceCount = ComicSource.all().length;
+      _sourceCount = ComicSource.enabled().length;
     });
   }
 
@@ -492,7 +493,7 @@ class _HomeHintsState extends State<_HomeHints> {
     super.initState();
     _localCount = LocalManager().count;
     _favoriteCount = LocalFavoritesManager().totalComics;
-    _sourceCount = ComicSource.all().length;
+    _sourceCount = ComicSource.enabled().length;
     LocalManager().addListener(_refresh);
     LocalFavoritesManager().addListener(_refresh);
     ComicSourceManager().addListener(_refresh);

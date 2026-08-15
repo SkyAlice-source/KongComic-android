@@ -16,6 +16,21 @@ import 'log.dart';
 export "widget_utils.dart";
 export "context.dart";
 
+/// 动画工具：尊重系统「减少动态效果」无障碍设置。
+/// 开启时主要动画时长归零（不播放），避免动画引发不适。
+class AppAnimations {
+  static bool reduceMotion = false;
+
+  /// 返回动画时长；系统开启「减少动态效果」时归零。
+  static Duration duration(Duration d) => reduceMotion ? Duration.zero : d;
+
+  /// 初始化：读取系统无障碍设置（需在 WidgetsBinding 初始化后调用）。
+  static void init() {
+    reduceMotion =
+        WidgetsBinding.instance.accessibilityFeatures.disableAnimations;
+  }
+}
+
 class _App {
   final version = "1.6.4";
   // Populated from package_info_plus during [init] so the About page and the

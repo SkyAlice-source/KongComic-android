@@ -53,9 +53,19 @@ class _NetworkSettingsState extends State<NetworkSettings> {
   // DNS overrides
   final _dnsOverrides = <(TextEditingController, TextEditingController)>[];
 
+  // 代理配置输入框 controller（缓存 + dispose，避免 rebuild 丢输入/内存泄漏）
+  late final TextEditingController _hostController;
+  late final TextEditingController _portController;
+  late final TextEditingController _usernameController;
+  late final TextEditingController _passwordController;
+
   @override
   void initState() {
     _parseProxy(appdata.settings['proxy']);
+    _hostController = TextEditingController(text: proxyHost);
+    _portController = TextEditingController(text: proxyPort);
+    _usernameController = TextEditingController(text: proxyUsername);
+    _passwordController = TextEditingController(text: proxyPassword);
     for (var entry in (appdata.settings['dnsOverrides'] as Map).entries) {
       if (entry.key is String && entry.value is String) {
         _dnsOverrides.add((
@@ -80,6 +90,10 @@ class _NetworkSettingsState extends State<NetworkSettings> {
       entry.$1.dispose();
       entry.$2.dispose();
     }
+    _hostController.dispose();
+    _portController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -127,7 +141,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                   title: TextField(
                     decoration: InputDecoration(labelText: "Host".tl),
-                    controller: TextEditingController(text: proxyHost),
+                    controller: _hostController,
                     onChanged: (v) => proxyHost = v,
                   ),
                 ),
@@ -135,7 +149,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                   title: TextField(
                     decoration: InputDecoration(labelText: "Port".tl),
-                    controller: TextEditingController(text: proxyPort),
+                    controller: _portController,
                     onChanged: (v) => proxyPort = v,
                     keyboardType: TextInputType.number,
                   ),
@@ -144,7 +158,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                   title: TextField(
                     decoration: InputDecoration(labelText: "Username".tl),
-                    controller: TextEditingController(text: proxyUsername),
+                    controller: _usernameController,
                     onChanged: (v) => proxyUsername = v,
                   ),
                 ),
@@ -152,7 +166,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                   title: TextField(
                     decoration: InputDecoration(labelText: "Password".tl),
-                    controller: TextEditingController(text: proxyPassword),
+                    controller: _passwordController,
                     onChanged: (v) => proxyPassword = v,
                     obscureText: true,
                   ),

@@ -657,9 +657,9 @@ class LocalManager with ChangeNotifier {
 
   Future<List<String>> getImages(String id, ComicType type, Object ep) async {
     if (ep is! String && ep is! int) {
-      throw "Invalid ep";
+      throw "Invalid page".tl;
     }
-    var comic = find(id, type) ?? (throw "Comic Not Found");
+    var comic = find(id, type) ?? (throw "Local comic not found".tl);
     var directory = Directory(comic.baseDir);
     if (comic.hasChapters) {
       var cid =

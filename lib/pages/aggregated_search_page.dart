@@ -59,7 +59,7 @@ class _AggregatedSearchPageState extends State<AggregatedSearchPage> {
 
   @override
   void initState() {
-    var all = ComicSource.all()
+    var all = ComicSource.enabled()
         .where((e) => e.searchPageData != null)
         .map((e) => e.key)
         .toList();
@@ -423,7 +423,7 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
         });
       } else {
         setState(() {
-          error = res.errorMessage ?? "Unknown error".tl;
+          error = friendlyError(res.errorMessage ?? "Unknown error".tl);
           isLoading = false;
         });
       }
@@ -437,7 +437,7 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
         });
       } else {
         setState(() {
-          error = res.errorMessage ?? "Unknown error".tl;
+          error = friendlyError(res.errorMessage ?? "Unknown error".tl);
           isLoading = false;
         });
       }

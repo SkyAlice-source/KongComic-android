@@ -59,3 +59,24 @@ extension ListTranslation on List<String> {
 
   List<String> get tl => _translate();
 }
+
+/// 把异常转成用户可读的友好消息。
+/// 业务异常（throw String，多为已翻译文案）原样返回；
+/// 已知的技术性英文异常映射为友好中文提示；
+/// 其他技术异常（Exception/Error 对象）显示通用提示，避免英文技术信息直出。
+String friendlyError(Object e) {
+  if (e is String) {
+    // 图片/内容加载相关的底层技术异常 → 友好提示
+    if (e.contains("Empty response body") ||
+        e.contains("Empty file") ||
+        e.contains("No ImageFavoritesEp") ||
+        e.contains("Invalid data")) {
+      return "Failed to load image".tl;
+    }
+    if (e.contains("Comic source not found")) {
+      return "Comic source not found".tl;
+    }
+    return e;
+  }
+  return "Unknown error".tl;
+}

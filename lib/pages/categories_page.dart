@@ -29,7 +29,7 @@ class _CategoriesPageState extends State<CategoriesPage>
     var categories = List.from(
       appdata.settings["categories"],
     ).whereType<String>().toList();
-    var allCategories = ComicSource.all()
+    var allCategories = ComicSource.enabled()
         .map((e) => e.categoryData?.key)
         .where((element) => element != null)
         .map((e) => e!)
@@ -37,6 +37,7 @@ class _CategoriesPageState extends State<CategoriesPage>
     categories = categories
         .where((element) => allCategories.contains(element))
         .toList();
+    _sortBySourceOrder(categories);
     if (!categories.isEqualTo(this.categories)) {
       setState(() {
         this.categories = categories;
@@ -45,13 +46,33 @@ class _CategoriesPageState extends State<CategoriesPage>
     }
   }
 
+  /// Sorts category keys by their owning source's position in [sourceOrder],
+  /// preserving relative order within the same source (stable sort).
+  void _sortBySourceOrder(List<String> list) {
+    final order = appdata.settings['sourceOrder'];
+    int orderOf(String key) {
+      for (var s in ComicSource.enabled()) {
+        if (s.categoryData?.key == key) {
+          if (order is List) {
+            final i = order.indexOf(s.key);
+            if (i != -1) return i;
+          }
+          return 1 << 30;
+        }
+      }
+      return 1 << 30;
+    }
+
+    list.sort((a, b) => orderOf(a).compareTo(orderOf(b)));
+  }
+
   @override
   void initState() {
     super.initState();
     var categories = List.from(
       appdata.settings["categories"],
     ).whereType<String>().toList();
-    var allCategories = ComicSource.all()
+    var allCategories = ComicSource.enabled()
         .map((e) => e.categoryData?.key)
         .where((element) => element != null)
         .map((e) => e!)
@@ -59,6 +80,7 @@ class _CategoriesPageState extends State<CategoriesPage>
     this.categories = categories
         .where((element) => allCategories.contains(element))
         .toList();
+    _sortBySourceOrder(this.categories);
     appdata.settings.addListener(onSettingsChanged);
     controller = TabController(length: categories.length, vsync: this);
   }
@@ -113,7 +135,8 @@ class _CategoriesPageState extends State<CategoriesPage>
               } catch (e) {
                 //
               }
-              return Tab(text: title, key: Key(e));
+              // 与页面内标题一致，统一走 .tl 翻译
+              return Tab(text: title.tl, key: Key(e));
             }).toList(),
             actionButton: TabActionButton(
               icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
@@ -146,7 +169,7 @@ class _CategoryPage extends StatelessWidget {
   CategoryData get data => getCategoryDataWithKey(category);
 
   String findComicSourceKey() {
-    for (var source in ComicSource.all()) {
+    for (var source in ComicSource.enabled()) {
       if (source.categoryData?.key == category) {
         return source.key;
       }
@@ -194,8 +217,12 @@ class _CategoryPage extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  buildTitleWithRefresh(part.title, () => updater(() {})),
-                  buildTags(part.categories),
+                  buildTitleWithRefresh(part.title, () {
+                    // 只在此处重新随机，其他 rebuild 保持缓存结果稳定
+                    (part as RandomCategoryPart).refresh();
+                    updater(() {});
+                  }),
+                  buildTags(part.categories, context),
                 ],
               );
             },
@@ -203,7 +230,7 @@ class _CategoryPage extends StatelessWidget {
         );
       } else {
         children.add(buildTitle(part.title));
-        children.add(buildTags(part.categories));
+        children.add(buildTags(part.categories, context));
       }
     }
     return SingleChildScrollView(
@@ -234,13 +261,17 @@ class _CategoryPage extends StatelessWidget {
             style: const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w500),
           ),
           const Spacer(),
-          IconButton(onPressed: onRefresh, icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18)),
+          IconButton(
+            tooltip: "Refresh".tl,
+            onPressed: onRefresh,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+          ),
         ],
       ),
     );
   }
 
-  Widget buildTags(List<CategoryItem> categories) {
+  Widget buildTags(List<CategoryItem> categories, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 16),
       child: Wrap(
@@ -314,6 +345,4 @@ class _CategoryPage extends StatelessWidget {
       ),
     );
   }
-
-  bool get enableTranslation => App.locale.languageCode == 'zh';
 }

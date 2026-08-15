@@ -148,18 +148,15 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   }
 
   void openOrClose() {
-    if (!_isOpen) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    } else {
-      if (!appdata.settings['showSystemStatusBar']) {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-      } else {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      }
-    }
     setState(() {
       _isOpen = !_isOpen;
     });
+    // 打开/关闭都遵循「隐藏系统状态栏」设置，避免翻页时状态栏突然弹出
+    if (!appdata.settings['showSystemStatusBar']) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
   }
 
   bool? rotation;
@@ -184,13 +181,13 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         if (!isOnChapterCommentsPage)
           buildStatusInfo(),
         AnimatedPositioned(
-          duration: const Duration(milliseconds: 180),
+          duration: AppAnimations.duration(const Duration(milliseconds: 180)),
           right: 16,
           bottom: showFloatingButtonValue == 0 ? -58 : 36,
           child: buildEpChangeButton(),
         ),
         AnimatedPositioned(
-          duration: const Duration(milliseconds: 180),
+          duration: AppAnimations.duration(const Duration(milliseconds: 180)),
           top: _isOpen ? 0 : -(kTopBarHeight + context.padding.top),
           left: 0,
           right: 0,
@@ -198,7 +195,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           child: buildTop(),
         ),
         AnimatedPositioned(
-          duration: const Duration(milliseconds: 180),
+          duration: AppAnimations.duration(const Duration(milliseconds: 180)),
           bottom: _isOpen
               ? 0
               : -(kBottomBarHeight + MediaQuery.of(context).padding.bottom),

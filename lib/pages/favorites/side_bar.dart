@@ -24,7 +24,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
 
   void findNetworkFolders() {
     networkFolders.clear();
-    var all = ComicSource.all()
+    var all = ComicSource.enabled()
         .where((e) => e.favoriteData != null)
         .map((e) => e.favoriteData!.key)
         .toList();

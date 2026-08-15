@@ -65,6 +65,8 @@ class ComicSourcePage extends StatelessWidget {
       }
     }
     await ComicSourceManager().reload();
+    _syncSourceOrder();
+    _addAllPagesWithComicSource(source);
     if (showLoading) {
       App.forceRebuild();
     }
@@ -122,6 +124,19 @@ class _Body extends StatefulWidget {
 class _BodyState extends State<_Body> {
   var url = "";
 
+  /// Selection mode for batch operations.
+  bool _selecting = false;
+  final Set<String> _selected = {};
+
+  /// Connectivity test result per source key: '', 'testing', 'ok', 'fail'.
+  final Map<String, String> _health = {};
+
+  /// True while a "test all" run is in progress.
+  bool _testingAll = false;
+
+  /// True while an "update all" run is in progress.
+  bool _updatingAll = false;
+
   void updateUI() {
     setState(() {});
   }
@@ -130,6 +145,9 @@ class _BodyState extends State<_Body> {
   void initState() {
     super.initState();
     ComicSourceManager().addListener(updateUI);
+    // Repair sources added before auto-enable existed (e.g. a source whose
+    // discover/category tab was missing from the enabled lists).
+    _ensureAllPagesEnabled();
   }
 
   @override
@@ -140,21 +158,111 @@ class _BodyState extends State<_Body> {
 
   @override
   Widget build(BuildContext context) {
+    final sources = orderedComicSources();
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text('Comic Source'.tl), style: AppbarStyle.shadow),
+        SliverAppbar(
+          title: _selecting
+              ? Text("Selected @n sources"
+                  .tlParams({"n": _selected.length.toString()}))
+              : Text('Comic Source'.tl),
+          style: AppbarStyle.shadow,
+          actions: [
+            if (_selecting) ...[
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _selected.addAll(sources.map((s) => s.key));
+                  });
+                },
+                child: Text("Select all".tl),
+              ),
+              TextButton(
+                onPressed: _exitSelection,
+                child: Text("Cancel selection".tl),
+              ),
+            ] else ...[
+              Tooltip(
+                message: "Test all".tl,
+                child: IconButton(
+                  onPressed: _testingAll ? null : _testAll,
+                  icon: _testingAll
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : HugeIcon(
+                          icon: HugeIcons.strokeRoundedLink01,
+                          size: 18,
+                        ),
+                ),
+              ),
+              Tooltip(
+                message: "Update all".tl,
+                child: IconButton(
+                  onPressed: _updatingAll ? null : _updateAll,
+                  icon: _updatingAll
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : HugeIcon(
+                          icon: HugeIcons.strokeRoundedRefresh,
+                          size: 18,
+                        ),
+                ),
+              ),
+              Tooltip(
+                message: "Select".tl,
+                child: IconButton(
+                  onPressed: _enterSelection,
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
         buildCard(context),
-        for (var source in ComicSource.all())
-          _SliverComicSource(
-            key: ValueKey(source.key),
-            source: source,
-            edit: edit,
-            update: update,
-            delete: delete,
-          ),
+        SliverReorderableList(
+          itemCount: sources.length,
+          onReorderItem: _selecting ? (_, __) {} : onReorderItem,
+          itemBuilder: (context, index) {
+            final source = sources[index];
+            return _ComicSourceCard(
+              key: ValueKey(source.key),
+              source: source,
+              index: index,
+              edit: edit,
+              update: update,
+              delete: delete,
+              selecting: _selecting,
+              selected: _selected.contains(source.key),
+              onToggleSelect: _toggleSelect,
+              health: _health[source.key] ?? '',
+              disabled: ComicSourceManager().isDisabled(source.key),
+              onToggleDisabled: _toggleDisabled,
+              onTest: _testSource,
+            );
+          },
+        ),
+        if (_selecting) SliverToBoxAdapter(child: _buildBatchBar(context)),
         SliverPadding(padding: EdgeInsets.only(bottom: context.padding.bottom)),
       ],
     );
+  }
+
+  void onReorderItem(int oldIndex, int newIndex) {
+    final sources = orderedComicSources();
+    final moved = sources.removeAt(oldIndex);
+    sources.insert(newIndex, moved);
+    appdata.settings['sourceOrder'] = sources.map((s) => s.key).toList();
+    _syncSourceOrder();
+    setState(() {});
   }
 
   void delete(ComicSource source) {
@@ -167,6 +275,7 @@ class _BodyState extends State<_Body> {
         var file = File(source.filePath);
         file.delete();
         ComicSourceManager().remove(source.key);
+        _syncSourceOrder();
         _validatePages();
         App.forceRebuild();
       },
@@ -211,6 +320,174 @@ class _BodyState extends State<_Body> {
 
   void update(ComicSource source, [bool showLoading = true]) {
     ComicSourcePage.update(source, showLoading);
+  }
+
+  void _enterSelection() {
+    setState(() => _selecting = true);
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selecting = false;
+      _selected.clear();
+    });
+  }
+
+  void _toggleSelect(ComicSource source) {
+    setState(() {
+      if (_selected.contains(source.key)) {
+        _selected.remove(source.key);
+      } else {
+        _selected.add(source.key);
+      }
+    });
+  }
+
+  Widget _buildBatchBar(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+          .add(EdgeInsets.only(bottom: context.padding.bottom)),
+      child: Row(
+        children: [
+          FilledButton.icon(
+            onPressed: _selected.isEmpty ? null : batchUpdate,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+            label: Text("Batch update".tl),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            onPressed: _selected.isEmpty ? null : batchDelete,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+            label: Text("Batch delete".tl),
+            style: FilledButton.styleFrom(
+              backgroundColor: context.colorScheme.error,
+            ),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: _exitSelection,
+            child: Text("Cancel selection".tl),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> batchUpdate() async {
+    final keys = _selected.toList();
+    final controller = showLoadingDialog(
+      App.rootContext,
+      barrierDismissible: false,
+    );
+    for (final k in keys) {
+      final s = ComicSource.find(k);
+      if (s != null) {
+        await ComicSourcePage.update(s, false);
+      }
+    }
+    controller.close();
+    if (mounted) {
+      setState(() {
+        _selecting = false;
+        _selected.clear();
+      });
+    }
+  }
+
+  void batchDelete() {
+    if (_selected.isEmpty) return;
+    final keys = _selected.toList();
+    showConfirmDialog(
+      context: App.rootContext,
+      title: "Delete".tl,
+      content: "Delete @n comic sources?"
+          .tlParams({"n": keys.length.toString()}),
+      btnColor: context.colorScheme.error,
+      onConfirm: () {
+        for (final k in keys) {
+          final s = ComicSource.find(k);
+          if (s != null) {
+            File(s.filePath).delete();
+            ComicSourceManager().remove(s.key);
+          }
+        }
+        _syncSourceOrder();
+        _validatePages();
+        App.forceRebuild();
+        if (mounted) {
+          setState(() {
+            _selecting = false;
+            _selected.clear();
+          });
+        }
+      },
+    );
+  }
+
+  void _toggleDisabled(ComicSource source) {
+    final disabled = ComicSourceManager().isDisabled(source.key);
+    ComicSourceManager().setSourceDisabled(source.key, !disabled);
+    _validatePages();
+    App.forceRebuild();
+    setState(() {});
+  }
+
+  Future<void> _testSource(ComicSource source) async {
+    if (source.explorePages.isEmpty) {
+      setState(() => _health[source.key] = 'fail');
+      return;
+    }
+    setState(() => _health[source.key] = 'testing');
+    try {
+      final page = source.explorePages.first;
+      dynamic res;
+      if (page.loadPage != null) {
+        res = await page.loadPage!(0);
+      } else if (page.loadMultiPart != null) {
+        res = await page.loadMultiPart!();
+      } else if (page.loadMixed != null) {
+        res = await page.loadMixed!(0);
+      } else {
+        setState(() => _health[source.key] = 'fail');
+        return;
+      }
+      final ok = res != null && !(res.error as bool);
+      setState(() => _health[source.key] = ok ? 'ok' : 'fail');
+    } catch (e) {
+      setState(() => _health[source.key] = 'fail');
+    }
+  }
+
+  Future<void> _testAll() async {
+    if (_testingAll) return;
+    setState(() => _testingAll = true);
+    for (final s in orderedComicSources()) {
+      await _testSource(s);
+    }
+    setState(() => _testingAll = false);
+  }
+
+  Future<void> _updateAll() async {
+    if (_updatingAll) return;
+    setState(() => _updatingAll = true);
+    final n = await ComicSourcePage.checkComicSourceUpdate();
+    if (n > 0) {
+      final updates =
+          Map<String, String>.from(ComicSourceManager().availableUpdates);
+      for (final key in updates.keys) {
+        final s = ComicSource.find(key);
+        if (s != null) {
+          await ComicSourcePage.update(s, false);
+        }
+      }
+    }
+    App.forceRebuild();
+    setState(() => _updatingAll = false);
+    if (mounted) {
+      App.rootContext.showMessage(
+        message: n > 0 ? "Updated sources".tl : "All sources up to date".tl,
+      );
+    }
   }
 
   Widget buildCard(BuildContext context) {
@@ -328,6 +605,7 @@ class _BodyState extends State<_Body> {
   Future<void> addSource(String js, String fileName) async {
     var comicSource = await ComicSourceParser().createAndParse(js, fileName);
     ComicSourceManager().add(comicSource);
+    _syncSourceOrder();
     _addAllPagesWithComicSource(comicSource);
     appdata.saveData();
     App.forceRebuild();
@@ -520,6 +798,68 @@ class _ComicSourceListState extends State<_ComicSourceList> {
         );
       },
     );
+  }
+}
+
+/// Returns all comic sources ordered by the user-defined [sourceOrder]
+/// setting. Sources not yet present in [sourceOrder] (e.g. newly added)
+/// are appended in their natural (filesystem) order.
+List<ComicSource> orderedComicSources() {
+  final order = appdata.settings['sourceOrder'];
+  final all = ComicSource.all();
+  if (order is! List || order.isEmpty) return all;
+  final map = <String, ComicSource>{for (var s in all) s.key: s};
+  final result = <ComicSource>[];
+  for (var k in order) {
+    if (k is String && map.containsKey(k)) {
+      result.add(map[k]!);
+      map.remove(k);
+    }
+  }
+  result.addAll(map.values);
+  return result;
+}
+
+/// Reconciles [appdata.settings]['sourceOrder'] with the currently loaded
+/// sources: drops keys for removed sources and appends keys for new ones.
+void _syncSourceOrder() {
+  final all = ComicSource.all();
+  final currentKeys = all.map((s) => s.key).toSet();
+  final order = List<String>.from(appdata.settings['sourceOrder'] ?? []);
+  order.removeWhere((k) => !currentKeys.contains(k));
+  for (var s in all) {
+    if (!order.contains(s.key)) order.add(s.key);
+  }
+  appdata.settings['sourceOrder'] = order;
+  appdata.saveData();
+}
+
+/// Ensures every loaded source's explore pages and category are present in the
+/// enabled lists. Runs once at startup to repair sources that were added before
+/// auto-enable existed (e.g. a source whose discover/category tab was missing).
+void _ensureAllPagesEnabled() {
+  bool changed = false;
+  final explorePages =
+      List<String>.from(appdata.settings['explore_pages'] ?? []);
+  final categoryPages =
+      List<String>.from(appdata.settings['categories'] ?? []);
+  for (final s in ComicSource.all()) {
+    for (final p in s.explorePages) {
+      if (!explorePages.contains(p.title)) {
+        explorePages.add(p.title);
+        changed = true;
+      }
+    }
+    final cat = s.categoryData?.key;
+    if (cat != null && !categoryPages.contains(cat)) {
+      categoryPages.add(cat);
+      changed = true;
+    }
+  }
+  if (changed) {
+    appdata.settings['explore_pages'] = explorePages.toSet().toList();
+    appdata.settings['categories'] = categoryPages.toSet().toList();
+    appdata.saveData();
   }
 }
 
@@ -786,74 +1126,177 @@ class _CallbackSettingState extends State<_CallbackSetting> {
   }
 }
 
-class _SliverComicSource extends StatefulWidget {
-  const _SliverComicSource({
+class _ComicSourceCard extends StatefulWidget {
+  const _ComicSourceCard({
     super.key,
     required this.source,
+    required this.index,
     required this.edit,
     required this.update,
     required this.delete,
+    this.selecting = false,
+    this.selected = false,
+    this.onToggleSelect = _noopToggle,
+    this.health = '',
+    this.disabled = false,
+    this.onToggleDisabled = _noopDisable,
+    this.onTest = _noopTest,
   });
 
   final ComicSource source;
+
+  /// Position of this source in the current (ordered) list; consumed by the
+  /// [ReorderableDragStartListener] to start a drag.
+  final int index;
 
   final void Function(ComicSource source) edit;
   final void Function(ComicSource source) update;
   final void Function(ComicSource source) delete;
 
+  /// Whether the parent is in batch-selection mode.
+  final bool selecting;
+
+  /// Whether this source is currently selected.
+  final bool selected;
+
+  /// Toggles selection of this source (only used in selection mode).
+  final void Function(ComicSource source) onToggleSelect;
+
+  /// Connectivity test result for this source: '', 'testing', 'ok', 'fail'.
+  final String health;
+
+  /// Whether this source is currently disabled (hidden across the app).
+  final bool disabled;
+
+  final void Function(ComicSource source) onToggleDisabled;
+  final void Function(ComicSource source) onTest;
+
   @override
-  State<_SliverComicSource> createState() => _SliverComicSourceState();
+  State<_ComicSourceCard> createState() => _ComicSourceCardState();
 }
 
-class _SliverComicSourceState extends State<_SliverComicSource> {
+void _noopToggle(ComicSource _) {}
+void _noopDisable(ComicSource _) {}
+void _noopTest(ComicSource _) {}
+
+class _ComicSourceCardState extends State<_ComicSourceCard> {
   ComicSource get source => widget.source;
+
+  /// Whether this source's settings/account block is expanded.
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
-    var newVersion = ComicSourceManager().availableUpdates[source.key];
-    bool hasUpdate =
+    final newVersion = ComicSourceManager().availableUpdates[source.key];
+    final hasUpdate =
         newVersion != null && compareSemVer(newVersion, source.version);
 
-    return SliverMainAxisGroup(
-      slivers: [
-        SliverPadding(padding: const EdgeInsets.only(top: 16)),
-        SliverToBoxAdapter(
-          child: ListTile(
-            title: Row(
-              children: [
-                Text(source.name, style: ts.s18),
-                const SizedBox(width: 6),
-                if (source.account != null) ...[
-                  AppBadge("需登录", type: AppBadgeType.info, fontSize: kcFont13),
-                  const SizedBox(width: 6),
-                ],
-                AppBadge(source.version, type: AppBadgeType.neutral, fontSize: kcFont13),
-                if (hasUpdate) ...[
-                  const SizedBox(width: 6),
-                  Tooltip(
-                    message: newVersion,
-                    child: AppBadge("New Version".tl, type: AppBadgeType.warning, fontSize: kcFont13),
+    return Opacity(
+      opacity: widget.disabled ? 0.55 : 1.0,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+        border: Border.all(
+          color: context.colorScheme.outlineVariant,
+          width: 0.8,
+        ),
+        borderRadius: BorderRadius.circular(kcRadius10),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (widget.selecting)
+                Checkbox(
+                  value: widget.selected,
+                  onChanged: (_) => widget.onToggleSelect(source),
+                )
+              else
+                // Drag handle: long-press to reorder this module.
+                ReorderableDragStartListener(
+                  index: widget.index,
+                  child: Tooltip(
+                    message: "Drag to reorder".tl,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: HugeIcon(
+                        icon: HugeIcons.strokeRoundedDrag01,
+                        size: 18,
+                      ),
+                    ),
                   ),
-                ],
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+                ),
+              Expanded(
+                child: InkWell(
+                  onTap: widget.selecting
+                      ? () => widget.onToggleSelect(source)
+                      : () => setState(() => _expanded = !_expanded),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(source.name, style: ts.s18),
+                        if (widget.disabled)
+                          AppBadge("Disabled".tl,
+                              type: AppBadgeType.warning, fontSize: kcFont13),
+                        if (source.account != null)
+                          AppBadge(
+                            source.isLogged ? "Logged in".tl : "Login required".tl,
+                            type: source.isLogged
+                                ? AppBadgeType.success
+                                : AppBadgeType.warning,
+                            fontSize: kcFont13,
+                          ),
+                        AppBadge(source.version, type: AppBadgeType.neutral, fontSize: kcFont13),
+                        if (hasUpdate)
+                          Tooltip(
+                            message: newVersion,
+                            child: AppBadge("New Version".tl, type: AppBadgeType.warning, fontSize: kcFont13),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (!widget.selecting)
+                Tooltip(
+                  message: "Settings".tl,
+                  child: IconButton(
+                    onPressed: () => setState(() => _expanded = !_expanded),
+                  icon: AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedArrowDown01,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+              if (!widget.selecting)
                 Tooltip(
                   message: "Edit".tl,
                   child: IconButton(
                     onPressed: () => widget.edit(source),
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
-                  ),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
                 ),
+              ),
+              if (!widget.selecting)
                 Tooltip(
                   message: "Update".tl,
                   child: IconButton(
                     onPressed: () => widget.update(source),
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-                  ),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                 ),
+              ),
+              if (!widget.selecting)
                 Tooltip(
                   message: "Delete".tl,
                   child: IconButton(
@@ -861,28 +1304,107 @@ class _SliverComicSourceState extends State<_SliverComicSource> {
                     icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
-        ),
-        SliverToBoxAdapter(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: context.colorScheme.outlineVariant,
-                  width: 0.6,
+          _buildStatusRow(),
+          if (_expanded)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(left: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: context.colorScheme.primary.withValues(alpha: 0.4),
+                    width: 3,
+                  ),
+                  top: BorderSide(
+                    color: context.colorScheme.outlineVariant,
+                    width: 0.6,
+                  ),
                 ),
               ),
+              child: Column(
+                children: [
+                  ...buildSourceSettings(),
+                  ..._buildAccount(),
+                ],
+              ),
             ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Column(children: buildSourceSettings().toList()),
-        ),
-        SliverToBoxAdapter(child: Column(children: _buildAccount().toList())),
-      ],
+        ],
+      ),
+      ),
+    );
+  }
+
+  Widget _buildStatusRow() {
+    final enabledExplore =
+        List<String>.from(appdata.settings['explore_pages'] ?? []);
+    final enabledCategory =
+        List<String>.from(appdata.settings['categories'] ?? []);
+    final expTotal = source.explorePages.length;
+    final expOn = source.explorePages
+        .where((e) => enabledExplore.contains(e.title))
+        .length;
+    final catTotal = source.categoryData != null ? 1 : 0;
+    final catOn = (source.categoryData != null &&
+            enabledCategory.contains(source.categoryData!.key))
+        ? 1
+        : 0;
+    final health = widget.health;
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (expTotal > 0)
+            AppBadge("${"Explore".tl} $expOn/$expTotal",
+                type: AppBadgeType.neutral, fontSize: kcFont13),
+          if (catTotal > 0)
+            AppBadge("${"Categories".tl} $catOn/$catTotal",
+                type: AppBadgeType.neutral, fontSize: kcFont13),
+          if (health == 'testing')
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else if (health == 'ok')
+            AppBadge("Reachable".tl,
+                type: AppBadgeType.success, fontSize: kcFont13)
+          else if (health == 'fail')
+            AppBadge("Proxy required".tl,
+                backgroundColor: cs.error,
+                foregroundColor: cs.onError,
+                fontSize: kcFont13)
+          else
+            AppBadge("Unreachable".tl,
+                type: AppBadgeType.neutral, fontSize: kcFont13),
+          if (!widget.selecting) ...[
+            TextButton.icon(
+              onPressed: () => widget.onTest(source),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 16),
+              label: Text("Test".tl),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => widget.onToggleDisabled(source),
+              icon:
+                  HugeIcon(icon: HugeIcons.strokeRoundedActivity01, size: 16),
+              label: Text(widget.disabled ? "Enable".tl : "Disable".tl),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

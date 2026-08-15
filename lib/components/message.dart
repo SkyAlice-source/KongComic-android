@@ -396,6 +396,68 @@ LoadingDialogController showLoadingDialog(
             controller._message = message;
           });
         };
+        if (withProgress) {
+          // 紧凑进度卡片：标题 + 条状进度 + 百分比 + 取消
+          final progress = controller._progress;
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 48),
+            backgroundColor: context.colorScheme.surface,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    controller._message ?? 'Loading'.tl,
+                    style: const TextStyle(fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 8,
+                            backgroundColor:
+                                context.colorScheme.surfaceContainerHighest,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 40,
+                        child: Text(
+                          progress == null
+                              ? ''
+                              : '${(progress.clamp(0.0, 1.0) * 100).round()}%',
+                          style: const TextStyle(fontSize: 13),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (allowCancel)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          controller.close();
+                          onCancel?.call();
+                        },
+                        child: Text(cancelButtonText.tl),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        }
         return ContentDialog(
           title: controller._message ?? 'Loading'.tl,
           content: Padding(

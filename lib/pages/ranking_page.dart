@@ -19,7 +19,7 @@ class _RankingPageState extends State<RankingPage> {
   late String optionValue;
 
   void findData() {
-    for (final source in ComicSource.all()) {
+    for (final source in ComicSource.enabled()) {
       if (source.categoryData?.key == widget.categoryKey) {
         data = source.categoryComicsData!;
         options = data.rankingData!.options;

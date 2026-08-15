@@ -9,6 +9,7 @@ import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/pages/follow_updates_page.dart';
 import 'package:kong_comic/utils/tags_translation.dart';
+import 'package:kong_comic/utils/translations.dart';
 import 'dart:io';
 
 import 'app.dart';
@@ -549,7 +550,7 @@ class LocalFavoritesManager with ChangeNotifier {
         }
         name = i.toString();
       } else {
-        throw "name is empty!";
+        throw "Folder name cannot be empty".tl;
       }
     }
     if (existsFolder(name)) {
@@ -1002,10 +1003,10 @@ class LocalFavoritesManager with ChangeNotifier {
 
   void rename(String before, String after) {
     if (existsFolder(after)) {
-      throw "Name already exists!";
+      throw "Folder already exists".tl;
     }
     if (after.contains('"')) {
-      throw "Invalid name";
+      throw "Invalid name".tl;
     }
     _db.execute("""
       ALTER TABLE "$before"

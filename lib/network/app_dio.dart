@@ -34,18 +34,17 @@ class MyLogInterceptor extends Interceptor {
         err = err.copyWith(message: "Connection Timeout".tl);
       case DioExceptionType.receiveTimeout:
         err = err.copyWith(
-            message: "Receive Timeout: "
-                "This indicates that the server is too busy to respond".tl);
+            message: "Receive Timeout: This indicates that the server is too busy to respond"
+                .tl);
       case DioExceptionType.unknown:
         if (err.toString().contains("Connection terminated during handshake")) {
           err = err.copyWith(
-              message: "Connection terminated during handshake: "
-                  "This may be caused by the firewall blocking the connection "
-                  "or your requests are too frequent.".tl);
+              message: "Connection terminated during handshake: This may be caused by the firewall blocking the connection or your requests are too frequent."
+                  .tl);
         } else if (err.toString().contains("Connection reset by peer")) {
           err = err.copyWith(
-              message: "Connection reset by peer: "
-                  "The error is unrelated to app, please check your network.".tl);
+              message: "Connection reset by peer: The error is unrelated to app, please check your network."
+                  .tl);
         }
       default:
         {}

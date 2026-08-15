@@ -110,9 +110,19 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
   }
 
   List<FavoriteItem> filterComics(List<FavoriteItem> curComics) {
+    // 'All'：无需查询阅读状态，直接返回
+    if (readFilterSelect == readFilterList[0]) {
+      return curComics;
+    }
+    // 批量查询历史，避免逐本 SQL（收藏多时是 N 次查询 → 1 次）
+    var histories = HistoryManager().findBatch(curComics.map((c) => c.id));
     return curComics.where((comic) {
-      var history =
-          HistoryManager().find(comic.id, ComicType(comic.sourceKey.hashCode));
+      var history = histories[comic.id];
+      // findBatch 按 id 查询，校验 type 防止混入其他源的记录
+      if (history != null &&
+          history.type != ComicType(comic.sourceKey.hashCode)) {
+        history = null;
+      }
       if (readFilterSelect == "UnCompleted") {
         return history == null || history.page != history.maxPage;
       } else if (readFilterSelect == "Completed") {
