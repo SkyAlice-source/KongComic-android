@@ -63,13 +63,75 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
     var sort = appdata.implicitData["local_sort"] ?? "name";
     sortType = LocalSortType.fromString(sort);
     LocalManager().addListener(update);
+    LocalManager().addListener(_onDownloadListChanged);
     super.initState();
   }
 
   @override
   void dispose() {
     LocalManager().removeListener(update);
+    LocalManager().removeListener(_onDownloadListChanged);
     super.dispose();
+  }
+
+  /// Refreshes the "下载管理" entry's live task count without reloading the
+  /// comic grid.
+  void _onDownloadListChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Always-visible shortcut at the top of the 本地 page so users can find
+  /// the download page without guessing. Shows a live count badge while
+  /// downloads are active.
+  Widget _buildDownloadEntry() {
+    final count = LocalManager().downloadingTasks.length;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => showPopUpWidget(context, const DownloadingPage()),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(
+            children: [
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedDownload04,
+                size: 20,
+                color: context.colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  "Downloads".tl,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              if (count > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: context.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    count.toString(),
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelSmall
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowRight01,
+                size: 16,
+                color: context.colorScheme.outline,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void sort() {
@@ -362,6 +424,10 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                       },
                     ),
               actions: multiSelectMode ? selectActions : null,
+            ),
+          if (!searchMode)
+            SliverToBoxAdapter(
+              child: _buildDownloadEntry(),
             ),
           PaginatedSliverGridComics(
             key: _gridKey,

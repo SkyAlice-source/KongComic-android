@@ -348,6 +348,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
         isFirst = false;
       }
       await Future.delayed(const Duration(milliseconds: 200));
+      // 内部标记：本地漫画已在上面跳转 Reader 并 pop 详情页，
+      // 返回 error 仅用于结束加载流程（不展示给用户）。
       return const Res.error('Local comic');
     }
     var comicSource = ComicSource.find(widget.sourceKey);

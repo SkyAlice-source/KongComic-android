@@ -1,6 +1,9 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/local.dart';
+import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/utils/translations.dart';
+import 'package:kong_comic/pages/downloading_page.dart';
 
 const _updateChannelId = 'kongcomic_updates';
 const _updateChannelNameKey = 'Updates';
@@ -16,6 +19,55 @@ const _appUpdateChannelDescKey = 'App update downloads';
 const _appUpdateNotificationId = 10001;
 const _comicUpdateNotificationId = 20000;
 
+// Dedicated channel for comic downloads. Shows an ongoing, low-priority
+// progress notification with pause/resume/cancel action buttons so the user
+// can control downloads from the system notification shade.
+const _downloadChannelId = 'kongcomic_download';
+const _downloadChannelNameKey = 'Downloads';
+const _downloadChannelDescKey = 'Comic downloads';
+const _downloadNotificationId = 30000;
+
+/// Handles notification taps and action-button presses. Routes download
+/// actions (pause/resume/cancel) to the active download task. The payload
+/// discriminates our download notification from the app-update / comic-update
+/// notifications, which we leave to their own flows.
+@pragma('vm:entry-point')
+void _onNotificationResponse(NotificationResponse response) {
+  if (response.payload != 'download') return;
+  // Tapping the notification body (not an action button) jumps straight to
+  // the download page so the user can see/manage active downloads.
+  if (response.actionId == null) {
+    _openDownloadPage();
+    return;
+  }
+  final tasks = LocalManager().downloadingTasks;
+  if (tasks.isEmpty) return;
+  final task = tasks.first;
+  switch (response.actionId) {
+    case 'pause':
+      task.pause();
+    case 'resume':
+      task.resume();
+    case 'cancel':
+      task.cancel();
+  }
+}
+
+/// Navigate to the download page. Only meaningful while the app is alive
+/// (foreground or background) — which is always the case while a download
+/// notification is visible, since downloads don't run after the app is killed.
+void _openDownloadPage() {
+  try {
+    final context = App.mainNavigatorKey?.currentContext;
+    if (context != null) {
+      context.to(() => const DownloadingPage());
+    }
+  } catch (_) {
+    // App not in a navigable state (e.g. fully terminated). The download page
+    // is still reachable from 本地 → 下载管理.
+  }
+}
+
 class AppNotifications {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -27,7 +79,10 @@ class AppNotifications {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwin = DarwinInitializationSettings();
     const settings = InitializationSettings(android: android, iOS: darwin);
-    await _plugin.initialize(settings);
+    await _plugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: _onNotificationResponse,
+    );
     _initialized = true;
   }
 
@@ -260,6 +315,55 @@ class AppNotifications {
     await _plugin.cancel(_comicUpdateNotificationId);
   }
 
+  /// Show or update the ongoing comic-download notification.
+  ///
+  /// Displays the active (first) download's progress and exposes
+  /// pause/resume/cancel action buttons so the user can control the download
+  /// straight from the system notification shade.
+  static Future<void> showDownload({
+    required String title,
+    required String body,
+    required double progress,
+    required bool isPaused,
+    required bool isError,
+  }) async {
+    await init();
+    final actions = <AndroidNotificationAction>[
+      AndroidNotificationAction(
+        isPaused ? 'resume' : 'pause',
+        (isPaused ? 'Resume' : 'Pause').tl,
+      ),
+      AndroidNotificationAction('cancel', 'Cancel'.tl),
+    ];
+    await _plugin.show(
+      _downloadNotificationId,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _downloadChannelId,
+          _downloadChannelNameKey.tl,
+          channelDescription: _downloadChannelDescKey.tl,
+          importance: Importance.low,
+          priority: Priority.low,
+          ongoing: !isError,
+          autoCancel: false,
+          showProgress: true,
+          maxProgress: 100,
+          progress: (progress * 100).round().clamp(0, 100),
+          onlyAlertOnce: true,
+          channelShowBadge: false,
+          actions: actions,
+        ),
+      ),
+      payload: 'download',
+    );
+  }
+
+  static Future<void> cancelDownload() async {
+    await _plugin.cancel(_downloadNotificationId);
+  }
+
   static String _formatSpeed(int bytesPerSecond) {
     if (bytesPerSecond <= 0) return "";
     if (bytesPerSecond < 1024) return "$bytesPerSecond B/s";
@@ -267,5 +371,63 @@ class AppNotifications {
       return "${(bytesPerSecond / 1024).toStringAsFixed(1)} KB/s";
     }
     return "${(bytesPerSecond / 1024 / 1024).toStringAsFixed(1)} MB/s";
+  }
+}
+
+/// Keeps the comic-download notification in sync with [LocalManager].
+///
+/// Subscribes to the manager (so it learns about new/cancelled/completed
+/// tasks) and to the active task (so it refreshes on every progress tick).
+/// Shows an ongoing progress notification with pause/resume/cancel actions,
+/// and removes it once the queue is empty.
+class DownloadNotifier {
+  static DownloadTask? _tracked;
+  static bool _started = false;
+  static bool _permissionRequested = false;
+
+  static void start() {
+    if (_started) return;
+    _started = true;
+    LocalManager().addListener(_onListChanged);
+    _attach(LocalManager().downloadingTasks.isEmpty
+        ? null
+        : LocalManager().downloadingTasks.first);
+    _update();
+  }
+
+  static void _onListChanged() {
+    _attach(LocalManager().downloadingTasks.isEmpty
+        ? null
+        : LocalManager().downloadingTasks.first);
+    _update();
+  }
+
+  static void _attach(DownloadTask? task) {
+    if (_tracked == task) return;
+    _tracked?.removeListener(_update);
+    _tracked = task;
+    _tracked?.addListener(_update);
+  }
+
+  static void _update() {
+    final tasks = LocalManager().downloadingTasks;
+    if (tasks.isEmpty) {
+      AppNotifications.cancelDownload();
+      return;
+    }
+    if (!_permissionRequested) {
+      _permissionRequested = true;
+      // Fire-and-forget: prompts only on first download; silently no-ops if
+      // already granted or on platforms without runtime permission.
+      AppNotifications.requestPermission();
+    }
+    final first = tasks.first;
+    AppNotifications.showDownload(
+      title: first.title,
+      body: first.message,
+      progress: first.progress,
+      isPaused: first.isPaused,
+      isError: first.isError,
+    );
   }
 }

@@ -111,6 +111,8 @@ class _Banner extends StatefulWidget {
 class _BannerState extends State<_Banner> {
   int _currentIndex = 0;
   Timer? _timer;
+  /// 手动滑动切换后暂停自动轮播
+  bool _pauseAutoPlay = false;
   List<FavoriteItem> _comics = [];
   void _loadComics() {
     final allFolderNames = LocalFavoritesManager().folderNames;
@@ -142,6 +144,8 @@ class _BannerState extends State<_Banner> {
   }
   void _startTimer() {
     _timer?.cancel();
+    // 手动滑动切换后暂停自动轮播（下拉刷新重建页面后恢复）
+    if (_pauseAutoPlay) return;
     _timer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _comics.length < 2) return;
       setState(() { _currentIndex = (_currentIndex + 1) % _comics.length; widget.currentComicNotifier.value = _comics[_currentIndex]; });
@@ -182,10 +186,12 @@ class _BannerState extends State<_Banner> {
               onHorizontalDragEnd: (details) {
                 if (details.velocity.pixelsPerSecond.dx > 80) {
                   final prev = (_currentIndex - 1 + _comics.length) % _comics.length;
-                  setState(() { _currentIndex = prev; widget.currentComicNotifier.value = _comics[_currentIndex]; _startTimer(); });
+                  _pauseAutoPlay = true;
+                  setState(() { _currentIndex = prev; widget.currentComicNotifier.value = _comics[_currentIndex]; });
                 } else if (details.velocity.pixelsPerSecond.dx < -80) {
                   final next = (_currentIndex + 1) % _comics.length;
-                  setState(() { _currentIndex = next; widget.currentComicNotifier.value = _comics[_currentIndex]; _startTimer(); });
+                  _pauseAutoPlay = true;
+                  setState(() { _currentIndex = next; widget.currentComicNotifier.value = _comics[_currentIndex]; });
                 }
               },
                 child: AnimatedSwitcher(

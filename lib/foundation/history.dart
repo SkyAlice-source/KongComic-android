@@ -504,12 +504,39 @@ void clearUnfavoritedHistory() {
   }
 
   /// Paginated version of [getAll].
-  List<History> getAllPaginated({required int limit, required int offset}) {
+  List<History> getAllPaginated({
+    required int limit,
+    required int offset,
+    String? timeFilter,
+  }) {
+    // 时间筛选（毫秒时间戳比较）：
+    // all=全部 / today=今天 / 7d=近 7 天 / 30d=近 30 天 / earlier=30 天前
+    var where = '';
+    var args = <Object>[];
+    final now = DateTime.now();
+    switch (timeFilter) {
+      case 'today':
+        final start =
+            DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+        where = 'where time >= ?';
+        args.add(start);
+      case '7d':
+        where = 'where time >= ?';
+        args.add(now.subtract(const Duration(days: 7)).millisecondsSinceEpoch);
+      case '30d':
+        where = 'where time >= ?';
+        args.add(now.subtract(const Duration(days: 30)).millisecondsSinceEpoch);
+      case 'earlier':
+        where = 'where time < ?';
+        args.add(now.subtract(const Duration(days: 30)).millisecondsSinceEpoch);
+    }
+    args.addAll([limit, offset]);
     var res = _db.select("""
       select * from history
+      $where
       order by time DESC
       LIMIT ? OFFSET ?;
-    """, [limit, offset]);
+    """, args);
     return res.map((element) => History.fromRow(element)).toList();
   }
 

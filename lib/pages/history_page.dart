@@ -51,6 +51,44 @@ class _HistoryPageState extends State<HistoryPage> {
     _gridKey.currentState?.refresh();
   }
 
+  /// 时间筛选选项与翻译标签
+  static const _timeFilterList = ['all', 'today', '7d', '30d', 'earlier'];
+
+  String _timeFilterLabel(String f) => switch (f) {
+        'today' => "Today".tl,
+        '7d' => "Last 7 days".tl,
+        '30d' => "Last 30 days".tl,
+        'earlier' => "Earlier".tl,
+        _ => "All".tl,
+      };
+
+  void _showTimeFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => ContentDialog(
+        title: "Filter".tl,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text("Time Range".tl),
+              trailing: Select(
+                minWidth: 120,
+                current: _timeFilterLabel(_timeFilter),
+                values: [for (var f in _timeFilterList) _timeFilterLabel(f)],
+                onTap: (i) {
+                  setState(() => _timeFilter = _timeFilterList[i]);
+                  _gridKey.currentState?.refresh();
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Comics currently loaded by the paginated grid.
   List<History> _loadedComics = [];
 
@@ -66,8 +104,15 @@ class _HistoryPageState extends State<HistoryPage> {
       return HistoryManager()
           .searchPaginated(searchKeyword.trim(), limit: limit, offset: offset);
     }
-    return HistoryManager().getAllPaginated(limit: limit, offset: offset);
+    return HistoryManager().getAllPaginated(
+      limit: limit,
+      offset: offset,
+      timeFilter: _timeFilter,
+    );
   }
+
+  /// 历史时间筛选：all/today/7d/30d/earlier
+  String _timeFilter = 'all';
 
   bool multiSelectMode = false;
 
@@ -271,8 +316,18 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  /// 正常模式操作：多选 / 清空 / 刷新全部。
+  /// 正常模式操作：筛选 / 多选 / 清空 / 刷新全部。
   List<Widget> _normalActions() => [
+        Tooltip(
+          message: "Filter".tl,
+          child: IconButton(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedSortDescending, size: 20),
+            color: _timeFilter != 'all'
+                ? Theme.of(context).colorScheme.primary
+                : null,
+            onPressed: _showTimeFilterDialog,
+          ),
+        ),
         Tooltip(
           message: "Multi-Select".tl,
           child: IconButton(

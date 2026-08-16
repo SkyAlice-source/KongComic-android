@@ -70,6 +70,7 @@ Future<void> init() async {
   _checkOldConfigs();
   await initAutoBackup().wait();
   await AppNotifications.init().wait();
+  DownloadNotifier.start();
 
   // Non-critical path - schedule to run after the UI is rendered
   _scheduleDeferredInit();

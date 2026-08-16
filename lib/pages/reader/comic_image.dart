@@ -84,6 +84,9 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
   Object? _lastException;
   ImageStreamCompleterHandle? _completerHandle;
 
+  /// 图片加载完成后的淡入透明度（0→1），避免大图突然出现闪屏
+  double _imageOpacity = 0.0;
+
   static final Map<String, Size> _cache = {};
   static const int _maxCacheSize = 200;
 
@@ -206,7 +209,20 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
       _lastException = null;
       _frameNumber = _frameNumber == null ? 0 : _frameNumber! + 1;
       _wasSynchronouslyLoaded = _wasSynchronouslyLoaded | synchronousCall;
+      // 同步加载（缓存图）直接显示；异步加载先透明再淡入
+      if (synchronousCall) {
+        _imageOpacity = 1.0;
+      } else {
+        _imageOpacity = 0.0;
+      }
     });
+    if (!synchronousCall) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _imageOpacity = 1.0);
+        }
+      });
+    }
   }
 
   void _handleImageChunk(ImageChunkEvent event) {
@@ -425,7 +441,12 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
             child: result,
           ),
         );
-        return result;
+        // 大图加载完成淡入，避免突然出现闪屏
+        return AnimatedOpacity(
+          opacity: _imageOpacity,
+          duration: AppAnimations.duration(const Duration(milliseconds: 150)),
+          child: result,
+        );
       } else {
         // build progress
         return SizedBox(

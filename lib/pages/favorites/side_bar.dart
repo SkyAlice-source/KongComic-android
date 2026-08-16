@@ -215,16 +215,8 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
 
   Widget _buildCategoryHeader(String name, int count, String id) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: context.colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.only(top: 12),
       child: Row(
         children: [
           HugeIcon(
@@ -285,16 +277,8 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
 
   Widget _buildGroupHeader(String title) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: context.colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.only(top: 12),
       child: Row(
         children: [
           HugeIcon(
@@ -318,15 +302,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        margin: const EdgeInsets.only(top: 8),
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: context.colorScheme.outlineVariant,
-              width: 0.6,
-            ),
-          ),
-        ),
+        margin: const EdgeInsets.only(top: 12),
         child: Row(
           children: [
             HugeIcon(
@@ -374,15 +350,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
   Widget buildNetworkTitle() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: context.colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-        ),
-      ),
+      margin: const EdgeInsets.only(top: 12),
       child: Row(
         children: [
           HugeIcon(
@@ -428,20 +396,16 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
       },
       child: Container(
         height: 42,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
         alignment: Alignment.centerLeft,
         decoration: BoxDecoration(
           color: isSelected
-              ? context.colorScheme.primaryContainer.toOpacity(0.36)
+              ? context.colorScheme.primaryContainer.toOpacity(0.5)
               : null,
-          border: Border(
-            left: BorderSide(
-              color:
-                  isSelected ? context.colorScheme.primary : Colors.transparent,
-              width: 2,
-            ),
-          ),
+          borderRadius:
+              isSelected ? BorderRadius.circular(kcRadius8) : null,
         ),
-        padding: const EdgeInsets.only(left: 16),
+        padding: const EdgeInsets.only(left: 12),
         child: Row(
           children: [
             Expanded(
@@ -499,20 +463,16 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
       },
       child: Container(
         height: 42,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
         alignment: Alignment.centerLeft,
         decoration: BoxDecoration(
           color: isSelected
-              ? context.colorScheme.primaryContainer.toOpacity(0.36)
+              ? context.colorScheme.primaryContainer.toOpacity(0.5)
               : null,
-          border: Border(
-            left: BorderSide(
-              color:
-                  isSelected ? context.colorScheme.primary : Colors.transparent,
-              width: 2,
-            ),
-          ),
+          borderRadius:
+              isSelected ? BorderRadius.circular(kcRadius8) : null,
         ),
-        padding: const EdgeInsets.only(left: 16),
+        padding: const EdgeInsets.only(left: 12),
         child: Text(data.title),
       ),
     );

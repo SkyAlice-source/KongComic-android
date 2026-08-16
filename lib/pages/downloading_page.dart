@@ -51,22 +51,40 @@ class _DownloadingPageState extends State<DownloadingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final tasks = LocalManager().downloadingTasks;
     return PopUpWidgetScaffold(
-      title: "",
-      body: ListView.builder(
-        itemCount: LocalManager().downloadingTasks.length + 1,
-        itemBuilder: (BuildContext context, int i) {
-          if (i == 0) {
-            return buildTop();
-          }
-          i--;
-
-          return _DownloadTaskTile(
-            key: ValueKey(LocalManager().downloadingTasks[i]),
-            task: LocalManager().downloadingTasks[i],
-          );
-        },
-      ),
+      title: "Downloads".tl,
+      body: tasks.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  HugeIcon(
+                    icon: HugeIcons.strokeRoundedDownload01,
+                    size: 48,
+                    color: context.colorScheme.outline,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "No active downloads".tl,
+                    style: ts.s16,
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: tasks.length + 1,
+              itemBuilder: (BuildContext context, int i) {
+                if (i == 0) {
+                  return buildTop();
+                }
+                i--;
+                return _DownloadTaskTile(
+                  key: ValueKey(tasks[i]),
+                  task: tasks[i],
+                );
+              },
+            ),
     );
   }
 
@@ -214,6 +232,22 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
                     ),
                     MenuButton(
                       entries: [
+                        MenuEntry(
+                          icon: HugeIcon(
+                            icon: widget.task.isPaused
+                                ? HugeIcons.strokeRoundedPlay
+                                : HugeIcons.strokeRoundedPause,
+                            size: 18,
+                          ),
+                          text: widget.task.isPaused ? "Resume".tl : "Pause".tl,
+                          onClick: () {
+                            if (widget.task.isPaused) {
+                              widget.task.resume();
+                            } else {
+                              widget.task.pause();
+                            }
+                          },
+                        ),
                         MenuEntry(
                           icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                           text: "Cancel".tl,

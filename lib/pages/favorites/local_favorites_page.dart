@@ -123,10 +123,22 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
           history.type != ComicType(comic.sourceKey.hashCode)) {
         history = null;
       }
-      if (readFilterSelect == "UnCompleted") {
-        return history == null || history.page != history.maxPage;
-      } else if (readFilterSelect == "Completed") {
-        return history != null && history.page == history.maxPage;
+      switch (readFilterSelect) {
+        case "Unread":
+          // 从未读过
+          return history == null;
+        case "UnCompleted":
+          return history == null || history.page != history.maxPage;
+        case "Completed":
+          return history != null && history.page == history.maxPage;
+        case "RecentlyUpdated":
+          // 有更新标记（追更检查发现新章节）。本地收藏为普通 FavoriteItem，
+          // 不携带更新信息，仅当实际为带更新信息的子类时才匹配。
+          return comic is FavoriteItemWithUpdateInfo && comic.hasNewUpdate;
+        case "NotDownloaded":
+          // 本地未下载
+          return !LocalManager()
+              .isDownloaded(comic.id, ComicType(comic.sourceKey.hashCode));
       }
       return true;
     }).toList();
@@ -1236,7 +1248,14 @@ class _LocalFavoritesFilterDialog extends StatefulWidget {
       _LocalFavoritesFilterDialogState();
 }
 
-const readFilterList = ['All', 'UnCompleted', 'Completed'];
+const readFilterList = [
+  'All',
+  'Unread',
+  'UnCompleted',
+  'Completed',
+  'RecentlyUpdated',
+  'NotDownloaded'
+];
 
 class _LocalFavoritesFilterDialogState
     extends State<_LocalFavoritesFilterDialog> {

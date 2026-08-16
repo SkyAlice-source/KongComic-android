@@ -544,17 +544,14 @@ class ContentDialog extends StatelessWidget {
     );
     return Dialog(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(kcRadius8),
-        side: context.brightness == Brightness.dark
-            ? BorderSide(color: context.colorScheme.outlineVariant)
-            : BorderSide.none,
+        borderRadius: BorderRadius.circular(kcRadius20),
       ),
       insetPadding: context.width < 400
           ? const EdgeInsets.symmetric(horizontal: 4)
           : const EdgeInsets.symmetric(horizontal: 16),
-      elevation: 2,
+      elevation: 3,
       shadowColor: context.colorScheme.shadow,
-      backgroundColor: context.colorScheme.surface,
+      backgroundColor: context.colorScheme.surfaceContainerLow,
       child: AnimatedSize(
         duration: const Duration(milliseconds: 200),
         alignment: Alignment.topCenter,

@@ -117,6 +117,14 @@ class _FilterChipFixedWidthState extends State<FilterChipFixedWidth> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = selected
+        ? (isDark ? cs.primary.withValues(alpha: 0.12) : cs.secondaryContainer)
+        : (isDark ? Colors.white.withValues(alpha: 0.10) : cs.surface);
+    final borderColor = selected
+        ? (isDark ? cs.primary.withValues(alpha: 0.20) : cs.secondaryContainer)
+        : (isDark ? Colors.white.withValues(alpha: 0.14) : cs.outline);
     return Material(
       textStyle: Theme.of(context).textTheme.labelLarge,
       child: InkWell(
@@ -125,11 +133,9 @@ class _FilterChipFixedWidthState extends State<FilterChipFixedWidth> {
         child: AnimatedContainer(
           duration: _fastAnimationDuration,
           decoration: BoxDecoration(
-            border: Border.all(color: Theme.of(context).colorScheme.outline),
+            border: Border.all(color: borderColor),
             borderRadius: const BorderRadius.all(Radius.circular(8)),
-            color: selected
-                ? Theme.of(context).colorScheme.primaryContainer
-                : null,
+            color: bg,
           ),
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           child: labelWidth == null ? firstBuild() : buildContent(),
