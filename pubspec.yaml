@@ -100,6 +100,12 @@ dev_dependencies:
       url: https://github.com/venera-app/flutter_to_debian.git
       ref: 3777c91b6b1cc0b7c03357c67ca216d4313c3db5
 
+# package_info_plus >=10.1.0 要求 win32 ^6.0.1，而 flutter_memory_info 0.0.3 要求 win32 ^5.9.0，
+# 二者无交集导致 `flutter pub get` 版本解析失败。本应用仅构建 Android 包，win32 仅用于 Windows 桌面平台，
+# 强制覆盖为 6.x 不影响 Android 构建。
+dependency_overrides:
+  win32: ^6.0.1
+
 flutter:
   uses-material-design: true
   assets:
