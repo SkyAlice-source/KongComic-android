@@ -234,8 +234,10 @@ class _CategoryPage extends StatelessWidget {
       }
     }
     return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: NaviPane.of(context).bottomBarHeight),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: children,
       ),
     );

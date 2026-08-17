@@ -237,10 +237,12 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
             var comic = widget.comic;
             var ep = images[currentPage].ep;
             var page = images[currentPage].page;
-            // The gallery lives on the root navigator; close it first, then push
-            // the reader onto the main navigator so its back button returns to
-            // the image favorites page instead of the home page.
-            Navigator.of(context).pop();
+            // Push the reader onto the main navigator FIRST (so it stacks
+            // above the image favorites page), THEN pop the photo view from
+            // the root navigator. The previous order (pop then push) caused
+            // the reader's back button to land on the home tab because the
+            // pop raced with the push and left the main navigator without
+            // the image favorites page in its current route.
             App.mainNavigatorKey?.currentContext?.to(
               () => ReaderWithLoading(
                 id: comic.id,
@@ -250,6 +252,9 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
                 imageFavoritesComic: comic,
               ),
             );
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
           },
         ),
         MenuEntry(

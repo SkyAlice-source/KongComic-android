@@ -466,6 +466,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           return switch (lang) {
             'zh-CN' => const Locale('zh', 'CN'),
             'zh-TW' => const Locale('zh', 'TW'),
+            'ja-JP' => const Locale('ja', 'JP'),
             'en-US' => const Locale('en'),
             _ => null
           };
@@ -473,6 +474,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         supportedLocales: const [
           Locale('zh', 'CN'),
           Locale('zh', 'TW'),
+          Locale('ja', 'JP'),
           Locale('en'),
         ],
         builder: (context, widget) {

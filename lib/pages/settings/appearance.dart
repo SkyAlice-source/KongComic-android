@@ -50,6 +50,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
             "system": "System",
             "zh-CN": "Simplified Chinese",
             "zh-TW": "Traditional Chinese",
+            "ja-JP": "Japanese",
             "en-US": "English",
           },
           onChanged: () async {

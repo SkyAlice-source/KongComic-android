@@ -2,6 +2,7 @@ part of 'image_favorites_page.dart';
 
 class _ImageFavoritesItem extends StatefulWidget {
   const _ImageFavoritesItem({
+    super.key,
     required this.imageFavoritesComic,
     required this.selectedImageFavorites,
     required this.addSelected,
@@ -20,7 +21,15 @@ class _ImageFavoritesItem extends StatefulWidget {
 }
 
 class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
-  late final imageFavorites = widget.imageFavoritesComic.images.toList();
+  late List<ImageFavorite> imageFavorites = widget.imageFavoritesComic.images.toList();
+
+  @override
+  void didUpdateWidget(covariant _ImageFavoritesItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageFavoritesComic != widget.imageFavoritesComic) {
+      imageFavorites = widget.imageFavoritesComic.images.toList();
+    }
+  }
 
   void goComicInfo(ImageFavoritesComic comic) {
     App.mainNavigatorKey?.currentContext?.to(() => ComicPage(
@@ -194,9 +203,6 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
         height: 128,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(kcRadius8),
-          color: isSelected
-              ? Theme.of(context).colorScheme.primaryContainer
-              : null,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Column(
@@ -214,6 +220,11 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                       child: Hero(
                         tag: "${image.sourceKey}${image.ep}${image.page}",
                         child: AnimatedImage(
+                          // Key by the image's full identity so that when the
+                          // list reorders after a delete, Flutter rebuilds this
+                          // cell with the correct provider instead of reusing a
+                          // stale cached image from a removed item.
+                          key: ValueKey("favimg_${image.sourceKey}_${image.ep}_${image.page}"),
                           image: ImageFavoritesProvider(image),
                           width: 96,
                           height: 128,
@@ -237,6 +248,44 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                             size: 12,
                             color: Theme.of(context).colorScheme.onPrimary,
                           ),
+                        ),
+                      ),
+                    if (widget.multiSelectMode)
+                      Positioned.fill(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(kcRadius8),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFFD4381B)
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .outline
+                                      .withValues(alpha: 0.45),
+                              width: isSelected ? 2.5 : 1,
+                            ),
+                            color: isSelected
+                                ? Colors.black.withValues(alpha: 0.25)
+                                : Colors.black.withValues(alpha: 0.05),
+                          ),
+                          child: isSelected
+                              ? Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFD4381B),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
+                                )
+                              : null,
                         ),
                       ),
                   ],

@@ -157,7 +157,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
           return true;
         } else if (tag.contains(':') && checkKeyWordMatch(k, tag.split(':')[1], true)) {
           return true;
-        } else if (App.locale.languageCode != 'en' &&
+        } else if (App.locale.languageCode == 'zh' &&
             checkKeyWordMatch(k, tag.translateTagsToCN, true)) {
           return true;
         }
@@ -1259,60 +1259,27 @@ const readFilterList = [
 
 class _LocalFavoritesFilterDialogState
     extends State<_LocalFavoritesFilterDialog> {
-  List<String> optionTypes = ['Filter'];
   late var readFilter = widget.initReadFilterSelect;
+
   @override
   Widget build(BuildContext context) {
-    Widget tabBar = Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      borderRadius: BorderRadius.circular(kcRadius8),
-      child: AppTabBar(
-        key: PageStorageKey(optionTypes),
-        tabs: optionTypes.map((e) => Tab(text: e.tl, key: Key(e))).toList(),
-      ),
-    ).paddingTop(context.padding.top);
     return ContentDialog(
-      content: DefaultTabController(
-        length: 2,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            tabBar,
-            TabViewBody(children: [
-              Column(
-                children: [
-                  ListTile(
-                    title: Text("Filter reading status".tl),
-                    trailing: Select(
-                      current: readFilter.tl,
-                      values: readFilterList.map((e) => e.tl).toList(),
-                      minWidth: 64,
-                      onTap: (index) {
-                        setState(() {
-                          readFilter = readFilterList[index];
-                        });
-                      },
-                    ),
-                  )
-                ],
-              )
-            ]),
-          ],
+      title: "Filter".tl,
+      content: ListTile(
+        title: Text("Filter reading status".tl),
+        trailing: Select(
+          current: readFilter.tl,
+          values: readFilterList.map((e) => e.tl).toList(),
+          minWidth: 120,
+          onTap: (index) {
+            final picked = readFilterList[index];
+            appdata.implicitData["local_favorites_read_filter"] = picked;
+            appdata.writeImplicitData();
+            Navigator.pop(context);
+            widget.updateConfig(picked);
+          },
         ),
       ),
-      actions: [
-        FilledButton(
-          onPressed: () {
-            appdata.implicitData["local_favorites_read_filter"] = readFilter;
-            appdata.writeImplicitData();
-            if (mounted) {
-              Navigator.pop(context);
-              widget.updateConfig(readFilter);
-            }
-          },
-          child: Text("Confirm".tl),
-        ),
-      ],
     );
   }
 }

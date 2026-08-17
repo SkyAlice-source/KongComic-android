@@ -290,8 +290,10 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
+                final comic = comics[index];
                 return _ImageFavoritesItem(
-                  imageFavoritesComic: comics[index],
+                  key: ValueKey('${comic.sourceKey}:${comic.id}'),
+                  imageFavoritesComic: comic,
                   selectedImageFavorites: selectedImageFavorites,
                   addSelected: addSelected,
                   multiSelectMode: multiSelectMode,

@@ -785,7 +785,9 @@ class _NaviMainViewState extends State<_NaviMainView> {
   int _lastPage = 0;
 
   void onScroll(double offset) {
-    if (state.currentPage == 0 || state.currentPage == 2) return;
+    // 主页(2)保持底部导航常驻（默认首屏）；其余页面（含分类/收藏/发现/历史）
+    // 滚动时自动隐藏/显示，给内容让出空间。
+    if (state.currentPage == 2) return;
     final diff = offset - _lastScrollOffset;
     // 50px 阈值：避免轻微滚动/惯性滑动误隐藏上下导航
     // 触发隐藏/显示或超阈值后更新基准，防止 diff 累积失效

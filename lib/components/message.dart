@@ -549,9 +549,9 @@ class ContentDialog extends StatelessWidget {
       insetPadding: context.width < 400
           ? const EdgeInsets.symmetric(horizontal: 4)
           : const EdgeInsets.symmetric(horizontal: 16),
-      elevation: 3,
-      shadowColor: context.colorScheme.shadow,
-      backgroundColor: context.colorScheme.surfaceContainerLow,
+      elevation: 6,
+      shadowColor: context.colorScheme.shadow.withValues(alpha: 0.18),
+      backgroundColor: context.colorScheme.surfaceContainerHigh,
       child: AnimatedSize(
         duration: const Duration(milliseconds: 200),
         alignment: Alignment.topCenter,

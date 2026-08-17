@@ -870,9 +870,14 @@ class _ComicDescription extends StatelessWidget {
                 return Container();
               }
               int cnt = (constraints.maxHeight - 22).toInt() ~/ 25;
+              // Height must fit `cnt + 1` tag rows: the first 21px row plus
+              // `cnt` more rows of 25px each (21px tag + 4px runSpacing). The
+              // old `21 + cnt * 24` was 1px short per row, so a partial next
+              // row peeked through and its bottom got clipped by Clip.antiAlias
+              // ("第二排底部被裁切").
               return Container(
                 clipBehavior: Clip.antiAlias,
-                height: 21 + cnt * 24,
+                height: 21 + cnt * 25,
                 width: double.infinity,
                 decoration: const BoxDecoration(),
                 child: Wrap(
