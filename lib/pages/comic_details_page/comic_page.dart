@@ -6,8 +6,6 @@ import 'package:photo_view/photo_view.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-import 'package:palette_generator/palette_generator.dart';
-import 'package:flex_seed_scheme/flex_seed_scheme.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/components/scroll_top_fab.dart';
 import 'package:kong_comic/components/rich_comment_content.dart';
@@ -110,76 +108,12 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   bool showFAB = false;
 
-  /// Cover-extracted seed color (Komikku-style auto theming for the detail
-  /// page). Only the seed is cached — the [ColorScheme] is rebuilt from it in
-  /// [buildContent] using the *current* brightness/AMOLED state, so the page
-  /// re-themes correctly when the user switches light/dark/AMOLED at runtime.
-  Color? _coverSeed;
-  bool _extractingCover = false;
+  /// 详情页描述折叠状态：超过 4 行时折叠，点击在展开/收起间切换。
+  bool _descExpanded = false;
 
-  void _extractCoverTheme(ComicDetails data) {
-    if (_coverSeed != null || _extractingCover) return;
-    final coverUrl = widget.cover ?? data.cover;
-    if (coverUrl.isEmpty) return;
-    _extractingCover = true;
-    final provider = CachedImageProvider(
-      coverUrl,
-      sourceKey: data.sourceKey,
-      cid: data.id,
-    );
-    PaletteGenerator.fromImageProvider(
-      provider,
-      size: const Size(100, 100),
-    ).then((pg) {
-      final color = pg.darkVibrantColor?.color ??
-          pg.vibrantColor?.color ??
-          pg.dominantColor?.color;
-      if (color != null && mounted) {
-        setState(() {
-          _coverSeed = color;
-        });
-      }
-    }).catchError((_) {
-      // Keep default theme if extraction fails.
-    }).whenComplete(() {
-      _extractingCover = false;
-    });
-  }
-
-  /// Builds the detail-page theme from the cover seed, mirroring the app's
-  /// [getTheme] construction (transparent surfaceTint, AMOLED soft-black
-  /// surface ramp) so it stays consistent with the global theme.
-  ///
-  /// AMOLED 模式下直接回退到 base（已由全局主题强制为中性灰阶），
-  /// 避免封面取色引入彩色，违背「纯黑外观去掉所有主题色」的要求。
-  /// 暗彩模式下对封面取色做 kcDarkColorful 转换并配合 vivid tones，
-  /// 保证饱和度与全局暗彩一致，明显比浅色更深更艳、不再发灰发浅。
-  ThemeData _coverTheme(BuildContext context) {
-    final base = Theme.of(context);
-    final seed = _coverSeed;
-    final brightness = base.brightness;
-    final isDark = brightness == Brightness.dark;
-    final amoled = appdata.isAmoledMode;
-    if (amoled && isDark) return base;
-    if (seed == null) return base;
-    // 浅色直接取种子生成 vivid 配色；暗彩则复用全局暗彩逻辑：
-    // 用浅色 vivid 配色经 kcDarkColorful 加深加饱和后覆盖到暗色彩色方案，
-    // 避免 FlexTones 在暗色下把 primary 映射到 tone 80（浅色）导致发浅。
-    final lightScheme = SeedColorScheme.fromSeeds(
-      primaryKey: seed,
-      brightness: Brightness.light,
-      tones: FlexTones.vivid(Brightness.light),
-    ).copyWith(surfaceTint: Colors.transparent);
-    if (!isDark) return base.copyWith(colorScheme: lightScheme);
-    final darkBase = SeedColorScheme.fromSeeds(
-      primaryKey: kcDarkColorful(seed),
-      brightness: brightness,
-      tones: FlexTones.vivid(brightness),
-    ).copyWith(surfaceTint: Colors.transparent);
-    return base.copyWith(
-      colorScheme: kcDarkColorfulFromLight(lightScheme, darkBase),
-    );
-  }
+  /// 收藏状态：由 [loadData] 阶段提前查 folder 得到的最终值，
+  /// 避免进入页面后异步 setState 导致收藏图标先「未收藏」再跳「已收藏」的闪烁。
+  bool? _serverFavorited;
 
   @override
   void onReadEnd() {
@@ -280,11 +214,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   @override
   Widget buildContent(BuildContext context, ComicDetails data) {
-    _extractCoverTheme(data);
-    final pageTheme = _coverTheme(context);
-    return Theme(
-      data: pageTheme,
-      child: Scaffold(
+    return Scaffold(
       floatingActionButton: showFAB
           ? ScrollTopFab(
               heroTag: 'comicScrollTopFab',
@@ -297,9 +227,11 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               },
             )
           : null,
-      body: SmoothCustomScrollView(
-        controller: scrollController,
-        slivers: [
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: SmoothCustomScrollView(
+          controller: scrollController,
+          slivers: [
           ...buildTitle(),
           buildActions(),
           buildDescription(),
@@ -314,8 +246,24 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
             ), // Add additional padding for FAB
           ),
         ],
+        ),
       ),
-    ));
+    );
+  }
+
+  /// 下拉刷新：重新拉取详情数据并校正收藏/历史状态。
+  /// 本地漫画详情页不会停留（[loadData] 会跳转阅读器），无需刷新，直接返回。
+  Future<void> _refresh() async {
+    if (widget.sourceKey == 'local') return;
+    final res = await loadData();
+    if (!mounted) return;
+    if (res.success) {
+      data = res.data;
+      await onDataLoaded();
+      setState(() {});
+    } else {
+      context.showMessage(message: res.errorMessage ?? "Refresh failed".tl);
+    }
   }
 
   @override
@@ -364,25 +312,27 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       widget.id,
       ComicType(widget.sourceKey.hashCode),
     );
+    // 提前查 folder 收藏，得到最终 isFavorite，避免进入页面后异步 setState 闪烁。
+    _serverFavorited = null;
+    if (comicSource.favoriteData?.loadFolders != null && comicSource.isLogged) {
+      try {
+        final res = await comicSource.favoriteData!.loadFolders!(widget.id);
+        if (!res.error && res.subData is List) {
+          _serverFavorited = (List<String>.from(res.subData)).isNotEmpty;
+        }
+      } catch (_) {
+        // 查询失败时回退到源的 isFavorite。
+      }
+    }
     return comicSource.loadComicInfo!(widget.id);
   }
 
   @override
   Future<void> onDataLoaded() async {
     isLiked = comic.isLiked ?? false;
-    isFavorite = comic.isFavorite ?? false;
-    // For sources with multi-folder favorites, prefer querying folders to get accurate favorite status
-    // Some sources may not set isFavorite reliably when multi-folder is enabled
-    if (comicSource.favoriteData?.loadFolders != null && comicSource.isLogged) {
-      var res = await comicSource.favoriteData!.loadFolders!(comic.id);
-      if (!res.error) {
-        if (res.subData is List) {
-          var list = List<String>.from(res.subData);
-          isFavorite = list.isNotEmpty;
-          update();
-        }
-      }
-    }
+    // folder 查询已在 [loadData] 阶段提前完成（写入 [_serverFavorited]），
+    // 此处直接使用最终值，避免先显示「未收藏」再跳「已收藏」的闪烁。
+    isFavorite = _serverFavorited ?? comic.isFavorite ?? false;
     if (comic.chapters == null) {
       isDownloaded = LocalManager().isDownloaded(comic.id, comic.comicType, 0);
     }
@@ -712,17 +662,41 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     if (comic.description == null || comic.description!.trim().isEmpty) {
       return const SliverPadding(padding: EdgeInsets.zero);
     }
+    final desc = comic.description!;
+    // 估算行数：超过 4 行时才提供折叠，避免短描述也显示「展开」按钮。
+    final baseStyle = DefaultTextStyle.of(context).style
+        .merge(const TextStyle(height: 1.5));
+    final painter = TextPainter(
+      text: TextSpan(text: desc, style: baseStyle),
+      textDirection: TextDirection.ltr,
+      maxLines: 4,
+    )..layout(maxWidth: context.width - 32);
+    final needFold = painter.didExceedMaxLines;
+    painter.dispose();
+
     return SliverLazyToBoxAdapter(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ListTile(title: Text("Description".tl)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SelectableText(
-              comic.description!,
+              desc,
               style: const TextStyle(height: 1.5),
+              maxLines: _descExpanded || !needFold ? null : 4,
             ).fixWidth(double.infinity),
           ),
+          if (needFold)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => setState(() => _descExpanded = !_descExpanded),
+                child: Text(
+                  _descExpanded ? "Collapse".tl : "Show more".tl,
+                ),
+              ).paddingLeft(8),
+            ),
           const SizedBox(height: 16),
           const Divider(),
         ],

@@ -670,11 +670,17 @@ class LocalFavoritesManager with ChangeNotifier {
 
   String _translateTags(List<String> tags) {
     var res = <String>[];
-    for (var tag in tags) {
-      var translated = tag.translateTagsToCN;
-      if (translated != tag) {
-        res.add(translated);
+    // 中文模式下显示已翻译的中文标签（仅保留有翻译的，避免露出原始英文）；
+    // 其它语言（日/英等）漫画标签本就是英文，直接显示原文。
+    if (App.locale.languageCode == 'zh') {
+      for (var tag in tags) {
+        var translated = tag.translateTagsToCN;
+        if (translated != tag) {
+          res.add(translated);
+        }
       }
+    } else {
+      res.addAll(tags);
     }
     return res.join(",");
   }

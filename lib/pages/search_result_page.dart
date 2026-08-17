@@ -395,7 +395,7 @@ class _SuggestionsState extends State<_Suggestions> {
     var words = controller.text.split(" ");
     if (words.length >= 2 &&
         check("${words[words.length - 2]} ${words[words.length - 1]}", text,
-            text.translateTagsToCN)) {
+            text.translateTagIfNeed)) {
       controller.text = controller.text.replaceLast(
           "${words[words.length - 2]} ${words[words.length - 1]}", "");
     } else {

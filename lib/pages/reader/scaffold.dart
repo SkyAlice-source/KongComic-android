@@ -332,7 +332,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             context.reader.chapter - 1,
           ) ??
           "E${context.reader.chapter}";
-      var translatedTags = tags.map((e) => e.translateTagsToCN).toList();
+      var translatedTags = tags.map((e) => e.translateTagIfNeed).toList();
 
       if (isLiked()) {
         if (page == firstPage) {

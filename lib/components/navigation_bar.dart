@@ -785,22 +785,22 @@ class _NaviMainViewState extends State<_NaviMainView> {
   int _lastPage = 0;
 
   void onScroll(double offset) {
-    // 主页(2)保持底部导航常驻（默认首屏）；其余页面（含分类/收藏/发现/历史）
-    // 滚动时自动隐藏/显示，给内容让出空间。
+    // 主页(2)保持底部导航常驻（默认首屏）。
+    // 其余页面滚动时【只隐藏底部导航】，顶部栏（标题+设置等 action）固定显示，
+    // 避免滚下去后想改设置还得滚回顶部。顶部栏很薄(48px)，隐藏它换来的空间
+    // 很少、却会丢失标题与操作入口，性价比低；主流 app 也普遍仅隐藏底部 tab。
     if (state.currentPage == 2) return;
     final diff = offset - _lastScrollOffset;
-    // 50px 阈值：避免轻微滚动/惯性滑动误隐藏上下导航
+    // 50px 阈值：避免轻微滚动/惯性滑动误隐藏底部导航
     // 触发隐藏/显示或超阈值后更新基准，防止 diff 累积失效
-    if (diff > 50 && (_showBottomBar || _showTopBar)) {
+    if (diff > 50 && _showBottomBar) {
       setState(() {
         _showBottomBar = false;
-        _showTopBar = false;
       });
       _lastScrollOffset = offset;
-    } else if (diff < -50 && (!_showBottomBar || !_showTopBar)) {
+    } else if (diff < -50 && !_showBottomBar) {
       setState(() {
         _showBottomBar = true;
-        _showTopBar = true;
       });
       _lastScrollOffset = offset;
     } else if (diff.abs() >= 50) {
@@ -857,13 +857,18 @@ class _NaviMainViewState extends State<_NaviMainView> {
                   context: context,
                   removeTop: shouldShowAppBar && _showTopBar,
                   removeBottom: true,
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: (notification) {
-                      if (notification is ScrollUpdateNotification) {
-                        onScroll(notification.metrics.pixels);
-                      }
-                      return false;
-                    },
+                  child:                     NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification is ScrollUpdateNotification) {
+                          // 仅响应纵向滚动。分类页用 TabBarView（横向 PageView）
+                          // 翻页时也会冒泡 ScrollUpdateNotification，且其 pixels 是
+                          // 横向页面位移，跨过阈值会让底部导航栏误隐藏/显示造成抖动。
+                          if (notification.metrics.axis == Axis.vertical) {
+                            onScroll(notification.metrics.pixels);
+                          }
+                        }
+                        return false;
+                      },
                     child: AnimatedSwitcher(
                       duration: AppAnimations.duration(const Duration(milliseconds: 160)),
                       child: state.buildMainViewContent(),

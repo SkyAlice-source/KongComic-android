@@ -596,7 +596,7 @@ class _SearchPageState extends State<SearchPage> {
       var words = _searchTextController.text.split(" ");
       if (words.length >= 2 &&
           check("${words[words.length - 2]} ${words[words.length - 1]}", text,
-              text.translateTagsToCN)) {
+              text.translateTagIfNeed)) {
         _searchTextController.text = _searchTextController.text.replaceLast(
             "${words[words.length - 2]} ${words[words.length - 1]}", "");
       } else {
