@@ -141,7 +141,7 @@ class FlyoutState extends State<Flyout> {
                     animation: animation,
                     builder: (context, builder) {
                       return ColoredBox(
-                        color: Colors.black.toOpacity(0.3 * animation.value),
+                        color: Colors.black.withValues(alpha: 0.3 * animation.value),
                       );
                     },
                   ),
@@ -185,7 +185,7 @@ class FlyoutContent extends StatelessWidget {
         child: Material(
           borderRadius: BorderRadius.circular(kcRadius8),
           type: MaterialType.card,
-          color: context.colorScheme.surface.toOpacity(0.82),
+          color: context.colorScheme.surface.withValues(alpha: 0.82),
           child: Container(
             constraints: const BoxConstraints(
               minWidth: minFlyoutWidth,

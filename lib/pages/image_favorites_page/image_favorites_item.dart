@@ -259,7 +259,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                             borderRadius: BorderRadius.circular(kcRadius8),
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xFFD4381B)
+                                  ? kcBrandColor
                                   : Theme.of(context)
                                       .colorScheme
                                       .outline
@@ -275,7 +275,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                                   child: Container(
                                     padding: const EdgeInsets.all(5),
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFFD4381B),
+                                      color: kcBrandColor,
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(

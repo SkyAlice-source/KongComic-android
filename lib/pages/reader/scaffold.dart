@@ -565,12 +565,12 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         message: isLiked() ? "Favorited".tl : "Collect the image".tl,
         child: IconButton(
           icon: isLiked()
-              ? const Icon(Icons.favorite, size: 20, color: Color(0xFFD4381B))
+              ? const Icon(Icons.favorite, size: 20, color: kcBrandColor)
               : HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
           onPressed: addImageFavorite,
           style: isLiked()
               ? IconButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4381B).withValues(alpha: 0.12),
+                  backgroundColor: kcBrandColor.withValues(alpha: 0.12),
                 )
               : null,
         ),

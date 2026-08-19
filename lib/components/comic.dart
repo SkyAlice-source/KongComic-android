@@ -306,12 +306,12 @@ class ComicTile extends StatelessWidget {
         color: Theme.of(context).colorScheme.surface,
         shape: BoxShape.circle,
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.toOpacity(0.25),
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.25),
           width: 0.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.toOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 2,
             offset: const Offset(0, 1),
           ),
@@ -320,7 +320,7 @@ class ComicTile extends StatelessWidget {
       child: const Icon(
         Icons.favorite,
         size: 10,
-        color: Color(0xFFD4381B),
+        color: kcBrandColor,
       ),
     );
   }
@@ -550,7 +550,7 @@ class ComicTile extends StatelessWidget {
                                   : const EdgeInsets.fromLTRB(5, 2, 5, 2),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(kcRadius8),
-                            color: Colors.black.toOpacity(0.5),
+                            color: Colors.black.withValues(alpha: 0.5),
                           ),
                           constraints: BoxConstraints(
                             maxWidth: constraints.maxWidth * 0.62,
@@ -635,7 +635,7 @@ class ComicTile extends StatelessWidget {
                                     : const EdgeInsets.fromLTRB(5, 2, 5, 2),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(kcRadius8),
-                              color: Colors.black.toOpacity(0.5),
+                              color: Colors.black.withValues(alpha: 0.5),
                             ),
                             constraints: BoxConstraints(
                               maxWidth: constraints.maxWidth,
@@ -857,7 +857,7 @@ class _ComicDescription extends StatelessWidget {
             subtitle,
             style: TextStyle(
                 fontSize: kcFont10,
-                color: context.colorScheme.onSurface.toOpacity(0.7)),
+                color: context.colorScheme.onSurface.withValues(alpha: 0.7)),
             maxLines: 1,
             softWrap: true,
             overflow: TextOverflow.ellipsis,
@@ -1223,7 +1223,7 @@ class _SliverGridComics extends StatelessWidget {
             color: isSelected
                 ? Theme.of(
                     context,
-                  ).colorScheme.secondaryContainer.toOpacity(0.72)
+                  ).colorScheme.secondaryContainer.withValues(alpha: 0.72)
                 : null,
             borderRadius: BorderRadius.circular(kcCardRadius),
           ),
@@ -2404,7 +2404,7 @@ class PaginatedSliverGridComicsState
                   ? Theme.of(context)
                       .colorScheme
                       .secondaryContainer
-                      .toOpacity(0.72)
+                      .withValues(alpha: 0.72)
                   : null,
               borderRadius: BorderRadius.circular(kcCardRadius),
             ),

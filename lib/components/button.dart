@@ -217,7 +217,7 @@ class _ButtonState extends State<Button> {
             boxShadow: (isHover && !isLoading && (widget.type == ButtonType.filled || widget.type == ButtonType.normal))
                 ? [
                     BoxShadow(
-                      color: Colors.black.toOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 2,
                       offset: const Offset(0, 1),
                     )
@@ -252,7 +252,7 @@ class _ButtonState extends State<Button> {
     if (widget.type == ButtonType.filled) {
       var color = widget.color ?? context.colorScheme.primary;
       if (isHover) {
-        return color.toOpacity(0.9);
+        return color.withValues(alpha: 0.9);
       } else {
         return color;
       }
@@ -260,13 +260,13 @@ class _ButtonState extends State<Button> {
     if (widget.type == ButtonType.normal) {
       var color = widget.color ?? context.colorScheme.surfaceContainer;
       if (isHover) {
-        return color.toOpacity(0.9);
+        return color.withValues(alpha: 0.9);
       } else {
         return color;
       }
     }
     if (isHover) {
-      return context.colorScheme.outline.toOpacity(0.2);
+      return context.colorScheme.outline.withValues(alpha: 0.2);
     }
     return Colors.transparent;
   }
@@ -352,7 +352,7 @@ class _IconButtonState extends State<_IconButton> {
                   ? Theme.of(context)
                   .colorScheme
                   .outlineVariant
-                  .toOpacity(0.4)
+                  .withValues(alpha: 0.4)
                   : null,
               borderRadius: BorderRadius.circular((iconSize + 12) / 2),
             ),

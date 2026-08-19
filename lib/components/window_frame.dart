@@ -573,7 +573,7 @@ class _VirtualWindowFrameState extends State<VirtualWindowFrame>
         color: Colors.transparent,
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Colors.black.toOpacity(_isFocused ? 0.4 : 0.2),
+            color: Colors.black.withValues(alpha: _isFocused ? 0.4 : 0.2),
             blurRadius: 4,
           )
         ],

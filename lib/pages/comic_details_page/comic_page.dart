@@ -476,7 +476,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 ),
               _ActionButton(
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
-                activeIcon: const Icon(Icons.favorite, size: 20, color: Color(0xFFD4381B)),
+                activeIcon: const Icon(Icons.favorite, size: 20, color: kcBrandColor),
                 isActive: isFavorite || isAddToLocalFav,
                 text: (isFavorite || isAddToLocalFav) ? 'Favorited'.tl : 'Favorite'.tl,
                 onPressed: openFavPanel,
@@ -748,7 +748,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       final amoled = appdata.isAmoledMode;
       final bgColor = kcTagColor(i++, brightness, amoled: amoled);
       final textColor = kcTagTextColor(bgColor);
-      final borderColor = bgColor.toOpacity(0.35);
+      final borderColor = bgColor.withValues(alpha: 0.35);
 
       final borderRadius = BorderRadius.circular(kcRadius8);
       const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 6);
@@ -1230,10 +1230,9 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 骨架屏占位块使用中性灰，避免在深色模式下受主题色影响而偏蓝/偏紫。
-    final neutralPlaceholder = context.isDarkMode
-        ? const Color(0xFF2A2A2A)
-        : const Color(0xFFE8E8E8);
+    // 骨架屏占位块使用中性容器色（surfaceContainerHighest 本身为中性灰，不受
+    // 主题色影响而偏蓝/偏紫），同时随主题/AMOLED 自动适配，避免硬编码色差。
+    final neutralPlaceholder = context.colorScheme.surfaceContainerHighest;
 
     Widget buildContainer(
       double? width,

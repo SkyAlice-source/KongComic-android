@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 /// 配套文档：design/kongcomic-design/kongcomic-ui-improvement-proposal.md
 /// 约束：主页英雄卡片外观保持不变，这里只把散落的硬编码值收口到令牌。
 
+// ── 品牌色 ───────────────────────────────────────────────
+/// 品牌主色 Kong Coral，用于收藏红心、收藏角标等强调色。
+const Color kcBrandColor = Color(0xFFD4381B);
+
 // ── 圆角 ───────────────────────────────────────────────
 const double kcCardRadius = 12; // 漫画卡 / 英雄卡 外圆角
 const double kcCardInnerRadius = 10; // 卡内裁剪圆角
