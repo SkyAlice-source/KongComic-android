@@ -774,7 +774,7 @@ class ComicSourceParser {
         res['sourceKey'] = _key;
         return Res(ComicDetails.fromJson(res));
       } catch (e, s) {
-        Log.error("Network", "$e\n$s");
+        Log.error("Network [$_key]", "$e\n$s");
         return Res.error(e.toString());
       }
     };
