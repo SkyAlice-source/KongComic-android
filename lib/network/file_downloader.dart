@@ -112,8 +112,9 @@ class FileDownloader {
       var proxy = await getProxy();
       _dio.httpClientAdapter = IOHttpClientAdapter(
         createHttpClient: () {
-          return HttpClient()
-            ..findProxy = (uri) => proxy == null ? "DIRECT" : "PROXY $proxy";
+          final client = HttpClient();
+          configureProxy(client, proxy);
+          return client;
         },
       );
 

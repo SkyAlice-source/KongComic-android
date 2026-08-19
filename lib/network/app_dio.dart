@@ -215,10 +215,7 @@ class RHttpAdapter implements HttpClientAdapter {
       _client?.close();
       _client = HttpClient();
       _lastProxy = proxy;
-      _client!.findProxy = (_) {
-        if (proxy != null) return 'PROXY $proxy';
-        return 'DIRECT';
-      };
+      configureProxy(_client!, proxy);
       _client!.badCertificateCallback =
           (X509Certificate cert, String host, int port) {
         return appdata.settings['ignoreBadCertificate'] == true;

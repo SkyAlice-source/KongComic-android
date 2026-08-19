@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
@@ -57,4 +59,50 @@ Future<String?> _getProxy() async {
   }
 
   return res;
+}
+
+/// 解析代理字符串（可能带 `username:password@` 认证前缀），分离出 host:port 与
+/// 认证信息。Dart HttpClient 的 findProxy 只接受 `PROXY host:port`，不支持内嵌
+/// 认证，需单独通过 authenticateProxy + addProxyCredentials 处理。
+({String host, String? username, String? password}) _parseProxyAuth(String proxy) {
+  var hostPort = proxy;
+  String? username;
+  String? password;
+  final at = proxy.lastIndexOf('@');
+  if (at != -1) {
+    final auth = proxy.substring(0, at);
+    hostPort = proxy.substring(at + 1);
+    final colon = auth.indexOf(':');
+    if (colon != -1) {
+      username = auth.substring(0, colon);
+      password = auth.substring(colon + 1);
+    } else {
+      username = auth;
+    }
+  }
+  return (host: hostPort, username: username, password: password);
+}
+
+/// 给 [client] 配置代理（含认证）。proxy 为 null 表示直连。
+///
+/// manual 代理可能带 `username:password@host:port` 认证前缀，findProxy 只返回
+/// `PROXY host:port`，认证通过 authenticateProxy + addProxyCredentials 注入。
+void configureProxy(HttpClient client, String? proxy) {
+  if (proxy == null || proxy.isEmpty) {
+    client.findProxy = (_) => 'DIRECT';
+    return;
+  }
+  final parsed = _parseProxyAuth(proxy);
+  client.findProxy = (_) => 'PROXY ${parsed.host}';
+  if (parsed.username != null) {
+    client.authenticateProxy = (host, port, scheme, realm) async {
+      client.addProxyCredentials(
+        host,
+        port,
+        realm ?? '',
+        HttpClientBasicCredentials(parsed.username!, parsed.password ?? ''),
+      );
+      return true;
+    };
+  }
 }
