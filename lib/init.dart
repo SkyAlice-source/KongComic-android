@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:display_mode/display_mode.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_saf/flutter_saf.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/cache_manager.dart';
@@ -46,6 +47,7 @@ Future<void> init() async {
   // Set up error handling first, before any async work
   FlutterError.onError = (details) {
     Log.error("Unhandled Exception", "${details.exception}\n${details.stack}");
+    Sentry.captureException(details.exception, stackTrace: details.stack);
   };
 
   // Critical path - must complete before UI renders

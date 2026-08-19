@@ -72,11 +72,11 @@ jobs:
 
       - name: Build release APKs
         run: |
-          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation --dart-define=SENTRY_DSN=${{ secrets.SENTRY_DSN }}
 
       - name: Build universal APK
         run: |
-          flutter build apk --release --android-skip-build-dependency-validation
+          flutter build apk --release --android-skip-build-dependency-validation --dart-define=SENTRY_DSN=${{ secrets.SENTRY_DSN }}
 
       # 重命名 APK
       - name: Rename APKs

@@ -13,6 +13,20 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// sentry_flutter 8.x 的 android/build.gradle 硬编码 languageVersion=1.6，
+// 而 Kotlin 2.x 编译器已不再支持 1.6（最低 2.0），会导致 :sentry_flutter:compileReleaseKotlin 失败。
+// 这里统一把子模块的 Kotlin languageVersion 抬到 2.0（sentry 的 Kotlin 代码本就用新语法，覆盖安全）。
+gradle.afterProject { project, state ->
+    if (state.failure != null) return
+    if (project.hasProperty('android')) {
+        try {
+            project.android.kotlinOptions.languageVersion = '2.0'
+        } catch (ignored) {
+            // 无 kotlinOptions 的模块（如纯 Java 模块）忽略
+        }
+    }
+}
+
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }

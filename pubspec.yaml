@@ -88,6 +88,7 @@ dependencies:
   flutter_markdown: ^0.7.7
   workmanager: ^0.10.7
   flutter_local_notifications: ^22.3.0
+  sentry_flutter: ^8.14.2
 
 dev_dependencies:
   flutter_test:

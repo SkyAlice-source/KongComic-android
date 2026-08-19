@@ -5,6 +5,7 @@ import 'package:flex_seed_scheme/flex_seed_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/pages/auth_page.dart';
 import 'package:kong_comic/pages/main_page.dart';
@@ -46,6 +47,23 @@ class _NeutralOverscrollScrollBehavior extends MaterialScrollBehavior {
   }
 }
 
+/// 初始化 Sentry 崩溃上报。
+///
+/// DSN 通过 `--dart-define=SENTRY_DSN=xxx` 在构建时传入，未配置时静默跳过
+/// （本地开发/无 DSN 的构建不受影响）。发版 CI 需在 build 命令加该 define。
+Future<void> _initSentry() async {
+  const dsn = String.fromEnvironment('SENTRY_DSN');
+  if (dsn.isEmpty) return;
+  await SentryFlutter.init(
+    (options) {
+      options.dsn = dsn;
+      options.tracesSampleRate = 1.0;
+      options.release = 'kong_comic@${App.appVersion}';
+      options.attachThreads = true;
+    },
+  );
+}
+
 void main(List<String> args) {
   if (args.contains('--headless')) {
     runHeadlessMode(args);
@@ -56,6 +74,7 @@ void main(List<String> args) {
     runZonedGuarded(() async {
       WidgetsFlutterBinding.ensureInitialized();
       await Workmanager().initialize(backupCallbackDispatcher);
+      await _initSentry();
       await init();
       runApp(const MyApp());
       if (App.isDesktop) {
@@ -83,6 +102,7 @@ void main(List<String> args) {
       }
     }, (error, stack) {
       Log.error("Unhandled Exception", error, stack);
+      Sentry.captureException(error, stackTrace: stack);
     });
   });
 }
