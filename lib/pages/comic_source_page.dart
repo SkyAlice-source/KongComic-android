@@ -1406,23 +1406,28 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             AppBadge("Unreachable".tl,
                 type: AppBadgeType.neutral, fontSize: kcFont13),
           if (!widget.selecting) ...[
-            TextButton.icon(
-              onPressed: () => widget.onTest(source),
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 16),
-              label: Text("Test".tl),
-              style: TextButton.styleFrom(
+            Tooltip(
+              message: "Test".tl,
+              child: IconButton(
+                onPressed: () => widget.onTest(source),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 16),
                 visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                padding: EdgeInsets.zero,
               ),
             ),
-            TextButton.icon(
-              onPressed: () => widget.onToggleDisabled(source),
-              icon:
-                  HugeIcon(icon: HugeIcons.strokeRoundedActivity01, size: 16),
-              label: Text(widget.disabled ? "Enable".tl : "Disable".tl),
-              style: TextButton.styleFrom(
+            Tooltip(
+              message: widget.disabled ? "Enable".tl : "Disable".tl,
+              child: IconButton(
+                onPressed: () => widget.onToggleDisabled(source),
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedActivity01,
+                  size: 16,
+                  color: widget.disabled ? cs.primary : cs.error,
+                ),
                 visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                padding: EdgeInsets.zero,
               ),
             ),
           ],
