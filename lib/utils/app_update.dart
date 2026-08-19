@@ -176,6 +176,47 @@ class AppUpdate {
     );
   }
 
+  /// 已下载 APK 的保存目录。放在持久化 data 目录（而非 cache），
+  /// 避免被系统清理，让"错过安装弹窗后重装"成为可能。
+  static Directory get updateDir =>
+      Directory(FilePath.join(App.dataPath, "update"));
+
+  /// 指定版本的 APK 完整路径。
+  static String apkPath(String version) =>
+      FilePath.join(updateDir.path, "KongComic-$version.apk");
+
+  /// 校验 APK 的 ZIP magic header（轻量完整性检查）。
+  static bool _isValidApk(File apk) {
+    if (!apk.existsSync() || apk.lengthSync() == 0) return false;
+    final raf = apk.openSync();
+    final magic = raf.readSync(4);
+    raf.closeSync();
+    return magic.length == 4 &&
+        magic[0] == 0x50 &&
+        magic[1] == 0x4B &&
+        magic[2] == 0x03 &&
+        magic[3] == 0x04;
+  }
+
+  /// 若本地已下载 [version] 的 APK（且校验通过），直接触发系统安装器。
+  /// 返回 true 表示已触发安装；false 表示需要重新下载。
+  ///
+  /// 供两个入口复用：① 更新检查时跳过重复下载；② 更新完成通知被点击时
+  /// 重新拉起安装器（解决"错过弹窗就得重下"的问题）。
+  static Future<bool> tryInstallDownloaded(String version) async {
+    final apk = File(apkPath(version));
+    if (!_isValidApk(apk)) {
+      // 清理损坏/残留的 APK，避免后续校验反复失败
+      if (apk.existsSync()) {
+        try {
+          apk.deleteSync();
+        } catch (_) {}
+      }
+      return false;
+    }
+    return App.installApk(apk.path);
+  }
+
   /// Core download-and-install logic for the direct GitHub asset URL.
   static Future<void> _downloadAndInstallFromUrl(
     String url,
@@ -184,12 +225,10 @@ class AppUpdate {
     void Function(double progress, int bytesPerSecond)? onProgress,
     FileDownloaderHandle? handle,
   }) async {
-    final cacheDir = Directory(FilePath.join(App.cachePath, "update"));
-    if (!cacheDir.existsSync()) {
-      cacheDir.createSync(recursive: true);
+    if (!updateDir.existsSync()) {
+      updateDir.createSync(recursive: true);
     }
-    final filename = "KongComic-$version.apk";
-    final savePath = FilePath.join(cacheDir.path, filename);
+    final savePath = apkPath(version);
 
     final downloader = FileDownloader(url, savePath);
     if (handle != null) {
@@ -232,18 +271,7 @@ class AppUpdate {
     }
 
     final apk = File(savePath);
-    if (!apk.existsSync() || apk.lengthSync() == 0) {
-      throw Exception("Downloaded APK is missing or empty");
-    }
-    // Lightweight integrity check: verify the APK's ZIP magic header.
-    final raf = apk.openSync();
-    final magic = raf.readSync(4);
-    raf.closeSync();
-    if (magic.length < 4 ||
-        magic[0] != 0x50 ||
-        magic[1] != 0x4B ||
-        magic[2] != 0x03 ||
-        magic[3] != 0x04) {
+    if (!_isValidApk(apk)) {
       throw Exception("Downloaded APK is corrupted");
     }
     final ok = await App.installApk(savePath);
@@ -264,6 +292,10 @@ class AppUpdate {
     void Function(double progress, int bytesPerSecond)? onProgress,
     FileDownloaderHandle? handle,
   }) async {
+    // 复用已下载的同版本 APK：错过安装弹窗后无需重复下载，直接再次拉起安装器。
+    if (await tryInstallDownloaded(info.latestVersion)) {
+      return;
+    }
     final url = info.pickUrlForCurrentDevice(abi);
     if (url == null) {
       throw Exception("No APK asset found in the latest release");

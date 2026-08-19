@@ -142,7 +142,7 @@ class _App {
   Future<String?> getDeviceAbi() async {
     if (!isAndroid) return null;
     try {
-      const channel = MethodChannel("venera/method_channel");
+      const channel = MethodChannel("kong_comic/method_channel");
       return await channel.invokeMethod<String>("getDeviceAbi");
     } catch (_) {
       return null;
@@ -155,7 +155,7 @@ class _App {
   Future<bool> installApk(String path) async {
     if (!isAndroid) return false;
     try {
-      const channel = MethodChannel("venera/method_channel");
+      const channel = MethodChannel("kong_comic/method_channel");
       await channel.invokeMethod<void>("installApk", {"path": path});
       return true;
     } catch (e, s) {

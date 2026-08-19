@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/network/download.dart';
+import 'package:kong_comic/utils/app_update.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'package:kong_comic/pages/downloading_page.dart';
 
@@ -33,7 +34,13 @@ const _downloadNotificationId = 30000;
 /// notifications, which we leave to their own flows.
 @pragma('vm:entry-point')
 void _onNotificationResponse(NotificationResponse response) {
-  if (response.payload != 'download') return;
+  final payload = response.payload;
+  // 更新完成通知点击 → 重新拉起安装器（错过弹窗后无需重下）
+  if (payload != null && payload.startsWith('app_update:')) {
+    AppUpdate.tryInstallDownloaded(payload.substring('app_update:'.length));
+    return;
+  }
+  if (payload != 'download') return;
   // Tapping the notification body (not an action button) jumps straight to
   // the download page so the user can see/manage active downloads.
   if (response.actionId == null) {
@@ -188,7 +195,7 @@ class AppNotifications {
     );
   }
 
-  static Future<void> showAppUpdateComplete({String? error}) async {
+  static Future<void> showAppUpdateComplete({String? error, String? version}) async {
     await init();
     if (error != null) {
       await _plugin.show(
@@ -227,6 +234,7 @@ class AppNotifications {
             priority: Priority.defaultPriority,
           ),
         ),
+        payload: version != null ? 'app_update:$version' : null,
       );
     }
   }

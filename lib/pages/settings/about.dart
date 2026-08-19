@@ -254,7 +254,7 @@ Future<void> _backgroundUpdateDownload(
         );
       },
     );
-    await AppNotifications.showAppUpdateComplete();
+    await AppNotifications.showAppUpdateComplete(version: info.latestVersion);
   } catch (e, s) {
     AppUpdate.safeLog(e, s);
     await AppNotifications.showAppUpdateComplete(
