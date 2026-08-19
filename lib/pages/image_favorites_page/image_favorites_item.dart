@@ -117,12 +117,22 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
           icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
           text: 'Cache All Images'.tl,
           onClick: () async {
-            var images = widget.imageFavoritesComic.images;
+            var images = widget.imageFavoritesComic.images.toList();
             if (images.isEmpty) return;
+            var controller = showLoadingDialog(
+              App.rootContext,
+              message: "Cache All Images".tl,
+              withProgress: true,
+            );
             int ok = 0;
+            int done = 0;
             for (var img in images) {
+              if (controller.closed) break;
               if (await ImageFavoritesProvider.cacheImage(img)) ok++;
+              done++;
+              controller.setProgress(done / images.length);
             }
+            controller.close();
             App.rootContext.showMessage(
               message: "Cached @c images".tlParams({"c": ok}),
             );

@@ -261,7 +261,12 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
           icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
           text: "Cache Image".tl,
           onClick: () async {
+            var controller = showLoadingDialog(
+              App.rootContext,
+              message: "Cache Image".tl,
+            );
             var ok = await ImageFavoritesProvider.cacheImage(images[currentPage]);
+            controller.close();
             App.rootContext.showMessage(
               message: ok ? "Cached".tl : "Failed to cache".tl,
             );
@@ -271,10 +276,21 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
           icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
           text: "Cache All".tl,
           onClick: () async {
+            if (images.isEmpty) return;
+            var controller = showLoadingDialog(
+              App.rootContext,
+              message: "Cache All".tl,
+              withProgress: true,
+            );
             int ok = 0;
+            int done = 0;
             for (var img in images) {
+              if (controller.closed) break;
               if (await ImageFavoritesProvider.cacheImage(img)) ok++;
+              done++;
+              controller.setProgress(done / images.length);
             }
+            controller.close();
             App.rootContext.showMessage(
               message: "Cached @c images".tlParams({"c": ok}),
             );
