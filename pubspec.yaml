@@ -13,8 +13,7 @@ dependencies:
     sdk: flutter
   path_provider: any
   intl: any
-  sqlite3: ^2.7.4
-  sqlite3_flutter_libs: ^0.5.30
+  sqlite3: ^3.5.1
   flutter_qjs:
     git:
       url: https://github.com/SkyAlice-source/flutter_qjs

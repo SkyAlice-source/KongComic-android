@@ -48,7 +48,7 @@ class CacheManager {
           }
         }
       } finally {
-        db.dispose();
+        db.close();
       }
       return {
         'totalSize': totalSize,

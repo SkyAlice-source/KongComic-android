@@ -590,7 +590,7 @@ void clearUnfavoritedHistory() {
 
   void close() {
     isInitialized = false;
-    _db.dispose();
+    _db.close();
   }
 
   void batchDeleteHistories(List<ComicID> histories) {

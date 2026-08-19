@@ -158,7 +158,7 @@ class ImportComic {
           LocalFavoritesManager().createFolder(folderName);
         }
       }
-      db.dispose();
+      db.close();
 
       //Android specific
       var cache = FilePath.join(App.cachePath, dbFile.name);
