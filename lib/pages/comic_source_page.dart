@@ -1254,7 +1254,6 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                                 : AppBadgeType.warning,
                             fontSize: kcFont13,
                           ),
-                        AppBadge(source.version, type: AppBadgeType.neutral, fontSize: kcFont13),
                         if (hasUpdate)
                           Tooltip(
                             message: newVersion,
@@ -1405,6 +1404,8 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
           else
             AppBadge("Unreachable".tl,
                 type: AppBadgeType.neutral, fontSize: kcFont13),
+          AppBadge(source.version,
+              type: AppBadgeType.neutral, fontSize: kcFont13),
           if (!widget.selecting) ...[
             Tooltip(
               message: "Test".tl,
