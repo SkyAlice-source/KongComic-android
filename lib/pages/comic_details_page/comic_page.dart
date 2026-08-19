@@ -262,7 +262,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       await onDataLoaded();
       setState(() {});
     } else {
-      context.showMessage(message: res.errorMessage ?? "Refresh failed".tl);
+      context.showMessage(message: res.errorMessage ?? "Refresh Failed".tl);
     }
   }
 
