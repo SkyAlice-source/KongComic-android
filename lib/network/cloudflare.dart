@@ -162,19 +162,29 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
     webview.open();
   } else {
     bool success = false;
+    bool busy = false;
     Timer? pollTimer;
 
     Future<void> trySaveAndClose(InAppWebViewController controller) async {
-      if (success) return;
-      var cookies = await controller.getCookies(url);
-      if (cookies == null || cookies.isEmpty) return;
-      var cfClearance =
-          cookies.firstWhereOrNull((element) => element.name == 'cf_clearance');
-      if (cfClearance == null) return;
-      SingleInstanceCookieJar.instance?.saveFromResponse(uri, cookies);
-      success = true;
-      pollTimer?.cancel();
-      App.rootPop();
+      // busy 防重入：getCookies 是异步的，若耗时超过轮询间隔（1s），下一次
+      // tick 会在上一个未完成时再次进入，导致并发执行 + 重复 App.rootPop
+      // （可能误 pop 掉 webview 下面的页面）。
+      if (success || busy) return;
+      busy = true;
+      try {
+        var cookies = await controller.getCookies(url);
+        if (success) return;
+        if (cookies == null || cookies.isEmpty) return;
+        var cfClearance =
+            cookies.firstWhereOrNull((element) => element.name == 'cf_clearance');
+        if (cfClearance == null) return;
+        SingleInstanceCookieJar.instance?.saveFromResponse(uri, cookies);
+        success = true;
+        pollTimer?.cancel();
+        App.rootPop();
+      } finally {
+        busy = false;
+      }
     }
 
     await App.rootContext.to(
