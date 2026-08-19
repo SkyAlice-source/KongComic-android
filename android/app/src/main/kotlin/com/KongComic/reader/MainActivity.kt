@@ -121,7 +121,7 @@ class MainActivity : FlutterFragmentActivity() {
         GeneratedPluginRegistrant.registerWith(flutterEngine)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
-            "venera/method_channel"
+            "kong_comic/method_channel"
         ).setMethodCallHandler { call, res ->
             when (call.method) {
                 "getProxy" -> res.success(getProxy())
@@ -173,7 +173,7 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
-        val channel = EventChannel(flutterEngine.dartExecutor.binaryMessenger, "venera/volume")
+        val channel = EventChannel(flutterEngine.dartExecutor.binaryMessenger, "kong_comic/volume")
         channel.setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
@@ -191,20 +191,20 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             })
 
-        val storageChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "venera/storage")
+        val storageChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kong_comic/storage")
         storageChannel.setMethodCallHandler { _, res ->
             requestStoragePermission { result ->
                 res.success(result)
             }
         }
 
-        val selectFileChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "venera/select_file")
+        val selectFileChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kong_comic/select_file")
         selectFileChannel.setMethodCallHandler { req, res ->
             val mimeType = req.arguments<String>()
             openFile(res, mimeType!!)
         }
 
-        val shareTextChannel = EventChannel(flutterEngine.dartExecutor.binaryMessenger, "venera/text_share")
+        val shareTextChannel = EventChannel(flutterEngine.dartExecutor.binaryMessenger, "kong_comic/text_share")
         shareTextChannel.setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
