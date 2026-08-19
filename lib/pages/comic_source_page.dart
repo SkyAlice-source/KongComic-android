@@ -1236,7 +1236,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                       ? () => widget.onToggleSelect(source)
                       : () => setState(() => _expanded = !_expanded),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                     child: Wrap(
                       spacing: 6,
                       runSpacing: 4,
@@ -1281,28 +1281,51 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                 ),
               ),
               if (!widget.selecting)
-                Tooltip(
-                  message: "Edit".tl,
-                  child: IconButton(
-                    onPressed: () => widget.edit(source),
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
-                ),
-              ),
-              if (!widget.selecting)
-                Tooltip(
-                  message: "Update".tl,
-                  child: IconButton(
-                    onPressed: () => widget.update(source),
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-                ),
-              ),
-              if (!widget.selecting)
-                Tooltip(
-                  message: "Delete".tl,
-                  child: IconButton(
-                    onPressed: () => widget.delete(source),
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-                  ),
+                PopupMenuButton<String>(
+                  tooltip: "More".tl,
+                  icon: const Icon(Icons.more_horiz, size: 18),
+                  onSelected: (v) {
+                    switch (v) {
+                      case 'edit':
+                        widget.edit(source);
+                      case 'update':
+                        widget.update(source);
+                      case 'delete':
+                        widget.delete(source);
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 16),
+                          const SizedBox(width: 8),
+                          Text("Edit".tl),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'update',
+                      child: Row(
+                        children: [
+                          HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 16),
+                          const SizedBox(width: 8),
+                          Text("Update".tl),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 16),
+                          const SizedBox(width: 8),
+                          Text("Delete".tl),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),
