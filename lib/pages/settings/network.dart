@@ -62,8 +62,14 @@ class _NetworkSettingsState extends State<NetworkSettings> {
   @override
   void initState() {
     _parseProxy(appdata.settings['proxy']);
-    _hostController = TextEditingController(text: proxyHost);
-    _portController = TextEditingController(text: proxyPort);
+    // 默认值：首次切到「手动」时填上最常见的本地代理（Clash 默认 HTTP 端口 7890），
+    // 已保存过其它值则保留。
+    _hostController = TextEditingController(
+      text: proxyHost.isNotEmpty ? proxyHost : "127.0.0.1",
+    );
+    _portController = TextEditingController(
+      text: proxyPort.isNotEmpty ? proxyPort : "7890",
+    );
     _usernameController = TextEditingController(text: proxyUsername);
     _passwordController = TextEditingController(text: proxyPassword);
     for (var entry in (appdata.settings['dnsOverrides'] as Map).entries) {
