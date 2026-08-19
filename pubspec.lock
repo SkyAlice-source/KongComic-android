@@ -37,10 +37,10 @@ packages:
     dependency: "direct main"
     description:
       name: archive
-      sha256: a96e8b390886ee8abb49b7bd3ac8df6f451c621619f52a26e815fdcf568959ff
+      sha256: be169cf6ac481e052c4538715d88841d567150dfe1df38aaec76461a4e7b39f2
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.9"
+    version: "4.1.0"
   args:
     dependency: transitive
     description:
@@ -1182,10 +1182,10 @@ packages:
     dependency: transitive
     description:
       name: synchronized
-      sha256: "61894a1956de6b4fc1aefd0892e109514a1a706cbece3ac59decd90ff5a7a423"
+      sha256: "3a7b5d17422dd0f8d5c6c14feaa5a1c65638b9455f871a96f08437562c046931"
       url: "https://pub.dev"
     source: hosted
-    version: "3.4.1+1"
+    version: "3.4.1+2"
   syntax_highlight:
     dependency: "direct main"
     description:
@@ -1342,10 +1342,10 @@ packages:
     dependency: transitive
     description:
       name: vm_service
-      sha256: "0016aef94fc66495ac78af5859181e3f3bf2026bd8eecc72b9565601e19ab360"
+      sha256: "5f37239c4851efcef929cea7824e76df7f2f0970aef85d66bbc430afa40e72f0"
       url: "https://pub.dev"
     source: hosted
-    version: "15.2.0"
+    version: "15.3.0"
   wakelock_plus:
     dependency: "direct main"
     description:
@@ -1407,18 +1407,18 @@ packages:
     dependency: "direct main"
     description:
       name: workmanager
-      sha256: "06fc5bdd83e2da35f33b682e25167245d0ccb8b56e9a9ada5bfa079fa3af4b9c"
+      sha256: "6a919b83138e457dc8f68d725755e11f47e19a8943b4554f3abbb18fdafa8e2d"
       url: "https://pub.dev"
     source: hosted
-    version: "0.10.7"
+    version: "0.10.8"
   workmanager_android:
     dependency: transitive
     description:
       name: workmanager_android
-      sha256: f89029cbcf0695c772287aa8fbbd7af776f1ea63bc95b60a00617f69468ddaa0
+      sha256: "08bbc7805b762bd93de6b137ef5c2651d305e43adf00b8e0e6da9bc525e40281"
       url: "https://pub.dev"
     source: hosted
-    version: "0.10.6"
+    version: "0.10.7"
   workmanager_apple:
     dependency: transitive
     description:
