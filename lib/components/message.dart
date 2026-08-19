@@ -396,39 +396,38 @@ LoadingDialogController showLoadingDialog(
             controller._message = message;
           });
         };
-        if (withProgress) {
-          // 紧凑进度卡片：标题 + 条状进度 + 百分比 + 取消
-          final progress = controller._progress;
-          return Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            insetPadding: const EdgeInsets.symmetric(horizontal: 48),
-            backgroundColor: context.colorScheme.surface,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    controller._message ?? 'Loading'.tl,
-                    style: const TextStyle(fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 8,
-                            backgroundColor:
-                                context.colorScheme.surfaceContainerHighest,
-                          ),
+        final progress = controller._progress;
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 48),
+          backgroundColor: context.colorScheme.surfaceContainerHigh,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  controller._message ?? 'Loading'.tl,
+                  style: const TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 8,
+                          backgroundColor:
+                              context.colorScheme.surfaceContainerHighest,
                         ),
                       ),
+                    ),
+                    if (withProgress) ...[
                       const SizedBox(width: 10),
                       SizedBox(
                         width: 40,
@@ -441,47 +440,22 @@ LoadingDialogController showLoadingDialog(
                         ),
                       ),
                     ],
-                  ),
-                  if (allowCancel)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          controller.close();
-                          onCancel?.call();
-                        },
-                        child: Text(cancelButtonText.tl),
-                      ),
+                  ],
+                ),
+                if (allowCancel)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        controller.close();
+                        onCancel?.call();
+                      },
+                      child: Text(cancelButtonText.tl),
                     ),
-                ],
-              ),
-            ),
-          );
-        }
-        return ContentDialog(
-          title: controller._message ?? 'Loading'.tl,
-          content: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(kcRadius8),
-              child: LinearProgressIndicator(
-                value: controller._progress,
-                minHeight: 14,
-                backgroundColor: context.colorScheme.surfaceContainer,
-              ),
+                  ),
+              ],
             ),
           ),
-          actions: [
-            FilledButton(
-              onPressed: allowCancel
-                  ? () {
-                      controller.close();
-                      onCancel?.call();
-                    }
-                  : null,
-              child: Text(cancelButtonText.tl),
-            )
-          ],
         );
       });
     },
@@ -505,6 +479,7 @@ class ContentDialog extends StatelessWidget {
     required this.content,
     this.dismissible = true,
     this.actions = const [],
+    this.showClose = true,
   });
 
   final String? title;
@@ -515,6 +490,10 @@ class ContentDialog extends StatelessWidget {
 
   final bool dismissible;
 
+  /// 是否显示标题栏左侧的关闭（×）按钮。进度类对话框（底部已有取消/确认按钮）可设
+  /// false 避免两个关闭入口重复。
+  final bool showClose;
+
   @override
   Widget build(BuildContext context) {
     var content = SingleChildScrollView(
@@ -524,10 +503,12 @@ class ContentDialog extends StatelessWidget {
         children: [
           title != null
               ? Appbar(
-            leading: IconButton(
+            leading: showClose
+                ? IconButton(
               icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
               onPressed: dismissible ? context.pop : null,
-            ),
+            )
+                : null,
             title: Text(title!),
             backgroundColor: Colors.transparent,
           )

@@ -204,6 +204,7 @@ Future<List<FavoriteItem>> updateComicsInfo(String folder) async {
           var isFinished = value == comics.length;
           return ContentDialog(
             title: isFinished ? "Finished".tl : "Updating".tl,
+            showClose: false,
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,8 +220,11 @@ Future<List<FavoriteItem>> updateComicsInfo(String folder) async {
               ],
             ).paddingHorizontal(16),
             actions: [
-              Button.filled(
-                color: isFinished ? null : context.colorScheme.error,
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor:
+                      isFinished ? null : context.colorScheme.error,
+                ),
                 onPressed: () {
                   isCanceled = true;
                   context.pop();
@@ -445,6 +449,7 @@ Future<void> importNetworkFolder(
                 : isErrored()
                     ? "Error".tl
                     : "Importing".tl,
+            showClose: false,
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,10 +470,12 @@ Future<void> importNetworkFolder(
               ],
             ).paddingHorizontal(16),
             actions: [
-              Button.filled(
-                color: (isFinished || isErrored())
-                    ? null
-                    : context.colorScheme.error,
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: (isFinished || isErrored())
+                      ? null
+                      : context.colorScheme.error,
+                ),
                 onPressed: () {
                   isCanceled = true;
                   context.pop();
