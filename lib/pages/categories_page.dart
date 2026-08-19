@@ -248,7 +248,7 @@ class _CategoryPage extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 5, 10),
       child: Text(
         title.tl,
-        style: const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w500),
+        style: const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -260,7 +260,7 @@ class _CategoryPage extends StatelessWidget {
         children: [
           Text(
             title.tl,
-            style: const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w600),
           ),
           const Spacer(),
           IconButton(
