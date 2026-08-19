@@ -521,27 +521,23 @@ class _BodyState extends State<_Body> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                FilledButton.tonalIcon(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSourceCode, size: 18),
-                  label: Text("Comic Source list".tl),
+                FilledButton.tonal(
                   onPressed: () {
                     showPopUpWidget(
                       App.rootContext,
                       _ComicSourceList(handleAddSource),
                     );
                   },
+                  child: Text("Comic Source list".tl),
                 ),
-                FilledButton.tonalIcon(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedFile01, size: 18),
-                  label: Text("Use a config file".tl),
+                FilledButton.tonal(
                   onPressed: _selectFile,
+                  child: Text("Use a config file".tl),
                 ),
-                FilledButton.tonalIcon(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),
-                  label: Text("Help".tl),
+                FilledButton.tonal(
                   onPressed: help,
+                  child: Text("Help".tl),
                 ),
-                _CheckUpdatesButton(),
               ],
             ).paddingHorizontal(12).paddingVertical(8),
             const SizedBox(height: 8),
@@ -981,97 +977,6 @@ class __EditFilePageState extends State<_EditFilePage> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _CheckUpdatesButton extends StatefulWidget {
-  const _CheckUpdatesButton();
-
-  @override
-  State<_CheckUpdatesButton> createState() => _CheckUpdatesButtonState();
-}
-
-class _CheckUpdatesButtonState extends State<_CheckUpdatesButton> {
-  bool isLoading = false;
-
-  void check() async {
-    setState(() {
-      isLoading = true;
-    });
-    var count = await ComicSourcePage.checkComicSourceUpdate();
-    if (count == -1) {
-      context.showMessage(message: "Network error".tl);
-    } else if (count == 0) {
-      context.showMessage(message: "No updates".tl);
-    } else {
-      showUpdateDialog();
-    }
-    setState(() {
-      isLoading = false;
-    });
-  }
-
-  void showUpdateDialog() async {
-    var text = ComicSourceManager().availableUpdates.entries
-        .map((e) {
-          return "${ComicSource.find(e.key)!.name}: ${e.value}";
-        })
-        .join("\n");
-    bool doUpdate = false;
-    await showDialog(
-      context: App.rootContext,
-      builder: (context) {
-        return ContentDialog(
-          title: "Updates".tl,
-          content: Text(text).paddingHorizontal(16),
-          actions: [
-            FilledButton(
-              onPressed: () {
-                doUpdate = true;
-                context.pop();
-              },
-              child: Text("Update".tl),
-            ),
-          ],
-        );
-      },
-    );
-    if (doUpdate) {
-      var loadingController = showLoadingDialog(
-        context,
-        message: "Updating".tl,
-        withProgress: true,
-      );
-      int current = 0;
-      int total = ComicSourceManager().availableUpdates.length;
-      try {
-        var shouldUpdate = ComicSourceManager().availableUpdates.keys.toList();
-        for (var key in shouldUpdate) {
-          var source = ComicSource.find(key)!;
-          await ComicSourcePage.update(source, false);
-          current++;
-          loadingController.setProgress(current / total);
-        }
-      } catch (e) {
-        context.showMessage(message: "Failed to update sources".tl);
-      }
-      loadingController.close();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton.tonalIcon(
-      icon: isLoading
-          ? SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-      label: Text("Check updates".tl),
-      onPressed: check,
     );
   }
 }
