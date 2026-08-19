@@ -80,7 +80,7 @@ class AppNotifications {
     const darwin = DarwinInitializationSettings();
     const settings = InitializationSettings(android: android, iOS: darwin);
     await _plugin.initialize(
-      settings,
+      settings: settings,
       onDidReceiveNotificationResponse: _onNotificationResponse,
     );
     _initialized = true;
@@ -138,10 +138,10 @@ class AppNotifications {
   static Future<void> showAppUpdateCheck() async {
     await init();
     await _plugin.show(
-      _appUpdateNotificationId,
-      "Checking for updates".tl,
-      "Looking for the latest version...".tl,
-      NotificationDetails(
+      id: _appUpdateNotificationId,
+      title: "Checking for updates".tl,
+      body: "Looking for the latest version...".tl,
+      notificationDetails: NotificationDetails(
         android: _progressDetails(
           title: "Checking for updates".tl,
           body: "Looking for the latest version...".tl,
@@ -169,10 +169,10 @@ class AppNotifications {
       "speed": speed,
     });
     await _plugin.show(
-      _appUpdateNotificationId,
-      "Downloading update".tl,
-      body,
-      NotificationDetails(
+      id: _appUpdateNotificationId,
+      title: "Downloading update".tl,
+      body: body,
+      notificationDetails: NotificationDetails(
         android: _progressDetails(
           title: "Downloading update".tl,
           body: body,
@@ -192,10 +192,10 @@ class AppNotifications {
     await init();
     if (error != null) {
       await _plugin.show(
-        _appUpdateNotificationId,
-        "Update failed".tl,
-        error,
-        NotificationDetails(
+        id: _appUpdateNotificationId,
+        title: "Update failed".tl,
+        body: error,
+        notificationDetails: NotificationDetails(
           android: _progressDetails(
             title: "Update failed".tl,
             body: error,
@@ -211,10 +211,10 @@ class AppNotifications {
       );
     } else {
       await _plugin.show(
-        _appUpdateNotificationId,
-        "Update ready".tl,
-        "Follow the system prompt to install.".tl,
-        NotificationDetails(
+        id: _appUpdateNotificationId,
+        title: "Update ready".tl,
+        body: "Follow the system prompt to install.".tl,
+        notificationDetails: NotificationDetails(
           android: _progressDetails(
             title: "Update ready".tl,
             body: "Follow the system prompt to install.".tl,
@@ -232,17 +232,17 @@ class AppNotifications {
   }
 
   static Future<void> cancelAppUpdate() async {
-    await _plugin.cancel(_appUpdateNotificationId);
+    await _plugin.cancel(id: _appUpdateNotificationId);
   }
 
   /// Notify the user that a comic-update check is running across folders.
   static Future<void> showComicUpdateCheck() async {
     await init();
     await _plugin.show(
-      _comicUpdateNotificationId,
-      "Checking comic updates".tl,
-      "Looking for new chapters...".tl,
-      NotificationDetails(
+      id: _comicUpdateNotificationId,
+      title: "Checking comic updates".tl,
+      body: "Looking for new chapters...".tl,
+      notificationDetails: NotificationDetails(
         android: _progressDetails(
           title: "Checking comic updates".tl,
           body: "Looking for new chapters...".tl,
@@ -266,10 +266,10 @@ class AppNotifications {
       "percent": percent.toString(),
     });
     await _plugin.show(
-      _comicUpdateNotificationId,
-      "Checking comic updates".tl,
-      body,
-      NotificationDetails(
+      id: _comicUpdateNotificationId,
+      title: "Checking comic updates".tl,
+      body: body,
+      notificationDetails: NotificationDetails(
         android: _progressDetails(
           title: "Checking comic updates".tl,
           body: body,
@@ -297,10 +297,10 @@ class AppNotifications {
       body = "No new updates".tl;
     }
     await _plugin.show(
-      _comicUpdateNotificationId,
-      "Comic update check complete".tl,
-      body,
-      NotificationDetails(
+      id: _comicUpdateNotificationId,
+      title: "Comic update check complete".tl,
+      body: body,
+      notificationDetails: NotificationDetails(
         android: _progressDetails(
           title: "Comic update check complete".tl,
           body: body,
@@ -312,7 +312,7 @@ class AppNotifications {
   }
 
   static Future<void> cancelComicUpdate() async {
-    await _plugin.cancel(_comicUpdateNotificationId);
+    await _plugin.cancel(id: _comicUpdateNotificationId);
   }
 
   /// Show or update the ongoing comic-download notification.
@@ -336,10 +336,10 @@ class AppNotifications {
       AndroidNotificationAction('cancel', 'Cancel'.tl),
     ];
     await _plugin.show(
-      _downloadNotificationId,
-      title,
-      body,
-      NotificationDetails(
+      id: _downloadNotificationId,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           _downloadChannelId,
           _downloadChannelNameKey.tl,
@@ -361,7 +361,7 @@ class AppNotifications {
   }
 
   static Future<void> cancelDownload() async {
-    await _plugin.cancel(_downloadNotificationId);
+    await _plugin.cancel(id: _downloadNotificationId);
   }
 
   static String _formatSpeed(int bytesPerSecond) {

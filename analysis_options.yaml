@@ -24,6 +24,10 @@ linter:
     collection_methods_unrelated_type: false
     use_build_context_synchronously: false
     avoid_print: false
+    # flutter_lints 6.x 新增（Dart 3.7+ 语法糖/风格），项目未采用，禁用保持 0 issue
+    strict_top_level_inference: false
+    unnecessary_underscores: false
+    use_null_aware_elements: false
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
 # Additional information about this file can be found at
