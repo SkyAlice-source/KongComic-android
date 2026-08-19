@@ -19,17 +19,16 @@ export 'package:flutter_inappwebview/flutter_inappwebview.dart'
 
 extension WebviewExtension on InAppWebViewController {
   Future<List<io.Cookie>?> getCookies(String url) async {
-    if (url.contains("https://")) {
-      url = url.replaceAll("https://", "");
-    }
-    if (url[url.length - 1] == '/') {
-      url = url.substring(0, url.length - 1);
-    }
+    // CookieManager 需要合法 URL（含 scheme + host），从输入 url 提取 origin。
+    // 之前手动剥 https:///path/query 的方式会把 url 变成非法字符串，导致
+    // CookieManager 无法按 domain 查 cookie（Cloudflare 验证后取不到 cf_clearance）。
+    var uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) return null;
     CookieManager cookieManager = CookieManager.instance(
       webViewEnvironment: AppWebview.webViewEnvironment,
     );
     final cookies = await cookieManager.getCookies(
-      url: WebUri(url),
+      url: WebUri(uri.origin),
       webViewController: this,
     );
     var res = <io.Cookie>[];
