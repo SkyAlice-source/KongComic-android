@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' as io;
 
 import 'package:dio/dio.dart';
@@ -161,51 +162,25 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
     webview.open();
   } else {
     bool success = false;
-    void check(InAppWebViewController controller) async {
-      var head = await controller.evaluateJavascript(
-          source: "document.head.innerHTML") as String;
-      var body = await controller.evaluateJavascript(
-          source: "document.body.innerHTML") as String;
-      Log.info("Cloudflare", "Checking head: $head");
-      var isChallenging = head.contains('#challenge-success-text') ||
-          head.contains("#challenge-error-text") ||
-          head.contains("#challenge-form") ||
-          body.contains("challenge-platform") ||
-          body.contains("window._cf_chl_opt");
-      if (!isChallenging) {
-        Log.info(
-          "Cloudflare",
-          "Cloudflare is passed due to there is no challenge css",
-        );
-        var ua = await controller.getUA();
-        if (ua != null) {
-          appdata.implicitData['ua'] = ua;
-          appdata.writeImplicitData();
-        }
-        var cookies = await controller.getCookies(url) ?? [];
-        if (cookies.firstWhereOrNull(
-                (element) => element.name == 'cf_clearance') ==
-            null) {
-          return;
-        }
-        SingleInstanceCookieJar.instance?.saveFromResponse(uri, cookies);
-        if (!success) {
-          App.rootPop();
-          success = true;
-        }
-      }
+    Timer? pollTimer;
+
+    Future<void> trySaveAndClose(InAppWebViewController controller) async {
+      if (success) return;
+      var cookies = await controller.getCookies(url);
+      if (cookies == null || cookies.isEmpty) return;
+      var cfClearance =
+          cookies.firstWhereOrNull((element) => element.name == 'cf_clearance');
+      if (cfClearance == null) return;
+      SingleInstanceCookieJar.instance?.saveFromResponse(uri, cookies);
+      success = true;
+      pollTimer?.cancel();
+      App.rootPop();
     }
 
     await App.rootContext.to(
       () => AppWebview(
         initialUrl: url,
         singlePage: true,
-        onTitleChange: (title, controller) async {
-          check(controller);
-        },
-        onLoadStop: (controller) async {
-          check(controller);
-        },
         onStarted: (controller) async {
           var ua = await controller.getUA();
           if (ua != null) {
@@ -215,8 +190,18 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
           var cookies = await controller.getCookies(url) ?? [];
           SingleInstanceCookieJar.instance?.saveFromResponse(uri, cookies);
         },
+        onLoadStop: (controller) {
+          // 新版 Cloudflare（Turnstile）验证通过后页面可能原地完成、不触发跳转，
+          // 无法再依赖 onLoadStop/onTitleChange 回调，因此改用轮询直接探测
+          // cf_clearance cookie 是否生成——生成即代表验证通过，保存后自动关闭。
+          pollTimer?.cancel();
+          pollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+            trySaveAndClose(controller);
+          });
+        },
       ),
     );
+    pollTimer?.cancel();
     onFinished();
   }
 }

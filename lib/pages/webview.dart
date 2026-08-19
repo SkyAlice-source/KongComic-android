@@ -20,7 +20,7 @@ export 'package:flutter_inappwebview/flutter_inappwebview.dart'
 extension WebviewExtension on InAppWebViewController {
   Future<List<io.Cookie>?> getCookies(String url) async {
     if (url.contains("https://")) {
-      url.replaceAll("https://", "");
+      url = url.replaceAll("https://", "");
     }
     if (url[url.length - 1] == '/') {
       url = url.substring(0, url.length - 1);
