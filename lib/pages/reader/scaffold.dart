@@ -439,6 +439,119 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     }
   }
 
+  void _toggleRotation() {
+    if (rotation == null) {
+      setState(() => rotation = false);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+      showToast(message: "Portrait lock enabled".tl, context: context, seconds: 1);
+    } else if (rotation == false) {
+      setState(() => rotation = true);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      showToast(message: "Landscape lock enabled".tl, context: context, seconds: 1);
+    } else {
+      setState(() => rotation = null);
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+      showToast(message: "Rotation unlocked".tl, context: context, seconds: 1);
+    }
+  }
+
+  void _toggleAutoPage() {
+    var wasOn = context.reader.autoPageTurningTimer != null;
+    context.reader.autoPageTurning(
+      context.reader.cid,
+      context.reader.type,
+    );
+    update();
+    showToast(
+      message: wasOn ? "Auto page turning stopped".tl : "Auto page turning started".tl,
+      context: context,
+      seconds: 1,
+    );
+  }
+
+  /// 低频操作收进"更多"溢出菜单，底栏只保留常用 4 项。
+  Widget _buildMoreMenu() {
+    return Tooltip(
+      message: "More".tl,
+      child: PopupMenuButton<String>(
+        icon: const Icon(Icons.more_horiz, size: 20),
+        onSelected: (v) {
+          switch (v) {
+            case 'rotate':
+              _toggleRotation();
+            case 'autopage':
+              _toggleAutoPage();
+            case 'fullscreen':
+              context.reader.fullscreen();
+          }
+        },
+        itemBuilder: (_) => [
+          if (App.isAndroid)
+            PopupMenuItem(
+              value: 'rotate',
+              child: Row(
+                children: [
+                  Icon(
+                    rotation == null
+                        ? Icons.screen_rotation
+                        : rotation == false
+                            ? Icons.screen_lock_portrait
+                            : Icons.screen_lock_landscape,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    rotation == null
+                        ? "Screen Rotation".tl
+                        : rotation == false
+                            ? "Locked: Portrait".tl
+                            : "Locked: Landscape".tl,
+                  ),
+                ],
+              ),
+            ),
+          PopupMenuItem(
+            value: 'autopage',
+            child: Row(
+              children: [
+                Icon(
+                  Icons.timer,
+                  size: 20,
+                  color: context.reader.autoPageTurningTimer != null
+                      ? Colors.green
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  context.reader.autoPageTurningTimer != null
+                      ? "${"Auto Page Turning".tl} (${"On".tl})"
+                      : "Auto Page Turning".tl,
+                ),
+              ],
+            ),
+          ),
+          if (App.isDesktop)
+            PopupMenuItem(
+              value: 'fullscreen',
+              child: Row(
+                children: [
+                  const Icon(Icons.fullscreen, size: 20),
+                  const SizedBox(width: 12),
+                  Text("${"Full Screen".tl}(F12)"),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget buildBottom() {
     // Use maxPage for display (excluding chapter comments page)
     final displayPage = context.reader.page.clamp(1, context.reader.maxPage);
@@ -460,85 +573,6 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                   backgroundColor: const Color(0xFFD4381B).withValues(alpha: 0.12),
                 )
               : null,
-        ),
-      ),
-      if (App.isDesktop)
-        Tooltip(
-          message: "${"Full Screen".tl}(F12)",
-          child: IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowExpand01, size: 20),
-            onPressed: () {
-              context.reader.fullscreen();
-            },
-          ),
-        ),
-      if (App.isAndroid)
-        Tooltip(
-          message: () {
-            if (rotation == null) return "Screen Rotation".tl;
-            if (rotation == false) return "Locked: Portrait".tl;
-            return "Locked: Landscape".tl;
-          }(),
-          child: IconButton(
-            icon: () {
-              if (rotation == null) {
-                return HugeIcon(icon: HugeIcons.strokeRounded3dRotate, size: 20);
-              } else if (rotation == false) {
-                return HugeIcon(icon: HugeIcons.strokeRoundedScreenLockRotation, size: 20, color: Colors.orange);
-              } else {
-                return HugeIcon(icon: HugeIcons.strokeRoundedRotate01, size: 20, color: Colors.blue);
-              }
-            }.call(),
-            onPressed: () {
-              if (rotation == null) {
-                setState(() {
-                  rotation = false;
-                });
-                SystemChrome.setPreferredOrientations([
-                  DeviceOrientation.portraitUp,
-                  DeviceOrientation.portraitDown,
-                ]);
-                showToast(message: "Portrait lock enabled".tl, context: context, seconds: 1);
-              } else if (rotation == false) {
-                setState(() {
-                  rotation = true;
-                });
-                SystemChrome.setPreferredOrientations([
-                  DeviceOrientation.landscapeLeft,
-                  DeviceOrientation.landscapeRight,
-                ]);
-                showToast(message: "Landscape lock enabled".tl, context: context, seconds: 1);
-              } else {
-                setState(() {
-                  rotation = null;
-                });
-                SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-                showToast(message: "Rotation unlocked".tl, context: context, seconds: 1);
-              }
-            },
-          ),
-        ),
-      Tooltip(
-        message: context.reader.autoPageTurningTimer != null
-            ? "${"Auto Page Turning".tl} (${"On".tl})"
-            : "Auto Page Turning".tl,
-        child: IconButton(
-          icon: context.reader.autoPageTurningTimer != null
-              ? HugeIcon(icon: HugeIcons.strokeRoundedAlarmClock, size: 20, color: Colors.green)
-              : HugeIcon(icon: HugeIcons.strokeRoundedAlarmClock, size: 20),
-          onPressed: () {
-            var wasOn = context.reader.autoPageTurningTimer != null;
-            context.reader.autoPageTurning(
-              context.reader.cid,
-              context.reader.type,
-            );
-            update();
-            showToast(
-              message: wasOn ? "Auto page turning stopped".tl : "Auto page turning started".tl,
-              context: context,
-              seconds: 1,
-            );
-          },
         ),
       ),
       if (context.reader.widget.chapters != null)
@@ -563,6 +597,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           onPressed: share,
         ),
       ),
+      _buildMoreMenu(),
     ];
 
     Widget child = SizedBox(
