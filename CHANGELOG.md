@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.3.0] - 2026-08-20
+
+### ✨ 新功能
+- 接入 Sentry 崩溃上报（线上崩溃可追踪，DSN 经构建参数注入）
+
+### 🔧 依赖与底层
+- SQLite 迁移至 3.x（build hooks 原生加载，移除已停维护的 sqlite3_flutter_libs）
+- flutter_local_notifications 升级至 22.3.0
+- 9 个 fork 依赖 vendor 到本地 packages/（防上游删库，仓库自包含）
+- flutter_markdown 迁移至 flutter_markdown_plus
+- 小版本依赖升级（archive / workmanager / synchronized / vm_service）
+
+### 🐛 修复
+- Cloudflare 验证失效修复（Turnstile 轮询检测 + cookie 抓取 URL + 并发竞态）
+- 修复 4 个 channel 名不匹配（文本分享 / 音量翻页 / 代理 / 装 APK）
+- 应用更新错过安装弹窗后可重装、通知点击重新拉起安装器
+- manual 代理用户名密码认证生效
+- 漫画更新完成通知点击跳转追更页
+- i18n 补全（@count/@total 占位符、Refresh Failed 大小写）
+
+### 🎨 UI
+- 漫画源卡片紧凑化（编辑/更新/删除收进更多菜单、version badge 迁移）
+- 进度/加载对话框统一（去冗余关闭入口 + 更轻盈的取消按钮）
+- 阅读器底栏减负（低频操作收进更多溢出菜单）
+- 品牌色抽成 kcBrandColor token、section 标题字重统一
+- 图片收藏缓存加进度条
+
+## [1.2.40] - 2026-08
+
+### 🐛 修复
+- 详情页取色移除回归全局主题、长描述折叠/下拉刷新/收藏防闪烁
+- 分类页横向滑动误触发底栏抖动修复、顶部导航栏固定
+
 ## [1.2.37] - 2026-08
 
 ### 📝 文档与翻译

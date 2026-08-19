@@ -38,6 +38,7 @@ Download APK from [Releases](https://github.com/SkyAlice-source/KongComic-androi
 - **Local favorites** — Multi-level folders + custom covers
 - **Reader** — Multiple page modes + auto-scroll
 - **Backup & restore** — Settings, favorites, covers in one click
+- **Crash reporting** — Sentry monitoring for trackable issues
 
 ## 🔧 Build from source
 
