@@ -5,6 +5,7 @@ import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/utils/app_update.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'package:kong_comic/pages/downloading_page.dart';
+import 'package:kong_comic/pages/follow_updates_page.dart';
 
 const _updateChannelId = 'kongcomic_updates';
 const _updateChannelNameKey = 'Updates';
@@ -40,6 +41,11 @@ void _onNotificationResponse(NotificationResponse response) {
     AppUpdate.tryInstallDownloaded(payload.substring('app_update:'.length));
     return;
   }
+  // 漫画更新完成通知点击 → 跳转追更页查看更新结果
+  if (payload == 'comic_update') {
+    _openFollowUpdatesPage();
+    return;
+  }
   if (payload != 'download') return;
   // Tapping the notification body (not an action button) jumps straight to
   // the download page so the user can see/manage active downloads.
@@ -72,6 +78,20 @@ void _openDownloadPage() {
   } catch (_) {
     // App not in a navigable state (e.g. fully terminated). The download page
     // is still reachable from 本地 → 下载管理.
+  }
+}
+
+/// Navigate to the follow-updates page so the user can review the results of
+/// a comic-update check triggered from the notification shade.
+void _openFollowUpdatesPage() {
+  try {
+    final context = App.mainNavigatorKey?.currentContext;
+    if (context != null) {
+      context.to(() => const FollowUpdatesPage());
+    }
+  } catch (_) {
+    // App not in a navigable state; the page remains reachable from the
+    // 追更 tab.
   }
 }
 
@@ -316,6 +336,7 @@ class AppNotifications {
           autoCancel: true,
         ),
       ),
+      payload: 'comic_update',
     );
   }
 
