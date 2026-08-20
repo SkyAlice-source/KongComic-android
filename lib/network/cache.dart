@@ -69,9 +69,6 @@ class NetworkCacheManager extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    if (err.requestOptions.method != "GET") {
-      return handler.next(err);
-    }
     return handler.next(err);
   }
 

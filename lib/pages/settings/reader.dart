@@ -268,16 +268,6 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           useDeviceSettings: useDeviceSpecificSettings,
         ).toSliver(),
         SliverAnimatedVisibility(
-          visible: false,
-          child: _SliderSetting(
-            title: "Auto scroll speed".tl,
-            settingsIndex: "autoScrollSpeed",
-            interval: 1,
-            min: 0,
-            max: 50,
-          ),
-        ),
-        SliverAnimatedVisibility(
           visible: appdata.settings['readerMode']!.startsWith('gallery'),
           child: _SliderSetting(
             title:
@@ -324,22 +314,6 @@ class _ReaderSettingsState extends State<ReaderSettings> {
             settingKey: "showSingleImageOnFirstPage",
             onChanged: () {
               widget.onChanged?.call("showSingleImageOnFirstPage");
-            },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
-          ),
-        ),
-        SliverAnimatedVisibility(
-          visible: false,
-          child: _SliderSetting(
-            title: "Mouse scroll speed".tl,
-            settingsIndex: "readerScrollSpeed",
-            interval: 0.1,
-            min: 0.5,
-            max: 3,
-            onChanged: () {
-              widget.onChanged?.call("readerScrollSpeed");
             },
             comicId: isEnabledSpecificSettings ? widget.comicId : null,
             comicSource: isEnabledSpecificSettings ? widget.comicSource : null,

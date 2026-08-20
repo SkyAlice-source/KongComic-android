@@ -480,7 +480,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     return Tooltip(
       message: "More".tl,
       child: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_horiz, size: 20),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 20),
         onSelected: (v) {
           switch (v) {
             case 'rotate':
@@ -497,12 +497,10 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
               value: 'rotate',
               child: Row(
                 children: [
-                  Icon(
-                    rotation == null
-                        ? Icons.screen_rotation
-                        : rotation == false
-                            ? Icons.screen_lock_portrait
-                            : Icons.screen_lock_landscape,
+                  HugeIcon(
+                    icon: rotation == null
+                        ? HugeIcons.strokeRoundedRotate01
+                        : HugeIcons.strokeRoundedPhoneLock,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
@@ -520,8 +518,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             value: 'autopage',
             child: Row(
               children: [
-                Icon(
-                  Icons.timer,
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedTimer01,
                   size: 20,
                   color: context.reader.autoPageTurningTimer != null
                       ? Colors.green
@@ -541,7 +539,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
               value: 'fullscreen',
               child: Row(
                 children: [
-                  const Icon(Icons.fullscreen, size: 20),
+                  HugeIcon(icon: HugeIcons.strokeRoundedFullScreen, size: 20),
                   const SizedBox(width: 12),
                   Text("${"Full Screen".tl}(F12)"),
                 ],
@@ -565,7 +563,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         message: isLiked() ? "Favorited".tl : "Collect the image".tl,
         child: IconButton(
           icon: isLiked()
-              ? const Icon(Icons.favorite, size: 20, color: kcBrandColor)
+              ? HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20, color: kcBrandColor)
               : HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
           onPressed: addImageFavorite,
           style: isLiked()
@@ -1057,7 +1055,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     var epId = chapters.ids.elementAt(chapterIndex);
     var chapterTitle = chapters.titles.elementAt(chapterIndex);
 
-    Navigator.of(context, rootNavigator: true).push(
+    Navigator.of(context).push(
       SideBarRoute(
         ChapterCommentsPage(
           comicId: context.reader.cid,

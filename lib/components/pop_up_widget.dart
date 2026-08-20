@@ -32,11 +32,7 @@ class PopUpWidget<T> extends PopupRoute<T> {
         boxShadow: GlassContainer.liquidShadow(context),
         width: showPopUp ? 500 : double.infinity,
         height: showPopUp ? height : double.infinity,
-        child: Navigator(
-          onGenerateRoute: (settings) => MaterialPageRoute(
-            builder: (context) => widget,
-          ),
-        ),
+        child: widget,
       ),
     );
     if (App.isIOS) {
@@ -87,8 +83,10 @@ class PopupIndicatorWidget extends InheritedWidget {
 }
 
 Future<T> showPopUpWidget<T>(BuildContext context, Widget widget) async {
-  return await Navigator.of(context, rootNavigator: true)
-      .push(PopUpWidget(widget));
+  // 推到主干导航栈(mainNavigator)，使弹窗生命周期附属当前页面，
+  // 关闭时回到来源页而非直接退到主页(之前 rootNavigator 会把主干栈一起带走)。
+  final target = App.mainNavigatorKey?.currentContext ?? context;
+  return await Navigator.of(target).push(PopUpWidget(widget));
 }
 
 class PopUpWidgetScaffold extends StatefulWidget {

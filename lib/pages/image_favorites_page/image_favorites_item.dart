@@ -53,11 +53,15 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
   }
 
   void goPhotoView(ImageFavorite imageFavorite) {
-    Navigator.of(App.rootContext).push(MaterialPageRoute(
-        builder: (context) => ImageFavoritesPhotoView(
-              comic: widget.imageFavoritesComic,
-              imageFavorite: imageFavorite,
-            )));
+    // Push onto the main navigator so the photo view sits above the image
+    // favorites page; popping it returns to the favorites list instead of the
+    // home page.
+    App.mainNavigatorKey?.currentContext?.to(
+      () => ImageFavoritesPhotoView(
+        comic: widget.imageFavoritesComic,
+        imageFavorite: imageFavorite,
+      ),
+    );
   }
 
   void copyTitle() {
@@ -288,8 +292,8 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                                       color: kcBrandColor,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(
-                                      Icons.check,
+                                    child: HugeIcon(
+                                      icon: HugeIcons.strokeRoundedTick01,
                                       color: Colors.white,
                                       size: 18,
                                     ),

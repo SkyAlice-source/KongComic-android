@@ -70,7 +70,11 @@ class FileDownloader {
   Future<void> _createTasks() async {
     var res = await _dio.head(url);
     var length = res.headers["content-length"]?.first;
-    _fileSize = length == null ? 0 : int.parse(length);
+    if (length == null) {
+      throw Exception(
+          "Download failed: server did not provide Content-Length for $url");
+    }
+    _fileSize = int.parse(length);
 
     await _prepareFile();
 

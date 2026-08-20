@@ -256,7 +256,6 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
               child: IconButton(
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                 onPressed: () {
-                  controller.clear();
                   setState(() {
                     searchMode = false;
                     controller.clear();

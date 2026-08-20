@@ -313,7 +313,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
             const SizedBox(width: 8),
             Text('Hidden'.tl, style: ts.s16),
             const Spacer(),
-            Icon(_hiddenExpanded ? Icons.expand_less : Icons.expand_more),
+            HugeIcon(icon: _hiddenExpanded ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01, size: 18),
           ],
         ).paddingHorizontal(16),
       ),

@@ -1,5 +1,8 @@
 {
   "zh_CN": {
+    "Chinese": "中文",
+    "English": "英语",
+    "Japanese": "日语",
     "Duplicate data found": "发现重复数据",
     "The backup contains comics or reading history that already exist on this device. How do you want to import?": "备份中包含本设备已有的漫画或阅读历史。要如何导入？",
     "Replace all local data with the backup. Current data will be lost.": "用备份完全覆盖本地数据，当前数据将丢失。",
@@ -869,9 +872,13 @@
     "Last 7 days": "近 7 天",
     "Last 30 days": "近 30 天",
     "Earlier": "更早",
-    "Japanese": "日语"
+    "Japanese": "日语",
+    "HTTP @code": "HTTP @code"
   },
   "zh_TW": {
+    "Chinese": "中文",
+    "English": "英語",
+    "Japanese": "日語",
     "Duplicate data found": "發現重複資料",
     "The backup contains comics or reading history that already exist on this device. How do you want to import?": "備份中包含本裝置已有的漫畫或閱讀歷史。要如何匯入？",
     "Replace all local data with the backup. Current data will be lost.": "用備份完全覆蓋本機資料，目前資料將遺失。",
@@ -1741,9 +1748,13 @@
     "Last 7 days": "近 7 天",
     "Last 30 days": "近 30 天",
     "Earlier": "更早",
-    "Japanese": "日語"
+    "Japanese": "日語",
+    "HTTP @code": "HTTP @code"
   },
   "ja_JP": {
+    "Chinese": "中国語",
+    "English": "英語",
+    "Japanese": "日本語",
     "Duplicate data found": "重複するデータが見つかりました",
     "The backup contains comics or reading history that already exist on this device. How do you want to import?": "バックアップに、このデバイスに既に存在する漫画または閲覧履歴が含まれています。どのようにインポートしますか？",
     "Replace all local data with the backup. Current data will be lost.": "バックアップで全てのローカルデータを置き換えます。現在のデータは失われます。",
@@ -2613,6 +2624,7 @@
     "Last 7 days": "過去7日間",
     "Last 30 days": "過去30日間",
     "Earlier": "それ以前",
-    "Japanese": "日本語"
+    "Japanese": "日本語",
+    "HTTP @code": "HTTP @code"
   }
 }

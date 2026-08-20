@@ -50,7 +50,7 @@ class _AboutSettingsState extends State<AboutSettings> {
         ).toSliver(),
         ListTile(
           title: Text("Source Code".tl),
-          trailing: const Icon(Icons.open_in_new, size: 18),
+          trailing: HugeIcon(icon: HugeIcons.strokeRoundedLinkSquare01, size: 18),
           onTap: _openGitHubRepo,
         ).toSliver(),
         ListTile(

@@ -314,7 +314,7 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
     super.build(context);
     if (_notFound) {
       return EmptyState(
-        icon: const Icon(Icons.explore_outlined),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCompass01, size: 18),
         title: "Explore Page Not Found".tl,
         subtitle: "The comic source may have been removed.".tl,
       );

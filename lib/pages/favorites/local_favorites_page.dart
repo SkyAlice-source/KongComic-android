@@ -791,9 +791,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                 onPressed: () {
                   setState(() {
-                    setState(() {
-                      searchMode = false;
-                    });
+                    searchMode = false;
                   });
                 },
               ),
@@ -1047,9 +1045,9 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
   Color lightenColor(Color color, double lightenValue) {
     int red =
         (_floatToInt8(color.r) + ((255 - color.r) * lightenValue)).round();
-    int green = (_floatToInt8(color.g) * 255 + ((255 - color.g) * lightenValue))
+    int green = (_floatToInt8(color.g) + ((255 - color.g) * lightenValue))
         .round();
-    int blue = (_floatToInt8(color.b) * 255 + ((255 - color.b) * lightenValue))
+    int blue = (_floatToInt8(color.b) + ((255 - color.b) * lightenValue))
         .round();
 
     return Color.fromARGB(_floatToInt8(color.a), red, green, blue);

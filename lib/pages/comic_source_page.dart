@@ -131,6 +131,9 @@ class _BodyState extends State<_Body> {
   /// Connectivity test result per source key: '', 'testing', 'ok', 'fail'.
   final Map<String, String> _health = {};
 
+  /// Optional detail for a failed connectivity test (e.g. HTTP status code).
+  final Map<String, String> _healthDetail = {};
+
   /// True while a "test all" run is in progress.
   bool _testingAll = false;
 
@@ -244,6 +247,7 @@ class _BodyState extends State<_Body> {
               selected: _selected.contains(source.key),
               onToggleSelect: _toggleSelect,
               health: _health[source.key] ?? '',
+              healthDetail: _healthDetail[source.key] ?? '',
               disabled: ComicSourceManager().isDisabled(source.key),
               onToggleDisabled: _toggleDisabled,
               onTest: _testSource,
@@ -437,7 +441,11 @@ class _BodyState extends State<_Body> {
       setState(() => _health[source.key] = 'fail');
       return;
     }
-    setState(() => _health[source.key] = 'testing');
+    setState(() {
+      _health[source.key] = 'testing';
+      _healthDetail.remove(source.key);
+    });
+    var category = 'fail';
     try {
       final page = source.explorePages.first;
       dynamic res;
@@ -448,14 +456,46 @@ class _BodyState extends State<_Body> {
       } else if (page.loadMixed != null) {
         res = await page.loadMixed!(0);
       } else {
-        setState(() => _health[source.key] = 'fail');
+        setState(() => _health[source.key] = category);
         return;
       }
-      final ok = res != null && !(res.error as bool);
-      setState(() => _health[source.key] = ok ? 'ok' : 'fail');
-    } catch (e) {
-      setState(() => _health[source.key] = 'fail');
+      if (res.error) {
+        // 源返回了错误结果，按错误信息细分失败类型
+        final msg = (res?.errorMessage as String? ?? '').toLowerCase();
+        if (msg.contains('timeout')) {
+          category = 'timeout';
+        } else if (msg.contains('proxy') || msg.contains('connect')) {
+          category = 'proxy';
+        } else if (RegExp(r'http\s*\d{3}').hasMatch(msg) ||
+            msg.contains('status code')) {
+          category = 'http';
+          final code = RegExp(r'(\d{3})').firstMatch(msg)?.group(1);
+          if (code != null) _healthDetail[source.key] = code;
+        } else {
+          category = 'fail';
+        }
+      } else {
+        category = 'ok';
+      }
+    } on DioException catch (e) {
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          category = 'timeout';
+        case DioExceptionType.connectionError:
+          category = 'proxy';
+        case DioExceptionType.badResponse:
+          category = 'http';
+          final code = e.response?.statusCode;
+          if (code != null) _healthDetail[source.key] = code.toString();
+        default:
+          category = 'fail';
+      }
+    } catch (_) {
+      category = 'fail';
     }
+    setState(() => _health[source.key] = category);
   }
 
   Future<void> _testAll() async {
@@ -517,26 +557,44 @@ class _BodyState extends State<_Body> {
               },
               onSubmitted: handleAddSource,
             ).paddingHorizontal(16).paddingBottom(8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
               children: [
-                FilledButton.tonal(
-                  onPressed: () {
-                    showPopUpWidget(
-                      App.rootContext,
-                      _ComicSourceList(handleAddSource),
-                    );
-                  },
-                  child: Text("Comic Source list".tl),
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                      textStyle: const TextStyle(fontSize: 13),
+                    ),
+                    onPressed: () {
+                      showPopUpWidget(
+                        App.rootContext,
+                        _ComicSourceList(handleAddSource),
+                      );
+                    },
+                    child: Text("Comic Source list".tl),
+                  ),
                 ),
-                FilledButton.tonal(
-                  onPressed: _selectFile,
-                  child: Text("Use a config file".tl),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                      textStyle: const TextStyle(fontSize: 13),
+                    ),
+                    onPressed: _selectFile,
+                    child: Text("Use a config file".tl),
+                  ),
                 ),
-                FilledButton.tonal(
-                  onPressed: help,
-                  child: Text("Help".tl),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                      textStyle: const TextStyle(fontSize: 13),
+                    ),
+                    onPressed: help,
+                    child: Text("Help".tl),
+                  ),
                 ),
               ],
             ).paddingHorizontal(12).paddingVertical(8),
@@ -1043,6 +1101,7 @@ class _ComicSourceCard extends StatefulWidget {
     this.selected = false,
     this.onToggleSelect = _noopToggle,
     this.health = '',
+    this.healthDetail = '',
     this.disabled = false,
     this.onToggleDisabled = _noopDisable,
     this.onTest = _noopTest,
@@ -1069,6 +1128,9 @@ class _ComicSourceCard extends StatefulWidget {
 
   /// Connectivity test result for this source: '', 'testing', 'ok', 'fail'.
   final String health;
+
+  /// Optional detail for a failed connectivity test (e.g. HTTP status code).
+  final String healthDetail;
 
   /// Whether this source is currently disabled (hidden across the app).
   final bool disabled;
@@ -1142,30 +1204,44 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                       : () => setState(() => _expanded = !_expanded),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(source.name, style: ts.s18),
-                        if (widget.disabled)
-                          AppBadge("Disabled".tl,
-                              type: AppBadgeType.warning, fontSize: kcFont13),
-                        if (source.account != null)
-                          AppBadge(
-                            source.isLogged ? "Logged in".tl : "Login required".tl,
-                            type: source.isLogged
-                                ? AppBadgeType.success
-                                : AppBadgeType.warning,
-                            fontSize: kcFont13,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              source.name,
+                              style: ts.s18,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        if (hasUpdate)
-                          Tooltip(
-                            message: newVersion,
-                            child: AppBadge("New Version".tl, type: AppBadgeType.warning, fontSize: kcFont13),
+                          const SizedBox(width: 6),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                if (widget.disabled)
+                                  AppBadge("Disabled".tl,
+                                      type: AppBadgeType.warning, fontSize: kcFont13),
+                                if (source.account != null)
+                                  AppBadge(
+                                    source.isLogged ? "Logged in".tl : "Login required".tl,
+                                    type: source.isLogged
+                                        ? AppBadgeType.success
+                                        : AppBadgeType.warning,
+                                    fontSize: kcFont13,
+                                  ),
+                                if (hasUpdate)
+                                  Tooltip(
+                                    message: newVersion,
+                                    child: AppBadge("New Version".tl, type: AppBadgeType.warning, fontSize: kcFont13),
+                                  ),
+                              ],
+                            ),
                           ),
-                      ],
-                    ),
+                        ],
+                      ),
                   ),
                 ),
               ),
@@ -1187,7 +1263,10 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
               if (!widget.selecting)
                 PopupMenuButton<String>(
                   tooltip: "More".tl,
-                  icon: const Icon(Icons.more_horiz, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedMoreHorizontal,
+                    size: 18,
+                  ),
                   onSelected: (v) {
                     switch (v) {
                       case 'edit':
@@ -1279,63 +1358,182 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
         : 0;
     final health = widget.health;
     final cs = Theme.of(context).colorScheme;
+
+    Widget toggleBadge(String text, bool enabled, VoidCallback onTap) {
+      return GestureDetector(
+        onTap: onTap,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Opacity(
+            opacity: enabled ? 1.0 : 0.5,
+            child: AppBadge(
+              text,
+              backgroundColor: enabled ? kcBrandColor : null,
+              foregroundColor: enabled ? Colors.white : null,
+              type: AppBadgeType.neutral,
+              fontSize: kcFont13,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final detail = widget.healthDetail;
+
+    Widget healthBadge() {
+      if (health == 'testing') {
+        return const SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        );
+      }
+      if (health == 'ok') {
+        return AppBadge(
+          "Reachable".tl,
+          type: AppBadgeType.success,
+          fontSize: kcFont13,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        );
+      }
+      if (health == 'proxy') {
+        return AppBadge(
+          "Proxy required".tl,
+          backgroundColor: cs.error,
+          foregroundColor: cs.onError,
+          fontSize: kcFont13,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        );
+      }
+      if (health == 'timeout') {
+        return AppBadge(
+          "Timeout".tl,
+          type: AppBadgeType.warning,
+          fontSize: kcFont13,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        );
+      }
+      if (health == 'http') {
+        final label = detail.isNotEmpty
+            ? "HTTP @code".tlParams({"code": detail})
+            : "HTTP Error".tl;
+        return AppBadge(
+          label,
+          type: AppBadgeType.warning,
+          fontSize: kcFont13,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        );
+      }
+      // 未测试('') 或 其它失败('fail') → 不可达
+      return AppBadge(
+        "Unreachable".tl,
+        type: AppBadgeType.neutral,
+        fontSize: kcFont13,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      );
+    }
+
+    final infoChips = <Widget>[
+      if (expTotal > 0)
+        toggleBadge(
+          "${"Explore".tl} $expOn/$expTotal",
+          expOn > 0,
+          () {
+            final titles = source.explorePages.map((e) => e.title).toList();
+            final list =
+                List<String>.from(appdata.settings['explore_pages'] ?? []);
+            if (expOn == expTotal) {
+              list.removeWhere(titles.contains);
+            } else {
+              for (final t in titles) {
+                if (!list.contains(t)) list.add(t);
+              }
+            }
+            appdata.settings['explore_pages'] = list;
+            appdata.saveData();
+            setState(() {});
+          },
+        ),
+      if (catTotal > 0)
+        toggleBadge(
+          "${"Categories".tl} $catOn/$catTotal",
+          catOn == 1,
+          () {
+            final key = source.categoryData!.key;
+            final list =
+                List<String>.from(appdata.settings['categories'] ?? []);
+            if (catOn == 1) {
+              list.remove(key);
+            } else {
+              if (!list.contains(key)) list.add(key);
+            }
+            appdata.settings['categories'] = list;
+            appdata.saveData();
+            setState(() {});
+          },
+        ),
+      healthBadge(),
+      AppBadge(
+        source.version,
+        type: AppBadgeType.neutral,
+        fontSize: kcFont13,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      ),
+    ];
+
+    final actions = <Widget>[];
+    if (!widget.selecting) {
+      actions.addAll([
+        Tooltip(
+          message: "Test".tl,
+          child: IconButton(
+            onPressed: () => widget.onTest(source),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 16),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
+          ),
+        ),
+        Tooltip(
+          message: widget.disabled ? "Enable".tl : "Disable".tl,
+          child: IconButton(
+            onPressed: () => widget.onToggleDisabled(source),
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedActivity01,
+              size: 16,
+              color: widget.disabled ? cs.primary : cs.error,
+            ),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
+          ),
+        ),
+      ]);
+    }
+
     return Padding(
       padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (expTotal > 0)
-            AppBadge("${"Explore".tl} $expOn/$expTotal",
-                type: AppBadgeType.neutral, fontSize: kcFont13),
-          if (catTotal > 0)
-            AppBadge("${"Categories".tl} $catOn/$catTotal",
-                type: AppBadgeType.neutral, fontSize: kcFont13),
-          if (health == 'testing')
-            const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else if (health == 'ok')
-            AppBadge("Reachable".tl,
-                type: AppBadgeType.success, fontSize: kcFont13)
-          else if (health == 'fail')
-            AppBadge("Proxy required".tl,
-                backgroundColor: cs.error,
-                foregroundColor: cs.onError,
-                fontSize: kcFont13)
-          else
-            AppBadge("Unreachable".tl,
-                type: AppBadgeType.neutral, fontSize: kcFont13),
-          AppBadge(source.version,
-              type: AppBadgeType.neutral, fontSize: kcFont13),
-          if (!widget.selecting) ...[
-            Tooltip(
-              message: "Test".tl,
-              child: IconButton(
-                onPressed: () => widget.onTest(source),
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 16),
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                padding: EdgeInsets.zero,
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < infoChips.length; i++) ...[
+                    infoChips[i],
+                    if (i < infoChips.length - 1) const SizedBox(width: 4),
+                  ],
+                ],
               ),
             ),
-            Tooltip(
-              message: widget.disabled ? "Enable".tl : "Disable".tl,
-              child: IconButton(
-                onPressed: () => widget.onToggleDisabled(source),
-                icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedActivity01,
-                  size: 16,
-                  color: widget.disabled ? cs.primary : cs.error,
-                ),
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                padding: EdgeInsets.zero,
-              ),
-            ),
+          ),
+          if (actions.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            ...actions,
           ],
         ],
       ),

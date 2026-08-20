@@ -17,10 +17,10 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           title: "Appearance".tl,
           settingKey: "theme_mode",
           optionTranslation: {
-            "system": "跟随系统",
-            "light": "浅色",
-            "amoled": "深色",
-            "dark": "暗彩",
+            "system": "System",
+            "light": "Light",
+            "amoled": "AMOLED",
+            "dark": "Dark",
           },
           onChanged: () async {
             App.forceRebuild();

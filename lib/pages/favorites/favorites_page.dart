@@ -180,7 +180,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   void showFolderSelector() {
-    Navigator.of(App.rootContext).push(PageRouteBuilder(
+    Navigator.of(App.mainNavigatorKey?.currentContext ?? context).push(PageRouteBuilder(
       barrierDismissible: true,
       fullscreenDialog: true,
       opaque: false,
