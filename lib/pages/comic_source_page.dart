@@ -251,6 +251,7 @@ class _BodyState extends State<_Body> {
               disabled: ComicSourceManager().isDisabled(source.key),
               onToggleDisabled: _toggleDisabled,
               onTest: _testSource,
+              pinToTop: pinToTop,
             );
           },
         ),
@@ -264,6 +265,16 @@ class _BodyState extends State<_Body> {
     final sources = orderedComicSources();
     final moved = sources.removeAt(oldIndex);
     sources.insert(newIndex, moved);
+    appdata.settings['sourceOrder'] = sources.map((s) => s.key).toList();
+    _syncSourceOrder();
+    setState(() {});
+  }
+
+  void pinToTop(ComicSource source) {
+    final sources = orderedComicSources();
+    if (sources.isEmpty || sources.first.key == source.key) return;
+    sources.remove(source);
+    sources.insert(0, source);
     appdata.settings['sourceOrder'] = sources.map((s) => s.key).toList();
     _syncSourceOrder();
     setState(() {});
@@ -1105,6 +1116,7 @@ class _ComicSourceCard extends StatefulWidget {
     this.disabled = false,
     this.onToggleDisabled = _noopDisable,
     this.onTest = _noopTest,
+    required this.pinToTop,
   });
 
   final ComicSource source;
@@ -1137,6 +1149,7 @@ class _ComicSourceCard extends StatefulWidget {
 
   final void Function(ComicSource source) onToggleDisabled;
   final void Function(ComicSource source) onTest;
+  final void Function(ComicSource source) pinToTop;
 
   @override
   State<_ComicSourceCard> createState() => _ComicSourceCardState();
@@ -1275,6 +1288,8 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                         widget.update(source);
                       case 'delete':
                         widget.delete(source);
+                      case 'pin':
+                        widget.pinToTop(source);
                     }
                   },
                   itemBuilder: (_) => [
@@ -1305,6 +1320,20 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                           HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 16),
                           const SizedBox(width: 8),
                           Text("Delete".tl),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'pin',
+                      enabled: widget.index != 0,
+                      child: Row(
+                        children: [
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedAlignTop,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text("Pin to top".tl),
                         ],
                       ),
                     ),
@@ -1721,6 +1750,18 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
       );
     }
   }
+}
+
+/// 打开指定漫画源的登录页（账号密码 / WebView 登录）。
+///
+/// 返回 [Navigator.pop] 的结果；不论登录是否成功，返回后都会保存一次源
+/// 数据，使登录态对调用方立即可见。
+Future<T?> navigateToSourceLogin<T>(BuildContext context, ComicSource source) async {
+  final result = await context.to<T>(
+    () => _LoginPage(config: source.account!, source: source),
+  );
+  source.saveData();
+  return result;
 }
 
 class _LoginPage extends StatefulWidget {

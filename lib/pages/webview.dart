@@ -37,6 +37,36 @@ extension WebviewExtension on InAppWebViewController {
       c.domain = cookie.domain;
       res.add(c);
     }
+    // 兜底：Cloudflare 的 cf_clearance 是 Secure;SameSite=None 且非 HttpOnly，
+    // flutter_inappwebview 的 CookieManager 有时取不到它，导致过验证后 cookie
+    // 没存、重试仍 403（表现"点完还是卡"）。cf_clearance 对 JS 可见，改用
+    // document.cookie 直接读取作为兜底。
+    if (!res.any((c) => c.name == 'cf_clearance')) {
+      try {
+        final raw = await evaluateJavascript(source: "document.cookie");
+        var jsCookies = raw is String ? raw : raw?.toString();
+        if (jsCookies != null && jsCookies.isNotEmpty) {
+          if (jsCookies.startsWith('"') && jsCookies.endsWith('"')) {
+            jsCookies = jsCookies.substring(1, jsCookies.length - 1);
+          }
+          for (var part in jsCookies.split(';')) {
+            final kv = part.trim().split('=');
+            if (kv.length == 2 && kv[0].trim() == 'cf_clearance') {
+              final c = io.Cookie('cf_clearance', kv[1].trim());
+              final hostParts = uri.host.split('.');
+              if (hostParts.length >= 2) {
+                c.domain =
+                    ".${hostParts.sublist(hostParts.length - 2).join('.')}";
+              }
+              res.add(c);
+              break;
+            }
+          }
+        }
+      } catch (_) {
+        // 兜底失败则沿用 CookieManager 结果
+      }
+    }
     return res;
   }
 

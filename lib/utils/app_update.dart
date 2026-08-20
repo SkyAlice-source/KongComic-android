@@ -36,14 +36,62 @@ class AppUpdate {
       "https://api.github.com/repos/SkyAlice-source/KongComic-android/releases/latest";
 
   /// Fallback release notes shown when a GitHub release has no description
-  /// body. Kept concise and accurate to recent changes.
+  /// body. Kept concise and version-agnostic (real releases ship a curated
+  /// bilingual changelog via `changelogs/<version>.md`).
   static const String _defaultReleaseNotes =
-      "本次更新包含：发现、收藏、历史页面新增列表 / 网格布局切换；"
-      "默认主题改为跟随系统；亮色主题色彩更鲜明；"
-      "并修复若干问题、优化使用体验。";
+      "本次更新包含若干问题修复与使用体验优化。\n\n"
+      "This update includes bug fixes and UX improvements.";
 
   /// Maximum number of retries for transient network failures.
   static const int _maxRetries = 2;
+
+  /// Invisible per-language section delimiter used inside changelog files,
+  /// e.g. `<!-- lang:zh -->`. Markdown renderers hide HTML comments, so the
+  /// GitHub release web page still shows every section while the app only
+  /// shows the one matching the device locale.
+  static final _langMarker = RegExp(r'<!--\s*lang:(\w+)\s*-->');
+
+  /// Split a changelog body into per-language blocks keyed by language code.
+  /// Returns an empty map when the body has no language markers (legacy notes),
+  /// in which case the caller should display the whole body.
+  static Map<String, String> _extractLangBlocks(String body) {
+    final matches = _langMarker.allMatches(body).toList();
+    if (matches.isEmpty) return const {};
+    final blocks = <String, String>{};
+    for (var i = 0; i < matches.length; i++) {
+      final m = matches[i];
+      final lang = m.group(1)!;
+      final start = m.end;
+      final end = i + 1 < matches.length ? matches[i + 1].start : body.length;
+      blocks[lang] = body.substring(start, end).trim();
+    }
+    return blocks;
+  }
+
+  /// Pick the device locale's language code: zh / ja / else en.
+  static String _targetLang() {
+    final lc = App.locale.languageCode;
+    if (lc == 'zh') return 'zh';
+    if (lc == 'ja') return 'ja';
+    return 'en';
+  }
+
+  /// Localize release notes to the device language. Falls back to English,
+  /// then to the first non-empty block, then to the default notes.
+  static String _localizeNotes(String body) {
+    final blocks = _extractLangBlocks(body);
+    if (blocks.isEmpty) {
+      return body.trim().isEmpty ? _defaultReleaseNotes : body;
+    }
+    final target = _targetLang();
+    final picked = blocks[target] ??
+        blocks['en'] ??
+        blocks.values.firstWhere(
+          (s) => s.trim().isNotEmpty,
+          orElse: () => '',
+        );
+    return picked.trim().isNotEmpty ? picked : _defaultReleaseNotes;
+  }
 
   /// Helper: GET with simple retry for transient failures (timeout, 5xx).
   /// Dio throws [DioException] on timeout; we catch it and retry.
@@ -149,7 +197,7 @@ class AppUpdate {
       return null;
     }
     final body = (data["body"] as String?) ?? "";
-    final releaseNotes = body.trim().isEmpty ? _defaultReleaseNotes : body;
+    final releaseNotes = _localizeNotes(body);
     final assets = (data["assets"] as List?) ?? const [];
     final downloads = <String, String>{};
     for (final a in assets) {
@@ -185,17 +233,44 @@ class AppUpdate {
   static String apkPath(String version) =>
       FilePath.join(updateDir.path, "KongComic-$version.apk");
 
-  /// 校验 APK 的 ZIP magic header（轻量完整性检查）。
+  /// 校验 APK 的完整性。除 ZIP 头 magic 外，还检查文件尾部是否存在
+  /// End Of Central Directory (EOCD) 记录签名 `PK\x05\x06`。
+  ///
+  /// 仅靠 magic 头会在「下载失败残留的不完整 APK」上误判为有效
+  /// （ZIP 头位于文件开头，部分下载的文件前 4 字节仍是 PK），导致二次
+  /// 更新直接拿损坏文件去安装而必失败。EOCD 位于完整 ZIP 的尾部，
+  /// 部分下载的文件必然缺失，因此能可靠区分「已下载完成」与「残留坏文件」。
   static bool _isValidApk(File apk) {
-    if (!apk.existsSync() || apk.lengthSync() == 0) return false;
+    if (!apk.existsSync()) return false;
+    final size = apk.lengthSync();
+    if (size < 4) return false;
     final raf = apk.openSync();
-    final magic = raf.readSync(4);
-    raf.closeSync();
-    return magic.length == 4 &&
-        magic[0] == 0x50 &&
-        magic[1] == 0x4B &&
-        magic[2] == 0x03 &&
-        magic[3] == 0x04;
+    try {
+      final magic = raf.readSync(4);
+      if (magic.length != 4 ||
+          magic[0] != 0x50 ||
+          magic[1] != 0x4B ||
+          magic[2] != 0x03 ||
+          magic[3] != 0x04) {
+        return false;
+      }
+      // EOCD signature "PK\x05\x06" sits near the end of a complete ZIP/APK.
+      const eocd = [0x50, 0x4B, 0x05, 0x06];
+      final tailLen = size > 128 * 1024 ? 128 * 1024 : size;
+      raf.setPositionSync(size - tailLen);
+      final tail = raf.readSync(tailLen);
+      for (var i = 0; i + 3 < tail.length; i++) {
+        if (tail[i] == eocd[0] &&
+            tail[i + 1] == eocd[1] &&
+            tail[i + 2] == eocd[2] &&
+            tail[i + 3] == eocd[3]) {
+          return true;
+        }
+      }
+      return false;
+    } finally {
+      raf.closeSync();
+    }
   }
 
   /// 若本地已下载 [version] 的 APK（且校验通过），直接触发系统安装器。
@@ -225,10 +300,24 @@ class AppUpdate {
     void Function(double progress, int bytesPerSecond)? onProgress,
     FileDownloaderHandle? handle,
   }) async {
+    final savePath = apkPath(version);
+    // 清理上次可能残留的损坏 APK 与断点状态文件，强制全新下载。
+    // 否则基于旧断点状态可能跳过真实下载，直接拿损坏文件去安装。
+    final staleApk = File(savePath);
+    if (staleApk.existsSync()) {
+      try {
+        staleApk.deleteSync();
+      } catch (_) {}
+    }
+    final staleState = File("$savePath.download");
+    if (staleState.existsSync()) {
+      try {
+        staleState.deleteSync();
+      } catch (_) {}
+    }
     if (!updateDir.existsSync()) {
       updateDir.createSync(recursive: true);
     }
-    final savePath = apkPath(version);
 
     final downloader = FileDownloader(url, savePath);
     if (handle != null) {

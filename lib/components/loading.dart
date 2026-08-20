@@ -1,8 +1,35 @@
 part of 'components.dart';
 
+/// 判断错误是否由「未登录 / 未授权」引起。
+///
+/// 用于把漫画源返回的英文错误（如 "Not logged in" / "unauthorized" /
+/// HTTP 401）替换为本地化的「需登录」提示，并在存在漫画源上下文时
+/// 提供「去登录」入口。
+bool isAuthError(String message) {
+  final m = message.toLowerCase();
+  return m.contains('not logged') ||
+      m.contains('please log in') ||
+      m.contains('please login') ||
+      m.contains('login required') ||
+      m.contains('log in required') ||
+      m.contains('sign in') ||
+      m.contains('unauthorized') ||
+      m.contains('401') ||
+      m.contains('未登录') ||
+      m.contains('请登录') ||
+      m.contains('需要登录') ||
+      m.contains('需登录') ||
+      m.contains('登陆') ||
+      m.contains('登录');
+}
+
 String _prettifyErrorMessage(String raw) {
   var msg = raw.replaceFirst(RegExp(r'^DioException\s*\[[^\]]+\]:\s*'), '');
   msg = msg.replaceFirst(RegExp(r'^Error:\s*SocketException:\s*'), '');
+
+  if (isAuthError(msg)) {
+    return "Login required".tl;
+  }
 
   // 统一处理 "Invalid Status Code: 410" / "Invalid status code: 410"
   final invalidStatusMatch =

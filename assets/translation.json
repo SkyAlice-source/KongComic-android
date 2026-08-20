@@ -1,5 +1,7 @@
 {
   "zh_CN": {
+    "Log in to @source to view this content.": "登录 @source 后即可查看该内容",
+    "Pin to top": "置顶",
     "Chinese": "中文",
     "English": "英语",
     "Japanese": "日语",
@@ -876,6 +878,8 @@
     "HTTP @code": "HTTP @code"
   },
   "zh_TW": {
+    "Log in to @source to view this content.": "登入 @source 後即可查看該內容",
+    "Pin to top": "置頂",
     "Chinese": "中文",
     "English": "英語",
     "Japanese": "日語",
@@ -1752,6 +1756,8 @@
     "HTTP @code": "HTTP @code"
   },
   "ja_JP": {
+    "Log in to @source to view this content.": "@source にログインすると閲覧できます",
+    "Pin to top": "ピン留め",
     "Chinese": "中国語",
     "English": "英語",
     "Japanese": "日本語",

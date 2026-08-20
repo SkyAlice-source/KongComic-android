@@ -594,8 +594,35 @@ class _MultiPartExplorePageState extends State<_MultiPartExplorePage> {
         child: CircularProgressIndicator(),
       );
     } else if (message != null) {
+      final msg = message!;
+      final source = ComicSource.find(widget.comicSourceKey);
+      if (source != null && source.account != null && isAuthError(msg)) {
+        return NetworkError(
+          message: "Log in to @source to view this content."
+              .tlParams({"source": source.name}),
+          retry: () {
+            setState(() {
+              loading = true;
+              message = null;
+            });
+          },
+          withAppbar: false,
+          action: FilledButton(
+            onPressed: () async {
+              await navigateToSourceLogin(context, source);
+              if (mounted) {
+                setState(() {
+                  loading = true;
+                  message = null;
+                });
+              }
+            },
+            child: Text("Log in".tl),
+          ),
+        );
+      }
       return NetworkError(
-        message: message!,
+        message: msg,
         retry: () {
           setState(() {
             loading = true;

@@ -109,13 +109,25 @@ jobs:
             echo "Warning: universal APK not found at $SRC (may be inside split-per-abi build)"
           fi
 
+      # 准备双语更新日志：从 changelogs/<version>.md 读取，
+      # 若对应版本文件缺失则生成占位，确保 release body 永不退化成空/纯链接。
+      - name: Prepare release notes
+        run: |
+          VERSION=$(grep -E '^version: ' pubspec.yaml | sed 's/version: *//' | sed 's/\+.*$//')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          mkdir -p changelogs
+          if [ ! -f "changelogs/${VERSION}.md" ]; then
+            echo "Release $VERSION" > "changelogs/${VERSION}.md"
+          fi
+          echo "Release notes for $VERSION ready"
+
       # 上传到 GitHub Release
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         continue-on-error: true
         with:
           files: release-artifacts/*
-          generate_release_notes: true
+          body_path: changelogs/${{ env.VERSION }}.md
 
       # 如果 Release 上传失败，作为 artifact 保存
       - name: Upload APKs as artifacts

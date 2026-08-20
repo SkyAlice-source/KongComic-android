@@ -35,7 +35,7 @@ class _App {
   final version = "1.6.4";
   // Populated from package_info_plus during [init] so the About page and the
   // update check always reflect the real build version (no manual bump needed).
-  String appVersion = "1.3.1";
+  String appVersion = "1.3.2";
 
   bool get isAndroid => Platform.isAndroid;
 
