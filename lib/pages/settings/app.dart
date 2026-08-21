@@ -8,6 +8,42 @@ class AppSettings extends StatefulWidget {
 }
 
 class _AppSettingsState extends State<AppSettings> {
+  /// 把下载目录迁移到 [result]：冲突检测 → 弹窗选择覆盖/合并 → 复制+删旧。
+  /// 与「Set New Storage Path」和「Move to Download/Comic」共用。
+  Future<void> _setStoragePath(String result) async {
+    if (result.isEmpty) return;
+    if (!mounted) return;
+    final manager = LocalManager();
+    final existingCount = await manager.countConflicts(result);
+    bool overwrite = true;
+    if (existingCount > 0) {
+      final choice = await showDialog<_ConflictChoice>(
+        context: context,
+        builder: (ctx) => _StorageConflictDialog(
+          existingCount: existingCount,
+          newPath: result,
+        ),
+      );
+      if (choice == null || choice == _ConflictChoice.cancel) return;
+      overwrite = choice == _ConflictChoice.overwrite;
+    }
+    if (!mounted) return;
+    var loadingDialog = showLoadingDialog(
+      App.rootContext,
+      barrierDismissible: false,
+      allowCancel: false,
+    );
+    var res = await manager.setNewPath(result, overwrite: overwrite);
+    loadingDialog.close();
+    if (!mounted) return;
+    if (res != null) {
+      context.showMessage(message: res);
+    } else {
+      context.showMessage(message: "Path set successfully".tl);
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
@@ -52,39 +88,30 @@ class _AppSettingsState extends State<AppSettings> {
               result = await selectDirectory();
             }
             if (result == null || result.isEmpty) return;
-            if (!mounted) return;
+            await _setStoragePath(result);
+          },
+        ).toSliver(),
+        _CallbackSetting(
+          title: "Move to Download/Comic".tl,
+          actionTitle: "Move".tl,
+          callback: () async {
             final manager = LocalManager();
-            final existingCount =
-                await manager.countConflicts(result);
-            bool overwrite = true;
-            if (existingCount > 0) {
-              final choice = await showDialog<_ConflictChoice>(
-                context: context,
-                builder: (ctx) => _StorageConflictDialog(
-                  existingCount: existingCount,
-                  newPath: result!,
-                ),
+            final target = await manager.detectDownloadComicPath();
+            if (!mounted) return;
+            if (target == null) {
+              context.showMessage(
+                message:
+                    "Need all-files access permission to use Download/Comic".tl,
               );
-              if (choice == null || choice == _ConflictChoice.cancel) {
-                return;
-              }
-              overwrite = choice == _ConflictChoice.overwrite;
+              return;
             }
-            if (!mounted) return;
-            var loadingDialog = showLoadingDialog(
-              App.rootContext,
-              barrierDismissible: false,
-              allowCancel: false,
-            );
-            var res = await manager.setNewPath(result, overwrite: overwrite);
-            loadingDialog.close();
-            if (!mounted) return;
-            if (res != null) {
-              context.showMessage(message: res);
-            } else {
-              context.showMessage(message: "Path set successfully".tl);
-              setState(() {});
+            if (manager.path == target) {
+              context.showMessage(
+                message: "Already using Download/Comic".tl,
+              );
+              return;
             }
+            await _setStoragePath(target);
           },
         ).toSliver(),
         ListTile(

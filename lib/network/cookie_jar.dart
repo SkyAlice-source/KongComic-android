@@ -42,13 +42,19 @@ class CookieJarSql {
       if (currentCookie != null) {
         cookie.domain = currentCookie.domain;
       }
+      // 空字符串 domain 不算"为空"：`?? uri.host` 兜不住，会存一个永远
+      // 匹配不上的空 domain，导致该 cookie 形同虚设（WebView 验证通过但
+      // App 请求永远带不上）。统一把空 domain 落成 uri.host。
+      final domain = (cookie.domain == null || cookie.domain!.isEmpty)
+          ? uri.host
+          : cookie.domain!;
       _db.execute('''
         INSERT OR REPLACE INTO cookies (name, value, domain, path, expires, secure, httpOnly)
         VALUES (?, ?, ?, ?, ?, ?, ?);
       ''', [
         cookie.name,
         cookie.value,
-        cookie.domain ?? uri.host,
+        domain,
         cookie.path ?? "/",
         cookie.expires?.millisecondsSinceEpoch,
         cookie.secure ? 1 : 0,

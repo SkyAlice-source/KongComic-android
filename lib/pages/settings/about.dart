@@ -412,6 +412,17 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
             },
             child: Text("Retry".tl),
           ),
+        if (_error != null)
+          Button.outlined(
+            onPressed: () {
+              AppUpdate.openReleasePageInBrowser().catchError((e) {
+                if (mounted) {
+                  App.rootContext.showMessage(message: "Network error".tl);
+                }
+              });
+            },
+            child: Text("Open in browser".tl),
+          ),
         if (_installing)
           Button.filled(
             onPressed: () => Navigator.of(context).pop(),

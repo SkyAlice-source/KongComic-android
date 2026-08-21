@@ -9,6 +9,7 @@ import 'package:kong_comic/foundation/consts.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/pages/webview.dart';
 import 'package:kong_comic/utils/ext.dart';
+import 'package:kong_comic/utils/translations.dart';
 
 import 'cookie_jar.dart';
 
@@ -64,7 +65,13 @@ class CloudflareException implements DioException {
 class CloudflareInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    if (options.headers['cookie'].toString().contains('cf_clearance')) {
+    // 大小写不敏感地找 cookie 头：源 JS 可能设置 'Cookie'（大写），而
+    // CookieManagerSql 附加的是 'cookie'（小写），原实现只查小写会漏判，
+    // 导致带 cf_clearance 的请求没换上浏览器 UA 而被 CF 拒绝。
+    final hasCfClearance = options.headers.entries.any((e) =>
+        e.key.toLowerCase() == 'cookie' &&
+        e.value.toString().contains('cf_clearance'));
+    if (hasCfClearance) {
       options.headers['user-agent'] = appdata.implicitData['ua'] ?? webUA;
     }
     handler.next(options);
@@ -163,7 +170,31 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
   } else {
     bool success = false;
     bool busy = false;
+    bool hintShown = false;
+    int settledTicks = 0;
     Timer? pollTimer;
+
+    // 检测页面是否仍是 Cloudflare 挑战页（challenge-form / Turnstile 等）。
+    // 未知/异常时保守返回 true（仍视为在挑战中，继续等待用户处理）。
+    Future<bool> pageIsChallenging(InAppWebViewController controller) async {
+      try {
+        final head = await controller.evaluateJavascript(
+              source: "document.head.innerHTML",
+            ) ??
+            "";
+        final body = await controller.evaluateJavascript(
+              source: "document.body.innerHTML",
+            ) ??
+            "";
+        return head.contains('#challenge-success-text') ||
+            head.contains("#challenge-error-text") ||
+            head.contains("#challenge-form") ||
+            body.contains("challenge-platform") ||
+            body.contains("window._cf_chl_opt");
+      } catch (_) {
+        return true;
+      }
+    }
 
     Future<void> trySaveAndClose(InAppWebViewController controller) async {
       // busy 防重入：getCookies 是异步的，若耗时超过轮询间隔（1s），下一次
@@ -177,7 +208,33 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
         if (cookies == null || cookies.isEmpty) return;
         var cfClearance =
             cookies.firstWhereOrNull((element) => element.name == 'cf_clearance');
-        if (cfClearance == null) return;
+        if (cfClearance == null) {
+          // 页面已正常加载却不是挑战页，且始终没有 cf_clearance 可保存
+          // （源站没下发验证 cookie，或验证只认浏览器指纹）。此时自动关闭并
+          // 重试仍会 403，所以只提示一次；WebView 保持打开，若用户手动浏览
+          // 产生了 cookie，轮询仍能抓到并保存。
+          if (!hintShown &&
+              settledTicks >= 3 &&
+              !await pageIsChallenging(controller)) {
+            hintShown = true;
+            if (App.rootContext.mounted) {
+              App.rootContext.showMessage(
+                message:
+                    "Could not detect a verification cookie. Try again or open the site in your browser."
+                        .tl,
+              );
+            }
+          }
+          return;
+        }
+        // 关键：WebView 里可能残留上次验证的旧 cf_clearance，挑战页也能通过
+        // document.cookie 读到它。若页面仍在挑战中（旧 cookie 已失效、CF 正在
+        // 重新验证），不能把它当成"验证通过"——否则 WebView 刚打开就自动关闭、
+        // 返回后 App 请求依旧 403（表现"验证界面刚出现就自动返回"）。
+        // 只有页面已脱离挑战页（真正显示内容）且能读到 cf_clearance 才算通过。
+        if (await pageIsChallenging(controller)) {
+          return;
+        }
         SingleInstanceCookieJar.instance?.saveFromResponse(uri, cookies);
         success = true;
         pollTimer?.cancel();
@@ -206,6 +263,7 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
           // cf_clearance cookie 是否生成——生成即代表验证通过，保存后自动关闭。
           pollTimer?.cancel();
           pollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+            settledTicks++;
             trySaveAndClose(controller);
           });
         },

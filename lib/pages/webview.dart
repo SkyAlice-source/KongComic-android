@@ -66,6 +66,35 @@ extension WebviewExtension on InAppWebViewController {
       } catch (_) {
         // 兜底失败则沿用 CookieManager 结果
       }
+      // 第三级兜底：部分站点把 cf_clearance 设为 HttpOnly，document.cookie
+      // 读不到；Android 原生 CookieManager.getCookie() 不受 HttpOnly 限制，
+      // 能拿到 WebView 会话里的全部 cookie（含 cf_clearance）。
+      if (!res.any((c) => c.name == 'cf_clearance') && App.isAndroid) {
+        try {
+          const channel = MethodChannel("kong_comic/method_channel");
+          final raw = await channel.invokeMethod<String>(
+              "getWebViewCookie", {"url": url});
+          if (raw != null && raw.isNotEmpty) {
+            for (var part in raw.split(';')) {
+              final idx = part.indexOf('=');
+              if (idx > 0 &&
+                  part.substring(0, idx).trim() == 'cf_clearance') {
+                final c =
+                    io.Cookie('cf_clearance', part.substring(idx + 1).trim());
+                final hostParts = uri.host.split('.');
+                if (hostParts.length >= 2) {
+                  c.domain =
+                      ".${hostParts.sublist(hostParts.length - 2).join('.')}";
+                }
+                res.add(c);
+                break;
+              }
+            }
+          }
+        } catch (_) {
+          // 原生兜底失败则沿用现有结果
+        }
+      }
     }
     return res;
   }

@@ -49,6 +49,35 @@ class FileDownloader {
     _blocks = lines.map((e) => _DownloadBlock.fromString(e)).toList();
   }
 
+  /// True if the already-downloaded file contains a ZIP End Of Central
+  /// Directory record (signature `PK\x05\x06`) near its tail. A complete
+  /// APK/ZIP always has one; a partially-written file does not, so this lets
+  /// us distinguish "download truly finished" from "state file claims done
+  /// but the file was never fully flushed".
+  Future<bool> _eocdPresent() async {
+    final f = File(savePath);
+    if (!await f.exists()) return false;
+    final size = await f.length();
+    if (size < 22) return false;
+    final raf = await f.open(mode: FileMode.read);
+    try {
+      final tailLen = size > 128 * 1024 ? 128 * 1024 : size;
+      await raf.setPosition(size - tailLen);
+      final tail = await raf.read(tailLen);
+      for (var i = 0; i + 3 < tail.length; i++) {
+        if (tail[i] == 0x50 &&
+            tail[i + 1] == 0x4B &&
+            tail[i + 2] == 0x05 &&
+            tail[i + 3] == 0x06) {
+          return true;
+        }
+      }
+      return false;
+    } finally {
+      await raf.close();
+    }
+  }
+
   /// create file and write empty bytes
   Future<void> _prepareFile() async {
     var file = File(savePath);
@@ -82,7 +111,18 @@ class FileDownloader {
       await _readStatus();
       _currentBytes = _blocks.fold<int>(0,
           (previousValue, element) => previousValue + element.downloadedBytes);
-    } else {
+      // The .download state claims the file is already complete, but a prior
+      // run may have been killed before the OS flushed every block to disk.
+      // Verify the End Of Central Directory record really exists; if not,
+      // discard the stale state and re-download from scratch instead of
+      // resuming a half-written file.
+      if (_currentBytes >= _fileSize && !await _eocdPresent()) {
+        await File("$savePath.download").delete();
+        _currentBytes = 0;
+        _blocks = [];
+      }
+    }
+    if (_blocks.isEmpty) {
       if (_fileSize > 1024 * 1024 * 1024) {
         _kChunkSize = 64 * 1024 * 1024;
       } else if (_fileSize > 512 * 1024 * 1024) {
@@ -163,10 +203,10 @@ class FileDownloader {
 
       // check if download is finished
       if (_currentBytes < _fileSize) {
-        resultStream
-            .addError(Exception("Download failed: Expected $_fileSize bytes, "
-                "but only $_currentBytes bytes downloaded."));
+        resultStream.addError(Exception("Download failed: Expected $_fileSize bytes, "
+            "but only $_currentBytes bytes downloaded."));
         resultStream.close();
+        return;
       }
 
       resultStream.add(DownloadingStatus(_currentBytes, _fileSize, 0, true));

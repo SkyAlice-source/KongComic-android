@@ -13,6 +13,7 @@ import android.os.Environment
 import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
+import android.webkit.CookieManager
 import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContract
@@ -153,6 +154,22 @@ class MainActivity : FlutterFragmentActivity() {
 
                 "getDeviceAbi" -> {
                     res.success(getDeviceAbi())
+                }
+
+                "getWebViewCookie" -> {
+                    val url = call.argument<String>("url")
+                    if (url.isNullOrEmpty()) {
+                        res.success("")
+                    } else {
+                        try {
+                            // 原生 CookieManager.getCookie 不受 HttpOnly 限制，
+                            // 能拿到 WebView 会话里包括 cf_clearance 在内的全部 cookie，
+                            // 补 document.cookie（JS 读不到 HttpOnly）的抓取缺口。
+                            res.success(CookieManager.getInstance().getCookie(url) ?: "")
+                        } catch (e: Exception) {
+                            res.success("")
+                        }
+                    }
                 }
 
                 "installApk" -> {

@@ -242,9 +242,14 @@ class LocalManager with ChangeNotifier {
 
   void _checkNoMedia() {
     if (App.isAndroid) {
-      var file = File(FilePath.join(path, '.nomedia'));
-      if (!file.existsSync()) {
-        file.createSync();
+      try {
+        var file = File(FilePath.join(path, '.nomedia'));
+        if (!file.existsSync()) {
+          file.createSync();
+        }
+      } catch (e, s) {
+        // 防御：路径异常（如权限中途被收回）时不能让 init 直接崩掉。
+        Log.error("IO", "Failed to write .nomedia: $e", s);
       }
     }
   }
@@ -313,12 +318,23 @@ class LocalManager with ChangeNotifier {
     }
     try {
       await _copyWithStrategy(directory, newDir, overwrite: overwrite);
+    } catch (e, s) {
+      Log.error("IO", "Failed to move comics: $e", s);
+      return "Failed to move comics. Check storage permission and try again."
+          .tl;
+    }
+    try {
       await directory.deleteContents(recursive: true);
+    } catch (e, s) {
+      // 复制已成功，旧目录清理失败不致命：仍切换到新路径，残留可手动清理。
+      Log.error("IO", "Failed to clean old directory: $e", s);
+    }
+    try {
       await File(FilePath.join(App.dataPath, 'local_path'))
           .writeAsString(newPath);
     } catch (e, s) {
-      Log.error("IO", e, s);
-      return e.toString();
+      Log.error("IO", "Failed to persist local_path: $e", s);
+      return "Failed to save storage path. Please try again.".tl;
     }
     path = newPath;
     _checkNoMedia();
@@ -376,8 +392,38 @@ class LocalManager with ChangeNotifier {
     });
   }
 
+  /// 探测公共 Download/Comic 目录是否可用（Android）。
+  /// 用 getExternalStorageDirectory() 拿当前用户的外部存储根，避免硬编码
+  /// /storage/emulated/0 在多用户 / 应用分身场景下写错目录。可用返回完整路径，
+  /// 不可用（未授予"所有文件访问"等）返回 null，由调用方自行回退。
+  Future<String?> detectDownloadComicPath() async {
+    if (!App.isAndroid) return null;
+    try {
+      var root = await getExternalStorageDirectory();
+      if (root == null) return null;
+      var comicDir = Directory(FilePath.join(root.path, 'Download', 'Comic'));
+      if (!comicDir.existsSync()) {
+        comicDir.createSync(recursive: true);
+      }
+      var probe = File(FilePath.join(comicDir.path, 'kongcomic_probe'));
+      probe.createSync();
+      probe.deleteSync();
+      return comicDir.path;
+    } catch (e) {
+      Log.warning("IO", "Cannot use Download/Comic: $e");
+      return null;
+    }
+  }
+
   Future<String> findDefaultPath() async {
     if (App.isAndroid) {
+      // 优先使用公共 Download/Comic 目录（用户可见、方便用文件管理器管理/拷出）。
+      // 依赖 MANAGE_EXTERNAL_STORAGE「所有文件访问」权限（Manifest 已声明）；
+      // 未授予时写测试文件失败，自动回退到应用专属外部目录，不影响使用。
+      var comic = await detectDownloadComicPath();
+      if (comic != null) {
+        return comic;
+      }
       var external = await getExternalStorageDirectories();
       if (external != null && external.isNotEmpty) {
         return FilePath.join(external.first.path, 'local');

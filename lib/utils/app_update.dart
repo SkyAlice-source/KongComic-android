@@ -63,9 +63,21 @@ class AppUpdate {
       final lang = m.group(1)!;
       final start = m.end;
       final end = i + 1 < matches.length ? matches[i + 1].start : body.length;
-      blocks[lang] = body.substring(start, end).trim();
+      blocks[lang] = _stripDetailsTags(body.substring(start, end));
     }
     return blocks;
+  }
+
+  /// Strip `<details>` / `</details>` / `<summary>…</summary>` folding tags
+  /// from a changelog block. The GitHub release page uses these to collapse
+  /// the Chinese / Japanese sections (English stays on top and expanded), but
+  /// the in-app Markdown renderer would otherwise show the raw HTML tags.
+  static String _stripDetailsTags(String s) {
+    return s
+        .replaceAll(RegExp(r'<details[^>]*>'), '')
+        .replaceAll('</details>', '')
+        .replaceAll(RegExp(r'<summary[^>]*>.*?</summary>', dotAll: true), '')
+        .trim();
   }
 
   /// Pick the device locale's language code: zh / ja / else en.
@@ -301,20 +313,9 @@ class AppUpdate {
     FileDownloaderHandle? handle,
   }) async {
     final savePath = apkPath(version);
-    // 清理上次可能残留的损坏 APK 与断点状态文件，强制全新下载。
-    // 否则基于旧断点状态可能跳过真实下载，直接拿损坏文件去安装。
-    final staleApk = File(savePath);
-    if (staleApk.existsSync()) {
-      try {
-        staleApk.deleteSync();
-      } catch (_) {}
-    }
-    final staleState = File("$savePath.download");
-    if (staleState.existsSync()) {
-      try {
-        staleState.deleteSync();
-      } catch (_) {}
-    }
+    // 注意：不在这里删除残留 APK / `.download` 断点状态文件。FileDownloader
+    // 内部会自行处理——有效的断点状态用于断点续传（避免不稳网络反复从 0 重下），
+    // 损坏或残缺的文件则由 `_prepareFile` + EOCD 守卫在下载前清理并全新下载。
     if (!updateDir.existsSync()) {
       updateDir.createSync(recursive: true);
     }

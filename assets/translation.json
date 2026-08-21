@@ -1,5 +1,12 @@
 {
   "zh_CN": {
+    "SSL connection error": "SSL 连接错误",
+    "Failed to save storage path. Please try again.": "保存存储路径失败，请重试",
+    "Failed to move comics. Check storage permission and try again.": "移动漫画失败，请检查存储权限或剩余空间后重试",
+    "Need all-files access permission to use Download/Comic": "使用 Download/Comic 需要「所有文件访问」权限",
+    "Already using Download/Comic": "当前已是 Download/Comic",
+    "Move to Download/Comic": "移动到 Download/Comic",
+    "Could not detect a verification cookie. Try again or open the site in your browser.": "未检测到验证 Cookie，请重试或在浏览器中打开该站点",
     "Log in to @source to view this content.": "登录 @source 后即可查看该内容",
     "Pin to top": "置顶",
     "Chinese": "中文",
@@ -878,6 +885,13 @@
     "HTTP @code": "HTTP @code"
   },
   "zh_TW": {
+    "SSL connection error": "SSL 連線錯誤",
+    "Failed to save storage path. Please try again.": "儲存路徑儲存失敗，請重試",
+    "Failed to move comics. Check storage permission and try again.": "移動漫畫失敗，請檢查儲存權限或剩餘空間後重試",
+    "Need all-files access permission to use Download/Comic": "使用 Download/Comic 需要「所有檔案存取」權限",
+    "Already using Download/Comic": "目前已是 Download/Comic",
+    "Move to Download/Comic": "移動到 Download/Comic",
+    "Could not detect a verification cookie. Try again or open the site in your browser.": "未偵測到驗證 Cookie，請重試或在瀏覽器中開啟該站點",
     "Log in to @source to view this content.": "登入 @source 後即可查看該內容",
     "Pin to top": "置頂",
     "Chinese": "中文",
@@ -1756,6 +1770,13 @@
     "HTTP @code": "HTTP @code"
   },
   "ja_JP": {
+    "SSL connection error": "SSL接続エラー",
+    "Failed to save storage path. Please try again.": "保存先パスの保存に失敗しました。再試行してください",
+    "Failed to move comics. Check storage permission and try again.": "漫画の移動に失敗しました。ストレージ権限または空き容量を確認して再試行してください",
+    "Need all-files access permission to use Download/Comic": "Download/Comic を使用するには「すべてのファイルへのアクセス」権限が必要です",
+    "Already using Download/Comic": "既に Download/Comic を使用中",
+    "Move to Download/Comic": "Download/Comic に移動",
+    "Could not detect a verification cookie. Try again or open the site in your browser.": "認証Cookieを検出できませんでした。再試行するか、サイトをブラウザで開いてください",
     "Log in to @source to view this content.": "@source にログインすると閲覧できます",
     "Pin to top": "ピン留め",
     "Chinese": "中国語",

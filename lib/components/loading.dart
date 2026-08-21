@@ -13,13 +13,33 @@ bool isAuthError(String message) {
       m.contains('login required') ||
       m.contains('log in required') ||
       m.contains('sign in') ||
+      m.contains('signin') ||
       m.contains('unauthorized') ||
+      m.contains('not authorized') ||
+      m.contains('authorization failed') ||
+      m.contains('auth failed') ||
+      m.contains('login failed') ||
+      m.contains('log in failed') ||
+      m.contains('login error') ||
+      m.contains('access denied') ||
+      m.contains('access_denied') ||
+      m.contains('forbidden') ||
+      m.contains('token expired') ||
+      m.contains('session expired') ||
+      m.contains('login expired') ||
+      m.contains('invalid token') ||
+      m.contains('invalid credentials') ||
+      m.contains('logged out') ||
       m.contains('401') ||
+      m.contains('403') ||
       m.contains('未登录') ||
       m.contains('请登录') ||
       m.contains('需要登录') ||
       m.contains('需登录') ||
       m.contains('登陆') ||
+      m.contains('登录已过期') ||
+      m.contains('登录失效') ||
+      m.contains('会话过期') ||
       m.contains('登录');
 }
 
@@ -83,6 +103,35 @@ String _prettifyErrorMessage(String raw) {
     final sourceName = sourceMatch?.group(1) ?? "Source";
     return "@source: Source returned empty data, the comic may have been removed or the source is temporarily unavailable."
         .tlParams({"source": sourceName});
+  }
+  // 服务器错误（5xx）兜底：源 JS 抛出的错误未必带 "HTTP" 字样，
+  // 用 word-boundary 匹配裸状态码，避免误伤漫画名/章节里的数字。
+  final low = msg.toLowerCase();
+  final serverError = RegExp(r'\b(?:500|502|503|504)\b').firstMatch(low);
+  if (serverError != null ||
+      low.contains('bad gateway') ||
+      low.contains('service unavailable') ||
+      low.contains('internal server error') ||
+      low.contains('server error')) {
+    return "This is server-side error, please try again later. Do not report this issue."
+        .tl;
+  }
+  if (low.contains('failed to fetch') ||
+      low.contains('xmlhttprequest') ||
+      low.contains('http request failed') ||
+      low.contains('failed to load resource')) {
+    return "Network Error".tl;
+  }
+  if (low.contains('unable to resolve host') ||
+      low.contains('name or service not known') ||
+      low.contains('no such host') ||
+      low.contains('dns')) {
+    return "Unable to connect server".tl;
+  }
+  if (low.contains('certificate') ||
+      low.contains('ssl') ||
+      low.contains('tls')) {
+    return "SSL connection error".tl;
   }
   return msg;
 }

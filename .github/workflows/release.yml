@@ -109,14 +109,18 @@ jobs:
             echo "Warning: universal APK not found at $SRC (may be inside split-per-abi build)"
           fi
 
-      # 准备双语更新日志：从 changelogs/<version>.md 读取，
-      # 若对应版本文件缺失则生成占位，确保 release body 永不退化成空/纯链接。
+      # 准备三语更新日志：仓库约定 changelogs/v<version>.md（带 v 前缀），
+      # 而 pubspec 提取的 VERSION 不带 v。优先复制带 v 的源文件为不带 v 的
+      # 临时文件供 body_path 使用；找不到才生成占位，确保 release body
+      # 永不退化成空/纯链接。
       - name: Prepare release notes
         run: |
           VERSION=$(grep -E '^version: ' pubspec.yaml | sed 's/version: *//' | sed 's/\+.*$//')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           mkdir -p changelogs
-          if [ ! -f "changelogs/${VERSION}.md" ]; then
+          if [ -f "changelogs/v${VERSION}.md" ]; then
+            cp "changelogs/v${VERSION}.md" "changelogs/${VERSION}.md"
+          elif [ ! -f "changelogs/${VERSION}.md" ]; then
             echo "Release $VERSION" > "changelogs/${VERSION}.md"
           fi
           echo "Release notes for $VERSION ready"
