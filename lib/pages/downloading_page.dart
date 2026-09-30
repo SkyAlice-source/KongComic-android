@@ -20,8 +20,15 @@ class _DownloadingPageState extends State<DownloadingPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    firstTask = LocalManager().downloadingTasks.firstOrNull;
-    firstTask?.addListener(update);
+    // Guard against re-registering the same listener: this hook can fire
+    // several times, which would make [update] run (and setState) once per
+    // duplicate registration.
+    final current = LocalManager().downloadingTasks.firstOrNull;
+    if (current != firstTask) {
+      firstTask?.removeListener(update);
+      firstTask = current;
+      firstTask?.addListener(update);
+    }
   }
 
   @override

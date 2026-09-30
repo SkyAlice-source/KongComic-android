@@ -829,6 +829,26 @@ class _ContinuousModeState extends State<_ContinuousMode>
     return scale.clamp(100, 200) / 100.0;
   }
 
+  /// 条漫（上下连续）模式左右各留白占屏宽的比例，0 表示不留白。
+  ///
+  /// 宽屏设备/平板上条漫铺满全屏时单行过长且两侧贴边，阅读体验差。
+  /// 与 `limitImageWidth`（固定 0.7 比例限宽的开关）互补：这里是可调百分比，
+  /// 直接作为图片容器的左右 padding。
+  double get _webtoonSidePaddingRatio {
+    final v =
+        (appdata.settings['webtoonSidePadding'] as num?)?.toDouble() ?? 0;
+    return v.clamp(0, 30) / 100.0;
+  }
+
+  /// 左右各留白的实际宽度（px）。仅上下连续（条漫）模式生效，
+  /// 左右连续模式加左右留白没有意义。
+  double _webtoonSidePadding(BuildContext context) {
+    if (reader.mode != ReaderMode.continuousTopToBottom) return 0;
+    final ratio = _webtoonSidePaddingRatio;
+    if (ratio <= 0) return 0;
+    return MediaQuery.of(context).size.width * ratio;
+  }
+
   /// Whether the user was scrolling the page.
   /// The gesture detector has a delay to detect tap event.
   /// To handle the tap event, we need to know if the user was scrolling before the delay.
@@ -1100,7 +1120,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
         var image = _createImageProvider(index, context);
         if (image == null) return const SizedBox();
 
-        return ColoredBox(
+        Widget child = ColoredBox(
           color: context.colorScheme.surface,
           child: ComicImage(
             filterQuality: FilterQuality.medium,
@@ -1112,6 +1132,14 @@ class _ContinuousModeState extends State<_ContinuousMode>
             onDispose: (state) => imageStates.remove(state),
           ),
         );
+        final sidePadding = _webtoonSidePadding(context);
+        if (sidePadding > 0) {
+          child = Padding(
+            padding: EdgeInsets.symmetric(horizontal: sidePadding),
+            child: child,
+          );
+        }
+        return child;
       },
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         scrollbars: false,

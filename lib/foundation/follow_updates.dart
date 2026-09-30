@@ -153,6 +153,11 @@ void _updateItemsBase(
 
   // Consumers
   var updateFutures = <Future>[];
+  // 同一漫画源的并发上限。5 个 worker 若同时打同一个源，很容易被源站判定为
+  // 爬虫而限流/封 IP，因此限制每个源同时在飞的请求数。
+  const maxInFlightPerSource = 2;
+  var inFlightPerSource = <String, int>{};
+
   for (var i = 0; i < 5; i++) {
     var f = () async {
       while (true) {
@@ -160,7 +165,32 @@ void _updateItemsBase(
         if (t == null) {
           break;
         }
-        var result = await updateComic(t.comic, t.folder);
+        // 源可能已被删除（comicSource 为 null）或属本地漫画，兜底用 value。
+        var sourceKey = t.comic.type.comicSource?.key ??
+            t.comic.type.value.toString();
+        // 该源已达并发上限：持有任务等待空位。不能把任务 push 回 channel——
+        // Channel 在 close 后 push 会静默丢弃任务，导致进度永远走不满。
+        while ((inFlightPerSource[sourceKey] ?? 0) >= maxInFlightPerSource) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        inFlightPerSource[sourceKey] =
+            (inFlightPerSource[sourceKey] ?? 0) + 1;
+        ComicUpdateResult result;
+        try {
+          // 单请求超时保护：源站卡住时若没有超时，worker 会被永久占用，
+          // 5 个全部卡住则整个追更挂起。
+          result = await updateComic(t.comic, t.folder).timeout(
+            const Duration(seconds: 45),
+            onTimeout: () => ComicUpdateResult(false, "Timeout".tl),
+          );
+        } finally {
+          var left = (inFlightPerSource[sourceKey] ?? 1) - 1;
+          if (left <= 0) {
+            inFlightPerSource.remove(sourceKey);
+          } else {
+            inFlightPerSource[sourceKey] = left;
+          }
+        }
         current++;
         if (result.updated) {
           updated++;

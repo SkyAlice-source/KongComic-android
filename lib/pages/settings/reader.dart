@@ -401,6 +401,23 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
           useDeviceSettings: useDeviceSpecificSettings,
         ).toSliver(),
+        _SliderSetting(
+          title: 'Webtoon side margin'.tl,
+          settingsIndex: 'webtoonSidePadding',
+          interval: 1,
+          min: 0,
+          max: 30,
+          divisions: null,
+          roundToInt: true,
+          valueSuffix: '%',
+          onChanged: () {
+            setState(() {});
+            widget.onChanged?.call('webtoonSidePadding');
+          },
+          comicId: isEnabledSpecificSettings ? widget.comicId : null,
+          comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+          useDeviceSettings: useDeviceSpecificSettings,
+        ).toSliver(),
         if (App.isAndroid)
           _SwitchSetting(
             title: 'Turn page by volume keys'.tl,

@@ -27,7 +27,10 @@ class AppUpdateInfo {
     if (abi != null && abiDownloads.containsKey(abi)) {
       return abiDownloads[abi];
     }
-    return abiDownloads.values.first;
+    // Prefer the universal build over an arbitrary per-ABI one when the
+    // device ABI has no matching asset (e.g. a release where split APKs
+    // failed to upload).
+    return abiDownloads['universal'] ?? abiDownloads.values.first;
   }
 }
 
@@ -212,12 +215,14 @@ class AppUpdate {
     final releaseNotes = _localizeNotes(body);
     final assets = (data["assets"] as List?) ?? const [];
     final downloads = <String, String>{};
+    String? universalUrl;
     for (final a in assets) {
       if (a is! Map) continue;
       final name = (a["name"] as String?) ?? "";
       final url = (a["browser_download_url"] as String?) ?? "";
       if (name.isEmpty || url.isEmpty) continue;
       if (!name.endsWith(".apk")) continue;
+      var matchedAbi = false;
       for (final abi in const [
         "arm64-v8a",
         "armeabi-v7a",
@@ -225,9 +230,18 @@ class AppUpdate {
       ]) {
         if (name.contains(abi)) {
           downloads[abi] = url;
+          matchedAbi = true;
           break;
         }
       }
+      // Keep the universal APK as a fallback for devices whose ABI has no
+      // dedicated asset.
+      if (!matchedAbi && name.toLowerCase().contains("universal")) {
+        universalUrl ??= url;
+      }
+    }
+    if (universalUrl != null) {
+      downloads['universal'] = universalUrl;
     }
     return AppUpdateInfo(
       latestVersion: coreVersion,

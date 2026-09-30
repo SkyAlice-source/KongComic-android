@@ -271,6 +271,24 @@ class MainActivity : FlutterFragmentActivity() {
         if (!file.exists()) {
             throw Exception("APK file not found: $path")
         }
+        // Android 8.0+ requires the "install unknown apps" permission for this
+        // specific source. Without it the install intent is silently dropped,
+        // so send the user to the system setting first.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !packageManager.canRequestPackageInstalls()
+        ) {
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName")
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            // Report as an error so Dart doesn't announce "update ready" while
+            // the user is actually sitting on the permission settings page.
+            // The APK stays on disk, so tapping the completion notification
+            // once permission is granted installs it.
+            throw Exception("install_permission_required")
+        }
         val authority = "$packageName.fileprovider"
         val uri: Uri = FileProvider.getUriForFile(this, authority, file)
         val intent = Intent(Intent.ACTION_VIEW)

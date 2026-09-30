@@ -240,6 +240,16 @@ class LocalManager with ChangeNotifier {
 
   Directory get directory => Directory(path);
 
+  /// True while a storage migration ([setNewPath]) is running.
+  ///
+  /// The migration is "copy to new path -> wipe old path -> switch path", so
+  /// anything written into the storage directory in between can be silently
+  /// lost. Downloads (which run in the background) and imports must not touch
+  /// the directory while this is true.
+  bool _isMigrating = false;
+
+  bool get isMigrating => _isMigrating;
+
   void _checkNoMedia() {
     if (App.isAndroid) {
       try {
@@ -291,6 +301,9 @@ class LocalManager with ChangeNotifier {
   //            skip collisions, and then wipe the source.
   // Returns null on success, error message string on failure.
   Future<String?> setNewPath(String newPath, {bool overwrite = true}) async {
+    if (_isMigrating) {
+      return "A storage migration is already in progress".tl;
+    }
     // Reject empty path. Some Android directory pickers return a non-null
     // entry whose `.path` is `""` when the user backs out without granting
     // permission; feeding that into `Directory('')` throws
@@ -316,10 +329,44 @@ class LocalManager with ChangeNotifier {
     if (p.equals(directory.path, newDir.path)) {
       return null;
     }
+    // 迁移前必须让存储目录「静默」：流程是复制到新目录 → 删除旧目录 → 切换
+    // 路径，若此时下载任务仍在往旧目录写文件，复制可能漏掉或只复制一半，
+    // 随后旧目录被清空 → 这一话直接丢失。
+    _isMigrating = true;
+    notifyListeners();
+    final paused = <DownloadTask>[];
+    for (final task in downloadingTasks) {
+      if (!task.isPaused) {
+        task.pause();
+        paused.add(task);
+      }
+    }
+    // 被取消的图片下载可能正卡在 writeAsBytes 的 await 中无法中断，
+    // 给一点时间让它落盘，避免复制过程中文件被改写/截断。
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    try {
+      return await _moveTo(newDir, overwrite: overwrite, paused: paused);
+    } finally {
+      _isMigrating = false;
+      notifyListeners();
+    }
+  }
+
+  /// Performs the actual copy -> wipe -> switch. Extracted from [setNewPath]
+  /// so the paused download tasks can always be resumed (or redirected) no
+  /// matter which step fails.
+  Future<String?> _moveTo(
+    Directory newDir, {
+    required bool overwrite,
+    required List<DownloadTask> paused,
+  }) async {
+    final oldRoot = directory.path;
     try {
       await _copyWithStrategy(directory, newDir, overwrite: overwrite);
     } catch (e, s) {
       Log.error("IO", "Failed to move comics: $e", s);
+      // 复制失败：旧目录数据完好，恢复下载任务继续写旧目录。
+      _resumePausedTasks(paused, null, oldRoot);
       return "Failed to move comics. Check storage permission and try again."
           .tl;
     }
@@ -331,14 +378,47 @@ class LocalManager with ChangeNotifier {
     }
     try {
       await File(FilePath.join(App.dataPath, 'local_path'))
-          .writeAsString(newPath);
+          .writeAsString(newDir.path);
     } catch (e, s) {
       Log.error("IO", "Failed to persist local_path: $e", s);
+      _resumePausedTasks(paused, null, oldRoot);
       return "Failed to save storage path. Please try again.".tl;
     }
-    path = newPath;
+    path = newDir.path;
     _checkNoMedia();
+    // 成功迁移：把进行中的下载任务重定向到新目录，否则恢复后它们会继续写
+    // 已被清空的旧目录，导致同一部漫画的文件分裂在两处。
+    _resumePausedTasks(paused, newDir.path, oldRoot);
     return null;
+  }
+
+  void _resumePausedTasks(
+      List<DownloadTask> tasks, String? newRoot, String oldRoot) {
+    for (final task in tasks) {
+      if (newRoot != null && task.path != null) {
+        task.path = _remapRoot(task.path!, oldRoot, newRoot);
+      }
+      try {
+        task.resume();
+      } catch (e, s) {
+        Log.error("IO", "Failed to resume download task: $e", s);
+      }
+    }
+  }
+
+  /// Rewrites [taskPath] so it points into [newRoot] instead of [oldRoot].
+  String _remapRoot(String taskPath, String oldRoot, String newRoot) {
+    if (p.equals(taskPath, oldRoot)) return newRoot;
+    try {
+      final rel = p.relative(taskPath, from: oldRoot);
+      // 以 '..' 开头说明 taskPath 不在旧目录下（异常数据），保持原样。
+      if (rel.startsWith('..')) return taskPath;
+      return p.join(newRoot, rel);
+    } catch (e) {
+      // p.relative 在跨盘符等情况下会抛异常，保持原路径即可。
+      Log.error("IO", "Failed to remap download path: $e", null);
+      return taskPath;
+    }
   }
 
   Future<void> _copyWithStrategy(
@@ -728,14 +808,9 @@ class LocalManager with ChangeNotifier {
         files.add(entity);
       }
     }
-    files.sort((a, b) {
-      var ai = int.tryParse(a.name.split('.').first);
-      var bi = int.tryParse(b.name.split('.').first);
-      if (ai != null && bi != null) {
-        return ai.compareTo(bi);
-      }
-      return a.name.compareTo(b.name);
-    });
+    // 自然排序：文件名里的数字按数值比较，否则 "图_10" 会排在 "图_2" 前面，
+    // 导致阅读顺序错乱（旧实现仅在文件名为纯数字时才按数值排）。
+    files.sort((a, b) => compareNatural(a.name, b.name));
     return files.map((e) => "file://${e.path}").toList();
   }
 
@@ -786,16 +861,44 @@ class LocalManager with ChangeNotifier {
     return Directory(FilePath.join(path, dir)).create().then((value) => value);
   }
 
+  /// True right after [completeTask] ran, cleared by [removeTask].
+  ///
+  /// Lets the download notification tell "the queue finished" apart from
+  /// "the user cancelled", since both end with an empty queue.
+  bool lastTaskCompleted = false;
+
+  /// Resume the head of the queue.
+  ///
+  /// A task that failed keeps `isError == true` and stays at the head.
+  /// Resuming it blindly would retry it forever and starve every task added
+  /// after it — the queue would look alive while nothing progresses. So push
+  /// a failed head task to the tail (the user can still retry it manually)
+  /// before starting the next one.
+  void _resumeHead() {
+    if (_isMigrating) return;
+    if (downloadingTasks.isEmpty) return;
+    if (downloadingTasks.first.isError && downloadingTasks.length > 1) {
+      final failed = downloadingTasks.removeAt(0);
+      downloadingTasks.add(failed);
+      notifyListeners();
+      saveCurrentDownloadingTasks();
+    }
+    downloadingTasks.firstOrNull?.resume();
+  }
+
   void completeTask(DownloadTask task) {
     add(task.toLocalComic());
     downloadingTasks.remove(task);
+    lastTaskCompleted = true;
     notifyListeners();
     saveCurrentDownloadingTasks();
-    downloadingTasks.firstOrNull?.resume();
+    // 迁移期间不允许自动放行下一个任务（否则它会往正在被清空的旧目录写）。
+    _resumeHead();
   }
 
   void removeTask(DownloadTask task) {
     downloadingTasks.remove(task);
+    lastTaskCompleted = false;
     notifyListeners();
     saveCurrentDownloadingTasks();
   }
@@ -808,7 +911,9 @@ class LocalManager with ChangeNotifier {
       downloadingTasks.insert(0, task);
       notifyListeners();
       saveCurrentDownloadingTasks();
-      if (shouldResume) {
+      if (shouldResume && !_isMigrating) {
+        // The task was explicitly moved to the front, so start it even if it
+        // previously failed.
         downloadingTasks.first.resume();
       }
     }
@@ -931,7 +1036,8 @@ class LocalManager with ChangeNotifier {
     downloadingTasks.add(task);
     notifyListeners();
     saveCurrentDownloadingTasks();
-    downloadingTasks.first.resume();
+    // 迁移期间新任务保持暂停，等迁移结束后由 _resumePausedTasks 统一放行。
+    _resumeHead();
   }
 
   void deleteComic(LocalComic c, [bool removeFileOnDisk = true]) {

@@ -1,5 +1,12 @@
 {
   "zh_CN": {
+    "Download complete": "下载完成",
+    "All downloads have finished.": "全部下载已完成",
+    "Packaging...": "正在打包…",
+    "Timeout": "超时",
+    "Webtoon side margin": "条漫左右边距",
+    "Storage is being moved, please try again later.": "存储正在迁移，请稍后再试",
+    "A storage migration is already in progress": "存储迁移正在进行中",
     "SSL connection error": "SSL 连接错误",
     "Failed to save storage path. Please try again.": "保存存储路径失败，请重试",
     "Failed to move comics. Check storage permission and try again.": "移动漫画失败，请检查存储权限或剩余空间后重试",
@@ -885,6 +892,13 @@
     "HTTP @code": "HTTP @code"
   },
   "zh_TW": {
+    "Download complete": "下載完成",
+    "All downloads have finished.": "全部下載已完成",
+    "Packaging...": "正在打包…",
+    "Timeout": "逾時",
+    "Webtoon side margin": "條漫左右邊距",
+    "Storage is being moved, please try again later.": "儲存正在遷移，請稍後再試",
+    "A storage migration is already in progress": "儲存遷移正在進行中",
     "SSL connection error": "SSL 連線錯誤",
     "Failed to save storage path. Please try again.": "儲存路徑儲存失敗，請重試",
     "Failed to move comics. Check storage permission and try again.": "移動漫畫失敗，請檢查儲存權限或剩餘空間後重試",
@@ -1770,6 +1784,13 @@
     "HTTP @code": "HTTP @code"
   },
   "ja_JP": {
+    "Download complete": "ダウンロード完了",
+    "All downloads have finished.": "すべてのダウンロードが完了しました",
+    "Packaging...": "圧縮中…",
+    "Timeout": "タイムアウト",
+    "Webtoon side margin": "ウェブトゥーンの左右余白",
+    "Storage is being moved, please try again later.": "ストレージを移動中です。しばらくしてから再試行してください",
+    "A storage migration is already in progress": "ストレージの移動が進行中です",
     "SSL connection error": "SSL接続エラー",
     "Failed to save storage path. Please try again.": "保存先パスの保存に失敗しました。再試行してください",
     "Failed to move comics. Check storage permission and try again.": "漫画の移動に失敗しました。ストレージ権限または空き容量を確認して再試行してください",

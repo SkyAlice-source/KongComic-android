@@ -6,6 +6,7 @@ import 'package:kong_comic/utils/app_update.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'package:kong_comic/pages/downloading_page.dart';
 import 'package:kong_comic/pages/follow_updates_page.dart';
+import 'package:kong_comic/pages/local_comics_page.dart';
 
 const _updateChannelId = 'kongcomic_updates';
 const _updateChannelNameKey = 'Updates';
@@ -46,6 +47,11 @@ void _onNotificationResponse(NotificationResponse response) {
     _openFollowUpdatesPage();
     return;
   }
+  // Download finished: jump to the local library where the new comic landed.
+  if (payload == 'download_complete') {
+    _openLocalComicsPage();
+    return;
+  }
   if (payload != 'download') return;
   // Tapping the notification body (not an action button) jumps straight to
   // the download page so the user can see/manage active downloads.
@@ -78,6 +84,19 @@ void _openDownloadPage() {
   } catch (_) {
     // App not in a navigable state (e.g. fully terminated). The download page
     // is still reachable from 本地 → 下载管理.
+  }
+}
+
+/// Navigate to the local comics page after a download finished, so the user
+/// lands on the comic they just downloaded instead of an empty queue.
+void _openLocalComicsPage() {
+  try {
+    final context = App.mainNavigatorKey?.currentContext;
+    if (context != null) {
+      context.to(() => const LocalComicsPage());
+    }
+  } catch (_) {
+    // App not in a navigable state; the page remains reachable from the 本地 tab.
   }
 }
 
@@ -159,6 +178,10 @@ class AppNotifications {
       autoCancel: autoCancel,
       onlyAlertOnce: true,
       channelShowBadge: false,
+      // Progress notifications are refreshed every second; never play the
+      // default sound or they would chime on every update.
+      playSound: false,
+      enableVibration: false,
     );
   }
 
@@ -364,6 +387,7 @@ class AppNotifications {
       ),
       AndroidNotificationAction('cancel', 'Cancel'.tl),
     ];
+    final percent = (progress * 100).round().clamp(0, 100);
     await _plugin.show(
       id: _downloadNotificationId,
       title: title,
@@ -373,15 +397,24 @@ class AppNotifications {
           _downloadChannelId,
           _downloadChannelNameKey.tl,
           channelDescription: _downloadChannelDescKey.tl,
-          importance: Importance.low,
-          priority: Priority.low,
+          // IMPORTANCE_LOW lands in the "silent notifications" section, which
+          // Android collapses — the progress bar and action buttons were
+          // effectively invisible. Use default importance (no sound) instead.
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
           ongoing: !isError,
           autoCancel: false,
           showProgress: true,
           maxProgress: 100,
-          progress: (progress * 100).round().clamp(0, 100),
+          progress: percent,
+          // Nothing downloaded yet: the task is still fetching comic info /
+          // cover / image list, so there is no total to divide by and a
+          // determinate bar just sits at 0% looking frozen.
+          indeterminate: !isError && !isPaused && percent <= 0,
           onlyAlertOnce: true,
           channelShowBadge: false,
+          playSound: false,
+          enableVibration: false,
           actions: actions,
         ),
       ),
@@ -391,6 +424,33 @@ class AppNotifications {
 
   static Future<void> cancelDownload() async {
     await _plugin.cancel(id: _downloadNotificationId);
+  }
+
+  /// Tell the user the download queue has drained. Without this the ongoing
+  /// progress notification simply vanishes, which reads as "the download
+  /// died" rather than "it finished".
+  static Future<void> showDownloadComplete() async {
+    await init();
+    await _plugin.show(
+      id: _downloadNotificationId,
+      title: "Download complete".tl,
+      body: "All downloads have finished.".tl,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          _downloadChannelId,
+          _downloadChannelNameKey.tl,
+          channelDescription: _downloadChannelDescKey.tl,
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          ongoing: false,
+          autoCancel: true,
+          showProgress: false,
+          onlyAlertOnce: true,
+          channelShowBadge: false,
+        ),
+      ),
+      payload: 'download_complete',
+    );
   }
 
   static String _formatSpeed(int bytesPerSecond) {
@@ -413,6 +473,13 @@ class DownloadNotifier {
   static DownloadTask? _tracked;
   static bool _started = false;
   static bool _permissionRequested = false;
+
+  /// Signature of the last posted notification. Used to skip redundant
+  /// reposts: the active task notifies every second, and re-posting an
+  /// identical notification would (a) waste a platform-channel round trip
+  /// and (b) resurrect notifications the user just dismissed — notably the
+  /// error one, which is not ongoing and can be swiped away.
+  static String? _lastSignature;
 
   static void start() {
     if (_started) return;
@@ -441,7 +508,15 @@ class DownloadNotifier {
   static void _update() {
     final tasks = LocalManager().downloadingTasks;
     if (tasks.isEmpty) {
-      AppNotifications.cancelDownload();
+      _lastSignature = null;
+      // The queue drained: either everything finished or the user cancelled
+      // the last task. Only announce the former.
+      if (LocalManager().lastTaskCompleted) {
+        LocalManager().lastTaskCompleted = false;
+        AppNotifications.showDownloadComplete();
+      } else {
+        AppNotifications.cancelDownload();
+      }
       return;
     }
     if (!_permissionRequested) {
@@ -451,6 +526,10 @@ class DownloadNotifier {
       AppNotifications.requestPermission();
     }
     final first = tasks.first;
+    final signature = '${first.title}|${first.message}|'
+        '${(first.progress * 100).round()}|${first.isPaused}|${first.isError}';
+    if (signature == _lastSignature) return;
+    _lastSignature = signature;
     AppNotifications.showDownload(
       title: first.title,
       body: first.message,

@@ -224,6 +224,7 @@ class Settings with ChangeNotifier {
     'longPressZoomPosition': "press", // press, center
     'checkUpdateOnStart': true,
     'limitImageWidth': true,
+    'webtoonSidePadding': 0, // 0% - 30%, 条漫(上下连续)模式左右留白占屏宽比例
     'imageFitMode': 'fitWidth',
     'imageDisplayScale': 100, // 100% - 200%, zoom applied in reader
     'webdav': [], // empty means not configured

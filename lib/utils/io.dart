@@ -434,6 +434,65 @@ class Share {
   }
 }
 
+/// Compares two strings using "natural" ordering: runs of digits are compared
+/// by their numeric value instead of character by character.
+///
+/// Plain string sorting puts `page_10` before `page_2`, which breaks reading
+/// order for imported/downloaded chapters. With natural ordering
+/// `page_2 < page_10`, and pure numeric names (`1.jpg`, `10.jpg`) still work.
+int compareNatural(String a, String b) {
+  var i = 0;
+  var j = 0;
+  while (i < a.length && j < b.length) {
+    final ca = a.codeUnitAt(i);
+    final cb = b.codeUnitAt(j);
+    final aDigit = ca >= 48 && ca <= 57;
+    final bDigit = cb >= 48 && cb <= 57;
+    if (aDigit && bDigit) {
+      final startA = i;
+      final startB = j;
+      var na = 0;
+      var nb = 0;
+      // Guard against overflow: fall back to length-then-lexicographic for
+      // digit runs longer than what int can hold.
+      final lenA = _digitRunLength(a, i);
+      final lenB = _digitRunLength(b, j);
+      final fits = lenA <= 18 && lenB <= 18;
+      while (i < a.length && _isDigit(a.codeUnitAt(i))) {
+        if (fits) na = na * 10 + (a.codeUnitAt(i) - 48);
+        i++;
+      }
+      while (j < b.length && _isDigit(b.codeUnitAt(j))) {
+        if (fits) nb = nb * 10 + (b.codeUnitAt(j) - 48);
+        j++;
+      }
+      if (na != nb && fits) return na.compareTo(nb);
+      // Same value but different padding ("007" vs "7") or overflowed:
+      // shorter run first, then plain comparison for a stable order.
+      if (lenA != lenB) return lenA.compareTo(lenB);
+      if (!fits) {
+        final cmp = a.substring(startA, i).compareTo(b.substring(startB, j));
+        if (cmp != 0) return cmp;
+      }
+    } else {
+      if (ca != cb) return ca.compareTo(cb);
+      i++;
+      j++;
+    }
+  }
+  return (a.length - i).compareTo(b.length - j);
+}
+
+bool _isDigit(int codeUnit) => codeUnit >= 48 && codeUnit <= 57;
+
+int _digitRunLength(String s, int start) {
+  var n = 0;
+  while (start + n < s.length && _isDigit(s.codeUnitAt(start + n))) {
+    n++;
+  }
+  return n;
+}
+
 String bytesToReadableString(int bytes) {
   if (bytes < 1024) {
     return "$bytes B";

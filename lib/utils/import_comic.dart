@@ -320,11 +320,12 @@ class ImportComic {
       return null;
     }
 
-    fileList.sort();
+    // 自然排序：纯字符串排序会把 "10" 排在 "2" 前面，导致阅读顺序错乱。
+    fileList.sort(compareNatural);
     coverPath = fileList.firstWhereOrNull((l) => l.startsWith('cover')) ??
         fileList.first;
 
-    chapters.sort();
+    chapters.sort(compareNatural);
     if (hasChapters && coverPath == '') {
       // use the first image in the first chapter as the cover
       var firstChapter = Directory('${directory.path}/${chapters.first}');
@@ -448,6 +449,13 @@ class ImportComic {
 
   Future<bool> registerComics(
       Map<String?, List<LocalComic>> importedComics, bool copy) async {
+    // 迁移进行中：存储目录正在被复制/清空，此时导入写入的文件可能随旧目录
+    // 一起被删除，因此直接拒绝，避免静默丢数据。
+    if (copy && LocalManager().isMigrating) {
+      App.rootContext
+          .showMessage(message: "Storage is being moved, please try again later.".tl);
+      return false;
+    }
     try {
       if (copy) {
         importedComics = await _copyComicsToLocalDir(importedComics);

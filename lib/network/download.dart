@@ -417,6 +417,11 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
 
     // Package downloaded chapters as CBZ if enabled
     if (appdata.settings['saveAsCbz'] == true) {
+      // Zipping happens after the last image finished, so the progress bar is
+      // already at 100%. Without a status change the task looks frozen for
+      // the (potentially several) seconds the archive takes to build.
+      _message = "Packaging...".tl;
+      notifyListeners();
       // Sanitize the manga title once and use it as the CBZ filename prefix,
       // matching the "漫画名 + 章节名" naming convention so files stay
       // recognizable when copied out of the per-comic folder.

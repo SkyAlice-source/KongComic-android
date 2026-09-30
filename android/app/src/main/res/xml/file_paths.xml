@@ -3,4 +3,13 @@
     <cache-path
         name="update_apk"
         path="update/" />
+    <!-- 更新 APK 自 v1.3.2 起保存在 App.dataPath（getFilesDir）下的 update/ 目录，
+         不再是 cache 目录。缺少 files-path 时 FileProvider.getUriForFile 会抛
+         "Failed to find configured root"，导致下载完成后系统安装器拉不起来。 -->
+    <files-path
+        name="update_apk_files"
+        path="update/" />
+    <external-files-path
+        name="update_apk_external"
+        path="update/" />
 </paths>
