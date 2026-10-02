@@ -12,4 +12,10 @@
     <external-files-path
         name="update_apk_external"
         path="update/" />
+    <!-- Android 9 及以下的手动安装兜底会把 APK 复制到公共 Download 目录
+         （Environment#getExternalStoragePublicDirectory）再用 FileProvider 暴露，
+         需要 external-path 指向公共存储根。Android 10+ 走 MediaStore，不依赖此项。 -->
+    <external-path
+        name="public_download"
+        path="Download/" />
 </paths>

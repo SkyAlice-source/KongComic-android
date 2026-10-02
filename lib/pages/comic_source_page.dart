@@ -7,9 +7,11 @@ import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
+import 'package:kong_comic/foundation/comic_source/source_repositories.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/app_dio.dart';
 import 'package:kong_comic/network/cookie_jar.dart';
+import 'package:kong_comic/pages/source_repositories_page.dart';
 import 'package:kong_comic/pages/webview.dart';
 import 'package:kong_comic/utils/ext.dart';
 import 'package:kong_comic/utils/io.dart';
@@ -22,7 +24,21 @@ class ComicSourcePage extends StatelessWidget {
     ComicSource source, [
     bool showLoading = true,
   ]) async {
-    if (!source.url.isURL) {
+    // Resolve through the repository catalog (if the source is linked to one)
+    // so a changed folder layout upstream does not break the update.
+    String url;
+    try {
+      url = await SourceRepositories.instance.updateUrl(source);
+    } catch (e, s) {
+      Log.error("Update comic source", e, s);
+      if (showLoading) {
+        App.rootContext.showMessage(message: "Failed to update source".tl);
+        return;
+      } else {
+        rethrow;
+      }
+    }
+    if (!url.isURL) {
       if (showLoading) {
         App.rootContext.showMessage(message: "Invalid url config".tl);
         return;
@@ -42,7 +58,7 @@ class ComicSourcePage extends StatelessWidget {
     }
     try {
       var res = await AppDio().get<String>(
-        source.url,
+        url,
         options: Options(
           responseType: ResponseType.plain,
           headers: {"cache-time": "no"},
@@ -63,48 +79,47 @@ class ComicSourcePage extends StatelessWidget {
       } else {
         rethrow;
       }
-    }
-    await ComicSourceManager().reload();
-    _syncSourceOrder();
-    _addAllPagesWithComicSource(source);
-    if (showLoading) {
-      App.forceRebuild();
+    } finally {
+      // Always put the source back: it was removed from the manager above, so
+      // leaving this out would make it disappear from the UI until the next
+      // app restart whenever the update fails *or* the user cancels.
+      await ComicSourceManager().reload();
+      _syncSourceOrder();
+      _addAllPagesWithComicSource(source);
+      if (showLoading) {
+        App.forceRebuild();
+      }
     }
   }
 
-  static Future<int> checkComicSourceUpdate() async {
+  /// Checks every linked repository for newer versions.
+  ///
+  /// Returns details about what was checked and what failed, instead of a bare
+  /// count, so a broken repository can be reported without hiding the rest.
+  static Future<SourceUpdateCheck> checkComicSourceUpdate() async {
     if (ComicSource.all().isEmpty) {
-      return 0;
+      return const SourceUpdateCheck(
+        updates: {},
+        failures: [],
+        checked: 0,
+        skipped: 0,
+      );
     }
     try {
-      var dio = AppDio();
-      var res = await dio.get<String>(appdata.settings['comicSourceListUrl']);
-      if (res.statusCode != 200) {
-        return -1;
+      final result = await SourceRepositories.instance.checkUpdates(
+        ComicSource.all(),
+      );
+      if (result.updates.isNotEmpty) {
+        ComicSourceManager().updateAvailableUpdates(result.updates);
       }
-      var list = jsonDecode(res.data ?? "null") as List?;
-      if (list == null) return -1;
-      var versions = <String, String>{};
-      for (var source in list) {
-        versions[source['key']] = source['version'];
-      }
-      var shouldUpdate = <String>[];
-      for (var source in ComicSource.all()) {
-        if (versions.containsKey(source.key) &&
-            compareSemVer(versions[source.key]!, source.version)) {
-          shouldUpdate.add(source.key);
-        }
-      }
-      if (shouldUpdate.isNotEmpty) {
-        var updates = <String, String>{};
-        for (var key in shouldUpdate) {
-          updates[key] = versions[key]!;
-        }
-        ComicSourceManager().updateAvailableUpdates(updates);
-      }
-      return shouldUpdate.length;
+      return result;
     } catch (e) {
-      return -1;
+      return SourceUpdateCheck(
+        updates: const {},
+        failures: [e.toString()],
+        checked: 0,
+        skipped: 0,
+      );
     }
   }
 
@@ -290,6 +305,7 @@ class _BodyState extends State<_Body> {
         var file = File(source.filePath);
         file.delete();
         ComicSourceManager().remove(source.key);
+        SourceRepositories.instance.setOrigin(source.key, null);
         _syncSourceOrder();
         _validatePages();
         App.forceRebuild();
@@ -394,14 +410,28 @@ class _BodyState extends State<_Body> {
       App.rootContext,
       barrierDismissible: false,
     );
+    var failed = 0;
     for (final k in keys) {
       final s = ComicSource.find(k);
       if (s != null) {
-        await ComicSourcePage.update(s, false);
+        try {
+          await ComicSourcePage.update(s, false);
+        } catch (e, s2) {
+          // `update` rethrows when `showLoading` is false. Never let one broken
+          // script abort the batch — and never leave the loading dialog up.
+          failed++;
+          Log.error("Update comic source", e, s2);
+        }
       }
     }
     controller.close();
     if (mounted) {
+      if (failed > 0) {
+        App.rootContext.showMessage(
+          message: "@n sources could not be updated"
+              .tlParams({"n": failed.toString()}),
+        );
+      }
       setState(() {
         _selecting = false;
         _selected.clear();
@@ -424,6 +454,7 @@ class _BodyState extends State<_Body> {
           if (s != null) {
             File(s.filePath).delete();
             ComicSourceManager().remove(s.key);
+            SourceRepositories.instance.setOrigin(s.key, null);
           }
         }
         _syncSourceOrder();
@@ -521,20 +552,46 @@ class _BodyState extends State<_Body> {
   Future<void> _updateAll() async {
     if (_updatingAll) return;
     setState(() => _updatingAll = true);
-    final n = await ComicSourcePage.checkComicSourceUpdate();
+    final result = await ComicSourcePage.checkComicSourceUpdate();
+    final n = result.updates.length;
+    var updateFailures = 0;
     if (n > 0) {
       final updates =
           Map<String, String>.from(ComicSourceManager().availableUpdates);
       for (final key in updates.keys) {
         final s = ComicSource.find(key);
         if (s != null) {
-          await ComicSourcePage.update(s, false);
+          try {
+            await ComicSourcePage.update(s, false);
+          } catch (e, s2) {
+            // `update` rethrows when `showLoading` is false; without this the
+            // first broken script would skip the `setState` below and leave
+            // the button stuck in its loading state forever.
+            updateFailures++;
+            Log.error("Update comic source", e, s2);
+          }
         }
       }
     }
     App.forceRebuild();
     setState(() => _updatingAll = false);
-    if (mounted) {
+    if (!mounted) return;
+    // Keep repository-level problems and per-source ones apart, otherwise
+    // "N repositories failed to load" also counts things like "multiple
+    // variants found" and points the user at the wrong thing.
+    if (result.repositoryFailures.isNotEmpty) {
+      App.rootContext.showMessage(
+        message: "@n repositories failed to load".tlParams({
+          "n": result.repositoryFailures.length.toString(),
+        }),
+      );
+    } else if (updateFailures > 0 || result.failures.isNotEmpty) {
+      App.rootContext.showMessage(
+        message: "@n sources could not be updated".tlParams({
+          "n": (updateFailures + result.failures.length).toString(),
+        }),
+      );
+    } else {
       App.rootContext.showMessage(
         message: n > 0 ? "Updated sources".tl : "All sources up to date".tl,
       );
@@ -579,10 +636,10 @@ class _BodyState extends State<_Body> {
                     onPressed: () {
                       showPopUpWidget(
                         App.rootContext,
-                        _ComicSourceList(handleAddSource),
+                        SourceRepositoriesPage(install: handleAddSource),
                       );
                     },
-                    child: Text("Comic Source list".tl),
+                    child: Text("Repositories".tl),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -623,7 +680,7 @@ class _BodyState extends State<_Body> {
       var fileName = file.name;
       var bytes = await file.readAsBytes();
       var content = utf8.decode(bytes);
-      await addSource(content, fileName);
+      await addSource(content, fileName, fromFile: true);
     } catch (e, s) {
       App.rootContext.showMessage(message: "Failed to add source".tl);
       Log.error("Add comic source", "$e\n$s");
@@ -636,9 +693,11 @@ class _BodyState extends State<_Body> {
     );
   }
 
-  Future<void> handleAddSource(String url) async {
+  /// Installs a single script from [url]. Returns the installed source, or
+  /// null when the user cancelled or the download failed.
+  Future<ComicSource?> handleAddSource(String url) async {
     if (url.isEmpty) {
-      return;
+      return null;
     }
     var splits = url.split("/");
     splits.removeWhere((element) => element == "");
@@ -657,212 +716,43 @@ class _BodyState extends State<_Body> {
           headers: {"cache-time": "no"},
         ),
       );
-      if (cancel) return;
+      if (cancel) return null;
       controller.close();
-      await addSource(res.data!, fileName);
+      return await addSource(res.data!, fileName, originUrl: url);
     } catch (e, s) {
-      if (cancel) return;
+      if (cancel) return null;
       context.showMessage(message: "Failed to add source".tl);
       Log.error("Add comic source", "$e\n$s");
+      return null;
     }
   }
 
-  Future<void> addSource(String js, String fileName) async {
+  /// Installs a script and records where it came from.
+  ///
+  /// [fromFile] sources are marked as imported, everything else is assumed to
+  /// come from [originUrl] (falling back to the URL inside the script). Callers
+  /// installing from a repository should use [SourceRepositories.link] instead.
+  Future<ComicSource> addSource(
+    String js,
+    String fileName, {
+    String? originUrl,
+    bool fromFile = false,
+  }) async {
     var comicSource = await ComicSourceParser().createAndParse(js, fileName);
     ComicSourceManager().add(comicSource);
+    var recordedUrl = originUrl ?? comicSource.url;
+    await SourceRepositories.instance.setOrigin(
+      comicSource.key,
+      SourceOrigin(
+        kind: fromFile ? 'file' : 'url',
+        url: recordedUrl.isEmpty ? null : recordedUrl,
+      ),
+    );
     _syncSourceOrder();
     _addAllPagesWithComicSource(comicSource);
     appdata.saveData();
     App.forceRebuild();
-  }
-}
-
-class _ComicSourceList extends StatefulWidget {
-  const _ComicSourceList(this.onAdd);
-
-  final Future<void> Function(String) onAdd;
-
-  @override
-  State<_ComicSourceList> createState() => _ComicSourceListState();
-}
-
-class _ComicSourceListState extends State<_ComicSourceList> {
-  List? json;
-  bool changed = false;
-  var controller = TextEditingController();
-
-  void load() async {
-    if (json != null) {
-      setState(() {
-        json = null;
-      });
-    }
-    if (controller.text.isEmpty) {
-      setState(() {
-        json = [];
-      });
-      return;
-    }
-    var dio = AppDio();
-    try {
-      var res = await dio.get<String>(controller.text);
-      if (res.statusCode != 200) {
-        throw "error";
-      }
-      if (res.data == null) {
-        throw "empty response";
-      }
-      if (mounted) {
-        setState(() {
-          json = jsonDecode(res.data!);
-        });
-      }
-    } catch (e) {
-      context.showMessage(message: "Network error".tl);
-      if (mounted) {
-        setState(() {
-          json = [];
-        });
-      }
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    controller.text = appdata.settings['comicSourceListUrl'];
-    load();
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-    if (changed) {
-      appdata.settings['comicSourceListUrl'] = controller.text;
-      appdata.saveData();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PopUpWidgetScaffold(title: "Comic Source".tl, body: buildBody());
-  }
-
-  Widget buildBody() {
-    var currentKey = ComicSource.all().map((e) => e.key).toList();
-
-    return ListView.builder(
-      itemCount: (json?.length ?? 1) + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                width: 0.6,
-              ),
-              borderRadius: BorderRadius.circular(kcRadius8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ListTile(
-                  leading: HugeIcon(icon: HugeIcons.strokeRoundedSourceCode, size: 18),
-                  title: Text("Repo URL".tl),
-                ),
-                TextField(
-                  controller: controller,
-                  decoration: InputDecoration(
-                    hintText: "URL".tl,
-                    border: const UnderlineInputBorder(),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                  onChanged: (value) {
-                    changed = true;
-                  },
-                ).paddingHorizontal(16).paddingBottom(8),
-                Text(
-                  "The URL should point to a 'index.json' file".tl,
-                ).paddingLeft(16),
-                Text(
-                  "Do not report any issues related to sources to App repo.".tl,
-                ).paddingLeft(16),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        launchUrlString(
-                          "https://github.com/venera-app/venera/blob/master/doc/comic_source.md",
-                        );
-                      },
-                      child: Text("Help".tl),
-                    ),
-                    FilledButton.tonal(
-                      onPressed: load,
-                      child: Text("Refresh".tl),
-                    ),
-                    const SizedBox(width: 16),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          );
-        }
-
-        if (index == 1 && json == null) {
-          return Center(
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-            ).fixWidth(24).fixHeight(24),
-          );
-        }
-
-        index--;
-
-        var key = json![index]["key"];
-        var action = currentKey.contains(key)
-            ? HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 20).paddingRight(8)
-            : Button.filled(
-                child: Text("Add".tl),
-                onPressed: () async {
-                  var fileName = json![index]["fileName"];
-                  var url = json![index]["url"];
-                  if (url == null || !(url.toString()).isURL) {
-                    var listUrl =
-                        appdata.settings['comicSourceListUrl'] as String;
-                    if (listUrl
-                        .replaceFirst("https://", "")
-                        .replaceFirst("http://", "")
-                        .contains("/")) {
-                      url =
-                          listUrl.substring(0, listUrl.lastIndexOf("/") + 1) +
-                          fileName;
-                    } else {
-                      url = '$listUrl/$fileName';
-                    }
-                  }
-                  await widget.onAdd(url);
-                  setState(() {});
-                },
-              ).fixHeight(32);
-
-        var description = json![index]["version"];
-        if (json![index]["description"] != null) {
-          description = "$description\n${json![index]["description"]}";
-        }
-
-        return ListTile(
-          title: Text(json![index]["name"]),
-          subtitle: Text(description),
-          trailing: action,
-        );
-      },
-    );
+    return comicSource;
   }
 }
 
@@ -1505,6 +1395,13 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
       healthBadge(),
       AppBadge(
         source.version,
+        type: AppBadgeType.neutral,
+        fontSize: kcFont13,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      ),
+      // Which repository this script was installed from.
+      AppBadge(
+        SourceRepositories.instance.originLabel(source.key),
         type: AppBadgeType.neutral,
         fontSize: kcFont13,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

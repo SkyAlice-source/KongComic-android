@@ -11,6 +11,11 @@ class FileDownloader {
   final String savePath;
   final int maxConcurrent;
 
+  /// How many times a single chunk is retried before the whole download is
+  /// abandoned. GitHub resets connections frequently, especially from mainland
+  /// China; without retries one dropped chunk fails the whole APK download.
+  static const int maxAttemptsPerBlock = 3;
+
   FileDownloader(this.url, this.savePath, {this.maxConcurrent = 4});
 
   int _currentBytes = 0;
@@ -31,6 +36,11 @@ class FileDownloader {
   int _kChunkSize = 16 * 1024 * 1024;
 
   bool _canceled = false;
+
+  /// Set by the first chunk that gives up. Blocks any further chunks from
+  /// starting and is rethrown once the running ones finish, so no error goes
+  /// unawaited (a stray `throw` in a `then` callback used to leak here).
+  Object? _failure;
 
   late List<_DownloadBlock> _blocks;
 
@@ -220,11 +230,14 @@ class FileDownloader {
   }
 
   Future<void> _scheduleDownload() async {
-    var tasks = <Future>[];
+    final running = <Future<void>>{};
     while (true) {
       if (_canceled) return;
-      if (tasks.length >= maxConcurrent) {
-        await Future.any(tasks);
+      // Stop feeding new chunks once one has failed for good.
+      if (_failure != null) break;
+      if (running.length >= maxConcurrent) {
+        await Future.any(running);
+        continue;
       }
       final block = _blocks.firstWhereOrNull((element) =>
           !element.downloading &&
@@ -233,17 +246,46 @@ class FileDownloader {
         break;
       }
       block.downloading = true;
-      var task = _fetchBlock(block);
-      task.then((value) => tasks.remove(task), onError: (e) {
-        if(_canceled) return;
-        throw e;
-      });
-      tasks.add(task);
+      final task = _fetchBlock(block);
+      running.add(task);
+      // `_fetchBlock` never throws, so this detached listener cannot produce
+      // an unhandled error.
+      unawaited(task.whenComplete(() => running.remove(task)));
     }
-    await Future.wait(tasks);
+    await Future.wait(running.toList());
+    if (_failure != null) {
+      throw _failure!;
+    }
   }
 
+  /// Fetch [block], retrying transient failures. Never throws: a permanent
+  /// failure is recorded in [_failure] and rethrown by [_scheduleDownload].
+  ///
+  /// The Range header is rebuilt from `block.downloadedBytes` on every
+  /// attempt, so a retry resumes the chunk instead of restarting it.
   Future<void> _fetchBlock(_DownloadBlock block) async {
+    for (var attempt = 0; attempt < maxAttemptsPerBlock; attempt++) {
+      try {
+        await _fetchBlockOnce(block);
+        block.downloading = false;
+        return;
+      } catch (e) {
+        if (_canceled) {
+          block.downloading = false;
+          return;
+        }
+        if (attempt == maxAttemptsPerBlock - 1) {
+          block.downloading = false;
+          _failure ??= e;
+          return;
+        }
+        // Brief backoff so a brief network hiccup has time to clear.
+        await Future.delayed(Duration(milliseconds: 400 << attempt));
+      }
+    }
+  }
+
+  Future<void> _fetchBlockOnce(_DownloadBlock block) async {
     final start = block.start;
     final end = block.end;
 
@@ -272,14 +314,24 @@ class FileDownloader {
       buffer.addAll(data);
       if (buffer.length > 16 * 1024) {
         if (_isWriting) continue;
-        _currentBytes += buffer.length;
+        // `_isWriting` guards the file handle, which is shared by every chunk.
+        // Writing throws for reasons beyond our control (disk full, the file
+        // being closed by [stop] mid-write), and without a `finally` the flag
+        // would stay set forever — every other chunk then spins in the
+        // `while (_isWriting)` loop below and the download hangs silently
+        // instead of failing.
         _isWriting = true;
-        await _file!.setPosition(start + block.downloadedBytes);
-        await _file!.writeFrom(buffer);
-        block.downloadedBytes += buffer.length;
-        buffer.clear();
-        await _writeStatus();
-        _isWriting = false;
+        try {
+          _currentBytes += buffer.length;
+          final sink = _requireFile();
+          await sink.setPosition(start + block.downloadedBytes);
+          await sink.writeFrom(buffer);
+          block.downloadedBytes += buffer.length;
+          buffer.clear();
+          await _writeStatus();
+        } finally {
+          _isWriting = false;
+        }
       }
     }
 
@@ -288,15 +340,29 @@ class FileDownloader {
         await Future.delayed(const Duration(milliseconds: 10));
       }
       _isWriting = true;
-      _currentBytes += buffer.length;
-      await _file!.setPosition(start + block.downloadedBytes);
-      await _file!.writeFrom(buffer);
-      block.downloadedBytes += buffer.length;
-      await _writeStatus();
-      _isWriting = false;
+      try {
+        _currentBytes += buffer.length;
+        final sink = _requireFile();
+        await sink.setPosition(start + block.downloadedBytes);
+        await sink.writeFrom(buffer);
+        block.downloadedBytes += buffer.length;
+        await _writeStatus();
+      } finally {
+        _isWriting = false;
+      }
     }
 
     block.downloading = false;
+  }
+
+  /// The shared sink every chunk writes through, or a clear error when the
+  /// download was stopped and the handle is already gone.
+  RandomAccessFile _requireFile() {
+    final file = _file;
+    if (file == null) {
+      throw StateError("Download was stopped");
+    }
+    return file;
   }
 
   Future<void> stop() async {

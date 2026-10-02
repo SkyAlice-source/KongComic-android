@@ -96,15 +96,35 @@ class _AppSettingsState extends State<AppSettings> {
           actionTitle: "Move".tl,
           callback: () async {
             final manager = LocalManager();
-            final target = await manager.detectDownloadComicPath();
-            if (!mounted) return;
+            var target = await manager.detectDownloadComicPath();
             if (target == null) {
-              context.showMessage(
-                message:
-                    "Need all-files access permission to use Download/Comic".tl,
+              // 没有「所有文件访问」权限就写不进公共 Download 目录。这个开关
+              // 藏在系统设置深处，只弹提示条等于没说，所以直接引导过去授权，
+              // 授权回来后自动重试。
+              if (!mounted) return;
+              final go = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => const _AllFilesAccessDialog(),
               );
-              return;
+              if (go != true) return;
+              final granted = await requestAllFilesAccess();
+              if (!granted) {
+                if (!mounted) return;
+                context.showMessage(message: "Permission not granted".tl);
+                return;
+              }
+              target = await manager.detectDownloadComicPath();
+              if (!mounted) return;
+              if (target == null) {
+                context.showMessage(
+                  message:
+                      "Need all-files access permission to use Download/Comic"
+                          .tl,
+                );
+                return;
+              }
             }
+            if (!mounted) return;
             if (manager.path == target) {
               context.showMessage(
                 message: "Already using Download/Comic".tl,
@@ -750,6 +770,47 @@ class _WebdavSettingState extends State<_WebdavSetting> {
           ],
         ).paddingHorizontal(16),
       ),
+    );
+  }
+}
+
+/// 引导用户去系统设置打开「所有文件访问」权限。没有它，app 只能把漫画放在
+/// 自己的私有目录里，公共 Download/Comic 不可写。
+class _AllFilesAccessDialog extends StatelessWidget {
+  const _AllFilesAccessDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return ContentDialog(
+      title: "All-files access required".tl,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "To store comics in Download/Comic, KongComic needs the 「All files access」 permission."
+                .tl,
+          ).paddingBottom(8),
+          Text(
+            "The next screen is a system settings page. Turn on the switch for KongComic, then come back."
+                .tl,
+            style: TextStyle(
+              fontSize: kcCaption,
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        Button.text(
+          onPressed: () => context.pop(false),
+          child: Text("Cancel".tl),
+        ),
+        Button.filled(
+          onPressed: () => context.pop(true),
+          child: Text("Open settings".tl),
+        ),
+      ],
     );
   }
 }

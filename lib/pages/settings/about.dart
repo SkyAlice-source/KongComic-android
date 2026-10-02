@@ -229,6 +229,19 @@ Future<void> _startBackgroundUpdateDownload(
     return;
   }
   await AppNotifications.requestPermission();
+  if (!await AppNotifications.isAllowed) {
+    // Nothing would be visible without the notification permission, and the
+    // download is a 40 MB GitHub asset the user is waiting on. Fall back to an
+    // in-app dialog: same pipeline, but progress and the stage-aware actions
+    // ("Retry" / "Install manually" / "Open in browser") live on screen.
+    if (!App.rootContext.mounted) return;
+    await showDialog(
+      context: App.rootContext,
+      barrierDismissible: false,
+      builder: (ctx) => _UpdateDownloadDialog(info: info, abi: abi),
+    );
+    return;
+  }
   if (App.rootContext.mounted) {
     App.rootContext.showMessage(message: "Downloading update in the background".tl);
   }
@@ -257,8 +270,13 @@ Future<void> _backgroundUpdateDownload(
     await AppNotifications.showAppUpdateComplete(version: info.latestVersion);
   } catch (e, s) {
     AppUpdate.safeLog(e, s);
+    // Report which stage actually failed. For an install failure the APK is
+    // already downloaded, so tapping the notification retries *installing* it
+    // rather than starting another download.
+    final stage = updateFailureStage(e);
     await AppNotifications.showAppUpdateComplete(
-      error: "Download failed".tl,
+      error: updateFailureMessage(e),
+      version: stage == UpdateFailureStage.install ? info.latestVersion : null,
     );
   }
 }
@@ -310,8 +328,10 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
   double _progress = 0;
   int _bytesPerSecond = 0;
   String? _error;
+  UpdateFailureStage _failureStage = UpdateFailureStage.download;
   bool _starting = true;
   bool _installing = false;
+  bool _exportingApk = false;
   final FileDownloaderHandle _handle = FileDownloaderHandle();
 
   @override
@@ -330,6 +350,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
     setState(() {
       _starting = true;
       _error = null;
+      _failureStage = UpdateFailureStage.download;
     });
     try {
       await AppUpdate.downloadAndInstall(
@@ -355,10 +376,44 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
       // [dispose] already triggered [_handle.cancel]. Do not mutate state.
       if (_handle.isCanceled) return;
       setState(() {
-        _error = "Download failed".tl;
+        _failureStage = updateFailureStage(e);
+        _error = updateFailureMessage(e);
         _starting = false;
       });
     }
+  }
+
+  /// Manual recovery for the install stage: publish the already-downloaded APK
+  /// to the public Download folder and let the system installer handle it.
+  Future<void> _installManually() async {
+    setState(() => _exportingApk = true);
+    String? error;
+    try {
+      error = await AppUpdate.installFromDownloads(widget.info.latestVersion);
+    } on UpdateVerifyException {
+      // The local copy went bad between downloads; fall back to redownloading.
+      if (mounted) {
+        setState(() => _exportingApk = false);
+        _startDownload();
+      }
+      return;
+    } catch (e, s) {
+      AppUpdate.safeLog(e, s);
+      error ??= e.toString();
+    }
+    if (!mounted) return;
+    setState(() => _exportingApk = false);
+    if (error == null) {
+      if (mounted) {
+        App.rootContext.showMessage(
+          message: "Opened the system installer".tl,
+        );
+      }
+      return;
+    }
+    App.rootContext.showMessage(
+      message: "Failed to open the system installer".tl,
+    );
   }
 
   void _cancel() {
@@ -366,6 +421,14 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
     if (mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  void _openInBrowser() {
+    AppUpdate.openReleasePageInBrowser().catchError((e) {
+      if (mounted) {
+        App.rootContext.showMessage(message: "Network error".tl);
+      }
+    });
   }
 
   @override
@@ -405,8 +468,25 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
             onPressed: _cancel,
             child: Text("Cancel".tl),
           ),
-        if (_error != null)
-          Button.filled(
+        // The APK is already on disk for the install stage, so retrying the
+        // download would just redownload the same file. Offer the paths that
+        // can actually get it installed.
+        if (_error != null && _failureStage == UpdateFailureStage.install)
+          Button.text(
+            onPressed: () {
+              if (_exportingApk) return;
+              _installManually();
+            },
+            child: _exportingApk
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text("Install manually".tl),
+          ),
+        if (_error != null && _failureStage != UpdateFailureStage.install)
+          Button.text(
             onPressed: () {
               _startDownload();
             },
@@ -414,13 +494,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
           ),
         if (_error != null)
           Button.outlined(
-            onPressed: () {
-              AppUpdate.openReleasePageInBrowser().catchError((e) {
-                if (mounted) {
-                  App.rootContext.showMessage(message: "Network error".tl);
-                }
-              });
-            },
+            onPressed: _openInBrowser,
             child: Text("Open in browser".tl),
           ),
         if (_installing)

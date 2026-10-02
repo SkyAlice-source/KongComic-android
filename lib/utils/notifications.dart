@@ -1,6 +1,8 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/local.dart';
+import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/utils/app_update.dart';
 import 'package:kong_comic/utils/translations.dart';
@@ -39,7 +41,7 @@ void _onNotificationResponse(NotificationResponse response) {
   final payload = response.payload;
   // 更新完成通知点击 → 重新拉起安装器（错过弹窗后无需重下）
   if (payload != null && payload.startsWith('app_update:')) {
-    AppUpdate.tryInstallDownloaded(payload.substring('app_update:'.length));
+    _retryInstall(payload.substring('app_update:'.length));
     return;
   }
   // 漫画更新完成通知点击 → 跳转追更页查看更新结果
@@ -69,6 +71,31 @@ void _onNotificationResponse(NotificationResponse response) {
       task.resume();
     case 'cancel':
       task.cancel();
+  }
+}
+
+/// Re-open the installer for an APK that is already on disk (the update
+/// completion notification stays tappable after the dialog is dismissed).
+///
+/// If the private-directory installer is blocked on this device, retry from
+/// the public Download folder before giving up. Nothing here is actionable by
+/// the user if both paths fail, so failures are swallowed rather than leaking
+/// into the zone.
+Future<void> _retryInstall(String version) async {
+  try {
+    await AppUpdate.tryInstallDownloaded(version);
+  } on UpdateInstallException catch (_) {
+    // The private-directory installer is blocked on this device; retry through
+    // the public Download folder. Also guard this hop: the caller runs us
+    // fire-and-forget, so a throw here would surface as an unhandled async
+    // error with nothing actionable for the user.
+    try {
+      await AppUpdate.installFromDownloads(version);
+    } catch (e) {
+      Log.warning("AppUpdate", "Manual install failed: $e");
+    }
+  } catch (_) {
+    // Already reported when the download ran.
   }
 }
 
@@ -129,7 +156,37 @@ class AppNotifications {
       settings: settings,
       onDidReceiveNotificationResponse: _onNotificationResponse,
     );
+    await _migrateDownloadChannel();
     _initialized = true;
+  }
+
+  /// Whether the download channel has already been rebuilt once (see
+  /// [_migrateDownloadChannel]).
+  static const _downloadChannelResetKey = 'downloadChannelReset';
+
+  /// 重建下载通知渠道（**仅一次**）。
+  ///
+  /// v1.3.4 之前下载通知用的是 `IMPORTANCE_LOW`，Android 会把它塞进「静默通知」
+  /// 折叠区，进度条和暂停/继续按钮基本看不见 —— 表现就像通知消失了。而**已存在
+  /// 的通知渠道，其 importance 应用内无法修改**，改代码对老用户不生效，只能删掉
+  /// 渠道让下一次 show 以新的 importance 重建。
+  ///
+  /// 只重建一次：每启动都删会反复抹掉用户对该渠道的自定义设置（例如自己调回去
+  /// 静音），并丢掉该渠道里残留的通知。
+  static Future<void> _migrateDownloadChannel() async {
+    if (!App.isAndroid) return;
+    if (appdata.settings[_downloadChannelResetKey] == true) return;
+    try {
+      final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.deleteNotificationChannel(
+          channelId: _downloadChannelId);
+      appdata.settings[_downloadChannelResetKey] = true;
+      await appdata.saveData(false);
+    } catch (e) {
+      // 渠道不存在 / 平台未实现删除：忽略，至少不阻塞启动。下次启动再试。
+      Log.warning("Notification", "Failed to reset download channel: $e");
+    }
   }
 
   static Future<bool> requestPermission() async {

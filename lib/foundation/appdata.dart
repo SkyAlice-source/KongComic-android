@@ -243,6 +243,16 @@ class Settings with ChangeNotifier {
     'sni': true,
     'autoAddLanguageFilter': 'none', // none, chinese, english, japanese
     'comicSourceListUrl': _defaultSourceListUrl,
+    // Multiple source repositories. Each entry is
+    // {'id': String, 'name': String, 'url': String}.
+    'comicSourceRepositories': <Map<String, String>>[],
+    // source key -> origin record (see SourceOrigin), used to remember which
+    // repository an installed source came from.
+    'comicSourceOrigins': <String, dynamic>{},
+    'comicSourceRepositoriesMigrated': false,
+    // One-off flag: the download notification channel was recreated with the
+    // higher importance once (v1.3.4 shipped it as IMPORTANCE_LOW).
+    'downloadChannelReset': false,
     'preloadImageCount': 4,
     'followUpdatesFolders': <String>[], // selected folders for follow-updates; contains '*' to mean all folders
     'initialPage': '0',

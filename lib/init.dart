@@ -8,6 +8,7 @@ import 'package:flutter_saf/flutter_saf.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/cache_manager.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
+import 'package:kong_comic/foundation/comic_source/source_repositories.dart';
 import 'package:kong_comic/foundation/js_engine.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/cookie_jar.dart';
@@ -69,7 +70,7 @@ Future<void> init() async {
     Log.error("init", "$e\n$s");
   }
   CacheManager().setLimitSize(appdata.settings['cacheSize']);
-  _checkOldConfigs();
+  await _checkOldConfigs();
   await initAutoBackup().wait();
   await AppNotifications.init().wait();
   DownloadNotifier.start();
@@ -113,7 +114,7 @@ void _scheduleDeferredInit() {
   });
 }
 
-void _checkOldConfigs() {
+Future<void> _checkOldConfigs() async {
   if (appdata.settings['searchSources'] == null) {
     appdata.settings['searchSources'] = ComicSource.enabled()
         .where((e) => e.searchPageData != null)
@@ -138,6 +139,10 @@ void _checkOldConfigs() {
     appdata.settings['comicSourceListUrl'] = "https://cdn.jsdelivr.net/gh/SkyAlice-source/venera-configs@main/index.json";
     appdata.saveData();
   }
+
+  // Move the single source-list URL into the (new) repository list. The old
+  // setting stays as-is so older builds keep working if the user downgrades.
+  await SourceRepositories.instance.migrate();
 }
 
 Future<void> _checkAppUpdates() async {

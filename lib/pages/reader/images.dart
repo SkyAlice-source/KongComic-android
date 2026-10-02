@@ -1044,6 +1044,25 @@ class _ContinuousModeState extends State<_ContinuousMode>
     return false;
   }
 
+  /// 章节胶囊所在的过渡区。
+  ///
+  /// 高度跟随胶囊自身尺寸 + 一圈留白，而不是写死 200 —— 固定高度会让胶囊
+  /// 上下各空出 70+ dp，滑到最后一张图之后还得再滑小半屏才看得到按钮。
+  Widget _capsuleSection(String label, VoidCallback onTap) {
+    final width = MediaQuery.sizeOf(context).width;
+    final scale = _chapterCapsuleScale(width);
+    final gap = (40.0 * scale).clamp(28.0, 60.0).toDouble();
+    final isVertical = reader.mode == ReaderMode.continuousTopToBottom;
+    return Padding(
+      padding: isVertical
+          ? EdgeInsets.symmetric(vertical: gap)
+          : EdgeInsets.symmetric(horizontal: gap, vertical: gap),
+      child: Center(
+        child: _ChapterLinkButton(label: label, onTap: onTap),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget widget = ScrollablePositionedList.builder(
@@ -1068,37 +1087,30 @@ class _ContinuousModeState extends State<_ContinuousMode>
           : const ClampingScrollPhysics(),
       itemBuilder: (context, index) {
         if (index == 0) {
-          return const SizedBox();
+          // 卷首的「上一话」入口，与卷尾的「继续阅读」对称。
+          final hasPrevChapter = reader.chapter > 1;
+          if (!hasPrevChapter) return const SizedBox();
+          final prevChapterTitle =
+              reader.widget.chapters?.titles.elementAtOrNull(reader.chapter - 2);
+          final label = (prevChapterTitle == null || prevChapterTitle.isEmpty)
+              ? "Previous chapter".tl
+              : "${"Previous chapter".tl} $prevChapterTitle";
+          return _capsuleSection(
+            label,
+            () => reader.toPrevChapter(toLastPage: true),
+          );
         }
         // Chapter transition page
         if (index == reader.maxPage + 1) {
           var hasNextChapter = reader.chapter < reader.maxChapter;
           if (!hasNextChapter) return const SizedBox();
-          var nextChapterTitle = reader.widget.chapters?.titles.elementAtOrNull(reader.chapter);
-          return SizedBox(
-            height: 200,
-            child: Material(
-              color: context.colorScheme.surface,
-              child: InkWell(
-                onTap: () => reader.toNextChapter(),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 32, color: context.colorScheme.primary),
-                      const SizedBox(height: 12),
-                      Text("Next Chapter".tl, style: ts.s18),
-                      if (nextChapterTitle != null && nextChapterTitle.isNotEmpty)
-                        Padding(
-                          padding: EdgeInsets.only(top: 4),
-                          child: Text(nextChapterTitle, style: ts.s14, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
+          var nextChapterTitle =
+              reader.widget.chapters?.titles.elementAtOrNull(reader.chapter);
+          // "继续阅读 第 3 话 xxx" —— 单行胶囊，长标题交给 ellipsis 截断。
+          final label = (nextChapterTitle == null || nextChapterTitle.isEmpty)
+              ? "Next Chapter".tl
+              : "${"Continue reading".tl} $nextChapterTitle";
+          return _capsuleSection(label, () => reader.toNextChapter());
         }
         double? width, height;
         // In "cover" mode, the image must be constrained to the viewport size
@@ -1657,5 +1669,90 @@ class _ProgressPainter extends CustomPainter {
         oldDelegate.value != value ||
         oldDelegate.backgroundColor != backgroundColor ||
         oldDelegate.color != color;
+  }
+}
+
+/// 以 390dp 宽的手机为设计基准的缩放系数，章节胶囊的字号、内边距与留白共用。
+double _chapterCapsuleScale(double width) {
+  return (width / 390).clamp(0.82, 1.5).toDouble();
+}
+
+/// 章节首尾的「上一话 / 继续阅读 <章节名>」胶囊按钮。
+///
+/// 比阅读背景亮一档的实色底 + 极细描边 + 柔和投影做出浮起的质感；文字单行
+/// 省略号截断，长章节名不会把胶囊撑满整屏。
+class _ChapterLinkButton extends StatelessWidget {
+  const _ChapterLinkButton({required this.label, required this.onTap});
+
+  final String label;
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = context.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final radius = BorderRadius.circular(1000);
+    // 以 390dp 宽的手机为设计基准，按屏幕宽度等比缩放字号/内边距。
+    // 平板、折叠屏展开态不会显得局促，小屏也不会把字挤到看不清。
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final scale = _chapterCapsuleScale(screenWidth);
+    final fontSize = (19.0 * scale).clamp(15.0, 27.0).toDouble();
+    final paddingH = (30.0 * scale).clamp(22.0, 44.0).toDouble();
+    final paddingV = (17.0 * scale).clamp(13.0, 25.0).toDouble();
+    final maxWidth =
+        math.min(520.0 * scale, screenWidth - 48).clamp(200.0, 640.0).toDouble();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: Ink(
+              decoration: BoxDecoration(
+                // 跟随主题容器色：AMOLED 主题下即 #2A2A2A，深色底上自然"浮起"。
+                color: scheme.surfaceContainerHigh,
+                borderRadius: radius,
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.16)
+                      : scheme.outlineVariant,
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.10),
+                    blurRadius: 16,
+                    spreadRadius: -2,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: paddingH,
+                  vertical: paddingV,
+                ),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                    color: isDark ? Colors.white : scheme.onSurface,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

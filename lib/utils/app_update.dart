@@ -6,7 +6,81 @@ import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/app_dio.dart';
 import 'package:kong_comic/network/file_downloader.dart';
 import 'package:kong_comic/utils/io.dart';
+import 'package:kong_comic/utils/translations.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+
+/// Thrown when the APK could not be fetched. Almost always a network problem
+/// (GitHub is slow or resets connections regularly from mainland China).
+class UpdateDownloadException implements Exception {
+  final String reason;
+
+  const UpdateDownloadException(this.reason);
+
+  @override
+  String toString() => "Update download failed: $reason";
+}
+
+/// Thrown when the download finished but the resulting file is not a complete
+/// APK. Retrying usually helps; the partial file is deleted beforehand.
+class UpdateVerifyException implements Exception {
+  const UpdateVerifyException();
+
+  @override
+  String toString() => "Downloaded APK is corrupted";
+}
+
+/// Thrown when the APK is intact but the system installer refused to open it.
+/// The download already succeeded, so retrying the download is pointless — the
+/// UI offers a manual install path instead.
+class UpdateInstallException implements Exception {
+  final String reason;
+  final String apkPath;
+
+  const UpdateInstallException(this.reason, this.apkPath);
+
+  /// The user still has to grant the "install unknown apps" permission for
+  /// KongComic. Nothing is broken, they just need to flip a switch.
+  bool get isPermissionIssue =>
+      reason.contains("install_permission_required") ||
+      reason.contains("Permission");
+
+  @override
+  String toString() => "Failed to launch the system installer: $reason";
+}
+
+/// The stage at which an in-app update failed.
+///
+/// Distinguishing these matters: "download" asks the user to retry or check
+/// their network, while "install" means the APK is already sitting on disk and
+/// re-downloading it accomplishes nothing. Merging them into a single "update
+/// failed" message is what made a v1.3.3 install bug masquerade as broken
+/// networking for weeks.
+enum UpdateFailureStage { download, verify, install }
+
+/// Map an update exception onto the [UpdateFailureStage] that produced it.
+UpdateFailureStage updateFailureStage(Object e) {
+  if (e is UpdateInstallException) return UpdateFailureStage.install;
+  if (e is UpdateVerifyException) return UpdateFailureStage.verify;
+  return UpdateFailureStage.download;
+}
+
+/// Describe the failure in the user's language, including what to do next.
+String updateFailureMessage(Object e) {
+  switch (updateFailureStage(e)) {
+    case UpdateFailureStage.download:
+      return "Download failed".tl;
+    case UpdateFailureStage.verify:
+      return "The downloaded file is incomplete. Please download it again.".tl;
+    case UpdateFailureStage.install:
+      final install = e is UpdateInstallException ? e : null;
+      if (install != null && install.isPermissionIssue) {
+        return "KongComic needs the 「Install unknown apps」 permission. Allow it on the next screen, then try again."
+            .tl;
+      }
+      return "The update was downloaded but the system installer could not open it. Install it manually from the Download folder."
+          .tl;
+  }
+}
 
 /// Information about an available update.
 class AppUpdateInfo {
@@ -300,10 +374,13 @@ class AppUpdate {
   }
 
   /// 若本地已下载 [version] 的 APK（且校验通过），直接触发系统安装器。
-  /// 返回 true 表示已触发安装；false 表示需要重新下载。
+  /// 返回 true 表示已触发安装；false 表示没有可用 APK，需要重新下载。
   ///
   /// 供两个入口复用：① 更新检查时跳过重复下载；② 更新完成通知被点击时
   /// 重新拉起安装器（解决"错过弹窗就得重下"的问题）。
+  ///
+  /// 抛 [UpdateInstallException] 表示 APK 完好但拉不起安装器 —— 这种情况下
+  /// 重新下载毫无意义，必须让调用方知道失败发生在安装阶段。
   static Future<bool> tryInstallDownloaded(String version) async {
     final apk = File(apkPath(version));
     if (!_isValidApk(apk)) {
@@ -315,7 +392,28 @@ class AppUpdate {
       }
       return false;
     }
-    return App.installApk(apk.path);
+    final error = await App.installApk(apk.path);
+    if (error != null) {
+      throw UpdateInstallException(error, apk.path);
+    }
+    return true;
+  }
+
+  /// Manual escape hatch: copy the already-downloaded APK into the public
+  /// Download folder and ask the system to install it from there. Used when
+  /// [tryInstallDownloaded] fails, e.g. because a ROM blocks installs from an
+  /// app-private directory.
+  ///
+  /// Returns `null` on success, otherwise the platform reason.
+  static Future<String?> installFromDownloads(String version) async {
+    final apk = File(apkPath(version));
+    if (!_isValidApk(apk)) {
+      throw const UpdateVerifyException();
+    }
+    return App.installApkFromDownloads(
+      apk.path,
+      "KongComic-$version.apk",
+    );
   }
 
   /// Core download-and-install logic for the direct GitHub asset URL.
@@ -369,18 +467,53 @@ class AppUpdate {
       );
       await completer.future;
       await sub.cancel();
-    } catch (e) {
+    } on StateError {
+      // User-initiated cancellation is not a failure.
       await sub?.cancel();
       rethrow;
+    } catch (e) {
+      await sub?.cancel();
+      throw UpdateDownloadException(e.toString());
     }
 
     final apk = File(savePath);
     if (!_isValidApk(apk)) {
-      throw Exception("Downloaded APK is corrupted");
+      throw const UpdateVerifyException();
     }
-    final ok = await App.installApk(savePath);
-    if (!ok) {
-      throw Exception("Failed to launch the system installer");
+    final error = await App.installApk(savePath);
+    if (error != null) {
+      throw UpdateInstallException(error, savePath);
+    }
+  }
+
+  /// Drop APKs left over from earlier versions.
+  ///
+  /// Each installed update leaves a ~40 MB file behind and nothing ever removed
+  /// them, so a long-lived install accumulated hundreds of megabytes of dead
+  /// APKs. Called before a new download starts; the version being downloaded is
+  /// never touched (its partial state may still be resumable).
+  static Future<void> _cleanupOldApks(String keepVersion) async {
+    // Cleanup is best-effort: it must never be the reason an update fails.
+    try {
+      if (!await updateDir.exists()) return;
+      final keepName = "KongComic-$keepVersion.apk";
+      final stale = <File>[];
+      await for (final entity in updateDir.list()) {
+        if (entity is! File) continue;
+        final name = entity.name;
+        if (!name.startsWith("KongComic-") ||
+            !name.endsWith(".apk") ||
+            name == keepName) {
+          continue;
+        }
+        stale.add(entity);
+      }
+      for (final file in stale) {
+        await file.deleteIgnoreError();
+        await File("${file.path}.download").deleteIgnoreError();
+      }
+    } catch (e) {
+      Log.error("AppUpdate", "Failed to clean up old APKs: $e", null);
     }
   }
 
@@ -400,6 +533,7 @@ class AppUpdate {
     if (await tryInstallDownloaded(info.latestVersion)) {
       return;
     }
+    await _cleanupOldApks(info.latestVersion);
     final url = info.pickUrlForCurrentDevice(abi);
     if (url == null) {
       throw Exception("No APK asset found in the latest release");

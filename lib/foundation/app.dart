@@ -151,16 +151,49 @@ class _App {
 
   /// Ask the Android system to install the APK at [path]. The file is shared
   /// with the installer via a FileProvider configured in AndroidManifest.xml.
-  /// Returns true if the install intent was dispatched; false on error.
-  Future<bool> installApk(String path) async {
-    if (!isAndroid) return false;
+  ///
+  /// Returns `null` when the install intent was dispatched, otherwise the
+  /// platform-supplied reason. Callers need that distinction: an update that
+  /// downloaded fine but failed to install must not be reported as a download
+  /// failure (that misreport once made a v1.3.3 install bug look like broken
+  /// networking for weeks).
+  Future<String?> installApk(String path) async {
+    if (!isAndroid) return "not_supported";
     try {
       const channel = MethodChannel("kong_comic/method_channel");
       await channel.invokeMethod<void>("installApk", {"path": path});
-      return true;
+      return null;
     } catch (e, s) {
       Log.error("installApk", e.toString(), s);
-      return false;
+      if (e is PlatformException) {
+        return e.message ?? e.code;
+      }
+      return e.toString();
+    }
+  }
+
+  /// Publish the APK at [path] to the public Download folder and ask the
+  /// system to install it from there. This is the manual escape hatch when the
+  /// in-app installer refuses to launch (ROM restrictions, broken FileProvider
+  /// handshake, and so on).
+  ///
+  /// Returns `null` on success, otherwise the platform-supplied reason — the
+  /// same contract as [installApk].
+  Future<String?> installApkFromDownloads(String path, String fileName) async {
+    if (!isAndroid) return "not_supported";
+    try {
+      const channel = MethodChannel("kong_comic/method_channel");
+      await channel.invokeMethod<void>(
+        "installApkFromDownloads",
+        {"path": path, "fileName": fileName},
+      );
+      return null;
+    } catch (e, s) {
+      Log.error("installApkFromDownloads", e.toString(), s);
+      if (e is PlatformException) {
+        return e.message ?? e.code;
+      }
+      return e.toString();
     }
   }
 

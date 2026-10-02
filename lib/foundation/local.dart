@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show ChangeNotifier;
 import 'package:flutter_saf/flutter_saf.dart';
 import 'package:path_provider/path_provider.dart';
@@ -478,10 +479,16 @@ class LocalManager with ChangeNotifier {
   /// 不可用（未授予"所有文件访问"等）返回 null，由调用方自行回退。
   Future<String?> detectDownloadComicPath() async {
     if (!App.isAndroid) return null;
+    // 必须是真正的公共 Download 目录（/storage/emulated/0/Download/Comic）。
+    // 注意 path_provider 的 getExternalStorageDirectory() 返回的是 **app 专属**
+    // 目录（/storage/emulated/0/Android/data/<pkg>/files），用它拼出来的
+    // "Download/Comic" 仍然藏在私有目录里：文件管理器里根本不是用户认知的
+    // Download，卸载 app 还会被一起删掉。
+    var root = await publicStorageRoot();
+    root ??= (await getExternalStorageDirectory())?.path;
+    if (root == null) return null;
     try {
-      var root = await getExternalStorageDirectory();
-      if (root == null) return null;
-      var comicDir = Directory(FilePath.join(root.path, 'Download', 'Comic'));
+      var comicDir = Directory(FilePath.join(root, 'Download', 'Comic'));
       if (!comicDir.existsSync()) {
         comicDir.createSync(recursive: true);
       }
@@ -493,6 +500,22 @@ class LocalManager with ChangeNotifier {
       Log.warning("IO", "Cannot use Download/Comic: $e");
       return null;
     }
+  }
+
+  /// 公共（共享）外部存储根，例如 `/storage/emulated/0`。
+  ///
+  /// 由原生 `Environment.getExternalStorageDirectory()` 提供；不可用时返回
+  /// null，调用方自行回退到 app 专属目录。
+  static Future<String?> publicStorageRoot() async {
+    if (!App.isAndroid) return null;
+    try {
+      final path = await const MethodChannel('kong_comic/method_channel')
+          .invokeMethod<String?>('getPublicStorageRoot');
+      if (path != null && path.isNotEmpty) return path;
+    } catch (e) {
+      Log.warning("IO", "Failed to read public storage root: $e");
+    }
+    return null;
   }
 
   Future<String> findDefaultPath() async {
@@ -574,7 +597,9 @@ class LocalManager with ChangeNotifier {
     } catch (e, s) {
       Log.error("IO", "Failed to create local folder: $e", s);
     }
-    _checkPathValidation();
+    // 必须 await：校验失败时会把 path 改回默认路径，若不等待就往下走，
+    // 落盘的会是被覆盖前的旧路径 —— 表现为「迁移成功后重启又变回原路径」。
+    await _checkPathValidation();
     _checkNoMedia();
     // 保存有效路径，避免下次启动路径错误
     try {
@@ -883,7 +908,12 @@ class LocalManager with ChangeNotifier {
       notifyListeners();
       saveCurrentDownloadingTasks();
     }
-    downloadingTasks.firstOrNull?.resume();
+    // Never resume a task the user paused themselves: adding a new download
+    // (or finishing one) would otherwise silently undo that pause.
+    final head = downloadingTasks.firstOrNull;
+    if (head != null && !head.isPaused) {
+      head.resume();
+    }
   }
 
   void completeTask(DownloadTask task) {

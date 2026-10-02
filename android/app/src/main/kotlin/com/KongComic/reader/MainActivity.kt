@@ -3,6 +3,7 @@ package com.KongComic.reader
 import android.Manifest
 import android.app.Activity
 import android.content.ContentResolver
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutManager
@@ -10,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
@@ -156,6 +158,14 @@ class MainActivity : FlutterFragmentActivity() {
                     res.success(getDeviceAbi())
                 }
 
+                // Public (shared) external storage root, e.g. /storage/emulated/0.
+                // path_provider's getExternalStorageDirectory() returns the
+                // app-specific directory (/Android/data/<pkg>/files) instead,
+                // so it cannot be used to reach the real Download folder.
+                "getPublicStorageRoot" -> {
+                    res.success(Environment.getExternalStorageDirectory().absolutePath)
+                }
+
                 "getWebViewCookie" -> {
                     val url = call.argument<String>("url")
                     if (url.isNullOrEmpty()) {
@@ -179,6 +189,21 @@ class MainActivity : FlutterFragmentActivity() {
                     } else {
                         try {
                             installApk(path)
+                            res.success(null)
+                        } catch (e: Exception) {
+                            res.error("install_failed", e.message, null)
+                        }
+                    }
+                }
+
+                "installApkFromDownloads" -> {
+                    val path = call.argument<String>("path")
+                    val fileName = call.argument<String>("fileName")
+                    if (path.isNullOrEmpty() || fileName.isNullOrEmpty()) {
+                        res.error("invalid_arguments", "Missing 'path' or 'fileName'", null)
+                    } else {
+                        try {
+                            installApkFromDownloads(path, fileName)
                             res.success(null)
                         } catch (e: Exception) {
                             res.error("install_failed", e.message, null)
@@ -291,6 +316,85 @@ class MainActivity : FlutterFragmentActivity() {
         }
         val authority = "$packageName.fileprovider"
         val uri: Uri = FileProvider.getUriForFile(this, authority, file)
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.setDataAndType(uri, "application/vnd.android.package-archive")
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+    }
+
+    /// Manual fallback for installs that fail from the private files dir.
+    ///
+    /// Copies the APK into the *public* Download directory (via MediaStore on
+    /// Android 10+, which needs no storage permission) and hands the resulting
+    /// content URI to the package installer. Installing from a public location
+    /// works on ROMs that refuse `fileprovider`-backed APKs.
+    private fun installApkFromDownloads(path: String, fileName: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !packageManager.canRequestPackageInstalls()
+        ) {
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName")
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            throw Exception("install_permission_required")
+        }
+
+        val source = File(path)
+        if (!source.exists()) {
+            throw Exception("APK file not found: $path")
+        }
+
+        val context = applicationContext
+        val resolver = context.contentResolver
+
+        // Drop any earlier copy so the installer never sees a stale/partial APK.
+        val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ?"
+        val selectionArgs = arrayOf(fileName)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            resolver.delete(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                selection,
+                selectionArgs
+            )
+        }
+
+        val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "application/vnd.android.package-archive")
+                // IS_PENDING keeps other apps from seeing a half-written file.
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            }
+            val inserted = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: throw Exception("Could not create Download entry")
+            resolver.openOutputStream(inserted)?.use { out ->
+                source.inputStream().use { it.copyTo(out, bufferSize = DEFAULT_BUFFER_SIZE) }
+                out.flush()
+            } ?: throw Exception("Could not open Download entry for writing")
+
+            values.clear()
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(inserted, values, null, null)
+            inserted
+        } else {
+            @Suppress("DEPRECATION")
+            val downloads = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS
+            )
+            if (!downloads.exists() && !downloads.mkdirs()) {
+                throw Exception("Could not access the Download directory")
+            }
+            val target = File(downloads, fileName)
+            source.inputStream().use { input ->
+                target.outputStream().use { input.copyTo(it, bufferSize = DEFAULT_BUFFER_SIZE) }
+            }
+            FileProvider.getUriForFile(context, "$packageName.fileprovider", target)
+        }
+
         val intent = Intent(Intent.ACTION_VIEW)
         intent.setDataAndType(uri, "application/vnd.android.package-archive")
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
