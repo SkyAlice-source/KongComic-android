@@ -80,6 +80,9 @@ class _AppbarState extends State<Appbar> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final barTint = widget.backgroundColor ??
         (isDark ? Colors.black.withValues(alpha: 0.54) : Colors.white.withValues(alpha: 0.66));
+    // 背景完全透明时不套模糊：模糊会把弹窗背后的页面内容糊进标题栏，
+    // 在对话框上表现为一块与内容区色差明显的灰白色块（ContentDialog 即如此）。
+    final transparentBackground = barTint.a == 0;
     var content = Container(
       decoration: BoxDecoration(color: barTint),
       height: _kAppBarHeight + context.padding.top,
@@ -112,7 +115,7 @@ class _AppbarState extends State<Appbar> {
         ],
       ).paddingTop(context.padding.top),
     );
-    if (widget.style == AppbarStyle.shadow) {
+    if (widget.style == AppbarStyle.shadow || transparentBackground) {
       return Material(
         color: barTint,
         elevation: _scrolledUnder ? 2 : 0,

@@ -42,6 +42,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   bool _busy = false;
   _CatalogFilter _catalogFilter = _CatalogFilter.all;
 
+  /// 正在更新的源（key），用于在条目按钮上显示进度。
+  final Set<String> _updating = {};
+
   @override
   void initState() {
     super.initState();
@@ -232,6 +235,28 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     setState(() {});
   }
 
+  /// 更新单个源：无论成功还是失败都给出明确结果。
+  Future<void> _updateEntry(
+    SourceCatalogEntry entry,
+    ComicSource installed,
+  ) async {
+    setState(() => _updating.add(entry.key));
+    try {
+      await ComicSourcePage.update(installed, false);
+      if (!mounted) return;
+      context.showMessage(
+        message: "Updated to @v".tlParams({'v': entry.version}),
+      );
+    } catch (e, s) {
+      Log.error("Comic source", e, s);
+      if (mounted) {
+        context.showMessage(message: updateFailureMessage(e));
+      }
+    } finally {
+      if (mounted) setState(() => _updating.remove(entry.key));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -374,10 +399,26 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   Widget _buildRepositoryList() {
     final all = repositories.all;
     if (all.isEmpty) return _buildEmpty();
-    return ListView.builder(
+    // 长按拖动排序：仓库的先后顺序即用户优先级，持久化在设置里。
+    return ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceSm, kcSpaceMd, kcSpaceLg),
       itemCount: all.length,
-      itemBuilder: (context, index) => _buildRepositoryCard(all[index]),
+      proxyDecorator: _dragProxy,
+      onReorderItem: repositories.reorder,
+      itemBuilder: (context, index) => KeyedSubtree(
+        key: ValueKey(all[index].id),
+        child: _buildRepositoryCard(all[index]),
+      ),
+    );
+  }
+
+  /// 拖动中的浮起效果：只加阴影，不改卡片本身的玻璃观感。
+  Widget _dragProxy(Widget child, int index, Animation<double> animation) {
+    return Material(
+      color: Colors.transparent,
+      elevation: 6 * animation.value,
+      shadowColor: Colors.black26,
+      child: child,
     );
   }
 
@@ -489,14 +530,14 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     if (_error != null) return _buildError();
     final catalog = _catalog;
     if (catalog == null) return const SizedBox();
-    final filtered = _applyCatalogFilter(catalog.entries);
+    final filtered = _catalogEntriesForDisplay();
     return Column(
       children: [
         if (!_selecting && catalog.entries.isNotEmpty) _buildCatalogFilterChips(),
         Expanded(
           child: filtered.isEmpty
               ? _buildCatalogEmpty()
-              : ListView.builder(
+              : ReorderableListView.builder(
                   padding: const EdgeInsets.fromLTRB(
                     kcSpaceMd,
                     kcSpaceSm,
@@ -504,12 +545,49 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                     kcSpaceLg,
                   ),
                   itemCount: filtered.length,
-                  itemBuilder: (context, index) => _buildEntry(filtered[index]),
+                  proxyDecorator: _dragProxy,
+                  // 筛选 / 选择模式下顺序没有意义，直接关掉拖动。
+                  buildDefaultDragHandles:
+                      !_selecting && _catalogFilter == _CatalogFilter.all,
+                  onReorderItem: _reorderCatalogEntries,
+                  itemBuilder: (context, index) => KeyedSubtree(
+                    key: ValueKey(filtered[index].key),
+                    child: _buildEntry(filtered[index]),
+                  ),
                 ),
         ),
         if (_selecting) _buildBatchBar(),
       ],
     );
+  }
+
+  /// 目录按「用户拖出来的顺序 → 仓库原始顺序」展示。
+  ///
+  /// 同一个 key 在仓库里出现多次时只保留第一条：App 本来就按 key 去重，
+  /// 重复条目既没法安装也没法区分（还会让拖动列表的 key 冲突）。
+  List<SourceCatalogEntry> _catalogEntriesForDisplay() {
+    final catalog = _catalog;
+    if (catalog == null) return const [];
+    final seen = <String>{};
+    final unique = <SourceCatalogEntry>[];
+    for (final entry in _applyCatalogFilter(catalog.entries)) {
+      if (seen.add(entry.key)) unique.add(entry);
+    }
+    return repositories.applyCatalogOrder(_opened?.id, unique);
+  }
+
+  Future<void> _reorderCatalogEntries(int oldIndex, int newIndex) async {
+    final repository = _opened;
+    if (repository == null) return;
+    final entries = _catalogEntriesForDisplay();
+    if (oldIndex < 0 || oldIndex >= entries.length) return;
+    final moved = entries.removeAt(oldIndex);
+    entries.insert(newIndex, moved);
+    await repositories.setCatalogOrder(
+      repository.id,
+      [for (final entry in entries) entry.key],
+    );
+    if (mounted) setState(() {});
   }
 
   Widget _buildCatalogEmpty() {
@@ -840,19 +918,17 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
         child: Text("Add".tl),
       );
     } else if (compareSemVer(entry.version, installed.version)) {
+      final updating = _updating.contains(entry.key);
       action = FilledButton.tonal(
-        onPressed: () async {
-          try {
-            await ComicSourcePage.update(installed, false);
-          } catch (e, s) {
-            Log.error("Comic source", e, s);
-            if (mounted) {
-              context.showMessage(message: "Failed to update source".tl);
-            }
-          }
-          if (mounted) setState(() {});
-        },
-        child: Text("Update".tl),
+        // 点下去立刻变成进度圈：之前没有加载状态，网络慢时看起来像「点了没反应」。
+        onPressed: updating ? null : () => _updateEntry(entry, installed),
+        child: updating
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Text("Update".tl),
       );
     } else {
       action = HugeIcon(

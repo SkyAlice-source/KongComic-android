@@ -76,6 +76,26 @@ class SourceOrigin {
   };
 }
 
+/// What a source should be updated from.
+///
+/// [repository]/[entry] are set when the download link was resolved through a
+/// repository catalog. They let the caller adopt a legacy source (one with no
+/// origin recorded) into that repository, so later updates no longer need the
+/// slow "scan every catalog" fallback.
+class SourceUpdateTarget {
+  const SourceUpdateTarget({
+    required this.url,
+    this.repository,
+    this.entry,
+  });
+
+  final String url;
+
+  final SourceRepository? repository;
+
+  final SourceCatalogEntry? entry;
+}
+
 class SourceUpdateCheck {
   const SourceUpdateCheck({
     required this.updates,
@@ -224,7 +244,7 @@ class SourceRepositories extends ChangeNotifier {
   /// A short label describing where [key] was installed from.
   String originLabel(String key) {
     final origin = originFor(key);
-    if (origin == null) return "No repository linked".tl;
+    if (origin == null) return "No source repository linked".tl;
     if (origin.kind == 'file') return "Imported from file".tl;
     if (origin.kind == 'url') return "Installed from link".tl;
     final repository = find(origin.repositoryId);
@@ -233,7 +253,7 @@ class SourceRepositories extends ChangeNotifier {
     if (fallbackName != null && fallbackName.isNotEmpty) {
       return "Repository removed: @name".tlParams({'name': fallbackName});
     }
-    return "No repository linked".tl;
+    return "No source repository linked".tl;
   }
 
   /// Moves the legacy single-URL setting into the repository list.
@@ -467,6 +487,67 @@ class SourceRepositories extends ChangeNotifier {
     return repository;
   }
 
+  /// Moves a repository inside the list — the stored order is the order the
+  /// user sees, so dragging a card is enough to re-prioritise repositories.
+  ///
+  /// [newIndex] is already adjusted for the removal (i.e. the index the item
+  /// should end up at after it is taken out of the list).
+  Future<void> reorder(int oldIndex, int newIndex) async {
+    final repositories = all;
+    if (oldIndex < 0 || oldIndex >= repositories.length) return;
+    if (newIndex < 0 || newIndex >= repositories.length) return;
+    final moved = repositories.removeAt(oldIndex);
+    repositories.insert(newIndex, moved);
+    appdata.settings['comicSourceRepositories'] =
+        repositories.map((r) => r.toJson()).toList();
+    await appdata.saveData();
+    notifyListeners();
+  }
+
+  /// The order the user dragged the entries of [repositoryId] into.
+  List<String> catalogOrder(String repositoryId) {
+    final orders = appdata.settings['sourceCatalogOrder'];
+    if (orders is! Map) return const [];
+    final order = orders[repositoryId];
+    return order is List ? order.whereType<String>().toList() : const [];
+  }
+
+  Future<void> setCatalogOrder(
+    String repositoryId,
+    List<String> keys,
+  ) async {
+    final current = appdata.settings['sourceCatalogOrder'];
+    final orders = current is Map
+        ? Map<String, dynamic>.from(current)
+        : <String, dynamic>{};
+    orders[repositoryId] = keys;
+    appdata.settings['sourceCatalogOrder'] = orders;
+    await appdata.saveData();
+  }
+
+  /// Applies the saved drag order to [entries].
+  ///
+  /// Entries the user never moved keep their original relative order and are
+  /// pushed after the ordered ones, so a repository refresh that adds new
+  /// sources never scrambles what the user arranged.
+  List<SourceCatalogEntry> applyCatalogOrder(
+    String? repositoryId,
+    List<SourceCatalogEntry> entries,
+  ) {
+    if (repositoryId == null) return entries;
+    final order = catalogOrder(repositoryId);
+    if (order.isEmpty) return entries;
+    final rank = <String, int>{
+      for (var i = 0; i < order.length; i++) order[i]: i,
+    };
+    final ranked = <MapEntry<SourceCatalogEntry, int>>[
+      for (var i = 0; i < entries.length; i++)
+        MapEntry(entries[i], rank[entries[i].key] ?? order.length + i),
+    ];
+    ranked.sort((a, b) => a.value.compareTo(b.value));
+    return [for (final entry in ranked) entry.key];
+  }
+
   Future<void> remove(SourceRepository repository) async {
     invalidate(repository.id);
     final currentOrigins = appdata.settings['comicSourceOrigins'];
@@ -555,14 +636,52 @@ class SourceRepositories extends ChangeNotifier {
 
   /// The URL the given source should be updated from.
   ///
-  /// Falls back to the URL recorded inside the script when the source has no
-  /// repository attached.
-  Future<String> updateUrl(ComicSource source) async {
+  /// 没有关联仓库时按下面的顺序兜底，保证「更新」不会用一个必然失败的地址：
+  /// 1. origin 里记录的脚本地址（曾从链接 / 文件安装）；
+  /// 2. 按 key 扫描所有仓库目录 —— 与 [checkUpdates] 的兜底一致。旧版本
+  ///    安装的源没有 origin，之前这里会退回脚本里的站点 URL，结果下载到
+  ///    一个网页、解析失败，表现为「点更新没反应」；
+  /// 3. 都找不到就明确报错，而不是发一个注定失败的请求。
+  Future<SourceUpdateTarget> resolveUpdate(ComicSource source) async {
     final repository = linkedRepository(source.key);
-    if (repository == null) return normalizeUrl(source.url);
-    final catalog = await load(repository);
-    return entryFor(source, catalog.entries).url;
+    if (repository != null) {
+      final catalog = await load(repository);
+      final entry = entryFor(source, catalog.entries);
+      return SourceUpdateTarget(
+        url: entry.url,
+        repository: repository,
+        entry: entry,
+      );
+    }
+    final recorded = originFor(source.key)?.url;
+    if (recorded != null && recorded.isURL) {
+      return SourceUpdateTarget(url: normalizeUrl(recorded));
+    }
+    for (final candidateRepository in all) {
+      try {
+        final catalog = await load(candidateRepository);
+        final candidates =
+            catalog.entries.where((e) => e.key == source.key).toList();
+        if (candidates.isEmpty) continue;
+        final exact = candidates.firstWhereOrNull((e) => e.url == source.url);
+        final chosen =
+            exact ?? (candidates.length == 1 ? candidates.single : null);
+        if (chosen != null) {
+          return SourceUpdateTarget(
+            url: chosen.url,
+            repository: candidateRepository,
+            entry: chosen,
+          );
+        }
+      } catch (_) {
+        // 单个仓库不可达不应该挡住其它仓库里的同名源。
+      }
+    }
+    throw "No download link for this source. Add it again from a repository.".tl;
   }
+
+  Future<String> updateUrl(ComicSource source) =>
+      resolveUpdate(source).then((t) => t.url);
 
   /// Checks every repository for newer versions of the installed sources.
   ///

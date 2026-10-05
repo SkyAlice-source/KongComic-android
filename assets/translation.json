@@ -18,7 +18,7 @@
     "The downloaded file is incomplete. Please download it again.": "下载的文件不完整，请重新下载。",
     "The update was downloaded but the system installer could not open it. Install it manually from the Download folder.": "更新已下载完成，但无法唤起系统安装器。请从 Download 文件夹手动安装。",
     "KongComic needs the 「Install unknown apps」 permission. Allow it on the next screen, then try again.": "KongComic 需要「安装未知应用」权限。请在接下来的页面里允许，然后重试。",
-    "No repository linked": "未关联仓库",
+    "No source repository linked": "未关联源仓库",
     "Imported from file": "从文件导入",
     "Installed from link": "通过链接安装",
     "Repository removed: @name": "仓库已移除：@name",
@@ -956,7 +956,14 @@
     "All sources are installed.": "所有源都已安装。",
     "No sources installed yet.": "还没有安装任何源。",
     "Everything is up to date.": "全部都是最新版本。",
-    "The downloaded APK failed its security check (SHA-256 mismatch). Please download it again.": "下载的 APK 未通过完整性校验（SHA-256 不匹配），请重新下载。"
+    "The downloaded APK failed its security check (SHA-256 mismatch). Please download it again.": "下载的 APK 未通过完整性校验（SHA-256 不匹配），请重新下载。",
+    "Failed to share image": "分享图片失败",
+    "No download link for this source. Add it again from a repository.": "找不到这个源的下载地址，请重新从源仓库安装。",
+    "Updated to @v": "已更新至 @v",
+    "A source '@n' (v@old) is already installed. Install the older or same version v@new over it?": "已安装源「@n」（v@old）。要用更低或相同版本 v@new 覆盖安装吗？",
+    "Updating…": "更新中…",
+    "Update to @v": "更新到 @v",
+    "No sources match this filter.": "没有符合该筛选的源。"
   },
   "zh_TW": {
     "Authentication required": "需要身份驗證",
@@ -977,7 +984,7 @@
     "The downloaded file is incomplete. Please download it again.": "下載的檔案不完整，請重新下載。",
     "The update was downloaded but the system installer could not open it. Install it manually from the Download folder.": "更新已下載完成，但無法喚起系統安裝程式。請從 Download 資料夾手動安裝。",
     "KongComic needs the 「Install unknown apps」 permission. Allow it on the next screen, then try again.": "KongComic 需要「安裝未知應用程式」權限。請在下一個頁面允許後再試一次。",
-    "No repository linked": "未關聯倉庫",
+    "No source repository linked": "未關聯源倉庫",
     "Imported from file": "從檔案匯入",
     "Installed from link": "透過連結安裝",
     "Repository removed: @name": "倉庫已移除：@name",
@@ -1915,7 +1922,14 @@
     "All sources are installed.": "所有源都已安裝。",
     "No sources installed yet.": "還沒有安裝任何源。",
     "Everything is up to date.": "全部都是最新版本。",
-    "The downloaded APK failed its security check (SHA-256 mismatch). Please download it again.": "下載的 APK 未通過完整性校驗（SHA-256 不匹配），請重新下載。"
+    "The downloaded APK failed its security check (SHA-256 mismatch). Please download it again.": "下載的 APK 未通過完整性校驗（SHA-256 不匹配），請重新下載。",
+    "Failed to share image": "分享圖片失敗",
+    "No download link for this source. Add it again from a repository.": "找不到這個源的下載地址，請重新從源倉庫安裝。",
+    "Updated to @v": "已更新至 @v",
+    "A source '@n' (v@old) is already installed. Install the older or same version v@new over it?": "已安裝源「@n」（v@old）。要用更低或相同版本 v@new 覆蓋安裝嗎？",
+    "Updating…": "更新中…",
+    "Update to @v": "更新至 @v",
+    "No sources match this filter.": "沒有符合此篩選的源。"
   },
   "ja_JP": {
     "Authentication required": "認証が必要です",
@@ -1936,7 +1950,7 @@
     "The downloaded file is incomplete. Please download it again.": "ダウンロードしたファイルは不完全です。もう一度ダウンロードしてください。",
     "The update was downloaded but the system installer could not open it. Install it manually from the Download folder.": "アップデートはダウンロード済みですが、システムインストーラーを開けませんでした。Download フォルダーから手動でインストールしてください。",
     "KongComic needs the 「Install unknown apps」 permission. Allow it on the next screen, then try again.": "KongComic には「提供元不明のアプリのインストール」権限が必要です。次の画面で許可してから、もう一度お試しください。",
-    "No repository linked": "リポジトリ未連携",
+    "No source repository linked": "ソースリポジトリ未連携",
     "Imported from file": "ファイルから読み込み",
     "Installed from link": "リンクからインストール",
     "Repository removed: @name": "リポジトリは削除済み：@name",
@@ -2874,6 +2888,13 @@
     "All sources are installed.": "すべてのソースがインストール済みです。",
     "No sources installed yet.": "まだソースがインストールされていません。",
     "Everything is up to date.": "すべて最新です。",
-    "The downloaded APK failed its security check (SHA-256 mismatch). Please download it again.": "ダウンロードした APK は整合性チェックに失敗しました（SHA-256 が一致しません）。もう一度ダウンロードしてください。"
+    "The downloaded APK failed its security check (SHA-256 mismatch). Please download it again.": "ダウンロードした APK は整合性チェックに失敗しました（SHA-256 が一致しません）。もう一度ダウンロードしてください。",
+    "Failed to share image": "画像の共有に失敗しました",
+    "No download link for this source. Add it again from a repository.": "このソースのダウンロード先が見つかりません。ソースリポジトリからインストールし直してください。",
+    "Updated to @v": "@v に更新しました",
+    "A source '@n' (v@old) is already installed. Install the older or same version v@new over it?": "ソース「@n」（v@old）は既にインストール済みです。より古いまたは同じバージョン v@new で上書きしますか？",
+    "Updating…": "更新中…",
+    "Update to @v": "@v に更新",
+    "No sources match this filter.": "この条件に一致するソースはありません。"
   }
 }

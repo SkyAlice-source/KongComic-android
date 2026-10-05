@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
@@ -403,19 +404,111 @@ T overrideIO<T>(T Function() f) {
   );
 }
 
+/// 把漫画名等用户可控文本转成安全的文件名。
+///
+/// 漫画名里出现 `/`、`:` 之类的字符很常见，直接拼进路径会让写文件抛异常，
+/// 分享/保存整段失败；过长还会撞上文件系统的 255 字节单段名限制。
+String safeShareFileName(String name) {
+  final cleaned = name
+      .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_')
+      .replaceAll(RegExp(r'^\.+'), '')
+      .trim();
+  if (cleaned.isEmpty) return 'image';
+  return cleaned.length > 80 ? cleaned.substring(0, 80) : cleaned;
+}
+
+/// 一张待分享的图片：原始字节 + 文件名 + mime。
+class ShareImageData {
+  final Uint8List data;
+
+  /// 带扩展名的文件名，例如 `海贼王_EP3_P12.png`。
+  final String filename;
+
+  final String mime;
+
+  const ShareImageData({
+    required this.data,
+    required this.filename,
+    required this.mime,
+  });
+}
+
 class Share {
+  /// 接收方（微信 / QQ / 相册等）普遍直接认得的图片格式。
+  ///
+  /// 其余格式（AVIF / HEIC / JXL…）即便 mime 标对了，接收方也常当成「文件」
+  /// 处理，所以分享前先重编码为 PNG。
+  static const _kWidelySupportedImageMimes = {
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+  };
+
+  /// 把任意 Flutter 能解码的图片重新编码成 PNG；解码失败返回 null。
+  static Future<Uint8List?> transcodeToPng(Uint8List data) async {
+    ui.Codec? codec;
+    ui.Image? image;
+    try {
+      codec = await ui.instantiateImageCodec(data);
+      final frame = await codec.getNextFrame();
+      image = frame.image;
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      return byteData?.buffer.asUint8List();
+    } catch (_) {
+      return null;
+    } finally {
+      image?.dispose();
+      codec?.dispose();
+    }
+  }
+
+  /// 分享一组图片：必要时先转成 PNG，再一次性交给系统分享面板。
+  ///
+  /// 关键是给每个 [s.XFile] 显式带上 mimeType —— share_plus 只有在 XFile
+  /// 没有 mime 时才按文件名猜，猜不到就退化成 `application/octet-stream`，
+  /// 接收方会把图片显示成「文件」（这正是之前「分享不是图片」的原因）。
+  static Future<void> shareImages(List<ShareImageData> images) async {
+    final files = <s.XFile>[];
+    for (final image in images) {
+      var data = image.data;
+      var filename = image.filename;
+      var mime = image.mime;
+      if (!_kWidelySupportedImageMimes.contains(mime)) {
+        final png = await transcodeToPng(data);
+        if (png != null) {
+          data = png;
+          filename = '${_withoutExtension(filename)}.png';
+          mime = 'image/png';
+        } else if (!mime.startsWith('image/')) {
+          // 既不是可直接分享的格式，又无法解码成图片：跳过，
+          // 避免把一段没法看的字节当成图片分享出去。
+          continue;
+        }
+      }
+      files.add(s.XFile.fromData(data, name: filename, mimeType: mime));
+    }
+    if (files.isEmpty) return;
+    await s.SharePlus.instance.share(s.ShareParams(files: files));
+  }
+
+  static String _withoutExtension(String filename) {
+    final dot = filename.lastIndexOf('.');
+    return dot > 0 ? filename.substring(0, dot) : filename;
+  }
+
   static Future<void> shareFile({
     required Uint8List data,
     required String filename,
-    required String mime,
+    String? mime,
   }) async {
-    // write to cache first for reliable file sharing across all platforms
-    var file = File(FilePath.join(App.cachePath, filename));
-    await file.writeAsBytes(data);
-    await s.SharePlus.instance.share(s.ShareParams(
-      files: [s.XFile(file.path)],
-      fileNameOverrides: [filename],
-    ));
+    await shareImages([
+      ShareImageData(
+        data: data,
+        filename: filename,
+        mime: mime ?? detectFileType(data, nameHint: filename).mime,
+      ),
+    ]);
   }
 
   static Future<void> shareText(String text) async {
@@ -423,14 +516,33 @@ class Share {
   }
 
   /// Share multiple files at once (e.g. all pages of a chapter).
+  ///
+  /// [mimeTypes] 与 [paths] 一一对应（可选）；缺失时会按文件内容推断。
   static Future<void> shareFiles({
     required List<String> paths,
+    List<String>? mimeTypes,
   }) async {
-    final files = paths.map((p) => s.XFile(p)).toList();
-    await s.SharePlus.instance.share(s.ShareParams(
-      files: files,
-      fileNameOverrides: paths.map((p) => p.split('/').last).toList(),
-    ));
+    final payloads = <ShareImageData>[];
+    for (var i = 0; i < paths.length; i++) {
+      try {
+        final path = paths[i];
+        final data = await File(path).readAsBytes();
+        final name = path.split(Platform.pathSeparator).last;
+        final declared = (mimeTypes != null &&
+                i < mimeTypes.length &&
+                mimeTypes[i].isNotEmpty)
+            ? mimeTypes[i]
+            : null;
+        payloads.add(ShareImageData(
+          data: data,
+          filename: name,
+          mime: declared ?? detectFileType(data, nameHint: name).mime,
+        ));
+      } catch (_) {
+        // 单个文件读失败不影响其余图片
+      }
+    }
+    await shareImages(payloads);
   }
 }
 

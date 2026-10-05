@@ -817,18 +817,28 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       );
       if (!mounted || result == null) return;
       if (result.paths != null && result.paths!.isNotEmpty) {
-        await Share.shareFiles(paths: result.paths!);
+        await Share.shareFiles(
+          paths: result.paths!,
+          mimeTypes: result.mimes,
+        );
         return;
       }
-      final imageIndex = result.index!;
-      final data = result.data!;
-      var fileType = detectFileType(data);
+      final imageIndex = result.index;
+      final data = result.data;
+      if (imageIndex == null || data == null) return;
+      // 带上图片地址做兜底：极少数图片没有可识别头部，但 URL 上的扩展名可信。
+      final hint = imageIndex >= 0 && imageIndex < images.length
+          ? images[imageIndex]
+          : null;
+      var fileType = detectFileType(data, nameHint: hint);
       var filename =
-          "${context.reader.widget.name}_EP${context.reader.chapter}_P${imageIndex + 1}${fileType.ext}";
+          "${safeShareFileName(context.reader.widget.name)}_EP${context.reader.chapter}_P${imageIndex + 1}${fileType.ext}";
       await Share.shareFile(data: data, filename: filename, mime: fileType.mime);
     } catch (e) {
-      // fallback: 分享文字
-      await Share.shareText(context.reader.widget.name);
+      // 不再退回「分享文字」—— 那会让用户拿到一段没法看的文本却以为分享成功。
+      if (mounted) {
+        showToast(message: "Failed to share image".tl, context: context);
+      }
     }
   }
 
@@ -1381,7 +1391,9 @@ class _ImagePickerResult {
   final Uint8List? data;
   /// Multi-select share: temp file paths of all selected pages.
   final List<String>? paths;
-  const _ImagePickerResult({this.index, this.data, this.paths});
+  /// 与 [paths] 一一对应的 mime，用于分享时显式声明类型。
+  final List<String>? mimes;
+  const _ImagePickerResult({this.index, this.data, this.paths, this.mimes});
 }
 
 /// Full-screen image picker that lets the user browse all pages in the
@@ -1553,6 +1565,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     setState(() => _isLoadingFull = true);
     try {
       final paths = <String>[];
+      final mimes = <String>[];
       for (final i in indices) {
         // Prefer an already-in-memory image; fall back to cache, then a single
         // on-demand download — only for the pages the user actually selected.
@@ -1563,18 +1576,22 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
           data = _loadedImages[i];
         }
         if (data == null) continue;
-        final ext = detectFileType(data).ext;
-        final name = "${widget.cid}_P${i + 1}.$ext";
-        final file = File("${App.cachePath}/$name");
+        // 带上图片地址兜底：部分格式（AVIF/HEIC 等）头部识别不出时会退到
+        // URL 扩展名，避免生成「1670_P1.」这种没有后缀、接收方当文件处理的名字。
+        final hint = i < widget.images.length ? widget.images[i] : null;
+        final type = detectFileType(data, nameHint: hint);
+        final name = "${safeShareFileName(widget.cid)}_P${i + 1}${type.ext}";
+        final file = File(FilePath.join(App.cachePath, name));
         await file.writeAsBytes(data);
         paths.add(file.path);
+        mimes.add(type.mime);
       }
       if (!mounted) return;
       if (paths.isEmpty) {
         showToast(message: "No images available".tl, context: context);
         return;
       }
-      Navigator.of(context).pop(_ImagePickerResult(paths: paths));
+      Navigator.of(context).pop(_ImagePickerResult(paths: paths, mimes: mimes));
     } catch (e) {
       if (mounted) {
         showToast(message: "Failed to load images".tl, context: context);

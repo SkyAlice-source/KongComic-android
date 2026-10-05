@@ -19,22 +19,27 @@ class PopUpWidget<T> extends PopupRoute<T> {
       Animation<double> secondaryAnimation) {
     var height = MediaQuery.of(context).size.height * 0.9;
     bool showPopUp = MediaQuery.of(context).size.width > 500;
-    Widget body = PopupIndicatorWidget(
-      child: GlassContainer(
-        blurStrength: 25,
-        opacity: 0.20,
-        borderRadius: showPopUp
-            ? const BorderRadius.all(Radius.circular(kcCardRadius))
-            : BorderRadius.zero,
-        border: showPopUp
-            ? GlassContainer.iosBorder(context)
-            : null,
-        boxShadow: GlassContainer.liquidShadow(context),
-        width: showPopUp ? 500 : double.infinity,
-        height: showPopUp ? height : double.infinity,
-        child: widget,
-      ),
-    );
+    // 宽屏（>500）时才做成卡片 + 玻璃；手机上 PopUpWidget 是全屏页面，玻璃背景
+    // 会把背后页面模糊透出来，正文压在糊掉的底图上既难读、看着也像「没背景」。
+    // 全屏时一律用不透明的主题底色。
+    Widget shell = showPopUp
+        ? GlassContainer(
+            blurStrength: 25,
+            opacity: 0.20,
+            borderRadius: const BorderRadius.all(Radius.circular(kcCardRadius)),
+            border: GlassContainer.iosBorder(context),
+            boxShadow: GlassContainer.liquidShadow(context),
+            width: 500,
+            height: height,
+            child: widget,
+          )
+        : Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: Theme.of(context).colorScheme.surface,
+            child: widget,
+          );
+    Widget body = PopupIndicatorWidget(child: shell);
     if (App.isIOS) {
       body = IOSBackGestureDetector(
         enabledCallback: () => true,

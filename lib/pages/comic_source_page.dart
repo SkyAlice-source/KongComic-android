@@ -18,6 +18,12 @@ import 'package:kong_comic/utils/ext.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/translations.dart';
 
+/// 更新失败时展示给用户的文案：异常自带可读说明时直接用它。
+String updateFailureMessage(Object error) {
+  if (error is String && error.trim().isNotEmpty) return error;
+  return "Failed to update source".tl;
+}
+
 class ComicSourcePage extends StatelessWidget {
   const ComicSourcePage({super.key});
 
@@ -27,18 +33,21 @@ class ComicSourcePage extends StatelessWidget {
   ]) async {
     // Resolve through the repository catalog (if the source is linked to one)
     // so a changed folder layout upstream does not break the update.
-    String url;
+    SourceUpdateTarget target;
     try {
-      url = await SourceRepositories.instance.updateUrl(source);
+      target = await SourceRepositories.instance.resolveUpdate(source);
     } catch (e, s) {
       Log.error("Update comic source", e, s);
       if (showLoading) {
-        App.rootContext.showMessage(message: "Failed to update source".tl);
+        // 把具体原因透出来（例如「找不到下载地址」），否则用户只看到
+        // 「更新失败」，无从判断该怎么做。
+        App.rootContext.showMessage(message: updateFailureMessage(e));
         return;
       } else {
         rethrow;
       }
     }
+    final url = target.url;
     if (!url.isURL) {
       if (showLoading) {
         App.rootContext.showMessage(message: "Invalid url config".tl);
@@ -47,6 +56,15 @@ class ComicSourcePage extends StatelessWidget {
         throw Exception("Invalid url config");
       }
     }
+    // 旧版本安装的源没有归属记录（显示「未关联源仓库」）。这次是从某个仓库
+    // 目录里解析到下载地址的，顺手把归属补上：以后更新直接走该仓库，不必再
+    // 全量扫描，页面上也能看到它属于哪个仓库。
+    final adoptRepository = target.repository;
+    final adoptEntry = target.entry;
+    final hadOrigin = SourceRepositories.instance.linkedRepository(
+          source.key,
+        ) !=
+        null;
     ComicSourceManager().remove(source.key);
     bool cancel = false;
     LoadingDialogController? controller;
@@ -71,6 +89,18 @@ class ComicSourcePage extends StatelessWidget {
       await io.File(source.filePath).writeAsString(res.data!);
       if (ComicSourceManager().availableUpdates.containsKey(source.key)) {
         ComicSourceManager().availableUpdates.remove(source.key);
+      }
+      if (!hadOrigin && adoptRepository != null && adoptEntry != null) {
+        try {
+          await SourceRepositories.instance.link(
+            source.key,
+            adoptRepository,
+            adoptEntry,
+          );
+        } catch (e, s) {
+          // 补归属只是顺手优化，失败不该让一次已经成功的更新变成报错。
+          Log.error("Link comic source", e, s);
+        }
       }
     } catch (e, s) {
       if (cancel) return;
@@ -159,6 +189,10 @@ class _BodyState extends State<_Body> {
   /// True while an "update all" run is in progress.
   bool _updatingAll = false;
 
+  /// True while the automatic update check (triggered by the 「有更新」 filter
+  /// or by "update all") is running.
+  bool _checkingUpdates = false;
+
   /// Active source list filter. When not [all], reordering is disabled because
   /// the visible subset no longer maps 1:1 onto the global source order.
   _SourceFilter _filter = _SourceFilter.all;
@@ -226,21 +260,23 @@ class _BodyState extends State<_Body> {
                         ),
                 ),
               ),
-              Tooltip(
-                message: "Update all".tl,
-                child: IconButton(
-                  onPressed: _updatingAll ? null : _updateAll,
-                  icon: _updatingAll
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : HugeIcon(
-                          icon: HugeIcons.strokeRoundedRefresh,
-                          size: 18,
-                        ),
+              // 带文字的「全部更新」：原来只有一个刷新图标挂在工具栏里，
+              // 不看 tooltip 根本认不出是干什么的。
+              TextButton.icon(
+                onPressed: _updatingAll ? null : _updateAll,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
+                icon: _updatingAll
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+                label: Text("Update all".tl),
               ),
               Tooltip(
                 message: "Select".tl,
@@ -257,6 +293,8 @@ class _BodyState extends State<_Body> {
         ),
         buildCard(context),
         if (!_selecting) _buildFilterChips(),
+        if (filtered.isEmpty)
+          SliverToBoxAdapter(child: _buildEmptySources()),
         SliverReorderableList(
           itemCount: filtered.length,
           onReorderItem: (_selecting || filtering) ? (_, __) {} : onReorderItem,
@@ -324,6 +362,64 @@ class _BodyState extends State<_Body> {
     }
   }
 
+  /// Switching to 「有更新」 has to actually look for updates: nothing else
+  /// fills [ComicSourceManager.availableUpdates] until an explicit check, so the
+  /// filter would otherwise show an empty list that looks like "nothing to
+  /// update" even though we never asked.
+  Future<void> _setFilter(_SourceFilter f) async {
+    setState(() => _filter = f);
+    if (f != _SourceFilter.update) return;
+    if (ComicSourceManager().availableUpdates.isNotEmpty) return;
+    await _refreshUpdates();
+  }
+
+  Future<void> _refreshUpdates() async {
+    if (_checkingUpdates) return;
+    setState(() => _checkingUpdates = true);
+    try {
+      await ComicSourcePage.checkComicSourceUpdate();
+    } finally {
+      if (mounted) {
+        setState(() => _checkingUpdates = false);
+      } else {
+        _checkingUpdates = false;
+      }
+    }
+  }
+
+  /// Shown instead of an empty list, so "no rows" never reads as a bug.
+  Widget _buildEmptySources() {
+    final scheme = Theme.of(context).colorScheme;
+    final String message;
+    if (_checkingUpdates) {
+      message = "Checking for updates".tl;
+    } else if (_filter == _SourceFilter.update) {
+      message = "All sources up to date".tl;
+    } else {
+      message = "No sources match this filter.".tl;
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
+      child: Column(
+        children: [
+          if (_checkingUpdates) ...[
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(height: 14),
+          ],
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: kcFont13, color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFilterChips() {
     final scheme = Theme.of(context).colorScheme;
     return SliverToBoxAdapter(
@@ -338,7 +434,7 @@ class _BodyState extends State<_Body> {
                 child: ChoiceChip(
                   label: Text(_filterLabel(f)),
                   selected: _filter == f,
-                  onSelected: (_) => setState(() => _filter = f),
+                  onSelected: (_) => _setFilter(f),
                   selectedColor: kcBrandColor,
                   labelStyle: TextStyle(
                     color: _filter == f ? Colors.white : scheme.onSurfaceVariant,
@@ -1238,6 +1334,24 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
   /// Whether this source's settings/account block is expanded.
   bool _expanded = false;
 
+  /// True while this card's own 「更新」 is running, so a second tap cannot
+  /// start a concurrent update of the same source.
+  bool _updating = false;
+
+  Future<void> _updateSource() async {
+    if (_updating) return;
+    setState(() => _updating = true);
+    try {
+      await ComicSourcePage.update(source);
+    } catch (e, s) {
+      // ComicSourcePage.update already surfaces its own errors when it owns
+      // the loading dialog; this is the belt-and-braces case.
+      Log.error("Update comic source", e, s);
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
   /// Whether expanding this card would show anything at all. A source that is
   /// only a search endpoint would otherwise render an empty bordered panel.
   bool get _hasDetailContent =>
@@ -1597,13 +1711,27 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
 
     final actions = <Widget>[];
     if (!widget.selecting) {
+      // 每个源都能直接点「更新」——之前只能长按卡片去 ⋮ 菜单里找，等于藏起来了。
+      // 有可用更新时高亮并带上目标版本号，没更新时也保留（可用来重装/修复脚本）。
+      final newVersion = ComicSourceManager().availableUpdates[source.key];
+      final hasUpdate = newVersion != null &&
+          compareSemVer(newVersion, source.version);
       actions.addAll([
+        _actionChip(
+          icon: HugeIcons.strokeRoundedRefresh,
+          label: _updating
+              ? "Updating…".tl
+              : (hasUpdate
+                  ? "Update to @v".tlParams({"v": newVersion})
+                  : "Update".tl),
+          onTap: () => _updateSource(),
+          active: hasUpdate,
+        ),
         _actionChip(
           icon: HugeIcons.strokeRoundedLink01,
           label: "Test".tl,
           onTap: () => widget.onTest(source),
         ),
-        const SizedBox(width: 8),
         _actionChip(
           icon: widget.disabled
               ? HugeIcons.strokeRoundedCancelCircle
@@ -1631,7 +1759,15 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
           ),
           if (actions.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Row(mainAxisAlignment: MainAxisAlignment.end, children: actions),
+            // 三个 chip（更新 / 测试 / 已启用）加上「更新到 x.y.z」的长文案，
+            // 在窄屏上会撑出卡片；Wrap 让它们换行而不是被裁掉。
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: actions,
+            ),
           ],
         ],
       ),
