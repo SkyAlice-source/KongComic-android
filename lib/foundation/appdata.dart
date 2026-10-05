@@ -107,6 +107,9 @@ class Appdata with Init {
     "authorizationRequired",
     "customImageProcessing",
     "webdav",
+    "updateMirror",
+    "updateMirrorTemplate",
+    "updateMirrorLastGood",
     "disableSyncFields",
     "deviceId",
   ];
@@ -279,6 +282,11 @@ class Settings with ChangeNotifier {
     'exitConfirm': true, // 根页面侧滑/系统返回时确认退出（仅 Android 生效）
     'autoBackupEnabled': false, // 自动备份总开关
     'autoBackupInterval': 7, // 自动备份间隔（天），默认 7 天
+    // 更新下载走哪条线路：'auto' 自动轮换 / 'direct' 仅 GitHub / 具体镜像 id /
+    // 'custom' 使用 updateMirrorTemplate
+    'updateMirror': 'auto',
+    'updateMirrorTemplate': '', // 自定义模板，必须含 {url}
+    'updateMirrorLastGood': '', // 上次成功线路的 id，仅记录内置镜像
   };
 
   operator [](String key) {

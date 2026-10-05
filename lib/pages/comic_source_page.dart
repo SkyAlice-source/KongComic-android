@@ -24,10 +24,36 @@ String updateFailureMessage(Object error) {
   return "Failed to update source".tl;
 }
 
+/// What an update actually did.
+///
+/// [installed] is the version the app ends up with, [target] the version the
+/// repository advertised. They disagree when the repository bumped its
+/// `index.json` but the script file itself still declares the old version —
+/// either the source author forgot to bump it, or a CDN is still serving a
+/// cached copy. Reporting the real number stops the app from claiming success
+/// while the list keeps offering the same update forever.
+typedef SourceUpdateOutcome = ({String? installed, String? target});
+
+/// Message for a finished update, given what was installed and advertised.
+String sourceUpdateMessage(SourceUpdateOutcome outcome) {
+  final installed = outcome.installed;
+  final target = outcome.target;
+  if (installed != null) {
+    if (target != null &&
+        installed != target &&
+        !compareSemVer(installed, target)) {
+      return "Script is still @v, but the repository lists @new (the repository may be out of sync)"
+          .tlParams({"v": installed, "new": target});
+    }
+    return "Updated to @v".tlParams({"v": installed});
+  }
+  return "Updated sources".tl;
+}
+
 class ComicSourcePage extends StatelessWidget {
   const ComicSourcePage({super.key});
 
-  static Future<void> update(
+  static Future<SourceUpdateOutcome?> update(
     ComicSource source, [
     bool showLoading = true,
   ]) async {
@@ -42,7 +68,7 @@ class ComicSourcePage extends StatelessWidget {
         // 把具体原因透出来（例如「找不到下载地址」），否则用户只看到
         // 「更新失败」，无从判断该怎么做。
         App.rootContext.showMessage(message: updateFailureMessage(e));
-        return;
+        return null;
       } else {
         rethrow;
       }
@@ -51,7 +77,7 @@ class ComicSourcePage extends StatelessWidget {
     if (!url.isURL) {
       if (showLoading) {
         App.rootContext.showMessage(message: "Invalid url config".tl);
-        return;
+        return null;
       } else {
         throw Exception("Invalid url config");
       }
@@ -75,21 +101,27 @@ class ComicSourcePage extends StatelessWidget {
         barrierDismissible: false,
       );
     }
+    var updated = false;
     try {
+      // 加一次性参数绕过 CDN 缓存：jsDelivr 对 `@main` 分支按文件分别缓存
+      // 十二小时，仓库的 index.json 已经宣布 1.0.6、脚本文件仍返回缓存的
+      // 1.0.5 是很常见的状态。那时「更新」会一路成功，版本号却纹丝不动，
+      // 卡片上的「更新到 1.0.6」也就永远消不掉。
       var res = await AppDio().get<String>(
-        url,
+        SourceRepositories.bypassCache(url),
         options: Options(
           responseType: ResponseType.plain,
           headers: {"cache-time": "no"},
         ),
       );
-      if (cancel) return;
+      if (cancel) return null;
       controller?.close();
       await ComicSourceParser().parse(res.data!, source.filePath);
       await io.File(source.filePath).writeAsString(res.data!);
-      if (ComicSourceManager().availableUpdates.containsKey(source.key)) {
-        ComicSourceManager().availableUpdates.remove(source.key);
-      }
+      // 必须走 manager：availableUpdates 返回的是副本，在副本上 remove
+      // 等于什么都没做，源会一直挂着「有更新」的角标。同时把这个目标版本
+      // 记为「已取过」，避免仓库 index 与脚本版本不一致时反复提示同一个更新。
+      ComicSourceManager().acknowledgeUpdate(source.key, adoptEntry?.version);
       if (!hadOrigin && adoptRepository != null && adoptEntry != null) {
         try {
           await SourceRepositories.instance.link(
@@ -102,11 +134,12 @@ class ComicSourcePage extends StatelessWidget {
           Log.error("Link comic source", e, s);
         }
       }
+      updated = true;
     } catch (e, s) {
-      if (cancel) return;
+      if (cancel) return null;
       if (showLoading) {
         Log.error("Update comic source", e, s);
-        App.rootContext.showMessage(message: "Failed to update source".tl);
+        App.rootContext.showMessage(message: updateFailureMessage(e));
       } else {
         rethrow;
       }
@@ -121,6 +154,15 @@ class ComicSourcePage extends StatelessWidget {
         App.forceRebuild();
       }
     }
+    if (!updated) return null;
+    final outcome = (
+      installed: ComicSource.find(source.key)?.version,
+      target: adoptEntry?.version,
+    );
+    if (showLoading) {
+      App.rootContext.showMessage(message: sourceUpdateMessage(outcome));
+    }
+    return outcome;
   }
 
   /// Checks every linked repository for newer versions.
@@ -140,10 +182,21 @@ class ComicSourcePage extends StatelessWidget {
       final result = await SourceRepositories.instance.checkUpdates(
         ComicSource.all(),
       );
-      if (result.updates.isNotEmpty) {
-        ComicSourceManager().updateAvailableUpdates(result.updates);
+      // 已经下载过的目标版本不再报：仓库 index 与脚本内容不同步时（index
+      // 1.6.7 / 脚本 1.6.6），否则每次检查都会把同一个更新重新挂上去。
+      final manager = ComicSourceManager();
+      final pending = Map<String, String>.from(result.updates)
+        ..removeWhere((key, version) => manager.hasAcknowledgedUpdate(key, version));
+      if (pending.isNotEmpty) {
+        manager.updateAvailableUpdates(pending);
       }
-      return result;
+      return SourceUpdateCheck(
+        updates: pending,
+        failures: result.failures,
+        checked: result.checked,
+        skipped: result.skipped,
+        repositoryFailures: result.repositoryFailures,
+      );
     } catch (e) {
       return SourceUpdateCheck(
         updates: const {},
@@ -779,11 +832,13 @@ class _BodyState extends State<_Body> {
     if (_updatingAll) return;
     setState(() => _updatingAll = true);
     final result = await ComicSourcePage.checkComicSourceUpdate();
-    final n = result.updates.length;
+    // 用 manager 里的待更新表（已剔除本次会话取过的版本），而不是检查结果
+    // 的原始表，否则每次「更新全部」都会重下同一个永远不前进的脚本。
+    final updates =
+        Map<String, String>.from(ComicSourceManager().availableUpdates);
+    final n = updates.length;
     var updateFailures = 0;
     if (n > 0) {
-      final updates =
-          Map<String, String>.from(ComicSourceManager().availableUpdates);
       for (final key in updates.keys) {
         final s = ComicSource.find(key);
         if (s != null) {

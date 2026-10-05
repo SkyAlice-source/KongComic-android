@@ -242,10 +242,12 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   ) async {
     setState(() => _updating.add(entry.key));
     try {
-      await ComicSourcePage.update(installed, false);
+      final outcome = await ComicSourcePage.update(installed, false);
       if (!mounted) return;
+      // 报实际装上的版本，而不是仓库宣称的版本：脚本文件可能还停在旧版本
+      // （CDN 缓存 / 作者忘了改），直接报宣称值会让人以为更新成功了。
       context.showMessage(
-        message: "Updated to @v".tlParams({'v': entry.version}),
+        message: outcome == null ? "Updated source".tl : sourceUpdateMessage(outcome),
       );
     } catch (e, s) {
       Log.error("Comic source", e, s);

@@ -71,7 +71,223 @@ class _AboutSettingsState extends State<AboutSettings> {
           title: "Check for updates on startup".tl,
           settingKey: "checkUpdateOnStart",
         ).toSliver(),
+        const _MirrorSetting().toSliver(),
+        if (UpdateMirrorPreference.mode == 'custom')
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            title: Text("Mirror template".tl),
+            subtitle: Text(
+              UpdateMirrorPreference.template.isNotEmpty
+                  ? UpdateMirrorPreference.template
+                  : kDefaultMirrorTemplate,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            trailing: HugeIcon(
+              icon: HugeIcons.strokeRoundedPencilEdit02,
+              size: 18,
+            ),
+            onTap: () async {
+              await showInputDialog(
+                context: context,
+                title: "Mirror template".tl,
+                hintText: kDefaultMirrorTemplate,
+                initialValue: UpdateMirrorPreference.template,
+                onConfirm: (value) {
+                  final v = value.trim();
+                  if (!v.contains('{url}')) {
+                    return "The template must contain {url}".tl;
+                  }
+                  final uri = Uri.tryParse(v.replaceFirst('{url}', ''));
+                  if (uri == null || uri.host.isEmpty) {
+                    return "Invalid url".tl;
+                  }
+                  UpdateMirrorPreference.template = v;
+                  setState(() {});
+                  return null;
+                },
+              );
+            },
+          ).toSliver(),
+        const _MirrorTestTile().toSliver(),
       ],
+    );
+  }
+}
+
+/// Which CDN/route the APK is downloaded through.
+///
+/// GitHub release downloads are frequently throttled or blocked outright
+/// (mainland China being the common case), so the pipeline can also pull the
+/// same file through a mirror. Every route is verified against the SHA-256 that
+/// CI publishes with the release, so a mirror can fail an update but can never
+/// silently substitute a different APK.
+class _MirrorSetting extends StatefulWidget {
+  const _MirrorSetting();
+
+  @override
+  State<_MirrorSetting> createState() => _MirrorSettingState();
+}
+
+class _MirrorSettingState extends State<_MirrorSetting> {
+  Map<String, String> get _options => {
+    'auto': 'Auto (recommended)',
+    'direct': 'GitHub (direct)',
+    for (final m in UpdateMirrors.all)
+      if (m.id != 'direct') m.id: m.name,
+    'custom': 'Custom',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final mode = UpdateMirrorPreference.mode;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      title: Row(
+        children: [
+          Expanded(child: Text("Download mirror".tl)),
+          Button.icon(
+            size: 18,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) {
+                  return ContentDialog(
+                    title: "Download mirror".tl,
+                    content: Text("Updates are normally downloaded straight from GitHub. When that connection is blocked or very slow, KongComic can fetch the same file through a mirror instead. Every download is verified against the SHA-256 published with the release, so a mirror cannot tamper with your update — it can only succeed or fail."
+                            .tl)
+                        .paddingHorizontal(16)
+                        .fixWidth(double.infinity),
+                    actions: [
+                      Button.filled(
+                        onPressed: context.pop,
+                        child: Text("OK".tl),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      subtitle: Text(_options[mode]?.tl ?? mode),
+      trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
+      onTap: () {
+        var renderBox = context.findRenderObject() as RenderBox;
+        var offset = renderBox.localToGlobal(Offset.zero);
+        var rect = offset & renderBox.size;
+        showMenu(
+          elevation: 3,
+          color: context.colorScheme.surfaceContainer,
+          context: context,
+          position: RelativeRect.fromRect(
+            rect,
+            Offset.zero & MediaQuery.of(context).size,
+          ),
+          items: _options.keys
+              .map(
+                (key) => PopupMenuItem<String>(
+                  value: key,
+                  height: App.isMobile ? 46 : 40,
+                  child: Text(_options[key]!.tl),
+                ),
+              )
+              .toList(),
+        ).then((value) {
+          if (value != null) {
+            UpdateMirrorPreference.mode = value;
+            setState(() {});
+          }
+        });
+      },
+    );
+  }
+}
+
+/// Probes every configured route and reports which ones actually work on this
+/// network. Useful right after the "download failed" symptom appears: it says
+/// whether GitHub itself is the problem and which mirror takes over.
+class _MirrorTestTile extends StatefulWidget {
+  const _MirrorTestTile();
+
+  @override
+  State<_MirrorTestTile> createState() => _MirrorTestTileState();
+}
+
+class _MirrorTestTileState extends State<_MirrorTestTile> {
+  bool _running = false;
+
+  Future<void> _run() async {
+    if (_running) return;
+    setState(() => _running = true);
+    String? assetUrl;
+    try {
+      assetUrl = await AppUpdate.latestAssetUrl();
+    } catch (e) {
+      AppUpdate.safeLog(e);
+    }
+    if (!mounted) return;
+    if (assetUrl == null) {
+      setState(() => _running = false);
+      context.showMessage(message: "Network error".tl);
+      return;
+    }
+    final results = await probeAllMirrors(assetUrl);
+    if (!mounted) return;
+    setState(() => _running = false);
+    showDialog(
+      context: context,
+      builder: (context) {
+        return ContentDialog(
+          title: "Download sources".tl,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: results.map((r) {
+              final color = r.ok
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.error;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(r.mirror.name)),
+                    Text(
+                      r.ok
+                          ? "${r.latency.inMilliseconds} ms"
+                          : "Unavailable".tl,
+                      style: TextStyle(color: color),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ).paddingHorizontal(16),
+          actions: [
+            Button.filled(
+              onPressed: context.pop,
+              child: Text("OK".tl),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      title: Text("Test download sources".tl),
+      subtitle: Text("Check which mirror works on this network".tl),
+      trailing: Button.normal(
+        isLoading: _running,
+        onPressed: _run,
+        child: Text("Test".tl),
+      ).fixHeight(32),
+      onTap: _run,
     );
   }
 }
@@ -332,6 +548,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
   bool _starting = true;
   bool _installing = false;
   bool _exportingApk = false;
+  String? _mirrorName;
   final FileDownloaderHandle _handle = FileDownloaderHandle();
 
   @override
@@ -362,6 +579,10 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
             _progress = p;
             _bytesPerSecond = speed;
           });
+        },
+        onMirrorChanged: (name) {
+          if (!mounted) return;
+          setState(() => _mirrorName = name);
         },
         handle: _handle,
       );
@@ -535,7 +756,14 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           const SizedBox(width: 12),
-          Expanded(child: Text("Connecting...".tl)),
+          Expanded(
+            child: Text(
+              _mirrorName == null
+                  ? "Connecting...".tl
+                  : "Connecting to @source..."
+                      .tlParams({"source": _mirrorName!}),
+            ),
+          ),
         ],
       );
     }
@@ -548,6 +776,16 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
           "${(_progress * 100).toStringAsFixed(1)}%  ${_formatSpeed(_bytesPerSecond)}",
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        if (_mirrorName != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              "Source: @source".tlParams({"source": _mirrorName!}),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
       ],
     );
   }

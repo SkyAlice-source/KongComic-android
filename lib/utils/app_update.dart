@@ -3,12 +3,35 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/log.dart';
+import 'package:kong_comic/foundation/update_mirror.dart';
 import 'package:kong_comic/network/app_dio.dart';
 import 'package:kong_comic/network/file_downloader.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+
+/// Raised when a download route stops delivering bytes.
+///
+/// This is not a user cancellation: nobody pressed anything. The pipeline
+/// treats it as "this route is unusable, try the next one", which is what makes
+/// automatic fallback off a blocked GitHub connection possible.
+class UpdateStalledException implements Exception {
+  const UpdateStalledException();
+
+  @override
+  String toString() => "Download stalled";
+}
+
+/// Thrown when every configured download route failed.
+class UpdateAllSourcesFailedException implements Exception {
+  const UpdateAllSourcesFailedException(this.detail);
+
+  final String detail;
+
+  @override
+  String toString() => "All download sources failed: $detail";
+}
 
 /// Thrown when the APK could not be fetched. Almost always a network problem
 /// (GitHub is slow or resets connections regularly from mainland China).
@@ -87,6 +110,10 @@ UpdateFailureStage updateFailureStage(Object e) {
 String updateFailureMessage(Object e) {
   switch (updateFailureStage(e)) {
     case UpdateFailureStage.download:
+      if (e is UpdateAllSourcesFailedException) {
+        return "Every download source failed. Open the release page in your browser to update manually."
+            .tl;
+      }
       return "Download failed".tl;
     case UpdateFailureStage.verify:
       if (e is UpdateHashException) {
@@ -161,6 +188,14 @@ class AppUpdate {
 
   /// Maximum number of retries for transient network failures.
   static const int _maxRetries = 2;
+
+  /// How long a download may go without delivering anything before the
+  /// pipeline gives up on the current route and hands over to the next mirror.
+  ///
+  /// A throttled GitHub connection often answers quickly and then crawls or
+  /// freezes. Waiting for the socket timeout would burn minutes per route; this
+  /// keeps each hopeless route to a few seconds.
+  static const Duration kStallTimeout = Duration(seconds: 15);
 
   /// Invisible per-language section delimiter used inside changelog files,
   /// e.g. `<!-- lang:zh -->`. Markdown renderers hide HTML comments, so the
@@ -498,6 +533,7 @@ class AppUpdate {
     String version, {
     required String? abi,
     String? expectedSha256,
+    bool singleStream = false,
     void Function(double progress, int bytesPerSecond)? onProgress,
     FileDownloaderHandle? handle,
   }) async {
@@ -509,21 +545,42 @@ class AppUpdate {
       updateDir.createSync(recursive: true);
     }
 
-    final downloader = FileDownloader(url, savePath);
+    final downloader = FileDownloader(
+      url,
+      savePath,
+      singleStream: singleStream,
+    );
+    handle?.resetStall();
     if (handle != null) {
       handle._attach(downloader);
     }
     final completer = Completer<void>();
     final stream = downloader.start();
     StreamSubscription<DownloadingStatus>? sub;
+    bool finished = false;
+    // Fail fast instead of hanging: a route that stops delivering bytes (very
+    // common when GitHub is throttled) must hand over to the next mirror rather
+    // than sit at the same progress until the socket times out.
+    var lastActivity = DateTime.now();
+    void touch() => lastActivity = DateTime.now();
+    touch();
+    final watchdog = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (completer.isCompleted) return;
+      if (DateTime.now().difference(lastActivity) > kStallTimeout) {
+        handle?.stall();
+      }
+    });
     try {
       sub = stream.listen(
         (status) {
-          if (handle != null && handle._canceled) {
+          touch();
+          if (handle != null && (handle._canceled || handle._stalled)) {
             downloader.stop();
             if (!completer.isCompleted) {
               completer.completeError(
-                StateError("Download canceled by user"),
+                handle._canceled
+                    ? StateError("Download canceled by user")
+                    : const UpdateStalledException(),
               );
             }
             return;
@@ -535,22 +592,44 @@ class AppUpdate {
             );
           }
           if (status.isFinished) {
+            finished = true;
             if (!completer.isCompleted) completer.complete();
           }
         },
         onError: (e, s) {
           if (!completer.isCompleted) completer.completeError(e, s);
         },
+        onDone: () {
+          // The stream can close without any status event (the downloader was
+          // stopped before it emitted anything). Never wait forever on it.
+          if (completer.isCompleted) return;
+          if (finished) {
+            completer.complete();
+          } else if (handle != null && handle._stalled) {
+            completer.completeError(const UpdateStalledException());
+          } else if (handle != null && handle._canceled) {
+            completer.completeError(
+              StateError("Download canceled by user"),
+            );
+          } else {
+            completer.completeError(
+              Exception("Download stopped unexpectedly"),
+            );
+          }
+        },
       );
       await completer.future;
-      await sub.cancel();
     } on StateError {
       // User-initiated cancellation is not a failure.
-      await sub?.cancel();
+      rethrow;
+    } on UpdateStalledException {
+      // Different route next time, please.
       rethrow;
     } catch (e) {
-      await sub?.cancel();
       throw UpdateDownloadException(e.toString());
+    } finally {
+      watchdog.cancel();
+      await sub?.cancel();
     }
 
     final apk = File(savePath);
@@ -617,6 +696,7 @@ class AppUpdate {
     AppUpdateInfo info, {
     required String? abi,
     void Function(double progress, int bytesPerSecond)? onProgress,
+    void Function(String mirrorName)? onMirrorChanged,
     FileDownloaderHandle? handle,
   }) async {
     // 复用已下载的同版本 APK：错过安装弹窗后无需重复下载，直接再次拉起安装器。
@@ -636,14 +716,95 @@ class AppUpdate {
       final map = info.sha256;
       if (map != null) expected = map[key];
     }
-    await _downloadAndInstallFromUrl(
-      url,
-      info.latestVersion,
-      abi: abi,
-      expectedSha256: expected,
-      onProgress: onProgress,
-      handle: handle,
+
+    final routes = UpdateMirrorPreference.rotation();
+    // The background (notification driven) path downloads without a UI to cancel
+    // it, so it hands over no handle. The stall watchdog still needs one to stop
+    // a dead route, otherwise it could never move on from it.
+    final effectiveHandle = handle ?? FileDownloaderHandle();
+    Object? lastError;
+    String? lastDetail;
+
+    for (final mirror in routes) {
+      if (effectiveHandle.isCanceled) {
+        throw StateError("Download canceled by user");
+      }
+      onMirrorChanged?.call(mirror.name);
+      final target = mirror.apply(url);
+      try {
+        final probe = await probeMirror(mirror, url);
+        if (!probe.ok) {
+          throw UpdateDownloadException(probe.error ?? "Unreachable");
+        }
+        // A previous route may have left bytes behind. Its resume state is not
+        // valid for a different server (different chunk size, different
+        // content-length), so start this route from a clean slate.
+        if (lastError != null) {
+          await _resetPartial(info.latestVersion);
+        }
+        await _downloadAndInstallFromUrl(
+          target,
+          info.latestVersion,
+          abi: abi,
+          expectedSha256: expected,
+          singleStream: !probe.supportsRange,
+          onProgress: onProgress,
+          handle: effectiveHandle,
+        );
+        UpdateMirrorPreference.markWorking(mirror.id);
+        return;
+      } catch (e, s) {
+        if (effectiveHandle.isCanceled) rethrow;
+        // The APK was fully downloaded *and* passed its SHA-256 check through
+        // this route — only the system installer refused to open it. The route
+        // itself is fine, so remember it and let the UI offer manual install
+        // instead of redownloading the same bytes from another mirror.
+        if (e is UpdateInstallException) {
+          UpdateMirrorPreference.markWorking(mirror.id);
+          rethrow;
+        }
+        lastError = e;
+        lastDetail = "$mirror: $e";
+        if (kDebugMode) {
+          Log.error("AppUpdate", "Update via ${mirror.name} failed: $e", s);
+        }
+      }
+    }
+
+    if (routes.length <= 1 && lastError != null) {
+      // A pinned route must surface its own failure (including cancellations
+      // and stalls), otherwise the UI cannot tell "user pressed stop" from
+      // "network died".
+      throw lastError is UpdateDownloadException
+          ? lastError
+          : UpdateDownloadException(lastError.toString());
+    }
+    throw UpdateAllSourcesFailedException(lastDetail ?? "unknown error");
+  }
+
+  /// Delete the partially downloaded APK and its resume state.
+  static Future<void> _resetPartial(String version) async {
+    final apk = File(apkPath(version));
+    await apk.deleteIgnoreError();
+    await File("${apk.path}.download").deleteIgnoreError();
+  }
+
+  /// The APK asset URL of the newest release, regardless of whether it is an
+  /// update for this install. Used by the mirror tester, which needs a real
+  /// file to fetch but has no pending update to hang it on.
+  static Future<String?> latestAssetUrl() async {
+    final data = await _fetchWithRetry(
+      _releasesUrl,
+      timeout: const Duration(seconds: 8),
     );
+    final assets = (data["assets"] as List?) ?? const [];
+    for (final a in assets) {
+      if (a is! Map) continue;
+      final url = (a["browser_download_url"] as String?) ?? "";
+      final name = (a["name"] as String?) ?? "";
+      if (name.endsWith(".apk") && url.isNotEmpty) return url;
+    }
+    return null;
   }
 
   /// Open the releases page in the user's default browser. Used as the
@@ -672,7 +833,14 @@ class FileDownloaderHandle {
   FileDownloader? _downloader;
   bool _canceled = false;
 
+  /// Set by the pipeline's stall watchdog, not by the user. A stalled download
+  /// must not be reported as a cancellation: nobody pressed stop, the route
+  /// simply stopped delivering bytes.
+  bool _stalled = false;
+
   bool get isCanceled => _canceled;
+
+  bool get isStalled => _stalled;
 
   void _attach(FileDownloader downloader) {
     _downloader = downloader;
@@ -683,5 +851,19 @@ class FileDownloaderHandle {
     if (_canceled) return;
     _canceled = true;
     _downloader?.stop();
+  }
+
+  /// Abandon the current download so the next mirror can take over. Unlike
+  /// [cancel] this leaves [isCanceled] false, so the UI keeps showing progress
+  /// instead of silently closing.
+  void stall() {
+    if (_canceled || _stalled) return;
+    _stalled = true;
+    _downloader?.stop();
+  }
+
+  /// Clear the stalled flag before a new route starts.
+  void resetStall() {
+    _stalled = false;
   }
 }

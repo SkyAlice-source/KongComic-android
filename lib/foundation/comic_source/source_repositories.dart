@@ -348,6 +348,54 @@ class SourceRepositories extends ChangeNotifier {
     return uri.removeFragment().toString();
   }
 
+  /// Adds a one-off parameter so a script download never comes from a cache.
+  ///
+  /// jsDelivr caches branch references (`@main`) per file for twelve hours, and
+  /// every file is timed separately. A repository can therefore hand out an
+  /// `index.json` that already announces `1.0.6` while the script file itself is
+  /// still the cached `1.0.5` — from the user's side "Update" succeeds and the
+  /// version number never moves. A changing query string forces jsDelivr to go
+  /// back to the origin and return whatever the repository holds right now.
+  static String bypassCache(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) return url;
+    return uri
+        .replace(
+          queryParameters: {
+            ...uri.queryParameters,
+            '_': DateTime.now().millisecondsSinceEpoch.toString(),
+          },
+        )
+        .toString();
+  }
+
+  /// The entry matching [source] inside a single [catalog], or `null`.
+  ///
+  /// [preferredUrl] (the download link recorded when the source was installed)
+  /// wins, because the same key can legitimately appear twice in one repository
+  /// — "拷贝漫画" ships both a plain and a multi-account variant. Guessing
+  /// between them would silently replace the user's source with a different
+  /// one, so an ambiguous match returns `null`.
+  ///
+  /// Note that `ComicSource.url` is *not* the download link: it is the `url`
+  /// field declared inside the script, i.e. the site's homepage. Matching
+  /// against it never hits a catalog entry and used to make every duplicate key
+  /// look unresolvable, which surfaced as "update failed".
+  static SourceCatalogEntry? matchEntry(
+    List<SourceCatalogEntry> entries,
+    ComicSource source, {
+    String? preferredUrl,
+  }) {
+    final candidates = entries.where((e) => e.key == source.key).toList();
+    if (candidates.isEmpty) return null;
+    for (final url in [preferredUrl, source.url]) {
+      if (url == null || url.isEmpty) continue;
+      final exact = candidates.firstWhereOrNull((e) => e.url == url);
+      if (exact != null) return exact;
+    }
+    return candidates.length == 1 ? candidates.single : null;
+  }
+
   Future<SourceCatalog> load(SourceRepository repository) async {
     final cached = _catalogCache[repository.id];
     if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
@@ -619,21 +667,6 @@ class SourceRepositories extends ChangeNotifier {
     await setOrigin(key, SourceOrigin(kind: 'file', url: url));
   }
 
-  SourceCatalogEntry entryFor(
-    ComicSource source,
-    List<SourceCatalogEntry> entries,
-  ) {
-    final candidates = entries.where((e) => e.key == source.key).toList();
-    final previousUrl = originFor(source.key)?.url;
-    final exact = candidates.firstWhereOrNull((e) => e.url == previousUrl);
-    if (exact != null) return exact;
-    if (candidates.length == 1) return candidates.single;
-    throw (candidates.isEmpty
-            ? "This source is no longer listed in its repository."
-            : "Multiple variants found. Choose a source in the repository again.")
-        .tl;
-  }
-
   /// The URL the given source should be updated from.
   ///
   /// 没有关联仓库时按下面的顺序兜底，保证「更新」不会用一个必然失败的地址：
@@ -643,41 +676,85 @@ class SourceRepositories extends ChangeNotifier {
   ///    一个网页、解析失败，表现为「点更新没反应」；
   /// 3. 都找不到就明确报错，而不是发一个注定失败的请求。
   Future<SourceUpdateTarget> resolveUpdate(ComicSource source) async {
+    // 关联仓库只是「首选」而不是「唯一」：仓库可能临时拉不动，也可能已经把
+    // 这个源改名/下架。以前这两种情况都直接抛错，用户看到的就是「更新失败」；
+    // 现在先记下原因，继续走下面的兜底，实在找不到再把原因报出来。
+    String? linkedFailure;
+    final recordedUrl = originFor(source.key)?.url;
     final repository = linkedRepository(source.key);
     if (repository != null) {
-      final catalog = await load(repository);
-      final entry = entryFor(source, catalog.entries);
-      return SourceUpdateTarget(
-        url: entry.url,
-        repository: repository,
-        entry: entry,
-      );
+      try {
+        final catalog = await load(repository);
+        final match = matchEntry(catalog.entries, source,
+            preferredUrl: recordedUrl);
+        if (match != null) {
+          return SourceUpdateTarget(
+            url: match.url,
+            repository: repository,
+            entry: match,
+          );
+        }
+        final candidates = catalog.entries
+            .where((e) => e.key == source.key)
+            .toList();
+        linkedFailure = candidates.isEmpty
+            ? "This source is no longer listed in @name.".tlParams({
+                "name": repository.name,
+              })
+            : "Multiple variants found. Choose a source in the repository again."
+                .tl;
+      } catch (e) {
+        linkedFailure = "Could not load @name: @error".tlParams({
+          "name": repository.name,
+          "error": e.toString(),
+        });
+      }
     }
-    final recorded = originFor(source.key)?.url;
+    final recorded = recordedUrl;
     if (recorded != null && recorded.isURL) {
       return SourceUpdateTarget(url: normalizeUrl(recorded));
     }
+    // 逐仓库查找，而不是把所有仓库的同名条目汇总起来：一个 key 同时存在于
+    // 两个仓库（很常见，社区仓库往往是我们仓库的子集）时，汇总会被判成
+    // 「多变体」而直接失败，用户看到的是一批「更新失败」却什么也没发生。
+    ({SourceRepository repository, SourceCatalogEntry entry})? fallback;
     for (final candidateRepository in all) {
+      final SourceCatalog catalog;
       try {
-        final catalog = await load(candidateRepository);
-        final candidates =
-            catalog.entries.where((e) => e.key == source.key).toList();
-        if (candidates.isEmpty) continue;
-        final exact = candidates.firstWhereOrNull((e) => e.url == source.url);
-        final chosen =
-            exact ?? (candidates.length == 1 ? candidates.single : null);
-        if (chosen != null) {
-          return SourceUpdateTarget(
-            url: chosen.url,
-            repository: candidateRepository,
-            entry: chosen,
-          );
-        }
+        catalog = await load(candidateRepository);
       } catch (_) {
         // 单个仓库不可达不应该挡住其它仓库里的同名源。
+        continue;
+      }
+      final exact = matchEntry(catalog.entries, source,
+          preferredUrl: recordedUrl);
+      if (exact != null) {
+        return SourceUpdateTarget(
+          url: exact.url,
+          repository: candidateRepository,
+          entry: exact,
+        );
+      }
+      final candidates = catalog.entries
+          .where((e) => e.key == source.key)
+          .toList();
+      if (candidates.length == 1) {
+        fallback ??= (
+          repository: candidateRepository,
+          entry: candidates.single,
+        );
       }
     }
-    throw "No download link for this source. Add it again from a repository.".tl;
+    final chosen = fallback;
+    if (chosen != null) {
+      return SourceUpdateTarget(
+        url: chosen.entry.url,
+        repository: chosen.repository,
+        entry: chosen.entry,
+      );
+    }
+    throw linkedFailure ??
+        "No download link for this source. Add it again from a repository.".tl;
   }
 
   Future<String> updateUrl(ComicSource source) =>
@@ -707,46 +784,51 @@ class SourceRepositories extends ChangeNotifier {
     }
 
     for (final source in sources) {
-      final repositoryId = originFor(source.key)?.repositoryId;
-      final catalog = repositoryId == null ? null : catalogs[repositoryId];
+      final origin = originFor(source.key);
+      // 下载链接只在 origin 里：ComicSource.url 是脚本里的站点地址，拿它去
+      // 匹配目录条目永远匹配不上，重复 key 的源会被误判成「无法解析」。
+      final recordedUrl = origin?.url;
+      final repositoryId = origin?.repositoryId;
+      SourceCatalogEntry? chosen;
       if (repositoryId != null) {
         final repository = find(repositoryId);
-        if (repository == null || catalog == null) {
-          skipped++;
-          continue;
-        }
-        try {
-          final entry = entryFor(source, catalog.entries);
-          if (compareSemVer(entry.version, source.version)) {
-            updates[source.key] = entry.version;
+        final catalog = catalogs[repositoryId];
+        if (repository != null && catalog != null) {
+          chosen =
+              matchEntry(catalog.entries, source, preferredUrl: recordedUrl);
+          if (chosen != null) {
+            if (compareSemVer(chosen.version, source.version)) {
+              updates[source.key] = chosen.version;
+            }
+            checked++;
+            continue;
           }
-          checked++;
-        } catch (e) {
-          failures.add('${repository.name} / ${source.name}: $e');
-          skipped++;
+          // 源可能已从这个仓库下架或改名。以前这里直接记一条失败；现在继续
+          // 走下面的全仓库扫描，很多源同时存在于多个仓库。
         }
-        continue;
       }
 
-      // Sources installed before repositories existed have no origin yet. Fall
-      // back to scanning every catalog by key so they still receive updates.
-      final candidates = <SourceCatalogEntry>[];
+      // Sources installed before repositories existed have no origin yet. Scan
+      // every repository by key so they still receive updates — one repository
+      // at a time, mirroring [resolveUpdate], so a source that lives in more
+      // than one repository is no longer reported as an unfixable failure.
       for (final repository in repositories) {
         final entries = catalogs[repository.id]?.entries;
         if (entries == null) continue;
-        candidates.addAll(entries.where((e) => e.key == source.key));
+        final match = entries
+            .where((e) => e.key == source.key)
+            .toList();
+        if (match.isEmpty) continue;
+        final exact = matchEntry(match, source, preferredUrl: recordedUrl);
+        if (exact != null) {
+          chosen = exact;
+          break;
+        }
+        if (match.length == 1) {
+          chosen ??= match.single;
+        }
       }
-      if (candidates.isEmpty) {
-        skipped++;
-        continue;
-      }
-      final exact = candidates.firstWhereOrNull((e) => e.url == source.url);
-      final chosen =
-          exact ?? (candidates.length == 1 ? candidates.single : null);
       if (chosen == null) {
-        failures.add(
-          '${source.name}: ${"Multiple variants found. Choose a source in the repository again.".tl}',
-        );
         skipped++;
         continue;
       }

@@ -16,6 +16,7 @@ import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/js_engine.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/foundation/log.dart';
+import 'package:kong_comic/foundation/update_mirror.dart';
 import 'package:kong_comic/utils/data.dart';
 import 'package:kong_comic/utils/data_sync.dart';
 import 'package:kong_comic/utils/io.dart';

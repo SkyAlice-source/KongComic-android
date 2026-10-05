@@ -142,6 +142,34 @@ class ComicSourceManager with ChangeNotifier, Init {
     notifyListeners();
   }
 
+  /// Forgets the pending update for [key], e.g. right after it was installed.
+  ///
+  /// [availableUpdates] hands out a copy, so `availableUpdates.remove(...)` on
+  /// the manager silently did nothing and a source kept advertising
+  /// "update to x.y.z" even after it had been updated.
+  void clearAvailableUpdate(String key) {
+    if (_availableUpdates.remove(key) != null) notifyListeners();
+  }
+
+  /// Versions this session already downloaded a script for, keyed by source key.
+  ///
+  /// Repositories do get out of sync: `index.json` announces 1.6.7 while the
+  /// script file itself still declares 1.6.6. The download therefore succeeds,
+  /// the script stays on 1.6.6, and the list would offer the very same update
+  /// forever. Remembering "we already fetched what the catalog pointed at"
+  /// stops the loop; the button stays available for a manual re-download.
+  final _fetchedUpdates = <String, String>{};
+
+  /// Records that [version] was downloaded for [key] and drops the badge.
+  void acknowledgeUpdate(String key, String? version) {
+    if (version != null) _fetchedUpdates[key] = version;
+    clearAvailableUpdate(key);
+  }
+
+  /// Whether [version] was already downloaded for [key] this session.
+  bool hasAcknowledgedUpdate(String key, String? version) =>
+      version != null && _fetchedUpdates[key] == version;
+
   Map<String, String> get availableUpdates => Map.from(_availableUpdates);
 
   void notifyStateChange() {

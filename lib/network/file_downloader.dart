@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/io.dart';
+import 'package:kong_comic/foundation/update_mirror.dart';
 import 'package:kong_comic/network/app_dio.dart';
 import 'package:kong_comic/network/proxy.dart';
 import 'package:kong_comic/utils/ext.dart';
@@ -11,12 +12,26 @@ class FileDownloader {
   final String savePath;
   final int maxConcurrent;
 
+  /// Ignore `Range` semantics and pull the file in one stream.
+  ///
+  /// Some GitHub mirrors do not honor `Range` and answer `200` with the entire
+  /// body for every chunk request. Feeding those into parallel blocks writes
+  /// several copies of the whole file at different offsets, producing an APK
+  /// that passes the structural ZIP check but fails its SHA-256 check. Those
+  /// hosts must be downloaded start to finish in a single request.
+  final bool singleStream;
+
   /// How many times a single chunk is retried before the whole download is
   /// abandoned. GitHub resets connections frequently, especially from mainland
   /// China; without retries one dropped chunk fails the whole APK download.
   static const int maxAttemptsPerBlock = 3;
 
-  FileDownloader(this.url, this.savePath, {this.maxConcurrent = 4});
+  FileDownloader(
+    this.url,
+    this.savePath, {
+    this.maxConcurrent = 4,
+    this.singleStream = false,
+  });
 
   int _currentBytes = 0;
 
@@ -42,7 +57,13 @@ class FileDownloader {
   /// unawaited (a stray `throw` in a `then` callback used to leak here).
   Object? _failure;
 
-  late List<_DownloadBlock> _blocks;
+  /// Chunk layout of the file.
+  ///
+  /// Must be initialized, not `late`: [_createTasks] reads `_blocks.isEmpty` on
+  /// a fresh download (no `.download` resume file), and a `late` field throws
+  /// LateInitializationError the moment it is read before assignment — which
+  /// made *every* first-time APK download fail instantly.
+  List<_DownloadBlock> _blocks = [];
 
   Future<void> _writeStatus() async {
     var file = File("$savePath.download");
@@ -107,7 +128,10 @@ class FileDownloader {
   }
 
   Future<void> _createTasks() async {
-    var res = await _dio.head(url);
+    var res = await _dio.head(
+      url,
+      options: Options(headers: updateRequestHeaders()),
+    );
     var length = res.headers["content-length"]?.first;
     if (length == null) {
       throw Exception(
@@ -140,6 +164,12 @@ class FileDownloader {
       }
 
       _blocks = [];
+      if (singleStream) {
+        // One block covering everything: no Range arithmetic to go wrong when
+        // the server answers every request with the full body.
+        _blocks.add(_DownloadBlock(0, _fileSize, 0, false));
+        return;
+      }
       for (var i = 0; i < _fileSize; i += _kChunkSize) {
         var end = i + _kChunkSize;
         if (end > _fileSize) {
@@ -175,7 +205,15 @@ class FileDownloader {
       // get file size
       await _createTasks();
 
-      if (_canceled) return;
+      if (_canceled) {
+        // Must close the stream: no status timer is running yet, so nothing
+        // else would ever emit again and the caller's `await completer.future`
+        // would wait forever. Kicking this in is exactly what a stalled mirror
+        // does, so leaving it would hang the whole update instead of letting it
+        // fall through to the next download route.
+        if (!resultStream.isClosed) await resultStream.close();
+        return;
+      }
 
       // check if file is downloaded
       if (_currentBytes >= _fileSize) {
@@ -295,11 +333,9 @@ class FileDownloader {
 
     var options = Options(
       responseType: ResponseType.stream,
-      headers: {
-        "Range": "bytes=${start + block.downloadedBytes}-${end - 1}",
-        "Accept": "*/*",
-        "Accept-Encoding": "deflate, gzip",
-      },
+      headers: updateRequestHeaders(
+        range: 'bytes=${start + block.downloadedBytes}-${end - 1}',
+      ),
       preserveHeaderCase: true,
     );
     var res = await _dio.get<ResponseBody>(url, options: options);
