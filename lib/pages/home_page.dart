@@ -13,6 +13,7 @@ import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/comic_source_page.dart';
+import 'package:kong_comic/foundation/follow_updates.dart';
 import 'package:kong_comic/pages/follow_updates_page.dart';
 import 'package:kong_comic/pages/image_favorites_page/image_favorites_page.dart';
 import 'package:kong_comic/utils/translations.dart';
@@ -346,17 +347,17 @@ class _ComicInfoSection extends StatelessWidget {
             if (progress != null)
               Padding(padding: const EdgeInsets.only(bottom: 4),
                 child: Text(progress, style: TextStyle(fontSize: kcFont13, color: cs.onSurface))),
-            Text("Total %s chapters".tl.replaceAll("%s", "${history?.maxPage ?? '?'}"), style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant)),
+            Text("Total @count chapters".tlParams({'count': "${history?.maxPage ?? '?'}"}), style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant)),
             if (updatedTime != null)
               Padding(padding: const EdgeInsets.only(top: 4),
-                child: Text("Updated %s".tl.replaceAll("%s", updatedTime), style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant))),
+                child: Text("Updated @time".tlParams({'time': updatedTime}), style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant))),
             const SizedBox(height: 12),
             SizedBox(width: double.infinity, height: 44,
               child: ElevatedButton(
                 onPressed: () => context.to(() => ComicPage(id: comic.id, sourceKey: comic.type.comicSource?.key ?? '', cover: comic.coverPath, title: comic.name)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: appdata.isAmoledMode
-                      ? const Color(0xFF242424)
+                      ? kcBrandColor
                       : Theme.of(context).colorScheme.primary,
                   foregroundColor: appdata.isAmoledMode
                       ? Colors.white
@@ -380,17 +381,12 @@ class _HomeCapsules extends StatefulWidget {
 }
 class _HomeCapsulesState extends State<_HomeCapsules> {
   int _updateCount = 0;
-  String? get folder => appdata.settings["followUpdatesFolder"];
+  List<String> get folders => getEffectiveFollowFolders();
   void _refresh() {
     if (!mounted) return;
     setState(() {
-      if (folder == null) {
-        _updateCount = 0;
-      } else if (LocalFavoritesManager().folderNames.contains(folder)) {
-        _updateCount = LocalFavoritesManager().countUpdates(folder!);
-      } else {
-        _updateCount = 0;
-      }
+      _updateCount = folders.fold(
+          0, (sum, f) => sum + LocalFavoritesManager().countUpdates(f));
     });
   }
   @override void initState() { super.initState(); _refresh(); LocalFavoritesManager().addListener(_refresh); LocalManager().addListener(_refresh); }
@@ -398,7 +394,7 @@ class _HomeCapsulesState extends State<_HomeCapsules> {
   @override Widget build(BuildContext context) {
     final lc = LocalManager().count;
     return SliverToBoxAdapter(child: Column(children: [
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), child: Row(children: [
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Row(children: [
         Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 20), label: "Follow Updates".tl, value: _updateCount > 0 ? "$_updateCount" : null, alert: _updateCount > 0, onTap: () => context.to(() => const FollowUpdatesPage()))),
         const SizedBox(width: 10),
         Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 20), label: "Local".tl, value: "$lc", onTap: () => context.to(() => const LocalComicsPage()))),
@@ -412,7 +408,7 @@ class _BottomModules extends StatelessWidget {
   @override Widget build(BuildContext context) {
     final cc = ComicSource.all().length;
     final imgCount = ImageFavoriteManager().length;
-    return SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), child: Row(children: [
+    return SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Row(children: [
       Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 20), label: "Image Favorites".tl, value: imgCount > 0 ? "$imgCount" : null, onTap: () => context.to(() => const ImageFavoritesPage()))),
       const SizedBox(width: 10),
       Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 20), label: "Comic Source".tl, value: "$cc", onTap: () => context.to(() => const ComicSourcePage()))),
@@ -442,7 +438,7 @@ class _FlatBox extends StatelessWidget {
             if (value != null)
               Container(
                 margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
                 decoration: BoxDecoration(
                   color: alert ? cs.errorContainer : cs.primaryContainer,

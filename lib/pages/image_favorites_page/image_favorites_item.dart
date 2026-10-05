@@ -365,7 +365,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
     return Row(
       children: [
         Text(
-          "$time | ${comicSource?.name ?? "Unknown"}",
+          "$time | ${comicSource?.name ?? "Unknown".tl}",
           textAlign: TextAlign.left,
           style: const TextStyle(
             fontSize: kcCaption,

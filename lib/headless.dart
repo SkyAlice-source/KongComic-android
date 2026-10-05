@@ -7,7 +7,6 @@ import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/pages/comic_source_page.dart';
 import 'package:kong_comic/init.dart';
 import 'package:kong_comic/foundation/follow_updates.dart';
-import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 
 void cliPrint(Map<String, dynamic> data) {
@@ -124,12 +123,13 @@ Future<void> runHeadlessMode(List<String> args) async {
       break;
     case 'updatesubscribe':
       cliPrint({'status': 'running', 'message': 'Updating subscribed comics...'});
-      var folder = appdata.settings["followUpdatesFolder"];
-      if (folder == null) {
+      final folders = getEffectiveFollowFolders();
+      if (folders.isEmpty) {
         cliPrint({'status': 'error', 'message': 'Follow updates folder is not configured.'});
         exit(1);
       }
 
+      for (final folder in folders) {
       var updateIndex = args.indexOf('--update-comic-by-id-type');
       if (updateIndex != -1) {
         var id = args[updateIndex + 1];
@@ -232,6 +232,7 @@ Future<void> runHeadlessMode(List<String> args) async {
           'message': 'Updated comics list.',
           'data': jsonDecode(json),
         });
+      }
       }
       break;
     default:

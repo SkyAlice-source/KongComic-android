@@ -20,7 +20,6 @@ import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
@@ -40,9 +39,6 @@ import java.util.concurrent.atomic.AtomicInteger
 class MainActivity : FlutterFragmentActivity() {
     var volumeListen = VolumeListen()
     var listening = false
-
-    private val storageRequestCode = 0x10
-    private var storagePermissionRequest: ((Boolean) -> Unit)? = null
 
     private val nextLocalRequestCode = AtomicInteger()
 
@@ -232,13 +228,6 @@ class MainActivity : FlutterFragmentActivity() {
                     listening = false
                 }
             })
-
-        val storageChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kong_comic/storage")
-        storageChannel.setMethodCallHandler { _, res ->
-            requestStoragePermission { result ->
-                res.success(result)
-            }
-        }
 
         val selectFileChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kong_comic/select_file")
         selectFileChannel.setMethodCallHandler { req, res ->
@@ -485,63 +474,6 @@ class MainActivity : FlutterFragmentActivity() {
             ) == PackageManager.PERMISSION_GRANTED
         } else {
             Environment.isExternalStorageManager()
-        }
-    }
-
-    private fun requestStoragePermission(result: (Boolean) -> Unit) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            val readPermission = ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
-
-            val writePermission = ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
-
-            if (!readPermission || !writePermission) {
-                storagePermissionRequest = result
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(
-                        Manifest.permission.READ_EXTERNAL_STORAGE,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE
-                    ),
-                    storageRequestCode
-                )
-            } else {
-                result(true)
-            }
-        } else {
-            if (!Environment.isExternalStorageManager()) {
-                try {
-                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                    intent.addCategory("android.intent.category.DEFAULT")
-                    intent.data = Uri.parse("package:$packageName")
-                    startContractForResult(ActivityResultContracts.StartActivityForResult(), intent){ _ ->
-                        result(Environment.isExternalStorageManager())
-                    }
-                } catch (e: Exception) {
-                    result(false)
-                }
-            } else {
-                result(true)
-            }
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == storageRequestCode) {
-            storagePermissionRequest?.invoke(grantResults.all {
-                it == PackageManager.PERMISSION_GRANTED
-            })
-            storagePermissionRequest = null
         }
     }
 

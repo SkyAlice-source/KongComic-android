@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:flutter_saf/flutter_saf.dart';
 import 'package:kong_comic/foundation/app.dart';
-import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/utils/ext.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart' as s;
@@ -24,23 +23,6 @@ class IO {
   static bool get isSelectingFiles => _isSelectingFiles;
 
   static bool _isSelectingFiles = false;
-}
-
-/// 请求 Android「所有文件访问」权限（MANAGE_EXTERNAL_STORAGE）。
-///
-/// 已授予时直接返回 true；未授予则跳转到系统设置页，用户在那里打开开关后
-/// 返回本应用时给出结果。原生端是 `kong_comic/storage` 通道（MainActivity）。
-/// 没有这个权限就无法写入公共 Download 目录。
-Future<bool> requestAllFilesAccess() async {
-  if (!App.isAndroid) return false;
-  try {
-    final granted = await const MethodChannel('kong_comic/storage')
-        .invokeMethod<bool>('request');
-    return granted ?? false;
-  } catch (e) {
-    Log.error("IO", "Failed to request all-files access: $e", null);
-    return false;
-  }
 }
 
 class FilePath {

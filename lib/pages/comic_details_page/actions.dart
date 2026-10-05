@@ -426,10 +426,11 @@ abstract mixin class _ComicPageActions {
     showDialog(
       context: App.rootContext,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setState) => SimpleDialog(
-          title: Text("Rating".tl),
-          alignment: Alignment.center,
-          children: [
+        builder: (context, setState) => ContentDialog(
+          title: "Rating".tl,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             SizedBox(
               height: 100,
               child: Center(
@@ -475,8 +476,9 @@ abstract mixin class _ComicPageActions {
                   ),
                 ),
               ),
-            )
+            ),
           ],
+          ),
         ),
       ),
     );

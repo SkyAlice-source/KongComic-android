@@ -308,7 +308,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
     Widget body = Scrollbar(
       controller: scrollController,
       thickness: App.isDesktop ? 8 : 12,
-      radius: const Radius.circular(8),
+      radius: Radius.circular(kcRadius8),
       interactive: true,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),

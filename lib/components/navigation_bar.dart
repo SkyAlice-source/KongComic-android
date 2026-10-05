@@ -96,6 +96,7 @@ class NaviPaneState extends State<NaviPane>
     if (value == _currentPage) return;
     _currentPage = value;
     widget.onPageChanged?.call(value);
+    _pageNotifier.value = value;
   }
 
   void Function()? mainViewUpdateHandler;
@@ -110,6 +111,9 @@ class NaviPaneState extends State<NaviPane>
 
   late AnimationController controller;
 
+  /// 当前页 notifier：直接驱动底栏「液体选中框」滑动，不依赖父级重建。
+  final _pageNotifier = ValueNotifier<int>(0);
+
   final _naviItemTapListeners = <NaviItemTapListener>[];
 
   void addNaviItemTapListener(NaviItemTapListener listener) {
@@ -122,14 +126,30 @@ class NaviPaneState extends State<NaviPane>
 
   static const _kBottomBarHeight = 58.0;
 
+  /// 悬浮胶囊底栏四周的留白（浮岛式导航：不贴边、不贴底）。
+  /// ⚠️ 改动这里的竖向值必须同步 [bottomBarHeight]，否则页面预留的底部
+  /// 空间和底栏实际占位不一致，列表最后一项会被压在底栏下面。
+  static const _kBottomBarMarginH = 14.0;
+  static const _kBottomBarMarginV = 10.0;
+
   static const _kFoldedSideBarWidth = 72.0;
 
   static const _kSideBarWidth = 224.0;
 
   static const _kTopBarHeight = 48.0;
 
+  /// 底栏**实际遮挡**的高度：栏体 + 下方留白 + 系统手势区。
+  /// 页面（列表底部 padding、悬浮按钮）靠它给内容让位。
   double get bottomBarHeight =>
-      _kBottomBarHeight + MediaQuery.of(context).padding.bottom;
+      _kBottomBarHeight + _kBottomBarMarginV + MediaQuery.of(context).padding.bottom;
+
+  /// 底栏外边距。底部额外留出系统手势区，避免胶囊压在手势条上。
+  EdgeInsets bottomBarMargin(BuildContext context) => EdgeInsets.fromLTRB(
+        _kBottomBarMarginH,
+        _kBottomBarMarginV,
+        _kBottomBarMarginH,
+        _kBottomBarMarginV + MediaQuery.of(context).padding.bottom,
+      );
 
   void onNavigatorStateChange() {
     onRebuild(context);
@@ -159,6 +179,7 @@ class NaviPaneState extends State<NaviPane>
       upperBound: 3,
       vsync: this,
     );
+    _pageNotifier.value = widget.initialPage;
     widget.observer.addListener(onNavigatorStateChange);
     pageActionsNotifier.addListener(_onPageActionsChanged);
     super.initState();
@@ -167,6 +188,7 @@ class NaviPaneState extends State<NaviPane>
   @override
   void dispose() {
     controller.dispose();
+    _pageNotifier.dispose();
     widget.observer.removeListener(onNavigatorStateChange);
     pageActionsNotifier.removeListener(_onPageActionsChanged);
     super.dispose();
@@ -280,13 +302,18 @@ class NaviPaneState extends State<NaviPane>
               SystemNavigator.pop();
             }
           },
-        child: NotificationListener<NavigationNotification>(
-          onNotification: (NavigationNotification notification) {
-            final bool nextCanPop = !notification.canHandlePop;
-            if (nextCanPop != _canPop) {
-              setState(() {
-                _canPop = nextCanPop;
-              });
+        child: NotificationListener<Notification>(
+          onNotification: (Notification notification) {
+            // 滚动中把玻璃降级为实色（省掉每帧背景模糊），见 KcGlassActivity。
+            if (notification is ScrollNotification) {
+              KcGlassActivity.markScrolling();
+            } else if (notification is NavigationNotification) {
+              final bool nextCanPop = !notification.canHandlePop;
+              if (nextCanPop != _canPop) {
+                setState(() {
+                  _canPop = nextCanPop;
+                });
+              }
             }
             return false;
           },
@@ -361,6 +388,14 @@ class NaviPaneState extends State<NaviPane>
     return GlassBottomBar(
       height: _kBottomBarHeight,
       edgeToEdge: true,
+      // ColorOS 17 浮岛式导航：胶囊底栏悬浮在内容之上，两侧与底部留白，
+      // 而非全宽贴边，强化「轻盈、分层」的视觉。
+      margin: bottomBarMargin(context),
+      indicator: (width) => _LiquidIndicator(
+        pageListenable: _pageNotifier,
+        count: widget.paneItems.length,
+        width: width,
+      ),
       children: [
         ...List<Widget>.generate(widget.paneItems.length, (index) {
           return Expanded(
@@ -575,41 +610,117 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
   }
 
   Widget buildContent() {
-    final value = controller.value;
     final colorScheme = Theme.of(context).colorScheme;
     final isActive = widget.enabled;
     final icon = isActive ? widget.entry.activeIcon : widget.entry.icon;
     final activeClr = colorScheme.primary;
-    final inactiveClr = colorScheme.onSurfaceVariant;
+    // 贴吧里未选中是接近纯黑/纯白的高对比色（alpha 0.80），而不是发灰的 secondary，
+    // 这样「选中=蓝色药丸」和「未选中=实色图标」的对比才够干脆。
+    final inactiveClr = colorScheme.onSurface.withValues(alpha: 0.80);
 
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: isActive ? activeClr.withValues(alpha: 0.12 * value) : Colors.transparent,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          ColorFiltered(
-            colorFilter: ColorFilter.mode(
-              isActive ? activeClr : inactiveClr,
-              BlendMode.srcIn,
+    // 贴吧式选中态：一颗实心胶囊药丸，把图标和文字一起包住。
+    // 旧实现是 56×56 的淡色圆形色斑，只在图标外圈晕一点色，观感差很远。
+    return Center(
+      child: AnimatedContainer(
+        duration: AppAnimations.duration(const Duration(milliseconds: 200)),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          // 选中态背景交给底栏的「液体选中框」滑动药丸（_LiquidIndicator），
+          // 这里只保留文字/图标的高亮色，避免两层背景叠加。
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ColorFiltered(
+              colorFilter: ColorFilter.mode(
+                isActive ? activeClr : inactiveClr,
+                BlendMode.srcIn,
+              ),
+              child: SizedBox(width: 22, height: 22, child: icon),
             ),
-            child: SizedBox(width: 18, height: 18, child: icon),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            widget.entry.label,
-            style: TextStyle(
-              fontSize: kcFont11,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              color: isActive ? activeClr : inactiveClr.withValues(alpha: 0.7),
+            const SizedBox(height: 3),
+            Text(
+              widget.entry.label,
+              style: TextStyle(
+                fontSize: kcFont11,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive ? activeClr : inactiveClr,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// 底栏「液体选中框」：一颗胶囊药丸在等宽 item 间弹性滑动，移动途中横向
+/// 微拉伸模拟液体。背景由它提供，item 自身只负责图标/文字高亮。
+class _LiquidIndicator extends StatelessWidget {
+  /// 当前页监听：页面变化时自动弹性滑到对应格。
+  final ValueNotifier<int> pageListenable;
+  final int count;
+
+  /// 底栏内容宽度（由 GlassBottomBar 的 LayoutBuilder 测得）。
+  final double width;
+
+  const _LiquidIndicator({
+    required this.pageListenable,
+    required this.count,
+    required this.width,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final itemW = width / count;
+    // ValueListenableBuilder + TweenAnimationBuilder：直接监听当前页，页面一变
+    // 就从旧位置弹性滑到新位置，不依赖父级重建；Positioned 直接挂在 Stack 下生效。
+    return ValueListenableBuilder<int>(
+      valueListenable: pageListenable,
+      builder: (context, page, _) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(
+            begin: page.toDouble(),
+            end: page.toDouble(),
+          ),
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.elasticOut,
+          builder: (context, value, _) {
+            final left = value * itemW;
+            // 移动途中（value 非整数）横向微拉伸模拟液体；静止时 frac=0 → 不拉伸。
+            final frac = value - value.floorToDouble();
+            final stretch = 1 + 0.08 * math.sin(frac * math.pi);
+            return Positioned(
+              left: left,
+              top: 0,
+              bottom: 0,
+              width: itemW,
+              child: IgnorePointer(
+                child: Center(
+                  child: Transform.scale(
+                    scaleX: stretch,
+                    child: Container(
+                      // 显式尺寸：药丸需要包住 item 的「图标 22 + 间隙 3 + 文字」，
+                      // 不能靠 padding 撑（无 child 时只有 32×8 的小点，看不见）。
+                      width: 62,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -720,8 +831,8 @@ class _ExitConfirmDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var dontAsk = false;
-    return AlertDialog(
-      title: Text("Confirm Exit".tl),
+    return ContentDialog(
+      title: "Confirm Exit".tl,
       content: StatefulBuilder(
         builder: (ctx, setSB) => Column(
           mainAxisSize: MainAxisSize.min,

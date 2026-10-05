@@ -35,7 +35,6 @@ part 'about.dart';
 part 'network.dart';
 part 'download.dart';
 part 'import_settings.dart';
-part 'debug.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({this.initialPage = -1, super.key});

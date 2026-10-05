@@ -1,5 +1,31 @@
 part of 'components.dart';
 
+/// 全局「是否正在滚动」状态。
+///
+/// 背景模糊（BackdropFilter）是滚动时最贵的一笔开销：列表每一帧移动，
+/// 底栏/顶栏就要重新采样背后内容并跑一次高斯模糊，中低端机上很容易吃满 16ms 预算。
+/// 而**滚动过程中人眼根本分辨不出背后是模糊还是实色**——所以滚动中直接降级成
+/// 半透明实色（tint 略加厚保证可读性），停止 150ms 后再恢复真玻璃。
+/// 观感几乎无损，滚动帧耗时大幅下降。
+class KcGlassActivity {
+  KcGlassActivity._();
+
+  static final ValueNotifier<bool> scrolling = ValueNotifier<bool>(false);
+
+  static Timer? _timer;
+
+  /// 由页面容器（NaviPane）在收到滚动通知时调用。
+  static void markScrolling() {
+    if (!scrolling.value) {
+      scrolling.value = true;
+    }
+    _timer?.cancel();
+    _timer = Timer(const Duration(milliseconds: 150), () {
+      scrolling.value = false;
+    });
+  }
+}
+
 /// iOS 26 Liquid Glass 风格容器
 /// 更高透明度 + 光线折射感 + 流动动态
 class GlassContainer extends StatefulWidget {
@@ -250,12 +276,16 @@ class GlassBottomBar extends StatelessWidget {
   final bool edgeToEdge;
   final EdgeInsetsGeometry margin;
 
+  /// 可选的「液体选中框」滑动药丸（按底栏内容宽度构建），叠在 item 行之上、不拦截点击。
+  final Widget Function(double width)? indicator;
+
   const GlassBottomBar({
     super.key,
     required this.children,
     this.height = 56,
     this.edgeToEdge = false,
     this.margin = const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+    this.indicator,
   });
 
   @override
@@ -265,11 +295,73 @@ class GlassBottomBar extends StatelessWidget {
         : 0.0;
     final totalHeight = height + bottomPad;
     final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
-    // 半透明毛玻璃：light 模式 ~90% 白, dark 模式 ~85% 深色
-    // 内容可以透过 dock 看到一点，消除"白块"分界线
-    final glassColor = isDark
-        ? Colors.black.withValues(alpha: 0.85)
-        : Colors.white.withValues(alpha: 0.9);
+    // 真·磨砂玻璃（像贴吧 Haze）的关键：不要镜面高光、不要过硬的投影。
+    // 之前那道「顶部 white@0.55→0 渐变」是塑料反光感的来源，已移除。
+    final tintColor = isDark
+        ? Colors.black.withValues(alpha: 0.54)
+        : Colors.white.withValues(alpha: 0.66);
+    // 模糊半径：40 → 24。Skia 的高斯模糊开销随 sigma 增长，24 在观感上与 40
+    // 差别很小（都是「看不清细节」级别的模糊），但每帧耗时明显更低。
+    const blurSigma = 24.0;
+
+    // 滚动中降级为实色（不套 BackdropFilter），停止后恢复真玻璃。
+    // 见 KcGlassActivity 的说明：滚动时人眼分辨不出背后是否模糊，但省掉每帧采样+模糊。
+    final pill = ValueListenableBuilder<bool>(
+      valueListenable: KcGlassActivity.scrolling,
+      builder: (context, scrolling, _) {
+        final effectiveTint = scrolling
+            ? (isDark
+                ? Colors.black.withValues(alpha: 0.72)
+                : Colors.white.withValues(alpha: 0.88))
+            : tintColor;
+
+        Widget body = Container(
+          decoration: BoxDecoration(
+            color: effectiveTint,
+            borderRadius: BorderRadius.circular(kcRadius32),
+            // 贴吧那种「无描边、无凝光」的干净玻璃片：只留一层柔和漫射投影，
+            // 让浮岛从内容轻轻浮起，不靠硬边/高光制造塑料质感。
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.26 : 0.06),
+                blurRadius: 28,
+                spreadRadius: -4,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: SizedBox(
+            height: height,
+            // 测宽放在这里：indicator 内部的 Positioned 必须直接挂在 Stack 下，
+            // 中间不能隔 LayoutBuilder 这类 RenderObjectWidget，否则定位失效。
+            child: LayoutBuilder(
+              builder: (context, constraints) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: children,
+                  ),
+                  if (indicator != null) indicator!(constraints.maxWidth),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        if (!scrolling) {
+          body = BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+            child: body,
+          );
+        }
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(kcRadius32),
+          child: body,
+        );
+      },
+    );
 
     return Padding(
       padding: margin,
@@ -279,82 +371,11 @@ class GlassBottomBar extends StatelessWidget {
         // 安全区透明（不加背景），内容自然透出
         child: Column(
           children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: glassColor,
-                  borderRadius: BorderRadius.circular(kcRadius32),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : Colors.black.withValues(alpha: 0.06),
-                    width: 0.4,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
-                      blurRadius: 20,
-                      spreadRadius: -4,
-                      offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: isDark
-                          ? Colors.transparent
-                          : Colors.white.withValues(alpha: 0.5),
-                      blurRadius: 12,
-                      spreadRadius: -2,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: SizedBox(
-                  height: height,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: children,
-                  ),
-                ),
-              ),
-            ),
+            Expanded(child: pill),
             if (bottomPad > 0) SizedBox(height: bottomPad),
           ],
         ),
       ),
-    );
-  }
-}
-
-/// iOS 26 Liquid Glass sidebar
-class GlassSideBar extends StatelessWidget {
-  final Widget child;
-  final double width;
-
-  const GlassSideBar({
-    super.key,
-    required this.child,
-    required this.width,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark
-            ? cs.surfaceContainerLowest
-            : cs.surfaceContainer,
-        border: Border(
-          right: BorderSide(
-            color: cs.outlineVariant,
-            width: 1.0,
-          ),
-        ),
-      ),
-      width: width,
-      height: double.infinity,
-      child: child,
     );
   }
 }
@@ -413,6 +434,8 @@ class GlassCard extends StatelessWidget {
                   blurRadius: 14,
                   offset: const Offset(0, 6),
                 ),
+                // ColorOS 17 Contour Glow：卡片四周柔光描边
+                ...kcContourGlow(context),
               ],
             ),
             child: onTap != null
@@ -459,6 +482,8 @@ class GlassCard extends StatelessWidget {
                   blurRadius: 12,
                   offset: const Offset(0, 6),
                 ),
+                // ColorOS 17 Contour Glow：卡片四周柔光描边
+                ...kcContourGlow(context),
               ],
             ),
             child: onTap != null
@@ -483,47 +508,3 @@ class GlassCard extends StatelessWidget {
   }
 }
 
-/// iOS 26 Liquid Glass AppBar wrapper
-class GlassAppBarWrapper extends StatelessWidget {
-  final Widget child;
-  final double blurStrength;
-  final bool scrolledUnder;
-
-  const GlassAppBarWrapper({
-    super.key,
-    required this.child,
-    this.blurStrength = 35,
-    this.scrolledUnder = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final effectiveOpacity = scrolledUnder ? 0.10 : 0.05;
-    return GlassContainer(
-      blurStrength: blurStrength,
-      opacity: effectiveOpacity,
-      borderRadius: BorderRadius.zero,
-      border: Border(
-        bottom: BorderSide(
-          color: scrolledUnder
-              ? (Theme.of(context).brightness == Brightness.light
-                  ? Colors.white.withValues(alpha: 0.6)
-                  : Colors.white.withValues(alpha: 0.10))
-              : Colors.transparent,
-          width: 0.3,
-        ),
-      ),
-      boxShadow: scrolledUnder
-          ? [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 6,
-                offset: const Offset(0, 1),
-              ),
-            ]
-          : [],
-      width: double.infinity,
-      child: child,
-    );
-  }
-}

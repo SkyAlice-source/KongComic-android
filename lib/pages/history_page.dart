@@ -287,7 +287,8 @@ class _HistoryPageState extends State<HistoryPage> {
               badgeColorBuilder: (c) {
                 final brightness = Theme.of(context).brightness;
                 final amoled = appdata.isAmoledMode;
-                return kcTagColor(c.sourceKey.hashCode, brightness, amoled: amoled);
+                return kcTagColor(kcStableHash(c.sourceKey), brightness,
+                    amoled: amoled);
               },
               menuBuilder: (c) {
                 return [
@@ -426,8 +427,8 @@ class _HistoryPageState extends State<HistoryPage> {
   void _confirmClearHistory() {
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Clear History'.tl),
+      builder: (dialogContext) => ContentDialog(
+        title: 'Clear History'.tl,
         content: Text('Are you sure you want to clear your history?'.tl),
         actions: [
           TextButton(

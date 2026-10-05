@@ -129,12 +129,12 @@ class _FilterChipFixedWidthState extends State<FilterChipFixedWidth> {
       textStyle: Theme.of(context).textTheme.labelLarge,
       child: InkWell(
         onTap: () => widget.onSelected(true),
-        borderRadius: const BorderRadius.all(Radius.circular(8)),
+        borderRadius: const BorderRadius.all(Radius.circular(kcRadius8)),
         child: AnimatedContainer(
           duration: _fastAnimationDuration,
           decoration: BoxDecoration(
             border: Border.all(color: borderColor),
-            borderRadius: const BorderRadius.all(Radius.circular(8)),
+            borderRadius: const BorderRadius.all(Radius.circular(kcRadius8)),
             color: bg,
           ),
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),

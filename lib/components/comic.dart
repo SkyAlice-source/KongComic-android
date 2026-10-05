@@ -411,6 +411,7 @@ class ComicTile extends StatelessWidget {
               blurRadius: 1,
               offset: const Offset(0, 1),
             ),
+            ...kcContourGlow(context),
           ],
         ),
         clipBehavior: Clip.antiAlias,
@@ -496,7 +497,7 @@ class ComicTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: context.colorScheme.secondaryContainer,
             borderRadius: BorderRadius.circular(kcCardInnerRadius),
-            boxShadow: [kcCardShadow(context)],
+            boxShadow: [kcCardShadow(context), ...kcContourGlow(context)],
           ),
           clipBehavior: Clip.antiAlias,
           child: buildImage(context),
@@ -884,8 +885,8 @@ class _ComicDescription extends StatelessWidget {
                   runAlignment: WrapAlignment.start,
                   clipBehavior: Clip.antiAlias,
                   crossAxisAlignment: WrapCrossAlignment.end,
-                  spacing: 6,
-                  runSpacing: 4,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     for (var s in processedTags)
                       Builder(builder: (context) {
@@ -893,7 +894,8 @@ class _ComicDescription extends StatelessWidget {
                         final amoled = appdata.isAmoledMode;
                         final bg = s == "Unavailable"
                             ? context.colorScheme.errorContainer
-                            : kcTagColor(s.hashCode, brightness,
+                            : kcTagColor(kcStableHash(s.split(':').last),
+                                brightness,
                                 amoled: amoled);
                         return Container(
                           height: 21,
@@ -904,7 +906,7 @@ class _ComicDescription extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: bg,
-                            borderRadius: BorderRadius.circular(kcRadius8),
+                            borderRadius: BorderRadius.circular(kcRadius10),
                           ),
                           child: Center(
                             widthFactor: 1,

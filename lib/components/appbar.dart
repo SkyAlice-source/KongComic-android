@@ -77,11 +77,11 @@ class _AppbarState extends State<Appbar> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final barTint = widget.backgroundColor ??
+        (isDark ? Colors.black.withValues(alpha: 0.54) : Colors.white.withValues(alpha: 0.66));
     var content = Container(
-      decoration: BoxDecoration(
-        color: widget.backgroundColor ??
-          Theme.of(context).scaffoldBackgroundColor,
-      ),
+      decoration: BoxDecoration(color: barTint),
       height: _kAppBarHeight + context.padding.top,
       child: Row(
         children: [
@@ -114,13 +114,25 @@ class _AppbarState extends State<Appbar> {
     );
     if (widget.style == AppbarStyle.shadow) {
       return Material(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: barTint,
         elevation: _scrolledUnder ? 2 : 0,
         child: content,
       );
     } else {
-      return BlurEffect(
-        child: content,
+      // 真磨砂顶栏：BackdropFilter 模糊背后内容 + 半透明 tint，对齐底栏玻璃质感。
+      // 滚动中降级为纯 tint（省掉每帧模糊），停止后恢复，见 KcGlassActivity。
+      return ValueListenableBuilder<bool>(
+        valueListenable: KcGlassActivity.scrolling,
+        builder: (context, scrolling, _) {
+          Widget bar = content;
+          if (!scrolling) {
+            bar = BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: bar,
+            );
+          }
+          return ClipRect(child: bar);
+        },
       );
     }
   }
@@ -226,14 +238,34 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     ).paddingTop(topPadding);
 
     if (style == AppbarStyle.blur) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final tint = isDark
+          ? Colors.black.withValues(alpha: 0.54)
+          : Colors.white.withValues(alpha: 0.66);
       return SizedBox.expand(
-        child: BlurEffect(
-          child: Material(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            elevation: 0,
-            borderRadius: BorderRadius.circular(radius),
-            child: body,
-          ),
+        child: ValueListenableBuilder<bool>(
+          valueListenable: KcGlassActivity.scrolling,
+          builder: (context, scrolling, _) {
+            // 滚动中把 tint 加厚并去掉模糊：可读性反而更好，且省掉每帧高斯模糊。
+            final effectiveTint = scrolling
+                ? (isDark
+                    ? Colors.black.withValues(alpha: 0.74)
+                    : Colors.white.withValues(alpha: 0.88))
+                : tint;
+            Widget bar = Material(
+              color: effectiveTint,
+              elevation: 0,
+              borderRadius: BorderRadius.circular(radius),
+              child: body,
+            );
+            if (!scrolling) {
+              bar = BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: bar,
+              );
+            }
+            return ClipRect(child: bar);
+          },
         ),
       );
     } else {

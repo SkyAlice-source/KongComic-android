@@ -37,7 +37,7 @@ class TimeRange {
 
   @override
   String toString() {
-    return "${end?.millisecond}:${duration.inMilliseconds}";
+    return "${end?.millisecondsSinceEpoch}:${duration.inMilliseconds}";
   }
 
   /// Parse a time range from a string, return [TimeRange.all] if failed

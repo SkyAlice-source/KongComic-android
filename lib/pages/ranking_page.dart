@@ -27,7 +27,7 @@ class _RankingPageState extends State<RankingPage> {
         return;
       }
     }
-    throw "${widget.categoryKey} Not found";
+    throw "@c Not found".tlParams({'c': widget.categoryKey});
   }
 
   @override

@@ -14,7 +14,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
 
   static const kTopBarHeight = 56.0;
 
-  static const kBottomBarHeight = 125.0;
+  // 底栏内容高度：原先 125dp，但实际内容（两行 40dp 按钮）只有 ~88dp，
+  // 多出的空白让整条工具栏显得又高又空、压缩阅读区。收紧到 100dp。
+  static const kBottomBarHeight = 100.0;
 
   bool get isOpen => _isOpen;
 
@@ -22,28 +24,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       context.reader.mode == ReaderMode.galleryRightToLeft ||
       context.reader.mode == ReaderMode.continuousRightToLeft;
 
-  int showFloatingButtonValue = 0;
-
-  var lastValue = 0;
-
   _ReaderGestureDetectorState? _gestureDetectorState;
-
-  void setFloatingButton(int value) {
-    lastValue = showFloatingButtonValue;
-    if (value == 0) {
-      if (showFloatingButtonValue != 0) {
-        showFloatingButtonValue = 0;
-        update();
-      }
-    }
-    if (value == 1 && showFloatingButtonValue == 0) {
-      showFloatingButtonValue = 1;
-      update();
-    } else if (value == -1 && showFloatingButtonValue == 0) {
-      showFloatingButtonValue = -1;
-      update();
-    }
-  }
 
   _DragListener? _imageFavoriteDragListener;
 
@@ -182,12 +163,6 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           buildStatusInfo(),
         AnimatedPositioned(
           duration: AppAnimations.duration(const Duration(milliseconds: 180)),
-          right: 16,
-          bottom: showFloatingButtonValue == 0 ? -58 : 36,
-          child: buildEpChangeButton(),
-        ),
-        AnimatedPositioned(
-          duration: AppAnimations.duration(const Duration(milliseconds: 180)),
           top: _isOpen ? 0 : -(kTopBarHeight + context.padding.top),
           left: 0,
           right: 0,
@@ -217,7 +192,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       child: Container(
         padding: EdgeInsets.only(top: context.padding.top),
         decoration: BoxDecoration(
-          color: context.colorScheme.surface,
+          color: context.colorScheme.surface.withValues(alpha: 0.6),
           border: Border(
             bottom: BorderSide(
               color: context.colorScheme.outlineVariant,
@@ -602,7 +577,6 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       height: kBottomBarHeight,
       child: Column(
         children: [
-          const SizedBox(height: 8),
           Row(
             children: [
               const SizedBox(width: 8),
@@ -676,7 +650,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     return BlurEffect(
       child: Container(
         decoration: BoxDecoration(
-          color: context.colorScheme.surface,
+          color: context.colorScheme.surface.withValues(alpha: 0.6),
           border: isOpen
               ? Border(
                   top: BorderSide(
@@ -1069,66 +1043,6 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     );
   }
 
-  Widget buildEpChangeButton() {
-    if (context.reader.widget.chapters == null) return const SizedBox();
-    final bool isNext = showFloatingButtonValue == 1;
-    final bool isPrev = showFloatingButtonValue == -1;
-    // Keep the same Backward01 / Forward01 icon family, swapping them when the
-    // reading direction is reversed.
-    HugeIcon iconFor(bool next) => HugeIcon(
-          icon: isReversed
-              ? (next
-                  ? HugeIcons.strokeRoundedBackward01
-                  : HugeIcons.strokeRoundedForward01)
-              : (next
-                  ? HugeIcons.strokeRoundedForward01
-                  : HugeIcons.strokeRoundedBackward01),
-          size: 20,
-        );
-    // Use the same circular, surface-tinted style as the back-to-top FAB so
-    // the button is clearly visible over any comic page in both light and dark
-    // themes.
-    final colors = scrollTopFabColors(context);
-    final buttonStyle = IconButton.styleFrom(
-      backgroundColor: colors.background,
-      foregroundColor: colors.foreground,
-      disabledBackgroundColor:
-          colors.background.withValues(alpha: colors.background.a * 0.5),
-      disabledForegroundColor:
-          colors.foreground.withValues(alpha: colors.foreground.a * 0.5),
-      shape: CircleBorder(side: colors.side ?? BorderSide.none),
-      padding: EdgeInsets.zero,
-    );
-    if (showFloatingButtonValue == 0) {
-      // Off-screen hint that remembers the last swipe direction.
-      return SizedBox(
-        width: 56,
-        height: 56,
-        child: IconButton(
-          style: buttonStyle,
-          onPressed: null,
-          icon: lastValue == 1 ? iconFor(true) : iconFor(false),
-        ),
-      );
-    }
-    return SizedBox(
-      width: 56,
-      height: 56,
-      child: IconButton(
-        style: buttonStyle,
-        onPressed: () {
-          if (isNext) {
-            context.reader.toNextChapter();
-          } else if (isPrev) {
-            context.reader.toPrevChapter();
-          }
-          setFloatingButton(0);
-        },
-        icon: iconFor(isNext),
-      ),
-    );
-  }
-
   /// If there is only one image on screen, return it.
   ///
   /// If there are multiple images on screen,
@@ -1180,8 +1094,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
 
     await showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text("Select an image".tl),
+      builder: (dialogContext) => ContentDialog(
+        title: "Select an image".tl,
         content: SizedBox(
           width: double.maxFinite,
           height: 300,
@@ -1710,6 +1624,14 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
       appBar: AppBar(
         title: Text(widget.title.tl),
         foregroundColor: Theme.of(context).colorScheme.onSurface,
+        // 显式给标题上色，保证在任何主题/背景下都可读（曾因全局 titleTextStyle
+        // 缺 color 而在浅色背景上显示为白色）。
+        titleTextStyle: TextStyle(
+          fontSize: kcTitleLarge,
+          height: 1.35,
+          fontWeight: FontWeight.w500,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
         backgroundColor: Theme.of(context).colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -1729,8 +1651,8 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
             addAutomaticKeepAlives: false,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
-              crossAxisSpacing: 6,
-              mainAxisSpacing: 6,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
               childAspectRatio: 0.72,
             ),
             itemCount: widget.images.length,

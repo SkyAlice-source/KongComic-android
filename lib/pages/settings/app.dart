@@ -92,43 +92,22 @@ class _AppSettingsState extends State<AppSettings> {
           },
         ).toSliver(),
         _CallbackSetting(
-          title: "Move to Download/Comic".tl,
+          title: "Move to Current Storage Path".tl,
+          subtitle:
+              "Move all your local comics into the Storage Path folder. No extra permission needed, and the setting stays unchanged."
+                  .tl,
           actionTitle: "Move".tl,
           callback: () async {
             final manager = LocalManager();
-            var target = await manager.detectDownloadComicPath();
-            if (target == null) {
-              // 没有「所有文件访问」权限就写不进公共 Download 目录。这个开关
-              // 藏在系统设置深处，只弹提示条等于没说，所以直接引导过去授权，
-              // 授权回来后自动重试。
-              if (!mounted) return;
-              final go = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => const _AllFilesAccessDialog(),
-              );
-              if (go != true) return;
-              final granted = await requestAllFilesAccess();
-              if (!granted) {
-                if (!mounted) return;
-                context.showMessage(message: "Permission not granted".tl);
-                return;
-              }
-              target = await manager.detectDownloadComicPath();
-              if (!mounted) return;
-              if (target == null) {
-                context.showMessage(
-                  message:
-                      "Need all-files access permission to use Download/Comic"
-                          .tl,
-                );
-                return;
-              }
-            }
+            // 迁移目标 = 设置里「Storage Path for local comics」已经配置好的路径
+            // （LocalManager().path）。不重新探测/挑选默认目录，也绝不改写该设置，
+            // 这样点这个开关只会把散落在别处的漫画归拢进当前设定的文件夹，不会再像
+            // 之前「Move to Download/Comic」那样把默认路径覆盖成别的值、也不会去
+            // 申请「所有文件访问」权限而闪退。
+            final target = manager.path;
             if (!mounted) return;
-            if (manager.path == target) {
-              context.showMessage(
-                message: "Already using Download/Comic".tl,
-              );
+            if (manager.directory.path == target) {
+              context.showMessage(message: "Already in current storage path".tl);
               return;
             }
             await _setStoragePath(target);
@@ -264,7 +243,7 @@ class _AppSettingsState extends State<AppSettings> {
           _CallbackSetting(
             title: "Backup Interval".tl,
             subtitle:
-                "${appdata.settings['autoBackupInterval'] ?? 7} @days".tl,
+                "@count days".tlParams({'count': appdata.settings['autoBackupInterval'] ?? 7}),
             callback: () async {
               final options = ["1", "3", "7", "14", "30"];
               final current =
@@ -273,7 +252,7 @@ class _AppSettingsState extends State<AppSettings> {
               if (index < 0) index = 2;
               final result = await showSelectDialog(
                 title: "Backup Interval".tl,
-                options: options.map((e) => "$e @days".tl).toList(),
+                options: options.map((e) => "@count days".tlParams({'count': e})).toList(),
                 initialIndex: index,
               );
               if (result != null) {
@@ -444,7 +423,7 @@ class _LogsPageState extends State<LogsPage> {
                               .colorScheme
                               .surfaceContainerHighest,
                           borderRadius:
-                              const BorderRadius.all(Radius.circular(16)),
+                              const BorderRadius.all(Radius.circular(kcRadius16)),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
@@ -462,7 +441,7 @@ class _LogsPageState extends State<LogsPage> {
                             Theme.of(context).colorScheme.primaryContainer
                           ][logToShow[index].level.index],
                           borderRadius:
-                              const BorderRadius.all(Radius.circular(16)),
+                              const BorderRadius.all(Radius.circular(kcRadius16)),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
@@ -616,8 +595,8 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                   onPressed: () {
                     showDialog(
                       context: context,
-                      builder: (_) => AlertDialog(
-                        title: Text("Skip Setting Fields".tl),
+                      builder: (_) => ContentDialog(
+                        title: "Skip Setting Fields".tl,
                         content: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -770,47 +749,6 @@ class _WebdavSettingState extends State<_WebdavSetting> {
           ],
         ).paddingHorizontal(16),
       ),
-    );
-  }
-}
-
-/// 引导用户去系统设置打开「所有文件访问」权限。没有它，app 只能把漫画放在
-/// 自己的私有目录里，公共 Download/Comic 不可写。
-class _AllFilesAccessDialog extends StatelessWidget {
-  const _AllFilesAccessDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return ContentDialog(
-      title: "All-files access required".tl,
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            "To store comics in Download/Comic, KongComic needs the 「All files access」 permission."
-                .tl,
-          ).paddingBottom(8),
-          Text(
-            "The next screen is a system settings page. Turn on the switch for KongComic, then come back."
-                .tl,
-            style: TextStyle(
-              fontSize: kcCaption,
-              color: context.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        Button.text(
-          onPressed: () => context.pop(false),
-          child: Text("Cancel".tl),
-        ),
-        Button.filled(
-          onPressed: () => context.pop(true),
-          child: Text("Open settings".tl),
-        ),
-      ],
     );
   }
 }

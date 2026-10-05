@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_source/source_repositories.dart';
@@ -10,6 +11,9 @@ import 'package:kong_comic/utils/translations.dart';
 
 /// Installs a script from [url] and returns the resulting source.
 typedef SourceInstaller = Future<ComicSource?> Function(String url);
+
+/// Catalog filters, mirroring the source-management page.
+enum _CatalogFilter { all, notInstalled, installed, updatable }
 
 /// Source repository management.
 ///
@@ -33,6 +37,10 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   SourceCatalog? _catalog;
   String? _error;
   bool _loading = false;
+  bool _selecting = false;
+  final Set<String> _selected = {};
+  bool _busy = false;
+  _CatalogFilter _catalogFilter = _CatalogFilter.all;
 
   @override
   void initState() {
@@ -55,6 +63,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
       _opened = repository;
       _catalog = null;
       _error = null;
+      _selecting = false;
+      _selected.clear();
+      _catalogFilter = _CatalogFilter.all;
     });
     await _load();
   }
@@ -64,7 +75,20 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
       _opened = null;
       _catalog = null;
       _error = null;
+      _selecting = false;
+      _selected.clear();
+      _catalogFilter = _CatalogFilter.all;
     });
+  }
+
+  void _goBack() {
+    if (_opened != null) {
+      _closeCatalog();
+    } else if (context.canPop()) {
+      context.pop();
+    } else {
+      App.pop();
+    }
   }
 
   Future<void> _load() async {
@@ -95,23 +119,32 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     final urlController = TextEditingController(text: repository?.url ?? '');
     final result = await showDialog<(String, String)?>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          repository == null ? "Add repository".tl : "Edit repository".tl,
-        ),
+      builder: (dialogContext) => ContentDialog(
+        title: repository == null ? "Add repository".tl : "Edit repository".tl,
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(labelText: "Name".tl),
-              autofocus: true,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: "Name".tl,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
             ),
-            TextField(
-              controller: urlController,
-              decoration: InputDecoration(
-                labelText: "URL".tl,
-                hintText: "https://.../index.json",
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: TextField(
+                controller: urlController,
+                decoration: InputDecoration(
+                  labelText: "URL".tl,
+                  hintText: "https://.../index.json",
+                  border: const OutlineInputBorder(),
+                ),
               ),
             ),
           ],
@@ -121,7 +154,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text("Cancel".tl),
           ),
-          FilledButton.tonal(
+          Button.filled(
             onPressed: () => Navigator.of(dialogContext).pop((
               nameController.text,
               urlController.text,
@@ -160,17 +193,21 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   Future<void> _remove(SourceRepository repository) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text("Delete".tl),
-        content: Text(
-          "Delete repository '@name' ?".tlParams({'name': repository.name}),
+      builder: (dialogContext) => ContentDialog(
+        title: "Delete".tl,
+        content: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            "Delete repository '@name' ?".tlParams({'name': repository.name}),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text("Cancel".tl),
           ),
-          TextButton(
+          Button.filled(
+            color: context.colorScheme.error,
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text("Delete".tl),
           ),
@@ -208,6 +245,8 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     );
   }
 
+  /// 与 [PopUpWidgetScaffold] / 全局 [Appbar] 保持同一套头部语言：
+  /// 56dp + 状态栏、18px HugeIcon 图标、22px 中等字重标题。
   Widget _buildHeader(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
     return Container(
@@ -217,18 +256,15 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
       child: Row(
         children: [
           const SizedBox(width: 8),
-          IconButton(
-            tooltip: "Back".tl,
-            icon: const Icon(Icons.arrow_back, size: 20),
-            onPressed: () {
-              if (_opened != null) {
-                _closeCatalog();
-              } else if (context.canPop()) {
-                context.pop();
-              } else {
-                App.pop();
-              }
-            },
+          Tooltip(
+            message: "Back".tl,
+            child: IconButton(
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowLeft01,
+                size: 18,
+              ),
+              onPressed: _goBack,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -237,27 +273,51 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 22,
+                fontSize: kcFont22,
                 fontWeight: FontWeight.w500,
               ),
             ),
           ),
           if (_opened != null)
-            IconButton(
-              tooltip: "Refresh".tl,
-              icon: const Icon(Icons.refresh, size: 20),
-              onPressed: _load,
+            Tooltip(
+              message: "Refresh".tl,
+              child: IconButton(
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+                onPressed: _selecting ? null : _load,
+              ),
             ),
-          IconButton(
-            tooltip: _opened == null ? "Add repository".tl : "Edit".tl,
-            icon: Icon(_opened == null ? Icons.add : Icons.edit, size: 20),
-            onPressed: () => _edit(_opened),
+          if (_opened != null)
+            Tooltip(
+              message: _selecting ? "Cancel selection".tl : "Select".tl,
+              child: IconButton(
+                icon: HugeIcon(
+                  icon: _selecting
+                      ? HugeIcons.strokeRoundedCancelCircle
+                      : HugeIcons.strokeRoundedCheckList,
+                  size: 18,
+                ),
+                onPressed: _selecting ? _exitSelect : _enterSelect,
+              ),
+            ),
+          Tooltip(
+            message: _opened == null ? "Add repository".tl : "Edit".tl,
+            child: IconButton(
+              icon: HugeIcon(
+                icon: _opened == null
+                    ? HugeIcons.strokeRoundedAdd01
+                    : HugeIcons.strokeRoundedEdit02,
+                size: 18,
+              ),
+              onPressed: () => _edit(_opened),
+            ),
           ),
-          IconButton(
-            tooltip: "Help".tl,
-            icon: const Icon(Icons.help_outline, size: 20),
-            onPressed: () => launchUrlString(
-              "https://github.com/venera-app/venera/blob/master/doc/comic_source.md",
+          Tooltip(
+            message: "Help".tl,
+            child: IconButton(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),
+              onPressed: () => launchUrlString(
+                "https://github.com/venera-app/venera/blob/master/doc/comic_source.md",
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -267,74 +327,156 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   }
 
   Widget _buildBody() {
-    if (_opened != null) return _buildCatalog();
+    if (_opened != null) return _buildCatalogView();
     return _buildRepositoryList();
+  }
+
+  /// 圆角方底的图标徽章，与源卡片同一套视觉。
+  Widget _iconBadge(List<List<dynamic>> icon) {
+    final scheme = context.colorScheme;
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: scheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(kcRadius10),
+      ),
+      child: Center(
+        child: HugeIcon(icon: icon, size: 18, color: scheme.primary),
+      ),
+    );
+  }
+
+  Widget _card({required Widget child, VoidCallback? onTap}) {
+    final scheme = context.colorScheme;
+    final radius = BorderRadius.circular(kcCardRadius);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: kcSpaceSm),
+      child: Material(
+        color: scheme.surfaceContainerLow,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(color: scheme.outlineVariant, width: 0.6),
+            ),
+            padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceMd, kcSpaceMd, kcSpaceMd),
+            child: child,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildRepositoryList() {
     final all = repositories.all;
-    if (all.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(24),
+    if (all.isEmpty) return _buildEmpty();
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceSm, kcSpaceMd, kcSpaceLg),
+      itemCount: all.length,
+      itemBuilder: (context, index) => _buildRepositoryCard(all[index]),
+    );
+  }
+
+  Widget _buildRepositoryCard(SourceRepository repository) {
+    final scheme = context.colorScheme;
+    final stats = repositories.stats(repository.id);
+    final subtitle = stats == null
+        ? repository.url
+        : stats.updatable > 0
+            ? "${"N sources".tlParams({'count': stats.total})} · "
+                "${"sources updatable".tlParams({'count': stats.updatable})}"
+            : "N sources".tlParams({'count': stats.total});
+    return _card(
+      onTap: () => _open(repository),
+      child: Row(
+        children: [
+          _iconBadge(HugeIcons.strokeRoundedFolder01),
+          const SizedBox(width: kcSpaceMd),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  repository.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: kcFont15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: kcFont13,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: kcSpaceXs),
+          IconButton(
+            tooltip: "Edit".tl,
+            visualDensity: VisualDensity.compact,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit02, size: 18),
+            onPressed: () => _edit(repository),
+          ),
+          IconButton(
+            tooltip: "Delete".tl,
+            visualDensity: VisualDensity.compact,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: 18),
+            onPressed: () => _remove(repository),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    final scheme = context.colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedFolder01,
+              size: 44,
+              color: scheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: kcSpaceLg),
             Text(
               "No source repositories yet.".tl,
-              style: const TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: kcSubtitle, fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: kcSpaceSm),
             Text(
-              "Add a repository to browse and install comic source scripts."
-                  .tl,
-              style: TextStyle(
-                fontSize: 14,
-                color: context.colorScheme.onSurfaceVariant,
-              ),
+              "Add a repository to browse and install comic source scripts.".tl,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: kcFont13, color: scheme.onSurfaceVariant),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: kcSpaceLg),
             FilledButton.tonal(
               onPressed: () => _edit(),
               child: Text("Add repository".tl),
             ),
           ],
         ),
-      );
-    }
-    return ListView.builder(
-      itemCount: all.length,
-      itemBuilder: (context, index) {
-        final repository = all[index];
-        return ListTile(
-          leading: const Icon(Icons.source_outlined, size: 20),
-          title: Text(repository.name),
-          subtitle: Text(
-            repository.url,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: "Edit".tl,
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                onPressed: () => _edit(repository),
-              ),
-              IconButton(
-                tooltip: "Delete".tl,
-                icon: const Icon(Icons.delete_outline, size: 18),
-                onPressed: () => _remove(repository),
-              ),
-            ],
-          ),
-          onTap: () => _open(repository),
-        );
-      },
+      ),
     );
   }
 
-  Widget _buildCatalog() {
+  Widget _buildCatalogView() {
     if (_loading) {
       return const Center(
         child: SizedBox(
@@ -344,41 +486,353 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
         ),
       );
     }
-    if (_error != null) {
-      return ListView(
-        children: [
-          const SizedBox(height: 32),
-          Icon(
-            Icons.error_outline,
-            size: 40,
-            color: context.colorScheme.error,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: context.colorScheme.error),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: FilledButton.tonal(
+    if (_error != null) return _buildError();
+    final catalog = _catalog;
+    if (catalog == null) return const SizedBox();
+    final filtered = _applyCatalogFilter(catalog.entries);
+    return Column(
+      children: [
+        if (!_selecting && catalog.entries.isNotEmpty) _buildCatalogFilterChips(),
+        Expanded(
+          child: filtered.isEmpty
+              ? _buildCatalogEmpty()
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(
+                    kcSpaceMd,
+                    kcSpaceSm,
+                    kcSpaceMd,
+                    kcSpaceLg,
+                  ),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) => _buildEntry(filtered[index]),
+                ),
+        ),
+        if (_selecting) _buildBatchBar(),
+      ],
+    );
+  }
+
+  Widget _buildCatalogEmpty() {
+    final scheme = context.colorScheme;
+    final label = switch (_catalogFilter) {
+      _CatalogFilter.notInstalled => "All sources are installed.".tl,
+      _CatalogFilter.installed => "No sources installed yet.".tl,
+      _CatalogFilter.updatable => "Everything is up to date.".tl,
+      _CatalogFilter.all => "No sources in this repository.".tl,
+    };
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: kcFont13, color: scheme.onSurfaceVariant),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCatalogFilterChips() {
+    final scheme = context.colorScheme;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceXs, kcSpaceMd, 0),
+      child: Row(
+        children: _CatalogFilter.values.map((filter) {
+          final selected = _catalogFilter == filter;
+          return Padding(
+            padding: const EdgeInsets.only(right: kcSpaceXs),
+            child: ChoiceChip(
+              label: Text(_catalogFilterLabel(filter)),
+              selected: selected,
+              onSelected: (_) => setState(() => _catalogFilter = filter),
+              selectedColor: kcBrandColor,
+              labelStyle: TextStyle(
+                color: selected ? Colors.white : scheme.onSurface,
+                fontSize: kcFont13,
+              ),
+              visualDensity: VisualDensity.compact,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _catalogFilterLabel(_CatalogFilter filter) => switch (filter) {
+        _CatalogFilter.all => "All".tl,
+        _CatalogFilter.notInstalled => "Not installed".tl,
+        _CatalogFilter.installed => "Installed".tl,
+        _CatalogFilter.updatable => "Updatable".tl,
+      };
+
+  List<SourceCatalogEntry> _applyCatalogFilter(
+    List<SourceCatalogEntry> entries,
+  ) {
+    switch (_catalogFilter) {
+      case _CatalogFilter.all:
+        return entries;
+      case _CatalogFilter.notInstalled:
+        return entries
+            .where((e) => ComicSource.find(e.key) == null)
+            .toList();
+      case _CatalogFilter.installed:
+        return entries
+            .where((e) => ComicSource.find(e.key) != null)
+            .toList();
+      case _CatalogFilter.updatable:
+        return entries.where((e) {
+          final source = ComicSource.find(e.key);
+          return source != null && compareSemVer(e.version, source.version);
+        }).toList();
+    }
+  }
+
+  Widget _buildBatchBar() {
+    final scheme = context.colorScheme;
+    final anyInstall = _selected.any((k) => ComicSource.find(k) == null);
+    final anyUpdate = _selected.any((k) {
+      final source = ComicSource.find(k);
+      return source != null &&
+          _catalog != null &&
+          _catalog!.entries.any(
+            (e) => e.key == k && compareSemVer(e.version, source.version),
+          );
+    });
+    return Material(
+      color: scheme.surfaceContainerHigh,
+      elevation: 4,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(
+          kcSpaceMd,
+          kcSpaceSm,
+          kcSpaceMd,
+          kcSpaceMd,
+        ),
+        child: Row(
+          children: [
+            Text(
+              "Selected @n".tlParams({'n': _selected.length.toString()}),
+              style: const TextStyle(fontSize: kcFont13),
+            ),
+            const Spacer(),
+            if (_busy)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else ...[
+              TextButton(
+                onPressed: anyInstall ? _batchInstall : null,
+                child: Text("Batch install".tl),
+              ),
+              const SizedBox(width: kcSpaceXs),
+              TextButton(
+                onPressed: anyUpdate ? _batchUpdate : null,
+                child: Text("Batch update".tl),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _enterSelect() => setState(() {
+        _selecting = true;
+        _selected.clear();
+      });
+
+  void _exitSelect() => setState(() {
+        _selecting = false;
+        _selected.clear();
+      });
+
+  void _toggleSelect(String key) => setState(() {
+        if (_selected.contains(key)) {
+          _selected.remove(key);
+        } else {
+          _selected.add(key);
+        }
+      });
+
+  Future<void> _batchInstall() async {
+    final catalog = _catalog;
+    final repository = _opened;
+    if (catalog == null || repository == null || _busy) return;
+    final keys = _selected.toList();
+    final targets = catalog.entries
+        .where((e) => keys.contains(e.key) && ComicSource.find(e.key) == null)
+        .toList();
+    if (targets.isEmpty) {
+      _exitSelect();
+      return;
+    }
+    setState(() => _busy = true);
+    var ok = 0;
+    var fail = 0;
+    for (final entry in targets) {
+      try {
+        final source = await widget.install(entry.url);
+        if (source != null) {
+          await repositories.link(source.key, repository, entry);
+          ok++;
+        } else {
+          fail++;
+        }
+      } catch (e, s) {
+        Log.error('Comic source', e, s);
+        fail++;
+      }
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    context.showMessage(
+      message: "Installed @ok, failed @fail".tlParams({
+        'ok': ok.toString(),
+        'fail': fail.toString(),
+      }),
+    );
+    _exitSelect();
+  }
+
+  Future<void> _batchUpdate() async {
+    final catalog = _catalog;
+    if (catalog == null || _busy) return;
+    final keys = _selected.toList();
+    final targets = <ComicSource>[];
+    for (final entry in catalog.entries) {
+      if (!keys.contains(entry.key)) continue;
+      final installed = ComicSource.find(entry.key);
+      if (installed != null && compareSemVer(entry.version, installed.version)) {
+        targets.add(installed);
+      }
+    }
+    if (targets.isEmpty) {
+      _exitSelect();
+      return;
+    }
+    setState(() => _busy = true);
+    var ok = 0;
+    var fail = 0;
+    for (final source in targets) {
+      try {
+        await ComicSourcePage.update(source, false);
+        ok++;
+      } catch (e, s) {
+        Log.error('Comic source', e, s);
+        fail++;
+      }
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    context.showMessage(
+      message: "Updated @ok, failed @fail".tlParams({
+        'ok': ok.toString(),
+        'fail': fail.toString(),
+      }),
+    );
+    // Versions changed, refresh the snapshot so the badges update.
+    setState(() => _catalog = null);
+    await _load();
+    _exitSelect();
+  }
+
+  Widget _buildError() {
+    final scheme = context.colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedAlertCircle,
+              size: 40,
+              color: scheme.error,
+            ),
+            const SizedBox(height: kcSpaceMd),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: kcFont13, color: scheme.error),
+            ),
+            const SizedBox(height: kcSpaceLg),
+            FilledButton.tonal(
               onPressed: _load,
               child: Text("Retry".tl),
             ),
-          ),
-        ],
-      );
-    }
-    final catalog = _catalog;
-    if (catalog == null) return const SizedBox();
-    return ListView.builder(
-      itemCount: catalog.entries.length,
-      itemBuilder: (context, index) => _buildEntry(catalog.entries[index]),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildEntry(SourceCatalogEntry entry) {
+    final scheme = context.colorScheme;
     final installed = ComicSource.find(entry.key);
+
+    // Selection mode: tapping toggles membership, no install/update action.
+    if (_selecting) {
+      final selected = _selected.contains(entry.key);
+      return _card(
+        onTap: () => _toggleSelect(entry.key),
+        child: Row(
+          children: [
+            _iconBadge(HugeIcons.strokeRoundedSourceCode),
+            const SizedBox(width: kcSpaceMd),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: kcFont15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (entry.description.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      entry.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: kcFont13,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (entry.version.isNotEmpty) ...[
+                    const SizedBox(height: kcSpaceXxs),
+                    AppBadge(
+                      entry.version,
+                      type: AppBadgeType.neutral,
+                      fontSize: kcFont13,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: kcSpaceSm),
+            Icon(
+              selected ? Icons.check : Icons.circle_outlined,
+              color: selected ? scheme.primary : scheme.outline,
+              size: 22,
+            ),
+          ],
+        ),
+      );
+    }
+
     final Widget action;
     if (installed == null) {
       action = FilledButton.tonal(
@@ -401,19 +855,71 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
         child: Text("Update".tl),
       );
     } else {
-      action = Icon(
-        Icons.check_circle_outline,
-        size: 22,
-        color: context.colorScheme.primary,
+      action = HugeIcon(
+        icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+        size: 20,
+        color: scheme.primary,
       );
     }
-    final description = entry.description.isEmpty
-        ? entry.version
-        : "${entry.version}\n${entry.description}";
-    return ListTile(
-      title: Text(entry.name),
-      subtitle: Text(description),
-      trailing: action,
+    return _card(
+      child: Row(
+        children: [
+          _iconBadge(HugeIcons.strokeRoundedSourceCode),
+          const SizedBox(width: kcSpaceMd),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: kcFont15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (entry.description.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    entry.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: kcFont13,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                if (installed != null) ...[
+                  const SizedBox(height: kcSpaceXxs),
+                  Text(
+                    "Installed @v".tlParams({'v': installed.version}),
+                    style: TextStyle(
+                      fontSize: kcFont13,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                if (entry.version.isNotEmpty) ...[
+                  const SizedBox(height: kcSpaceXxs),
+                  AppBadge(
+                    entry.version,
+                    type: AppBadgeType.neutral,
+                    fontSize: kcFont13,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: kcSpaceSm),
+          action,
+        ],
+      ),
     );
   }
 }

@@ -43,6 +43,34 @@ class _ReaderImagesState extends State<_ReaderImages> {
 
   void load() async {
     if (inProgress) return;
+    // 预取命中：直接上屏，省掉一次网络往返（真·无感续章的关键）。
+    final preloaded = _takePreloadedChapter(
+      reader.type,
+      reader.cid,
+      reader.chapter,
+    );
+    if (preloaded != null) {
+      reader.images = preloaded;
+      reader.isLoading = false;
+      inProgress = false;
+      _handleJumpToLastPage();
+      Future.microtask(() {
+        reader.updateHistory();
+      });
+      if (mounted) {
+        setState(() {});
+        // dispose() 里的 cancelAllLoadingImages() 可能在切章瞬间把预热的请求
+        // 掐掉，这里补投开头几张，保证切过去立刻有图。
+        final preCount =
+            (appdata.settings["preloadImageCount"] as num?)?.toInt() ?? 4;
+        final n = math.min(preCount + 1, preloaded.length);
+        for (var i = 1; i <= n; i++) {
+          _preDownloadImage(i, context);
+        }
+        context.readerScaffold.update();
+      }
+      return;
+    }
     inProgress = true;
     if (reader.type == ComicType.local ||
         (LocalManager().isDownloaded(
@@ -284,9 +312,6 @@ class _GalleryModeState extends State<_GalleryMode>
     reader = context.reader;
     controller = PageController(initialPage: reader.page);
     reader._imageViewController = this;
-    Future.microtask(() {
-      context.readerScaffold.setFloatingButton(0);
-    });
     super.initState();
   }
 
@@ -727,14 +752,21 @@ class _GalleryModeState extends State<_GalleryMode>
   Future<Uint8List?> getImageByOffset(Offset offset) async {
     var imageKey = getImageKeyByOffset(offset);
     if (imageKey == null) return null;
-    if (imageKey.startsWith("file://")) {
-      return await File(imageKey.substring(7)).readAsBytes();
-    } else {
-      var cache = await CacheManager().findCache(
-        "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
-      );
-      if (cache == null) return null;
-      return await cache.readAsBytes();
+    // 缓存/本地文件可能已损坏或被清理：读取失败要按"没图"处理，
+    // 否则长按复制/保存图片会直接崩掉，而不是给出 "No Image" 提示。
+    try {
+      if (imageKey.startsWith("file://")) {
+        return await File(imageKey.substring(7)).readAsBytes();
+      } else {
+        var cache = await CacheManager().findCache(
+          "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
+        );
+        if (cache == null) return null;
+        return await cache.readAsBytes();
+      }
+    } catch (e, s) {
+      Log.error("Reader", "Failed to read image for save/copy: $e", s);
+      return null;
     }
   }
 
@@ -786,6 +818,85 @@ const Set<PointerDeviceKind> _kTouchLikeDeviceTypes = <PointerDeviceKind>{
 };
 
 const double _kChangeChapterOffset = 160;
+
+/// 滑到列表边界后还能继续越界的最大距离（px）。
+///
+/// 必须大于 [_kChangeChapterOffset]，否则用户永远拖不到换章阈值。
+/// 刻意不做成无限：松手时由 [ClampingScrollPhysics] 自带的越界回弹复位，
+/// 手感是「拉橡皮筋」而不是「滑不到头」。
+const double _kMaxChapterOverscroll = 260;
+
+/// 只放开「换章那一侧」边界的滚动物理。
+///
+/// 换章逻辑本来就写在 [onScroll] 里（`offset > max + 160` 就算拖够），但它一直
+/// 挂在 [ClampingScrollPhysics] 上 —— Clamping 会把 `pixels` 死死夹在
+/// [minScrollExtent, maxScrollExtent] 之间，越界量恒为 0，那个判断从来没成立
+/// 过，于是「滑到底继续拖换章」是死功能，用户只能抬手去点胶囊。
+///
+/// 这里继承 Clamping 并在目标侧放开最多 [_kMaxChapterOverscroll]：既让越界量
+/// 能越过阈值，又白嫖 Clamping 的越界回弹（没拖够就松手会自己弹回边界）。
+class _ChapterEdgeScrollPhysics extends ClampingScrollPhysics {
+  const _ChapterEdgeScrollPhysics({
+    super.parent,
+    this.overscrollAtStart = false,
+    this.overscrollAtEnd = false,
+  });
+
+  /// 是否放开列表开头（= 上一话）一侧。
+  final bool overscrollAtStart;
+
+  /// 是否放开列表末尾（= 下一话）一侧。
+  final bool overscrollAtEnd;
+
+  @override
+  _ChapterEdgeScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _ChapterEdgeScrollPhysics(
+      parent: buildParent(ancestor),
+      overscrollAtStart: overscrollAtStart,
+      overscrollAtEnd: overscrollAtEnd,
+    );
+  }
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    // 返回 0.0 即「不限制」（BouncingScrollPhysics 用的就是这个语义），
+    // 只有越过上限才夹住 —— 注意返回值是「从 value 里减掉的部分」。
+    if (overscrollAtEnd && value > position.maxScrollExtent) {
+      final limit = position.maxScrollExtent + _kMaxChapterOverscroll;
+      return value > limit ? value - limit : 0.0;
+    }
+    if (overscrollAtStart && value < position.minScrollExtent) {
+      final limit = position.minScrollExtent - _kMaxChapterOverscroll;
+      return value < limit ? value - limit : 0.0;
+    }
+    return super.applyBoundaryConditions(position, value);
+  }
+}
+
+/// 已预取到的「某一话图片列表」，key 见 [_chapterPreloadKey]。
+///
+/// 切章时 [load] 优先消费它，省掉一次网络往返 —— 这是「滑到底松手后图片
+/// 已经在屏幕上」的关键。上限 4 条，避免连续翻章时无限占用内存。
+final Map<String, List<String>> _preloadedChapterPages = {};
+
+/// 正在预取的 key，避免同一话被并发拉取多次。
+final Set<String> _preloadingChapters = {};
+
+String _chapterPreloadKey(ComicType type, Object cid, int chapter) =>
+    '${type.comicSource?.key ?? type.value.toString()}|$cid|$chapter';
+
+/// 取走预取结果（一次性，取到即删除）。
+List<String>? _takePreloadedChapter(
+  ComicType type,
+  Object cid,
+  int chapter,
+) {
+  final pages = _preloadedChapterPages.remove(
+    _chapterPreloadKey(type, cid, chapter),
+  );
+  if (pages == null || pages.isEmpty) return null;
+  return pages;
+}
 
 class _ContinuousMode extends StatefulWidget {
   const _ContinuousMode({super.key});
@@ -868,6 +979,20 @@ class _ContinuousModeState extends State<_ContinuousMode>
   bool jumpToNextChapter = false;
   bool jumpToPrevChapter = false;
 
+  /// 上下连续模式的滚动物理：只在「能换章」的那一侧放开越界。
+  ///
+  /// 其他模式/方向保持原生 Clamping 行为不变 —— 左右连续与画廊模式没有越界
+  /// 拖拽换章的手势，放开边界只会白送一个回弹动画。
+  ScrollPhysics get _chapterPhysics {
+    if (reader.mode != ReaderMode.continuousTopToBottom) {
+      return const ClampingScrollPhysics();
+    }
+    return _ChapterEdgeScrollPhysics(
+      overscrollAtStart: !reader.isFirstChapterOfGroup,
+      overscrollAtEnd: !reader.isLastChapterOfGroup,
+    );
+  }
+
   bool isZoomedIn = false;
   bool isLongPressing = false;
 
@@ -944,6 +1069,60 @@ class _ContinuousModeState extends State<_ContinuousMode>
       context.readerScaffold.update();
     }
     cacheImages(page);
+    maybePreloadNextChapter(page);
+  }
+
+  /// 读到本话倒数两页时，顺手把下一话的图片列表取回来。
+  ///
+  /// 切章时 [load] 直接消费它，于是「滑到底松手」之后没有 loading 空档。
+  /// 只在上下连续模式做：那是唯一有越界拖拽换章手势的模式。
+  void maybePreloadNextChapter(int page) {
+    if (reader.mode != ReaderMode.continuousTopToBottom) return;
+    if (page < reader.maxPage - 1) return;
+    if (reader.isLastChapterOfGroup) return;
+    final next = reader.chapter + 1;
+    if (next > reader.maxChapter) return;
+    final key = _chapterPreloadKey(reader.type, reader.cid, next);
+    if (_preloadedChapterPages.containsKey(key)) return;
+    if (!_preloadingChapters.add(key)) return;
+    unawaited(_preloadChapter(next, key));
+  }
+
+  Future<void> _preloadChapter(int chapter, String key) async {
+    try {
+      final chapters = reader.widget.chapters;
+      final List<String> pages;
+      if (reader.type == ComicType.local ||
+          LocalManager().isDownloaded(
+            reader.cid,
+            reader.type,
+            chapter,
+            chapters,
+          )) {
+        pages = await LocalManager().getImages(
+          reader.cid,
+          reader.type,
+          chapter,
+        );
+      } else {
+        final loadPages = reader.type.comicSource?.loadComicPages;
+        if (loadPages == null) return;
+        final eid = chapters?.ids.elementAtOrNull(chapter - 1);
+        final res = await loadPages(reader.widget.cid, eid);
+        if (res.error) return;
+        pages = res.data;
+      }
+      if (pages.isEmpty) return;
+      _preloadedChapterPages[key] = pages;
+      // 上限 4 条，避免连续翻章时无限攒着。
+      while (_preloadedChapterPages.length > 4) {
+        _preloadedChapterPages.remove(_preloadedChapterPages.keys.first);
+      }
+    } catch (_) {
+      // 预取是尽力而为：失败就交给切章时的正常加载。
+    } finally {
+      _preloadingChapters.remove(key);
+    }
   }
 
   double? _futurePosition;
@@ -1033,7 +1212,6 @@ class _ContinuousModeState extends State<_ContinuousMode>
         prepareToPrevChapter = false;
         prepareToNextChapter = false;
       });
-      context.readerScaffold.setFloatingButton(0);
     }
     var isZoomedIn = (scale ?? photoViewController.scale) != 1.0;
     if (isZoomedIn != this.isZoomedIn) {
@@ -1048,14 +1226,22 @@ class _ContinuousModeState extends State<_ContinuousMode>
   ///
   /// 高度跟随胶囊自身尺寸 + 一圈留白，而不是写死 200 —— 固定高度会让胶囊
   /// 上下各空出 70+ dp，滑到最后一张图之后还得再滑小半屏才看得到按钮。
-  Widget _capsuleSection(String label, VoidCallback onTap) {
+  Widget _capsuleSection(
+    String label,
+    VoidCallback onTap, {
+    bool isTail = false,
+  }) {
     final width = MediaQuery.sizeOf(context).width;
     final scale = _chapterCapsuleScale(width);
     final gap = (40.0 * scale).clamp(28.0, 60.0).toDouble();
+    // 卷尾那一项是整份列表的最后一项，下方再留一整份空白纯属浪费
+    // （滑到最后一张图还得再滑小半屏才看得到按钮），所以底部只留一半。
+    final bottomGap =
+        isTail ? (22.0 * scale).clamp(14.0, 34.0).toDouble() : gap;
     final isVertical = reader.mode == ReaderMode.continuousTopToBottom;
     return Padding(
       padding: isVertical
-          ? EdgeInsets.symmetric(vertical: gap)
+          ? EdgeInsets.only(top: gap, bottom: bottomGap)
           : EdgeInsets.symmetric(horizontal: gap, vertical: gap),
       child: Center(
         child: _ChapterLinkButton(label: label, onTap: onTap),
@@ -1063,8 +1249,29 @@ class _ContinuousModeState extends State<_ContinuousMode>
     );
   }
 
+  /// 上一帧渲染的章节号，用来检测「切章」。
+  ///
+  /// 连续模式复用同一个 [ScrollablePositionedList]（key 只带阅读模式），
+  /// 滚动偏移会跨章节保留，`initialScrollIndex` 只在建列表时生效一次。
+  int? _lastRenderedChapter;
+
   @override
   Widget build(BuildContext context) {
+    // 切章后必须回到新章节第 1 页：否则偏移沿用上一话的位置（实测落在
+    // 第 3~4 页），开头几页用户永远读不到。
+    final chapter = reader.chapter;
+    if (_lastRenderedChapter == null) {
+      _lastRenderedChapter = chapter;
+    } else if (_lastRenderedChapter != chapter) {
+      _lastRenderedChapter = chapter;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (itemScrollController.isAttached && reader.maxPage > 0) {
+          // index 0 是卷首「上一话」胶囊区，1 才是第一张图。
+          itemScrollController.jumpTo(index: 1);
+        }
+      });
+    }
     Widget widget = ScrollablePositionedList.builder(
       initialScrollIndex: reader.page,
       itemScrollController: itemScrollController,
@@ -1084,7 +1291,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
       reverse: reader.mode == ReaderMode.continuousRightToLeft,
       physics: isCTRLPressed || _isMouseScrolling || disableScroll
           ? const NeverScrollableScrollPhysics()
-          : const ClampingScrollPhysics(),
+          : _chapterPhysics,
       itemBuilder: (context, index) {
         if (index == 0) {
           // 卷首的「上一话」入口，与卷尾的「继续阅读」对称。
@@ -1110,7 +1317,11 @@ class _ContinuousModeState extends State<_ContinuousMode>
           final label = (nextChapterTitle == null || nextChapterTitle.isEmpty)
               ? "Next Chapter".tl
               : "${"Continue reading".tl} $nextChapterTitle";
-          return _capsuleSection(label, () => reader.toNextChapter());
+          return _capsuleSection(
+            label,
+            () => reader.toNextChapter(),
+            isTail: true,
+          );
         }
         double? width, height;
         // In "cover" mode, the image must be constrained to the viewport size
@@ -1190,10 +1401,8 @@ class _ContinuousModeState extends State<_ContinuousMode>
         }
         if (fingers == 0) {
           if (jumpToPrevChapter) {
-            context.readerScaffold.setFloatingButton(0);
             reader.toPrevChapter(toLastPage: true);
           } else if (jumpToNextChapter) {
-            context.readerScaffold.setFloatingButton(0);
             reader.toNextChapter();
           }
         }
@@ -1258,7 +1467,6 @@ class _ContinuousModeState extends State<_ContinuousMode>
             if (!prepareToPrevChapter) {
               jumpToPrevChapter = false;
               jumpToNextChapter = false;
-              context.readerScaffold.setFloatingButton(-1);
               setState(() {
                 prepareToPrevChapter = true;
               });
@@ -1269,13 +1477,11 @@ class _ContinuousModeState extends State<_ContinuousMode>
             if (!prepareToNextChapter) {
               jumpToPrevChapter = false;
               jumpToNextChapter = false;
-              context.readerScaffold.setFloatingButton(1);
               setState(() {
                 prepareToNextChapter = true;
               });
             }
           } else {
-            context.readerScaffold.setFloatingButton(0);
             if (prepareToPrevChapter || prepareToNextChapter) {
               jumpToPrevChapter = false;
               jumpToNextChapter = false;
@@ -1464,14 +1670,21 @@ class _ContinuousModeState extends State<_ContinuousMode>
   Future<Uint8List?> getImageByOffset(Offset offset) async {
     var imageKey = getImageKeyByOffset(offset);
     if (imageKey == null) return null;
-    if (imageKey.startsWith("file://")) {
-      return await File(imageKey.substring(7)).readAsBytes();
-    } else {
-      var cache = await CacheManager().findCache(
-        "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
-      );
-      if (cache == null) return null;
-      return await cache.readAsBytes();
+    // 缓存/本地文件可能已损坏或被清理：读取失败要按"没图"处理，
+    // 否则长按复制/保存图片会直接崩掉，而不是给出 "No Image" 提示。
+    try {
+      if (imageKey.startsWith("file://")) {
+        return await File(imageKey.substring(7)).readAsBytes();
+      } else {
+        var cache = await CacheManager().findCache(
+          "$imageKey@${context.reader.type.sourceKey}@${context.reader.cid}@${context.reader.eid}",
+        );
+        if (cache == null) return null;
+        return await cache.readAsBytes();
+      }
+    } catch (e, s) {
+      Log.error("Reader", "Failed to read image for save/copy: $e", s);
+      return null;
     }
   }
 
@@ -1646,7 +1859,7 @@ class _ProgressPainter extends CustomPainter {
       ..color = backgroundColor
       ..style = PaintingStyle.fill;
     canvas.drawRRect(
-      RRect.fromLTRBR(0, 0, size.width, size.height, Radius.circular(16)),
+      RRect.fromLTRBR(0, 0, size.width, size.height, Radius.circular(kcRadius16)),
       paint,
     );
 
@@ -1657,7 +1870,7 @@ class _ProgressPainter extends CustomPainter {
         0,
         size.width * value,
         size.height,
-        Radius.circular(16),
+        Radius.circular(kcRadius16),
       ),
       paint,
     );
@@ -1679,8 +1892,9 @@ double _chapterCapsuleScale(double width) {
 
 /// 章节首尾的「上一话 / 继续阅读 <章节名>」胶囊按钮。
 ///
-/// 比阅读背景亮一档的实色底 + 极细描边 + 柔和投影做出浮起的质感；文字单行
-/// 省略号截断，长章节名不会把胶囊撑满整屏。
+/// 实色底（比阅读背景亮一档）+ 极细描边做出浮起的质感，**不加投影** ——
+/// 条漫模式下胶囊紧贴图片，投影会在图边缘压出一条脏边。宽度至少撑到
+/// 62% 屏宽，短标签不会碎成一小块；长章节名交给 ellipsis。
 class _ChapterLinkButton extends StatelessWidget {
   const _ChapterLinkButton({required this.label, required this.onTap});
 
@@ -1702,10 +1916,29 @@ class _ChapterLinkButton extends StatelessWidget {
     final paddingV = (17.0 * scale).clamp(13.0, 25.0).toDouble();
     final maxWidth =
         math.min(520.0 * scale, screenWidth - 48).clamp(200.0, 640.0).toDouble();
+    // 量出文字实际宽度，据此决定胶囊宽度：短标签撑到 62% 屏宽（长条观感），
+    // 长标签仍由 maxWidth 收口。
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+        ),
+      ),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final minWidth = math.min(screenWidth * 0.62, maxWidth).toDouble();
+    final width = (textPainter.width + paddingH * 2)
+        .clamp(minWidth, maxWidth)
+        .toDouble();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
+      child: SizedBox(
+        width: width,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -1722,30 +1955,25 @@ class _ChapterLinkButton extends StatelessWidget {
                       : scheme.outlineVariant,
                   width: 1,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.10),
-                    blurRadius: 16,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
               ),
               child: Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: paddingH,
                   vertical: paddingV,
                 ),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                    color: isDark ? Colors.white : scheme.onSurface,
+                // 定宽后必须再包一层 Center，否则 Text 在 loose 约束下左对齐。
+                child: Center(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                      color: isDark ? Colors.white : scheme.onSurface,
+                    ),
                   ),
                 ),
               ),

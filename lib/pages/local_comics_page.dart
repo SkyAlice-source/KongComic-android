@@ -111,7 +111,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: context.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(kcCardRadius),
                   ),
                   child: Text(
                     count.toString(),
@@ -318,6 +318,9 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
           onPressed: () async {
             var result = await showModalBottomSheet(
               context: context,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(kcSurfaceRadius)),
+              ),
               builder: (ctx) => SafeArea(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

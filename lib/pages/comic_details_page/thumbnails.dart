@@ -104,8 +104,7 @@ class _ComicThumbnailsState extends State<_ComicThumbnails> {
                     Expanded(
                       child: InkWell(
                         onTap: () => state.read(null, index + 1),
-                        borderRadius:
-                        const BorderRadius.all(Radius.circular(8)),
+                        borderRadius: BorderRadius.circular(kcRadius8),
                         child: Container(
                           foregroundDecoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(kcRadius8),

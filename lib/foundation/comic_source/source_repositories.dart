@@ -111,6 +111,26 @@ class SourceRepositories extends ChangeNotifier {
 
   static final SourceRepositories instance = SourceRepositories._();
 
+  /// Repositories that ship with the app, added automatically on first launch.
+  ///
+  /// Kept on jsDelivr rather than `raw.githubusercontent.com` because GitHub
+  /// raw is unreliable from mainland China.
+  ///
+  /// Users stay in control: anything they delete stays deleted (see
+  /// [ensureDefaults]) and they can add/remove/edit freely afterwards.
+  static const List<({String name, String url})> defaultRepositories = [
+    (
+      name: 'KongComic Official',
+      url:
+          'https://cdn.jsdelivr.net/gh/SkyAlice-source/venera-configs@main/index.json',
+    ),
+    (
+      name: 'Community Sources',
+      url:
+          'https://cdn.jsdelivr.net/gh/handahao666-boop/venera_comic_source@main/index.json',
+    ),
+  ];
+
   /// How long a fetched catalog stays valid.
   ///
   /// Updating N sources from one repository must not mean N downloads of the
@@ -127,6 +147,35 @@ class SourceRepositories extends ChangeNotifier {
     } else {
       _catalogCache.remove(repositoryId);
     }
+  }
+
+  /// The catalog still inside its TTL window, or `null` if it must be refetched.
+  ///
+  /// Lets the repository list show entry counts without issuing a network
+  /// request — the snapshot is already in memory after the user opened it.
+  SourceCatalog? cachedCatalog(String id) {
+    final cached = _catalogCache[id];
+    if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
+      return cached.catalog;
+    }
+    return null;
+  }
+
+  /// At-a-glance counts for a repository card: how many sources the repository
+  /// offers and how many of the installed ones have an update pending.
+  ///
+  /// Returns `null` until the catalog has been loaded at least once.
+  ({int total, int updatable})? stats(String id) {
+    final catalog = cachedCatalog(id);
+    if (catalog == null) return null;
+    var updatable = 0;
+    for (final entry in catalog.entries) {
+      final installed = ComicSource.find(entry.key);
+      if (installed != null && compareSemVer(entry.version, installed.version)) {
+        updatable++;
+      }
+    }
+    return (total: catalog.entries.length, updatable: updatable);
   }
 
   List<SourceRepository> get all {
@@ -213,6 +262,54 @@ class SourceRepositories extends ChangeNotifier {
     }
     appdata.settings['comicSourceRepositoriesMigrated'] = true;
     appdata.saveData();
+  }
+
+  /// Makes sure the built-in repositories are present.
+  ///
+  /// Called on every launch, but each URL is only ever seeded once: after that
+  /// it is remembered in `comicSourceSeededDefaults` and never forced back,
+  /// even if the user deleted it. New URLs added by later app versions show up
+  /// automatically because they are not in that record yet.
+  Future<void> ensureDefaults() async {
+    final seeded =
+        (appdata.settings['comicSourceSeededDefaults'] as List? ?? [])
+            .whereType<String>()
+            .toSet();
+    final records =
+        (appdata.settings['comicSourceRepositories'] as List? ?? [])
+            .whereType<Map>()
+            .map((record) => Map<String, String>.from(
+                  record.map((key, value) => MapEntry(key, value.toString())),
+                ))
+            .toList();
+    final present = records
+        .map((record) => record['url'] ?? '')
+        .where((url) => url.isNotEmpty)
+        .toSet();
+
+    var changed = false;
+    for (final entry in defaultRepositories) {
+      if (seeded.contains(entry.url)) continue;
+      if (!present.contains(entry.url)) {
+        records.add(
+          SourceRepository(
+            id: _newId(),
+            name: entry.name,
+            url: entry.url,
+          ).toJson(),
+        );
+        present.add(entry.url);
+        changed = true;
+      }
+      seeded.add(entry.url);
+    }
+
+    appdata.settings['comicSourceSeededDefaults'] = seeded.toList();
+    if (changed) {
+      appdata.settings['comicSourceRepositories'] = records;
+      await appdata.saveData();
+      notifyListeners();
+    }
   }
 
   static String _newId() {

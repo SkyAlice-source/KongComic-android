@@ -444,21 +444,21 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
                   text: 'Continue'.tl,
                   onPressed: continueRead,
-                  iconColor: context.useTextColor(Colors.yellow),
+                  iconColor: kcBrandColor,
                 ),
               if (!isMobile || hasHistory)
                 _ActionButton(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedPlayCircle, size: 18),
                   text: 'Start'.tl,
                   onPressed: read,
-                  iconColor: context.useTextColor(Colors.orange),
+                  iconColor: kcBrandColor,
                 ),
               if (!isMobile && !isDownloaded)
                 _ActionButton(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
                   text: 'Download'.tl,
                   onPressed: download,
-                  iconColor: context.useTextColor(Colors.cyan),
+                  iconColor: kcBrandColor,
                 ),
               if (data!.isLiked != null)
                 _ActionButton(
@@ -472,7 +472,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                           .toString(),
                   isLoading: isLiking,
                   onPressed: likeOrUnlike,
-                  iconColor: context.useTextColor(Colors.red),
+                  iconColor: kcBrandColor,
                 ),
               _ActionButton(
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
@@ -481,20 +481,20 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 text: (isFavorite || isAddToLocalFav) ? 'Favorited'.tl : 'Favorite'.tl,
                 onPressed: openFavPanel,
                 onLongPressed: quickFavorite,
-                iconColor: context.useTextColor(Colors.purple),
+                iconColor: kcBrandColor,
               ),
               if (comicSource.commentsLoader != null)
                 _ActionButton(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
                   text: (comic.commentCount ?? 'Comments'.tl).toString(),
                   onPressed: showComments,
-                  iconColor: context.useTextColor(Colors.green),
+                  iconColor: kcBrandColor,
                 ),
               _ActionButton(
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 18),
                 text: 'Share'.tl,
                 onPressed: share,
-                iconColor: context.useTextColor(Colors.blue),
+                iconColor: kcBrandColor,
               ),
             ],
           ).fixHeight(48),
@@ -521,11 +521,16 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
           if (history != null && history!.maxPage != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SizedBox(
-                height: 44,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(kcRadius22),
-                  child: Material(
+                child: SizedBox(
+                  height: 44,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(kcRadius22),
+                      boxShadow: [...kcContourGlow(context)],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(kcRadius22),
+                      child: Material(
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: continueRead,
@@ -560,7 +565,9 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                     } else {
                       epText = "Last Reading".tl;
                     }
-                    final textColor = Colors.white;
+                    final textColor = Theme.of(context).brightness == Brightness.light
+                        ? Theme.of(context).colorScheme.onSurface
+                        : Colors.white;
                     return Stack(
                       children: [
                         Container(
@@ -591,9 +598,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                "Reading progress %s  Page %s".tl
-                                    .replaceFirst("%s", "${(readPct * 100).toInt()}%")
-                                    .replaceFirst("%s", "P$page/${history!.maxPage}"),
+                                "Reading progress @progress  Page @page".tlParams({
+                                  'progress': "${(readPct * 100).toInt()}%",
+                                  'page': "P$page/${history!.maxPage}",
+                                }),
                                 style: TextStyle(
                                   color: textColor.withValues(alpha: 0.85),
                                   fontSize: kcFont10,
@@ -612,15 +620,21 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               ),
               ),
             ),
-            ).paddingVertical(3),
+          ),
+        ).paddingVertical(3),
           if (_downloadTask != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SizedBox(
-                height: 22,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(kcRadius11),
-                  child: LayoutBuilder(builder: (context, constraints) {
+                child: SizedBox(
+                  height: 22,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(kcRadius11),
+                      boxShadow: [...kcContourGlow(context)],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(kcRadius11),
+                      child: LayoutBuilder(builder: (context, constraints) {
                     final dlPct = _downloadTask!.progress.clamp(0.0, 1.0);
                     return Stack(
                       children: [
@@ -637,19 +651,25 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                         ),
                         Center(
                           child: Text(
-                            "Downloading %s".tl.replaceAll("%s", "${(dlPct * 100).toInt()}%"),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: kcFont11,
-                              fontWeight: FontWeight.w600,
-                              shadows: _chapterTextShadow,
-                            ),
+                            "Downloading @progress".tlParams({
+                              'progress': "${(dlPct * 100).toInt()}%",
+                            }),
+                                style: TextStyle(
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.light
+                                      ? Theme.of(context).colorScheme.onSurface
+                                      : Colors.white,
+                                  fontSize: kcFont11,
+                                  fontWeight: FontWeight.w600,
+                                  shadows: _chapterTextShadow,
+                                ),
                           ),
                         ),
                       ],
                     );
                   }),
                 ),
+              ),
               ),
             ).paddingVertical(3),
           const Divider(),
@@ -708,12 +728,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     if (comic.tags.isEmpty &&
         comic.uploader == null &&
         comic.uploadTime == null &&
-        comic.uploadTime == null &&
+        comic.updateTime == null &&
         comic.maxPage == null) {
       return const SliverPadding(padding: EdgeInsets.zero);
     }
-
-    int i = 0;
 
     Widget buildTag({
       required String text,
@@ -724,8 +742,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
       // 类目标题 chip：中性灰底，退到背景层，不与值 chip 抢色，建立「标签：值」层级
       if (isTitle) {
-        final borderRadius = BorderRadius.circular(kcRadius8);
-        const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 6);
+        final borderRadius = BorderRadius.circular(kcRadius10);
+        const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
         final Widget titleWidget = Text(
           text,
           style: TextStyle(
@@ -746,12 +764,15 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       // 值 chip：按主题亮度/AMOLED 切换调色板，保持彩色区分（与分类页一致）
       final brightness = Theme.of(context).brightness;
       final amoled = appdata.isAmoledMode;
-      final bgColor = kcTagColor(i++, brightness, amoled: amoled);
+      // 用标签文本的稳定哈希取色：同一标签在任何页面/任何启动都是同一颜色，
+      // 不再像旧版那样「按出现位置 i++ 取色」导致与卡片/分类页配色对不上。
+      final bgColor =
+          kcTagColor(kcStableHash(text.split(':').last), brightness, amoled: amoled);
       final textColor = kcTagTextColor(bgColor);
       final borderColor = bgColor.withValues(alpha: 0.35);
 
-      final borderRadius = BorderRadius.circular(kcRadius8);
-      const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 6);
+      final borderRadius = BorderRadius.circular(kcRadius10);
+      const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
 
       Widget textWidget = Text(
         text,
@@ -826,13 +847,13 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       return time;
     }
 
-    Widget buildWrap({required List<Widget> children}) {
-      return Wrap(
-        runSpacing: 8,
-        spacing: 8,
-        children: children,
-      ).paddingHorizontal(16).paddingBottom(8);
-    }
+  Widget buildWrap({required List<Widget> children}) {
+    return Wrap(
+      runSpacing: 10,
+      spacing: 10,
+      children: children,
+    ).paddingHorizontal(16).paddingBottom(8);
+  }
 
     bool enableTranslation =
         App.locale.languageCode == 'zh' && comicSource.enableTagsTranslate;

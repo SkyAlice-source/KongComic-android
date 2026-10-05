@@ -39,6 +39,29 @@ BoxShadow kcCardShadow(BuildContext context) {
 bool kcReduceMotion(BuildContext context) =>
     MediaQuery.of(context).disableAnimations;
 
+// ── ColorOS 17 Contour Glow（凝光描边）─────────────────
+/// 在卡片 / 选中项 / 悬浮底栏四周加一圈柔和辉光，把内容从背景轻轻托起
+/// （ColorOS 17 的「Contour Glow」效果）。亮色用浅黑微光、暗色用白色微光，
+/// 保证可读且省电（不做重折射）。调用方把它追加进自身 boxShadow 列表即可。
+List<BoxShadow> kcContourGlow(BuildContext context, {Color? color}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final glow = color ?? (isDark ? Colors.white : Colors.black);
+  // 更柔、更扩散的辉光：原来 spreadRadius:-8 把光勒成一圈贴边硬边，
+  // 在卡片四周长得像塑料描边。改为更大模糊 + 较小收缩，让内容像被「轻轻托起」
+  // 而非裹了一圈反光边（更贴近真实磨砂玻璃的漫射感，少塑料感）。
+  return [
+    BoxShadow(
+      color: glow.withValues(alpha: isDark ? 0.10 : 0.04),
+      blurRadius: 26,
+      spreadRadius: -4,
+      offset: Offset.zero,
+    ),
+  ];
+}
+
+/// ColorOS 17 风格：对话框 / 底部弹窗 / 悬浮容器的统一大圆角。
+const double kcSurfaceRadius = 24;
+
 // ── 间距（精确值令牌，覆盖散落字面量，零视觉改动）──────
 const double kcSpaceXs = 4;
 const double kcSpaceXxs = 6;
@@ -108,6 +131,21 @@ const List<Color> kcTagPaletteDark = [
 /// 让玻璃质感更明显、更有层次，同时仍保持纯黑外观统一灰暗度、去掉主题色。
 /// 注意：文字色需配合 kcTagTextColor 的 alpha 感知逻辑。
 const Color kcTagAmoledGray = Color(0x28FFFFFF);
+
+/// 稳定字符串哈希（FNV-1a，跨进程/跨启动恒定）。
+///
+/// ⚠️ 切勿用 Dart 的 `String.hashCode` 给标签取色——它带随机种子，
+/// App 每次冷启动都会变，导致同一标签（如「韩漫」）今天蓝、明天粉，
+/// 各页面之间也对不上，观感混乱。这里用纯整数哈希保证任何运行都
+/// 映射到同一颜色，从而让「同一标签 = 同一颜色」在全站成立。
+int kcStableHash(String text) {
+  var hash = 0x811c9dc5;
+  for (var i = 0; i < text.length; i++) {
+    hash ^= text.codeUnitAt(i);
+    hash = (hash * 0x01000193) & 0x7fffffff;
+  }
+  return hash;
+}
 
 /// 根据主题亮度与 AMOLED 开关返回对应 palette 中的颜色。
 ///

@@ -298,7 +298,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
       List<FavoriteItemWithUpdateInfo> comics) {
     final map = <String, List<FavoriteItemWithUpdateInfo>>{};
     for (var c in comics) {
-      final key = c.type.comicSource?.name ?? "Unknown";
+      final key = c.type.comicSource?.name ?? "Unknown".tl;
       (map[key] ??= []).add(c);
     }
     final entries = map.entries.toList()

@@ -174,7 +174,7 @@ class _ExplorePageState extends State<ExplorePage>
         actionButton: TabActionButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
           text: "Add".tl,
-          onPressed: () => context.to(() => const ComicSourcePage()),
+          onPressed: addPage,
         ),
       ),
     ).paddingTop(context.padding.top);
@@ -453,7 +453,7 @@ class _MixedExplorePageState
     }
     for (var element in res.data) {
       if (element is! ExplorePagePart && element is! List<Comic>) {
-        return const Res.error("function loadMixed return invalid data");
+        return Res.error("Invalid data returned by the source".tl);
       }
     }
     return res;

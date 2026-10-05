@@ -9,6 +9,10 @@ import 'package:kong_comic/utils/ext.dart';
 import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
 
+/// 支持 `language:` 过滤的源（自动语言过滤仅对这些源生效）。
+/// 上游约定，集中于此便于维护，避免散落硬编码字符串。
+const List<String> _languageFilterEnabledSources = ['nhentai', 'ehentai'];
+
 class SearchResultPage extends StatefulWidget {
   const SearchResultPage({
     super.key,
@@ -99,12 +103,7 @@ class _SearchResultPageState extends State<SearchResultPage> {
       return text;
     }
     var searchSource = sourceKey;
-    // TODO: Move it to a better place
-    const enabledSources = [
-      'nhentai',
-      'ehentai',
-    ];
-    if (!enabledSources.contains(searchSource)) {
+    if (!_languageFilterEnabledSources.contains(searchSource)) {
       return text;
     }
     if (!text.contains('language:')) {

@@ -6,6 +6,7 @@ import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/app_dio.dart';
 import 'package:kong_comic/network/file_downloader.dart';
 import 'package:kong_comic/utils/io.dart';
+import 'package:crypto/crypto.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -27,6 +28,22 @@ class UpdateVerifyException implements Exception {
 
   @override
   String toString() => "Downloaded APK is corrupted";
+}
+
+/// Thrown when the download finished and the file looks like a complete APK
+/// (valid ZIP magic + EOCD) but its SHA-256 digest does not match the value
+/// published alongside the release. Indicates a corrupted or tampered download
+/// that slipped past the cheap structural check. Re-downloading usually fixes
+/// it, so the UI treats this the same as a structural failure (verify stage).
+class UpdateHashException implements Exception {
+  final String expected;
+  final String actual;
+
+  const UpdateHashException(this.expected, this.actual);
+
+  @override
+  String toString() =>
+      "APK SHA-256 mismatch (expected $expected, got $actual)";
 }
 
 /// Thrown when the APK is intact but the system installer refused to open it.
@@ -60,7 +77,9 @@ enum UpdateFailureStage { download, verify, install }
 /// Map an update exception onto the [UpdateFailureStage] that produced it.
 UpdateFailureStage updateFailureStage(Object e) {
   if (e is UpdateInstallException) return UpdateFailureStage.install;
-  if (e is UpdateVerifyException) return UpdateFailureStage.verify;
+  if (e is UpdateVerifyException || e is UpdateHashException) {
+    return UpdateFailureStage.verify;
+  }
   return UpdateFailureStage.download;
 }
 
@@ -70,6 +89,10 @@ String updateFailureMessage(Object e) {
     case UpdateFailureStage.download:
       return "Download failed".tl;
     case UpdateFailureStage.verify:
+      if (e is UpdateHashException) {
+        return "The downloaded APK failed its security check (SHA-256 mismatch). Please download it again."
+            .tl;
+      }
       return "The downloaded file is incomplete. Please download it again.".tl;
     case UpdateFailureStage.install:
       final install = e is UpdateInstallException ? e : null;
@@ -88,10 +111,17 @@ class AppUpdateInfo {
   final String releaseNotes;
   final Map<String, String> abiDownloads;
 
+  /// Expected SHA-256 (lowercase hex) per ABI key, published in the release
+  /// notes as a hidden `<!-- sha256 ... -->` block by CI. Null for legacy
+  /// releases that predate hash publishing; in that case verification is
+  /// skipped so older updates keep working.
+  final Map<String, String>? sha256;
+
   const AppUpdateInfo({
     required this.latestVersion,
     required this.releaseNotes,
     required this.abiDownloads,
+    this.sha256,
   });
 
   /// Pick the download URL matching the current device ABI.
@@ -105,6 +135,16 @@ class AppUpdateInfo {
     // device ABI has no matching asset (e.g. a release where split APKs
     // failed to upload).
     return abiDownloads['universal'] ?? abiDownloads.values.first;
+  }
+
+  /// Like [pickUrlForCurrentDevice] but returns the ABI key that was chosen
+  /// (e.g. `arm64-v8a` or `universal`) so callers can look up the expected
+  /// SHA-256. Returns null when no asset is available.
+  String? pickAbiKeyForCurrentDevice(String? abi) {
+    if (abiDownloads.isEmpty) return null;
+    if (abi != null && abiDownloads.containsKey(abi)) return abi;
+    if (abiDownloads.containsKey('universal')) return 'universal';
+    return abiDownloads.keys.first;
   }
 }
 
@@ -145,6 +185,31 @@ class AppUpdate {
     return blocks;
   }
 
+  /// Extract published SHA-256 digests from the release body. CI appends a
+  /// hidden HTML comment block (`<!-- sha256 ... -->`) listing one `<abi> <hex>`
+  /// pair per asset. Parsing is independent of the localized changelog blocks
+  /// so it never affects what the user sees in the update dialog.
+  static Map<String, String>? _extractSha256(String body) {
+    final m = RegExp(r'<!--\s*sha256\s*\n([\s\S]*?)-->').firstMatch(body);
+    if (m == null) return null;
+    final map = <String, String>{};
+    for (final line in m.group(1)!.split('\n')) {
+      final parts = line.trim().split(RegExp(r'\s+'));
+      if (parts.length == 2 &&
+          RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(parts[1])) {
+        map[parts[0]] = parts[1].toLowerCase();
+      }
+    }
+    return map.isEmpty ? null : map;
+  }
+
+  /// Remove the hidden `<!-- sha256 ... -->` block from a body so it never
+  /// shows up in the in-app update notes (only matters for legacy changelogs
+  /// that lack per-language markers; localized ones drop it already).
+  static String _stripSha256(String body) => body
+      .replaceAll(RegExp(r'<!--\s*sha256\s*[\s\S]*?-->', dotAll: true), '')
+      .trim();
+
   /// Strip `<details>` / `</details>` / `<summary>…</summary>` folding tags
   /// from a changelog block. The GitHub release page uses these to collapse
   /// the Chinese / Japanese sections (English stays on top and expanded), but
@@ -168,9 +233,10 @@ class AppUpdate {
   /// Localize release notes to the device language. Falls back to English,
   /// then to the first non-empty block, then to the default notes.
   static String _localizeNotes(String body) {
-    final blocks = _extractLangBlocks(body);
+    final cleaned = _stripSha256(body);
+    final blocks = _extractLangBlocks(cleaned);
     if (blocks.isEmpty) {
-      return body.trim().isEmpty ? _defaultReleaseNotes : body;
+      return cleaned.trim().isEmpty ? _defaultReleaseNotes : cleaned;
     }
     final target = _targetLang();
     final picked = blocks[target] ??
@@ -317,10 +383,13 @@ class AppUpdate {
     if (universalUrl != null) {
       downloads['universal'] = universalUrl;
     }
+    // Published integrity digests (null for legacy releases without them).
+    final shaMap = _extractSha256(body);
     return AppUpdateInfo(
       latestVersion: coreVersion,
       releaseNotes: releaseNotes,
       abiDownloads: downloads,
+      sha256: shaMap,
     );
   }
 
@@ -332,6 +401,13 @@ class AppUpdate {
   /// 指定版本的 APK 完整路径。
   static String apkPath(String version) =>
       FilePath.join(updateDir.path, "KongComic-$version.apk");
+
+  /// Stream-compute the SHA-256 of [file] without loading it fully into memory
+  /// (release APKs are ~40 MB). Uses `package:crypto`.
+  static Future<String> _sha256OfFile(File file) async {
+    final digest = await sha256.bind(file.openRead()).first;
+    return digest.toString();
+  }
 
   /// 校验 APK 的完整性。除 ZIP 头 magic 外，还检查文件尾部是否存在
   /// End Of Central Directory (EOCD) 记录签名 `PK\x05\x06`。
@@ -421,6 +497,7 @@ class AppUpdate {
     String url,
     String version, {
     required String? abi,
+    String? expectedSha256,
     void Function(double progress, int bytesPerSecond)? onProgress,
     FileDownloaderHandle? handle,
   }) async {
@@ -480,6 +557,19 @@ class AppUpdate {
     if (!_isValidApk(apk)) {
       throw const UpdateVerifyException();
     }
+    if (expectedSha256 != null) {
+      final actual = await _sha256OfFile(apk);
+      final expected = expectedSha256.toLowerCase();
+      if (actual != expected) {
+        // The structural check passed but the digest does not, so the file is
+        // corrupt/tampered. Delete it so a retry re-downloads cleanly instead
+        // of re-verifying the same bad bytes.
+        try {
+          await apk.delete();
+        } catch (_) {}
+        throw UpdateHashException(expected, actual);
+      }
+    }
     final error = await App.installApk(savePath);
     if (error != null) {
       throw UpdateInstallException(error, savePath);
@@ -538,10 +628,19 @@ class AppUpdate {
     if (url == null) {
       throw Exception("No APK asset found in the latest release");
     }
+    // Verify the downloaded bytes against the digest published with the release
+    // (null for legacy releases → skip). Keyed by the ABI we actually chose.
+    final key = info.pickAbiKeyForCurrentDevice(abi);
+    String? expected;
+    if (key != null) {
+      final map = info.sha256;
+      if (map != null) expected = map[key];
+    }
     await _downloadAndInstallFromUrl(
       url,
       info.latestVersion,
       abi: abi,
+      expectedSha256: expected,
       onProgress: onProgress,
       handle: handle,
     );

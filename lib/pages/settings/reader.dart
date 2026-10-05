@@ -83,6 +83,38 @@ class _ReaderSettingsState extends State<ReaderSettings> {
     widget.onChanged?.call("showChapterComments");
   }
 
+  /// Read a reader setting honoring the active override scope
+  /// (comic-specific > device-specific > global).
+  dynamic _readReaderSetting(String key) {
+    final comicId = widget.comicId;
+    final sourceKey = widget.comicSource;
+    if (comicId != null &&
+        sourceKey != null &&
+        appdata.settings.isComicSpecificSettingsEnabled(comicId, sourceKey)) {
+      return appdata.settings.getReaderSetting(comicId, sourceKey, key);
+    }
+    if (appdata.settings.isDeviceSpecificSettingsEnabled()) {
+      return appdata.settings.getDeviceReaderSetting(key);
+    }
+    return appdata.settings[key];
+  }
+
+  /// Write a reader setting honoring the active override scope
+  /// (comic-specific > device-specific > global).
+  void _writeReaderSetting(String key, dynamic value) {
+    final comicId = widget.comicId;
+    final sourceKey = widget.comicSource;
+    if (comicId != null &&
+        sourceKey != null &&
+        appdata.settings.isComicSpecificSettingsEnabled(comicId, sourceKey)) {
+      appdata.settings.setReaderSetting(comicId, sourceKey, key, value);
+    } else if (appdata.settings.isDeviceSpecificSettingsEnabled()) {
+      appdata.settings.setDeviceReaderSetting(key, value);
+    } else {
+      appdata.settings[key] = value;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final comicId = widget.comicId;
@@ -240,11 +272,11 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           },
           onChanged: () {
             setState(() {});
-            var readerMode = appdata.settings['readerMode'];
+            var readerMode = _readReaderSetting('readerMode') as String?;
             if (readerMode?.toLowerCase().startsWith('continuous') ?? false) {
-              appdata.settings['readerScreenPicNumberForLandscape'] = 1;
+              _writeReaderSetting('readerScreenPicNumberForLandscape', 1);
               widget.onChanged?.call('readerScreenPicNumberForLandscape');
-              appdata.settings['readerScreenPicNumberForPortrait'] = 1;
+              _writeReaderSetting('readerScreenPicNumberForPortrait', 1);
               widget.onChanged?.call('readerScreenPicNumberForPortrait');
             }
             widget.onChanged?.call("readerMode");
@@ -268,7 +300,8 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           useDeviceSettings: useDeviceSpecificSettings,
         ).toSliver(),
         SliverAnimatedVisibility(
-          visible: appdata.settings['readerMode']!.startsWith('gallery'),
+          visible: (_readReaderSetting('readerMode') as String? ?? '')
+              .startsWith('gallery'),
           child: _SliderSetting(
             title:
                 "The number of pic in screen for landscape (Only Gallery Mode)"
@@ -287,7 +320,8 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           ),
         ),
         SliverAnimatedVisibility(
-          visible: appdata.settings['readerMode']!.startsWith('gallery'),
+          visible: (_readReaderSetting('readerMode') as String? ?? '')
+              .startsWith('gallery'),
           child: _SliderSetting(
             title:
                 "The number of pic in screen for portrait (Only Gallery Mode)"
@@ -306,9 +340,15 @@ class _ReaderSettingsState extends State<ReaderSettings> {
         ),
         SliverAnimatedVisibility(
           visible:
-              appdata.settings['readerMode']!.startsWith('gallery') &&
-              (appdata.settings['readerScreenPicNumberForLandscape'] > 1 ||
-                  appdata.settings['readerScreenPicNumberForPortrait'] > 1),
+              (_readReaderSetting('readerMode') as String? ?? '')
+                  .startsWith('gallery') &&
+              ((_readReaderSetting('readerScreenPicNumberForLandscape') as int? ??
+                          1) >
+                      1 ||
+                  (_readReaderSetting('readerScreenPicNumberForPortrait')
+                              as int? ??
+                          1) >
+                      1),
           child: _SwitchSetting(
             title: "Show single image on first page".tl,
             settingKey: "showSingleImageOnFirstPage",

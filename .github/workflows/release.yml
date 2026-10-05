@@ -125,6 +125,36 @@ jobs:
           fi
           echo "Release notes for $VERSION ready"
 
+      # 计算各 APK 的 SHA-256，写入更新日志作为隐藏注释块。
+      # App 据此在下载后校验完整性（防损坏/篡改），旧版本无此块则跳过校验。
+      - name: Append SHA256 to release notes
+        run: |
+          VERSION="${{ env.VERSION }}"
+          NOTES="changelogs/${VERSION}.md"
+          if [ -f "$NOTES" ]; then
+            {
+              echo ""
+              echo "<!-- sha256"
+              for f in release-artifacts/KongComic-${VERSION}-*.apk; do
+                [ -f "$f" ] || continue
+                name=$(basename "$f")
+                case "$name" in
+                  *arm64-v8a*)   abi=arm64-v8a ;;
+                  *armeabi-v7a*) abi=armeabi-v7a ;;
+                  *x86_64*)      abi=x86_64 ;;
+                  *universal*)   abi=universal ;;
+                  *) continue ;;
+                esac
+                hash=$(sha256sum "$f" | awk '{print $1}')
+                echo "$abi $hash"
+              done
+              echo "-->"
+            } >> "$NOTES"
+            echo "Appended SHA256 block to release notes"
+          else
+            echo "Warning: release notes not found at $NOTES"
+          fi
+
       # 上传到 GitHub Release
       - name: Upload to Release
         uses: softprops/action-gh-release@v2

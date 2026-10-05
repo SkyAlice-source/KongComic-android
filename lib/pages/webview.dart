@@ -194,14 +194,20 @@ class _AppWebviewState extends State<AppWebview> {
                 MenuEntry(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedBrowser, size: 18),
                   text: "Open in browser".tl,
-                  onClick: () async =>
-                      launchUrlString((await controller?.getUrl())!.toString()),
+                  onClick: () async {
+                    final url = await controller?.getUrl();
+                    if (url != null) launchUrlString(url.toString());
+                  },
                 ),
                 MenuEntry(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
                   text: "Copy link".tl,
-                  onClick: () async => Clipboard.setData(ClipboardData(
-                      text: (await controller?.getUrl())!.toString())),
+                  onClick: () async {
+                    final url = await controller?.getUrl();
+                    if (url != null) {
+                      Clipboard.setData(ClipboardData(text: url.toString()));
+                    }
+                  },
                 ),
                 MenuEntry(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),

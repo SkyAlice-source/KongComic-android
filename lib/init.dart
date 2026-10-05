@@ -143,6 +143,10 @@ Future<void> _checkOldConfigs() async {
   // Move the single source-list URL into the (new) repository list. The old
   // setting stays as-is so older builds keep working if the user downgrades.
   await SourceRepositories.instance.migrate();
+
+  // Then top up anything that ships with the app but is missing for this user
+  // (first launch, or a default added by a newer version).
+  await SourceRepositories.instance.ensureDefaults();
 }
 
 Future<void> _checkAppUpdates() async {

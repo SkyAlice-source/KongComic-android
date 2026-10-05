@@ -108,50 +108,12 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                   var value = chapters[key]!;
                   bool visited = (history?.readEpisode ?? {}).contains(i + 1);
                   bool isCurrent = history != null && (i + 1) == history!.ep;
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
-                    child: Material(
-                      color: isCurrent
-                          ? context.colorScheme.primaryContainer.withValues(alpha: 0.5)
-                          : context.colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(kcCardRadius),
-                      child: InkWell(
-                        onTap: () => state.read(i + 1),
-                        borderRadius: BorderRadius.circular(kcCardRadius),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(kcCardRadius),
-                            border: Border.all(
-                              color: isCurrent
-                                  ? context.colorScheme.primary
-                                  : visited
-                                      ? context.colorScheme.tertiary.withValues(alpha: 0.5)
-                                      : context.colorScheme.outline.withValues(alpha: 0.3),
-                              width: isCurrent ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            child: Center(
-                              child: Text(
-                                value,
-                                maxLines: 1,
-                                textAlign: TextAlign.center,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: isCurrent
-                                      ? context.colorScheme.primary
-                                      : visited
-                                          ? context.colorScheme.onSurfaceVariant
-                                          : context.colorScheme.onSurface,
-                                  fontWeight: isCurrent ? FontWeight.w600 : null,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                  return _buildChapterTile(
+                    context,
+                    value: value,
+                    visited: visited,
+                    isCurrent: isCurrent,
+                    onTap: () => state.read(i + 1),
                   );
                 },
               ),
@@ -159,7 +121,7 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                 maxCrossAxisExtent: 250,
                 itemHeight: 48,
               ),
-            ).sliverPadding(const EdgeInsets.symmetric(horizontal: 8)),
+            ).sliverPadding(const EdgeInsets.symmetric(horizontal: 16)),
             if (!canShowAll)
               SliverToBoxAdapter(
                 child: Align(
@@ -333,50 +295,12 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                         history!.readEpisode.contains(rawIndex);
                     isCurrent = (chapterIndex + 1) == history!.ep;
                   }
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
-                    child: Material(
-                      color: isCurrent
-                          ? context.colorScheme.primaryContainer.withValues(alpha: 0.5)
-                          : context.colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(kcCardRadius),
-                      child: InkWell(
-                        onTap: () => state.read(chapterIndex + 1),
-                        borderRadius: BorderRadius.circular(kcCardRadius),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(kcCardRadius),
-                            border: Border.all(
-                              color: isCurrent
-                                  ? context.colorScheme.primary
-                                  : visited
-                                      ? context.colorScheme.tertiary.withValues(alpha: 0.5)
-                                      : context.colorScheme.outline.withValues(alpha: 0.3),
-                              width: isCurrent ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            child: Center(
-                              child: Text(
-                                value,
-                                maxLines: 1,
-                                textAlign: TextAlign.center,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: isCurrent
-                                      ? context.colorScheme.primary
-                                      : visited
-                                          ? context.colorScheme.onSurfaceVariant
-                                          : context.colorScheme.onSurface,
-                                  fontWeight: isCurrent ? FontWeight.w600 : null,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                  return _buildChapterTile(
+                    context,
+                    value: value,
+                    visited: visited,
+                    isCurrent: isCurrent,
+                    onTap: () => state.read(chapterIndex + 1),
                   );
                 },
               ),
@@ -384,7 +308,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                 maxCrossAxisExtent: 250,
                 itemHeight: 48,
               ),
-            ).sliverPadding(const EdgeInsets.symmetric(horizontal: 8)),
+            ).sliverPadding(const EdgeInsets.symmetric(horizontal: 16)),
             if (!canShowAll)
               SliverToBoxAdapter(
                 child: Align(
@@ -408,4 +332,61 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
       },
     );
   }
+}
+
+/// 普通/分组章节共用的单格渲染：当前章节高亮、已读降透明度、点击跳转。
+/// 抽取自 [_NormalComicChapters] 与 [_GroupedComicChapters] 的重复格子代码，
+/// 保证两种模式的章节格子视觉完全一致。
+Widget _buildChapterTile(
+  BuildContext context, {
+  required String value,
+  required bool visited,
+  required bool isCurrent,
+  required VoidCallback onTap,
+}) {
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+    child: Material(
+      color: isCurrent
+          ? context.colorScheme.primaryContainer.withValues(alpha: 0.5)
+          : context.colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(kcCardRadius),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(kcCardRadius),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(kcCardRadius),
+            border: Border.all(
+              color: isCurrent
+                  ? context.colorScheme.primary
+                  : visited
+                      ? context.colorScheme.tertiary.withValues(alpha: 0.5)
+                      : context.colorScheme.outline.withValues(alpha: 0.3),
+              width: isCurrent ? 1.5 : 1,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Center(
+              child: Text(
+                value,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isCurrent
+                      ? context.colorScheme.primary
+                      : visited
+                          ? context.colorScheme.onSurfaceVariant
+                          : context.colorScheme.onSurface,
+                  fontWeight: isCurrent ? FontWeight.w600 : null,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }

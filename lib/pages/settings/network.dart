@@ -18,14 +18,21 @@ class _NetworkSettingsState extends State<NetworkSettings> {
   String _toProxyStr() {
     if (proxyType == 'direct') return 'direct';
     if (proxyType == 'system') return 'system';
+    // Read directly from the controllers so the default values shown in the
+    // fields (e.g. 127.0.0.1 / 7890) are persisted even when the user does
+    // not edit them before pressing Save.
+    final user = _usernameController.text;
+    final pass = _passwordController.text;
+    final host = _hostController.text;
+    final port = _portController.text;
     var res = '';
-    if (proxyUsername.isNotEmpty) {
-      res += proxyUsername;
-      if (proxyPassword.isNotEmpty) res += ':$proxyPassword';
+    if (user.isNotEmpty) {
+      res += user;
+      if (pass.isNotEmpty) res += ':$pass';
       res += '@';
     }
-    res += proxyHost;
-    if (proxyPort.isNotEmpty) res += ':$proxyPort';
+    res += host;
+    if (port.isNotEmpty) res += ':$port';
     return res;
   }
 

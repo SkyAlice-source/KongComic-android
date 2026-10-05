@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 import 'package:flutter/material.dart';
@@ -136,6 +137,9 @@ class _Body extends StatefulWidget {
   State<_Body> createState() => _BodyState();
 }
 
+/// Source list filters shown as a chip row above the list.
+enum _SourceFilter { all, enabled, disabled, unreachable, update }
+
 class _BodyState extends State<_Body> {
   var url = "";
 
@@ -154,6 +158,10 @@ class _BodyState extends State<_Body> {
 
   /// True while an "update all" run is in progress.
   bool _updatingAll = false;
+
+  /// Active source list filter. When not [all], reordering is disabled because
+  /// the visible subset no longer maps 1:1 onto the global source order.
+  _SourceFilter _filter = _SourceFilter.all;
 
   void updateUI() {
     setState(() {});
@@ -177,6 +185,8 @@ class _BodyState extends State<_Body> {
   @override
   Widget build(BuildContext context) {
     final sources = orderedComicSources();
+    final filtered = _applyFilter(sources);
+    final filtering = _filter != _SourceFilter.all;
     return SmoothCustomScrollView(
       slivers: [
         SliverAppbar(
@@ -246,11 +256,12 @@ class _BodyState extends State<_Body> {
           ],
         ),
         buildCard(context),
+        if (!_selecting) _buildFilterChips(),
         SliverReorderableList(
-          itemCount: sources.length,
-          onReorderItem: _selecting ? (_, __) {} : onReorderItem,
+          itemCount: filtered.length,
+          onReorderItem: (_selecting || filtering) ? (_, __) {} : onReorderItem,
           itemBuilder: (context, index) {
-            final source = sources[index];
+            final source = filtered[index];
             return _ComicSourceCard(
               key: ValueKey(source.key),
               source: source,
@@ -283,6 +294,73 @@ class _BodyState extends State<_Body> {
     appdata.settings['sourceOrder'] = sources.map((s) => s.key).toList();
     _syncSourceOrder();
     setState(() {});
+  }
+
+  List<ComicSource> _applyFilter(List<ComicSource> sources) {
+    switch (_filter) {
+      case _SourceFilter.all:
+        return sources;
+      case _SourceFilter.enabled:
+        return sources
+            .where((s) => !ComicSourceManager().isDisabled(s.key))
+            .toList();
+      case _SourceFilter.disabled:
+        return sources
+            .where((s) => ComicSourceManager().isDisabled(s.key))
+            .toList();
+      case _SourceFilter.unreachable:
+        return sources
+            .where((s) {
+              final h = _health[s.key] ?? '';
+              return h == 'fail' ||
+                  h == 'proxy' ||
+                  h == 'timeout' ||
+                  h == 'http';
+            })
+            .toList();
+      case _SourceFilter.update:
+        final updates = ComicSourceManager().availableUpdates;
+        return sources.where((s) => updates.containsKey(s.key)).toList();
+    }
+  }
+
+  Widget _buildFilterChips() {
+    final scheme = Theme.of(context).colorScheme;
+    return SliverToBoxAdapter(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            for (final f in _SourceFilter.values)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(_filterLabel(f)),
+                  selected: _filter == f,
+                  onSelected: (_) => setState(() => _filter = f),
+                  selectedColor: kcBrandColor,
+                  labelStyle: TextStyle(
+                    color: _filter == f ? Colors.white : scheme.onSurfaceVariant,
+                    fontSize: kcFont13,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _filterLabel(_SourceFilter f) {
+    return switch (f) {
+      _SourceFilter.all => "All".tl,
+      _SourceFilter.enabled => "Enabled".tl,
+      _SourceFilter.disabled => "Disabled".tl,
+      _SourceFilter.unreachable => "Unreachable".tl,
+      _SourceFilter.update => "Update available".tl,
+    };
   }
 
   void pinToTop(ComicSource source) {
@@ -319,11 +397,12 @@ class _BodyState extends State<_Body> {
         await Process.run("code", [source.filePath], runInShell: true);
         await showDialog(
           context: App.rootContext,
-          builder: (context) => AlertDialog(
-            title: Text("Reload Configs".tl),
+          builder: (context) => ContentDialog(
+            title: "Reload Configs".tl,
+            content: const SizedBox.shrink(),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => context.pop(),
                 child: Text("Cancel".tl),
               ),
               TextButton(
@@ -375,15 +454,34 @@ class _BodyState extends State<_Body> {
   }
 
   Widget _buildBatchBar(BuildContext context) {
+    final compact = FilledButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      textStyle: const TextStyle(fontSize: 13),
+    );
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)
           .add(EdgeInsets.only(bottom: context.padding.bottom)),
       child: Row(
         children: [
           FilledButton.icon(
+            onPressed: _selected.isEmpty ? null : () => batchSetDisabled(false),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
+            label: Text("Batch enable".tl),
+            style: compact,
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            onPressed: _selected.isEmpty ? null : () => batchSetDisabled(true),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
+            label: Text("Batch disable".tl),
+            style: compact,
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
             onPressed: _selected.isEmpty ? null : batchUpdate,
             icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
             label: Text("Batch update".tl),
+            style: compact,
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
@@ -392,6 +490,8 @@ class _BodyState extends State<_Body> {
             label: Text("Batch delete".tl),
             style: FilledButton.styleFrom(
               backgroundColor: context.colorScheme.error,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              textStyle: const TextStyle(fontSize: 13),
             ),
           ),
           const Spacer(),
@@ -470,6 +570,23 @@ class _BodyState extends State<_Body> {
     );
   }
 
+  /// Enables (disabled = false) or disables every selected source at once.
+  void batchSetDisabled(bool disabled) {
+    if (_selected.isEmpty) return;
+    final keys = _selected.toList();
+    for (final k in keys) {
+      ComicSourceManager().setSourceDisabled(k, disabled);
+    }
+    _validatePages();
+    App.forceRebuild();
+    if (mounted) {
+      setState(() {
+        _selecting = false;
+        _selected.clear();
+      });
+    }
+  }
+
   void _toggleDisabled(ComicSource source) {
     final disabled = ComicSourceManager().isDisabled(source.key);
     ComicSourceManager().setSourceDisabled(source.key, !disabled);
@@ -498,10 +615,12 @@ class _BodyState extends State<_Body> {
       } else if (page.loadMixed != null) {
         res = await page.loadMixed!(0);
       } else {
+        if (!mounted) return;
         setState(() => _health[source.key] = category);
         return;
       }
-      if (res.error) {
+      // res 为 null（脚本直接返回空）时按失败处理，避免 NoSuchMethodError。
+      if (res == null || res.error) {
         // 源返回了错误结果，按错误信息细分失败类型
         final msg = (res?.errorMessage as String? ?? '').toLowerCase();
         if (msg.contains('timeout')) {
@@ -537,16 +656,27 @@ class _BodyState extends State<_Body> {
     } catch (_) {
       category = 'fail';
     }
+    // 测试是异步的，用户可能中途退出本页。
+    if (!mounted) return;
     setState(() => _health[source.key] = category);
   }
 
   Future<void> _testAll() async {
     if (_testingAll) return;
     setState(() => _testingAll = true);
-    for (final s in orderedComicSources()) {
-      await _testSource(s);
+    // finally：任何一次 _testSource 抛错（例如页面已销毁时的 setState）
+    // 都不能把 _testingAll 永久留在 true，否则按钮会一直卡在加载态。
+    try {
+      for (final s in orderedComicSources()) {
+        await _testSource(s);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _testingAll = false);
+      } else {
+        _testingAll = false;
+      }
     }
-    setState(() => _testingAll = false);
   }
 
   Future<void> _updateAll() async {
@@ -574,8 +704,11 @@ class _BodyState extends State<_Body> {
       }
     }
     App.forceRebuild();
-    setState(() => _updatingAll = false);
+    // 顺序不能反：先确认还挂载着再 setState。反过来的话，若用户在批量更新
+    // 期间退出了本页，setState 会抛 "called after dispose()"，后面的提示
+    // 逻辑也全部被跳过。
     if (!mounted) return;
+    setState(() => _updatingAll = false);
     // Keep repository-level problems and per-source ones apart, otherwise
     // "N repositories failed to load" also counts things like "multiple
     // variants found" and points the user at the wrong thing.
@@ -738,6 +871,18 @@ class _BodyState extends State<_Body> {
     String? originUrl,
     bool fromFile = false,
   }) async {
+    // Re-installing a key that is already present overwrites it; if the new
+    // version is not newer, confirm first so a downgrade is never silent.
+    final key = ComicSourceParser.extractKey(js);
+    ComicSource? existing;
+    if (key != null) existing = ComicSource.find(key);
+    if (existing != null) {
+      final newVersion = ComicSourceParser.extractVersion(js) ?? "1.0.0";
+      if (!compareSemVer(newVersion, existing.version)) {
+        final ok = await _confirmOverwrite(existing, newVersion);
+        if (!ok) return existing;
+      }
+    }
     var comicSource = await ComicSourceParser().createAndParse(js, fileName);
     ComicSourceManager().add(comicSource);
     var recordedUrl = originUrl ?? comicSource.url;
@@ -753,6 +898,44 @@ class _BodyState extends State<_Body> {
     appdata.saveData();
     App.forceRebuild();
     return comicSource;
+  }
+
+  /// Asks the user whether to overwrite an already-installed source whose new
+  /// version is not newer than the installed one. Returns false if declined.
+  Future<bool> _confirmOverwrite(ComicSource existing, String newVersion) async {
+    final completer = Completer<bool>();
+    if (!mounted) return false;
+    showDialog(
+      context: App.rootContext,
+      builder: (ctx) => ContentDialog(
+        title: "Overwrite source".tl,
+        content: Text(
+          "A source '@n' (v@old) is already installed. Install the older or same version v@new over it?"
+              .tlParams({
+            "n": existing.name,
+            "old": existing.version,
+            "new": newVersion,
+          }),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ctx.pop();
+              completer.complete(false);
+            },
+            child: Text("Cancel".tl),
+          ),
+          FilledButton(
+            onPressed: () {
+              ctx.pop();
+              completer.complete(true);
+            },
+            child: Text("Overwrite".tl),
+          ),
+        ],
+      ),
+    );
+    return completer.future;
   }
 }
 
@@ -1055,6 +1238,16 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
   /// Whether this source's settings/account block is expanded.
   bool _expanded = false;
 
+  /// Whether expanding this card would show anything at all. A source that is
+  /// only a search endpoint would otherwise render an empty bordered panel.
+  bool get _hasDetailContent =>
+      source.explorePages.isNotEmpty ||
+      source.categoryData != null ||
+      source.favoriteData != null ||
+      source.searchPageData != null ||
+      source.settings != null ||
+      source.account != null;
+
   @override
   Widget build(BuildContext context) {
     final newVersion = ComicSourceManager().availableUpdates[source.key];
@@ -1232,7 +1425,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             ],
           ),
           _buildStatusRow(),
-          if (_expanded)
+          if (_expanded && _hasDetailContent)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(left: 8),
@@ -1250,6 +1443,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
               ),
               child: Column(
                 children: [
+                  ..._buildPageToggles(),
                   ...buildSourceSettings(),
                   ..._buildAccount(),
                 ],
@@ -1278,20 +1472,26 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     final health = widget.health;
     final cs = Theme.of(context).colorScheme;
 
+    // Tapping a summary badge no longer toggles everything at once (one stray
+    // tap used to switch off a whole source) — it opens the card, where each
+    // entry has its own switch and the "all" buttons live.
     Widget toggleBadge(String text, bool enabled, VoidCallback onTap) {
-      return GestureDetector(
-        onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Opacity(
-            opacity: enabled ? 1.0 : 0.5,
-            child: AppBadge(
-              text,
-              backgroundColor: enabled ? kcBrandColor : null,
-              foregroundColor: enabled ? Colors.white : null,
-              type: AppBadgeType.neutral,
-              fontSize: kcFont13,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      return Tooltip(
+        message: "Tap to expand and enable pages one by one".tl,
+        child: GestureDetector(
+          onTap: onTap,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Opacity(
+              opacity: enabled ? 1.0 : 0.5,
+              child: AppBadge(
+                text,
+                backgroundColor: enabled ? kcBrandColor : null,
+                foregroundColor: enabled ? Colors.white : null,
+                type: AppBadgeType.neutral,
+                fontSize: kcFont13,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              ),
             ),
           ),
         ),
@@ -1344,7 +1544,20 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         );
       }
-      // 未测试('') 或 其它失败('fail') → 不可达
+      // 未测试('') → 「未测试」，与已测试但失败的「未连通」区分，
+      // 否则卡片显示「未连通」而「未连通」筛选却查不到（health 为空）。
+      if (health.isEmpty) {
+        return Opacity(
+          opacity: 0.6,
+          child: AppBadge(
+            "Not tested".tl,
+            type: AppBadgeType.neutral,
+            fontSize: kcFont13,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          ),
+        );
+      }
+      // 已测试但不可达('fail') → 未连通
       return AppBadge(
         "Unreachable".tl,
         type: AppBadgeType.neutral,
@@ -1358,39 +1571,13 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
         toggleBadge(
           "${"Explore".tl} $expOn/$expTotal",
           expOn > 0,
-          () {
-            final titles = source.explorePages.map((e) => e.title).toList();
-            final list =
-                List<String>.from(appdata.settings['explore_pages'] ?? []);
-            if (expOn == expTotal) {
-              list.removeWhere(titles.contains);
-            } else {
-              for (final t in titles) {
-                if (!list.contains(t)) list.add(t);
-              }
-            }
-            appdata.settings['explore_pages'] = list;
-            appdata.saveData();
-            setState(() {});
-          },
+          _expandCard,
         ),
       if (catTotal > 0)
         toggleBadge(
           "${"Categories".tl} $catOn/$catTotal",
-          catOn == 1,
-          () {
-            final key = source.categoryData!.key;
-            final list =
-                List<String>.from(appdata.settings['categories'] ?? []);
-            if (catOn == 1) {
-              list.remove(key);
-            } else {
-              if (!list.contains(key)) list.add(key);
-            }
-            appdata.settings['categories'] = list;
-            appdata.saveData();
-            setState(() {});
-          },
+          catOn > 0,
+          _expandCard,
         ),
       healthBadge(),
       AppBadge(
@@ -1411,59 +1598,215 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     final actions = <Widget>[];
     if (!widget.selecting) {
       actions.addAll([
-        Tooltip(
-          message: "Test".tl,
-          child: IconButton(
-            onPressed: () => widget.onTest(source),
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 16),
-            visualDensity: VisualDensity.compact,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            padding: EdgeInsets.zero,
-          ),
+        _actionChip(
+          icon: HugeIcons.strokeRoundedLink01,
+          label: "Test".tl,
+          onTap: () => widget.onTest(source),
         ),
-        Tooltip(
-          message: widget.disabled ? "Enable".tl : "Disable".tl,
-          child: IconButton(
-            onPressed: () => widget.onToggleDisabled(source),
-            icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedActivity01,
-              size: 16,
-              color: widget.disabled ? cs.primary : cs.error,
-            ),
-            visualDensity: VisualDensity.compact,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            padding: EdgeInsets.zero,
-          ),
+        const SizedBox(width: 8),
+        _actionChip(
+          icon: widget.disabled
+              ? HugeIcons.strokeRoundedCancelCircle
+              : HugeIcons.strokeRoundedCheckmarkCircle01,
+          label: widget.disabled ? "Disabled".tl : "Enabled".tl,
+          onTap: () => widget.onToggleDisabled(source),
+          active: !widget.disabled,
         ),
       ]);
     }
 
     return Padding(
       padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  for (var i = 0; i < infoChips.length; i++) ...[
-                    infoChips[i],
-                    if (i < infoChips.length - 1) const SizedBox(width: 4),
-                  ],
-                ],
-              ),
-            ),
+          // A Wrap instead of a horizontal scroller: with several chips the old
+          // row silently clipped them ("No repository lin…"), hiding exactly the
+          // information it existed to show.
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: infoChips,
           ),
           if (actions.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            ...actions,
+            const SizedBox(height: 6),
+            Row(mainAxisAlignment: MainAxisAlignment.end, children: actions),
           ],
         ],
       ),
     );
+  }
+
+  /// A compact pill for the row-level actions.
+  ///
+  /// Enable/disable changes icon, colour *and* text, so the current state is
+  /// readable at a glance instead of being a single recoloured icon that means
+  /// the opposite depending on a colour the user has to remember.
+  Widget _actionChip({
+    required List<List<dynamic>> icon,
+    required String label,
+    required VoidCallback onTap,
+    bool active = false,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final background = active ? kcBrandColor : scheme.surfaceContainerHighest;
+    final foreground = active ? Colors.white : scheme.onSurfaceVariant;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: scheme.outlineVariant, width: 0.8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            HugeIcon(icon: icon, size: 14, color: foreground),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: kcFont13,
+                fontWeight: FontWeight.w600,
+                color: foreground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _expandCard() => setState(() => _expanded = true);
+
+  /// Per-entry switches for everything this source can contribute to the app:
+  /// its explore (discover) tabs, its category tab, its network favorites and
+  /// its search. Each row maps 1:1 onto an entry of the corresponding global
+  /// setting list, so a single busy tab can be parked without losing the rest.
+  Iterable<Widget> _buildPageToggles() sync* {
+    yield* _pageGroup(
+      "Explore Pages",
+      "explore_pages",
+      HugeIcons.strokeRoundedCompass,
+      [
+        for (final p in source.explorePages)
+          (value: p.title, label: p.title.ts(source.key)),
+      ],
+    );
+    if (source.categoryData != null) {
+      yield* _pageGroup("Category Pages", "categories",
+          HugeIcons.strokeRoundedGridView, [
+        (value: source.categoryData!.key, label: source.categoryData!.title),
+      ]);
+    }
+    if (source.favoriteData != null) {
+      yield* _pageGroup("Network Favorite Pages", "favorites",
+          HugeIcons.strokeRoundedHeartCheck, [
+        (value: source.favoriteData!.key, label: source.favoriteData!.title),
+      ]);
+    }
+    if (source.searchPageData != null) {
+      yield* _pageGroup("Search Sources", "searchSources",
+          HugeIcons.strokeRoundedSearch01, [
+        (value: source.key, label: source.name),
+      ]);
+    }
+  }
+
+  /// Renders one group of per-entry switches plus an all on/off shortcut.
+  Iterable<Widget> _pageGroup(
+    String title,
+    String settingKey,
+    List<List<dynamic>> icon,
+    List<({String value, String label})> entries,
+  ) sync* {
+    final scheme = Theme.of(context).colorScheme;
+    final current = List<String>.from(appdata.settings[settingKey] ?? []);
+    final onCount = entries.where((e) => current.contains(e.value)).length;
+    final allOn = onCount == entries.length;
+
+    final sorted = [...entries]
+      ..sort((a, b) {
+        final onA = current.contains(a.value) ? 0 : 1;
+        final onB = current.contains(b.value) ? 0 : 1;
+        return onA != onB ? onA - onB : a.label.compareTo(b.label);
+      });
+
+    yield Padding(
+      padding: const EdgeInsets.only(left: 16, right: 8, top: 4),
+      child: Row(
+        children: [
+          HugeIcon(icon: icon, size: 15, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            "${title.tl} $onCount/${entries.length}",
+            style: TextStyle(
+              fontSize: kcFont13,
+              fontWeight: FontWeight.w600,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: () => _setGroupEnabled(
+              settingKey,
+              [for (final e in entries) e.value],
+              !allOn,
+            ),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: Size.zero,
+            ),
+            child: Text(
+              (allOn ? "Disable all" : "Enable all").tl,
+              style: const TextStyle(fontSize: kcFont13),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    for (final entry in sorted) {
+      final on = current.contains(entry.value);
+      yield ListTile(
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        contentPadding: const EdgeInsets.only(left: 20, right: 8),
+        title: Text(
+          entry.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: kcFont15,
+            color: on ? scheme.onSurface : scheme.onSurfaceVariant,
+          ),
+        ),
+        trailing: Switch(
+          value: on,
+          onChanged: (v) => _setGroupEnabled(settingKey, [entry.value], v),
+        ),
+      );
+    }
+  }
+
+  /// Adds/removes [values] from [settingKey] and persists the result.
+  void _setGroupEnabled(String settingKey, List<String> values, bool enabled) {
+    final list = List<String>.from(appdata.settings[settingKey] ?? []);
+    if (enabled) {
+      for (final v in values) {
+        if (!list.contains(v)) list.add(v);
+      }
+    } else {
+      list.removeWhere(values.contains);
+    }
+    appdata.settings[settingKey] = list;
+    appdata.saveData();
+    setState(() {});
   }
 
   Iterable<Widget> buildSourceSettings() sync* {

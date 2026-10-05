@@ -354,6 +354,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           fontSize: kcTitleLarge,
           height: 1.35,
           fontWeight: FontWeight.w500,
+          // ⚠️ 必须显式给 color：AppBarTheme.titleTextStyle 一旦定义，
+          // 就会整体接管 AppBar 标题样式；color 为 null 时标题颜色会丢，
+          // 在浅色背景上渲染成近乎白色（分享图片选择页因此看不清）。
+          color: scheme.onSurface,
         ),
       ),
       // 滚动条滑块用中性灰，避免跟随强调色（如选"绿"时右边缘出现绿条）

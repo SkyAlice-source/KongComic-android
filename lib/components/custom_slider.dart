@@ -180,7 +180,7 @@ class _CustomSliderState extends State<CustomSlider> {
               height: 32,
               child: Center(
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(14)),
+                  borderRadius: const BorderRadius.all(Radius.circular(kcRadius16)),
                   child: SizedBox(
                     height: 28,
                     child: Stack(

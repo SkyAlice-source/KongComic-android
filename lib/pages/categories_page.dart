@@ -288,7 +288,7 @@ class _CategoryPage extends StatelessWidget {
   Widget buildCategory(CategoryItem c) {
     final sourceKey = findComicSourceKey();
     return buildTag(
-      c.label,
+      c.label.ts(sourceKey),
       () {
         var context = App.mainNavigatorKey!.currentContext!;
         c.target.jump(context);
@@ -297,36 +297,35 @@ class _CategoryPage extends StatelessWidget {
     );
   }
 
-  /// 基于标签名 + 所属漫画源生成 chip 底色；AMOLED 模式下用灰阶。
-  /// 混入 sourceKey 的哈希后，同一漫画源下的不同标签颜色错开，
-  /// 不同漫画源之间的整体色调也不会因标签名相同而撞车。
+  /// 基于标签名生成 chip 底色（稳定哈希）；AMOLED 模式下用灰阶。
+  /// 统一用「标签文本」取色：同一标签在全站都是同一颜色，且跨启动恒定
+  /// （不再混入 sourceKey、也不用会随机化的 Dart String.hashCode）。
   static Color _colorForTag(
     String label,
     Brightness brightness,
     bool amoled, {
     String? sourceKey,
   }) {
-    var hash = label.hashCode.abs() + (sourceKey?.hashCode ?? 0).abs();
-    return kcTagColor(hash, brightness, amoled: amoled);
+    return kcTagColor(kcStableHash(label), brightness, amoled: amoled);
   }
 
   Widget buildTag(String label, VoidCallback onClick, {String? sourceKey}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
       child: Builder(
         builder: (context) {
           final brightness = Theme.of(context).brightness;
           final amoled = appdata.isAmoledMode;
           final bg = _colorForTag(label, brightness, amoled, sourceKey: sourceKey);
           return Material(
-            borderRadius: BorderRadius.circular(kcRadius8),
+            borderRadius: BorderRadius.circular(kcRadius10),
             color: bg,
             child: InkWell(
-              borderRadius: BorderRadius.circular(kcRadius8),
+              borderRadius: BorderRadius.circular(kcRadius10),
               onTap: onClick,
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(kcRadius8),
+                  borderRadius: BorderRadius.circular(kcRadius10),
                   border: Border.all(
                     color: bg.withValues(alpha: 0.35),
                     width: 0.5,

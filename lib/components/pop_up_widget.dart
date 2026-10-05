@@ -24,7 +24,7 @@ class PopUpWidget<T> extends PopupRoute<T> {
         blurStrength: 25,
         opacity: 0.20,
         borderRadius: showPopUp
-            ? const BorderRadius.all(Radius.circular(12))
+            ? const BorderRadius.all(Radius.circular(kcCardRadius))
             : BorderRadius.zero,
         border: showPopUp
             ? GlassContainer.iosBorder(context)

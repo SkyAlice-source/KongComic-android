@@ -69,7 +69,7 @@ class _CoverViewerState extends State<_CoverViewer> {
 
   Widget _buildAppBar() {
     return Material(
-      color: context.colorScheme.surface.withValues(alpha: 0.72),
+      color: context.colorScheme.surface.withValues(alpha: 0.62),
       child: BlurEffect(
         child: Container(
           decoration: BoxDecoration(

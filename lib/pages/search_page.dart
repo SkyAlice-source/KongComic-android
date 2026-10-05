@@ -101,6 +101,9 @@ class _SearchPageState extends State<SearchPage> {
   void _showSourcePicker(List<ComicSource> sources, String id) {
     showModalBottomSheet(
       context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(kcSurfaceRadius)),
+      ),
       builder: (context) {
         final cs = Theme.of(context).colorScheme;
         return SafeArea(
@@ -120,7 +123,7 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   id,
                   style: TextStyle(
@@ -133,7 +136,7 @@ class _SearchPageState extends State<SearchPage> {
               const SizedBox(height: 8),
               ...sources.map((source) {
                 final colorIndex =
-                    source.key.hashCode.abs() % sourceColors.length;
+                    kcStableHash(source.key) % sourceColors.length;
                 final accentColor = sourceColors[colorIndex];
                 return ListTile(
                   leading: Container(
@@ -429,7 +432,7 @@ class _SearchPageState extends State<SearchPage> {
                       color: _selectedSources.length == searchSources.length
                           ? cs.primaryContainer
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(kcRadius6),
+                      borderRadius: BorderRadius.circular(kcRadius8),
                       border: Border.all(
                         color: _selectedSources.length == searchSources.length
                             ? cs.primary.withValues(alpha: 0.3)
@@ -479,7 +482,7 @@ class _SearchPageState extends State<SearchPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: isSelected ? cs.primaryContainer : Colors.transparent,
-                      borderRadius: BorderRadius.circular(kcRadius6),
+                      borderRadius: BorderRadius.circular(kcRadius8),
                       border: Border.all(
                         color: isSelected
                             ? cs.primary.withValues(alpha: 0.3)
@@ -649,7 +652,7 @@ class _SearchPageState extends State<SearchPage> {
           return const SizedBox();
         }
         // 为每个源分配稳定的颜色标识
-        final colorIndex = key.hashCode.abs() % sourceColors.length;
+        final colorIndex = kcStableHash(key) % sourceColors.length;
         final accentColor = sourceColors[colorIndex];
         return ListTile(
           leading: Container(
@@ -929,7 +932,7 @@ class SearchOptionWidget extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: isSelected ? cs.primaryContainer : Colors.transparent,
-                      borderRadius: BorderRadius.circular(kcRadius6),
+                      borderRadius: BorderRadius.circular(kcRadius8),
                       border: Border.all(
                         color: isSelected
                             ? cs.primary.withValues(alpha: 0.3)
@@ -1022,7 +1025,7 @@ class _SearchHistory extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: cs.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(kcRadius6),
+                      borderRadius: BorderRadius.circular(kcRadius8),
                       border: Border.all(color: cs.outlineVariant, width: 1),
                     ),
                     child: Row(

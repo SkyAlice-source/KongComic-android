@@ -254,6 +254,9 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(kcSurfaceRadius)),
+      ),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -274,7 +277,7 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
                   width: 36,
                   height: 48,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(kcRadius8),
                     child: CachedNetworkImage(
                       imageUrl: c.cover,
                       fit: BoxFit.cover,

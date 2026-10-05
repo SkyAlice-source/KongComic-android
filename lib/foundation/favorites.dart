@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/foundation/follow_updates.dart';
 import 'package:kong_comic/foundation/image_provider/local_favorite_image.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/foundation/log.dart';
@@ -1038,7 +1039,7 @@ class LocalFavoritesManager with ChangeNotifier {
       markAsRead(id, type);
       return;
     }
-    var followUpdatesFolder = appdata.settings['followUpdatesFolder'];
+    final followFolders = getEffectiveFollowFolders();
     for (final folder in folderNames) {
       var rows = _db.select("""
         select * from "$folder"
@@ -1067,11 +1068,11 @@ class LocalFavoritesManager with ChangeNotifier {
             UPDATE "$folder"
             SET 
               $updateLocationSql
-              ${followUpdatesFolder == folder ? "has_new_update = 0," : ""}
+              ${followFolders.contains(folder) ? "has_new_update = 0," : ""}
               time = ?
             WHERE id == ? and type == ?;
           """, [newTime, id, type.value]);
-        if (followUpdatesFolder == folder) {
+        if (followFolders.contains(folder)) {
           updateFollowUpdatesUI();
         }
       }

@@ -56,22 +56,45 @@ class ComicSourceParser {
 
   String? _name;
 
+  /// Best-effort extraction of a source's `key` / `version` from raw JS, so an
+  /// install can detect a duplicate key and a downgrade without a full engine
+  /// parse. Source scripts in this ecosystem declare them as
+  /// `key = "..."` / `key: "..."` (and the same for `version`).
+  static String? extractKey(String js) {
+    final m = RegExp(r"""key\s*[:=]\s*['"]([^'"]+)['"]""").firstMatch(js);
+    return m?.group(1);
+  }
+
+  static String? extractVersion(String js) {
+    final m = RegExp(r"""version\s*[:=]\s*['"]([^'"]+)['"]""").firstMatch(js);
+    return m?.group(1);
+  }
+
   Future<ComicSource> createAndParse(String js, String fileName) async {
     if (!fileName.endsWith("js")) {
       fileName = "$fileName.js";
     }
     var file = File(FilePath.join(App.dataPath, "comic_source", fileName));
     if (file.existsSync()) {
-      int i = 0;
-      while (file.existsSync()) {
-        file = File(
-          FilePath.join(
-            App.dataPath,
-            "comic_source",
-            "${fileName.split('.').first}($i).js",
-          ),
-        );
-        i++;
+      // If a source with the same key is already loaded, overwrite its script
+      // in place instead of退避-creating `xxx(0).js`. That stray file would
+      // otherwise outlive the session and resurface as a shadow source on the
+      // next launch (only the first is ever returned by find()). This also
+      // repairs installs that already have two files sharing a key.
+      final key = extractKey(js);
+      if (key != null) {
+        final existing = ComicSource.find(key);
+        if (existing != null) {
+          final strayPath = file.path;
+          file = File(existing.filePath);
+          if (strayPath != file.path && File(strayPath).existsSync()) {
+            await File(strayPath).delete();
+          }
+        } else {
+          file = _avoidNameConflict(file);
+        }
+      } else {
+        file = _avoidNameConflict(file);
       }
     }
     await file.writeAsString(js);
@@ -81,6 +104,21 @@ class ComicSourceParser {
       await file.delete();
       rethrow;
     }
+  }
+
+  File _avoidNameConflict(File file) {
+    var candidate = file;
+    final base = FilePath.join(
+      App.dataPath,
+      "comic_source",
+      file.path.split('/').last.replaceFirst(RegExp(r'\.js$'), ''),
+    );
+    var i = 0;
+    while (candidate.existsSync()) {
+      candidate = File("$base($i).js");
+      i++;
+    }
+    return candidate;
   }
 
   Future<ComicSource> parse(String js, String filePath) async {
@@ -119,11 +157,9 @@ class ComicSourceParser {
         );
       }
     }
-    for (var source in ComicSource.all()) {
-      if (source.key == key) {
-        throw ComicSourceParseException("key($key) already exists");
-      }
-    }
+    // Duplicate-key installs are no longer rejected here: `createAndParse`
+    // writes the new script in place and `ComicSourceManager.add` replaces the
+    // in-memory source, so re-installing / updating a source just overwrites.
     _key = key;
     _checkKeyValidation();
 

@@ -399,7 +399,7 @@ LoadingDialogController showLoadingDialog(
         final progress = controller._progress;
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(kcRadius16),
           ),
           insetPadding: const EdgeInsets.symmetric(horizontal: 48),
           backgroundColor: context.colorScheme.surfaceContainerHigh,
@@ -418,7 +418,7 @@ LoadingDialogController showLoadingDialog(
                   children: [
                     Expanded(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(kcRadius6),
                         child: LinearProgressIndicator(
                           value: progress,
                           minHeight: 8,
@@ -523,9 +523,17 @@ class ContentDialog extends StatelessWidget {
         ],
       ),
     );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Dialog(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(kcRadius20),
+        // ColorOS 17 风格：对话框统一大圆角 + 极细凝光描边
+        borderRadius: BorderRadius.circular(kcSurfaceRadius),
+        side: BorderSide(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.06),
+          width: 0.5,
+        ),
       ),
       insetPadding: context.width < 400
           ? const EdgeInsets.symmetric(horizontal: 4)

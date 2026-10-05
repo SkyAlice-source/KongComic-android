@@ -55,8 +55,11 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           },
           onChanged: () async {
             App.forceRebuild();
-            // 关闭设置页后重新打开，让语言立即生效
-            if (context.mounted) Navigator.of(context).pop();
+            // 关闭设置页后重新打开，让语言立即生效。
+            // 平板双栏下本页为内联渲染（非路由栈），canPop 为 false，不 pop 以免关掉整个设置页。
+            if (context.mounted && Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
           },
         ).toSliver(),
       ],

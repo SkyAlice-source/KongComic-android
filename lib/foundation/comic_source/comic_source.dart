@@ -106,8 +106,24 @@ class ComicSourceManager with ChangeNotifier, Init {
     notifyListeners();
   }
 
+  /// Adds [source], replacing any already-loaded source that shares its key
+  /// (so a re-install / update doesn't leave a shadow source behind). The
+  /// replaced source's script file is deleted unless it is the same path.
   void add(ComicSource source) {
-    _sources.add(source);
+    final idx = _sources.indexWhere((element) => element.key == source.key);
+    if (idx >= 0) {
+      final old = _sources[idx];
+      if (old.filePath != source.filePath) {
+        try {
+          File(old.filePath).deleteSync();
+        } catch (_) {
+          // Best effort: the file may already be gone or on a removed volume.
+        }
+      }
+      _sources[idx] = source;
+    } else {
+      _sources.add(source);
+    }
     notifyListeners();
   }
 

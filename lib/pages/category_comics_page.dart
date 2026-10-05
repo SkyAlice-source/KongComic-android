@@ -37,7 +37,8 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
     for (final source in ComicSource.enabled()) {
       if (source.categoryData?.key == widget.categoryKey) {
         if (source.categoryComicsData == null) {
-          throw "The comic source ${source.name} does not support category comics";
+          throw "The comic source @source does not support category comics"
+              .tlParams({'source': source.name});
         }
         data = source.categoryComicsData!;
         if (data.options != null) {
@@ -61,7 +62,7 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
         return;
       }
     }
-    throw "${widget.categoryKey} Not found";
+    throw "@c Not found".tlParams({'c': widget.categoryKey});
   }
 
   void resetOptionsValue() {
@@ -111,7 +112,7 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
 
     Widget body;
 
-    if (options == null) {
+    if (options == null && optionsLoader != null) {
       body = Center(child: CircularProgressIndicator());
     } else if (error != null) {
       body = NetworkError(
@@ -135,7 +136,7 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: Appbar(title: Text(widget.category)),
+      appBar: Appbar(title: Text(widget.category.tl)),
       body: body,
     );
   }
