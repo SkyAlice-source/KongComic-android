@@ -65,9 +65,17 @@ String sourceUpdateMessage(SourceUpdateOutcome outcome) {
 class ComicSourcePage extends StatelessWidget {
   const ComicSourcePage({super.key});
 
+  /// Updates [source].
+  ///
+  /// [reloadNow] controls whether the source list is rebuilt right away. Set it
+  /// to `false` when several sources are updated back to back: [reload] re-parses
+  /// *every* script on disk, so a batch of N sources used to mean N full reloads
+  /// (N² script parses) — slow enough on a large batch to look like everything
+  /// failed at once. Those callers do one reload at the end instead.
   static Future<SourceUpdateOutcome?> update(
     ComicSource source, [
     bool showLoading = true,
+    bool reloadNow = true,
   ]) async {
     // Resolve through the repository catalog (if the source is linked to one)
     // so a changed folder layout upstream does not break the update.
@@ -85,6 +93,44 @@ class ComicSourcePage extends StatelessWidget {
         rethrow;
       }
     }
+    return applyUpdate(
+      source,
+      target,
+      showLoading: showLoading,
+      reloadNow: reloadNow,
+    );
+  }
+
+  /// Updates [source] from one specific catalog entry.
+  ///
+  /// The repository page has to use this instead of [update]: the user tapped
+  /// the button of *that* row, so the download must come from *that* row's URL.
+  /// [update] resolves the source's own recorded link, which can point at a
+  /// different repository — the row shows the version of the repository being
+  /// browsed while the download quietly installs the same old file from where
+  /// the source originally came, leaving the row "updatable" forever.
+  static Future<SourceUpdateOutcome?> updateFromEntry(
+    ComicSource source,
+    SourceRepository repository,
+    SourceCatalogEntry entry, [
+    bool showLoading = true,
+    bool reloadNow = true,
+  ]) {
+    return applyUpdate(
+      source,
+      SourceUpdateTarget(url: entry.url, repository: repository, entry: entry),
+      showLoading: showLoading,
+      reloadNow: reloadNow,
+    );
+  }
+
+  /// Downloads [target] over [source] and reports what actually got installed.
+  static Future<SourceUpdateOutcome?> applyUpdate(
+    ComicSource source,
+    SourceUpdateTarget target, {
+    bool showLoading = true,
+    bool reloadNow = true,
+  }) async {
     final url = target.url;
     if (!url.isURL) {
       if (showLoading) {
@@ -99,10 +145,17 @@ class ComicSourcePage extends StatelessWidget {
     // 全量扫描，页面上也能看到它属于哪个仓库。
     final adoptRepository = target.repository;
     final adoptEntry = target.entry;
-    final hadOrigin = SourceRepositories.instance.linkedRepository(
-          source.key,
-        ) !=
-        null;
+    // 归属指向别的仓库（或别的下载地址）时也要改过来。否则会出现「在 A 仓库
+    // 的页面点了更新，装上的却是 B 仓库的旧脚本」：源永远停在 B 的版本上，
+    // A 的页面每次都显示可更新，用户点了又点，什么也没发生。
+    final origin = SourceRepositories.instance.originFor(source.key);
+    final linkedRepository = SourceRepositories.instance.linkedRepository(
+      source.key,
+    );
+    final needsLink = adoptRepository != null &&
+        adoptEntry != null &&
+        (linkedRepository?.id != adoptRepository.id ||
+            origin?.url != adoptEntry.url);
     ComicSourceManager().remove(source.key);
     bool cancel = false;
     LoadingDialogController? controller;
@@ -134,7 +187,7 @@ class ComicSourcePage extends StatelessWidget {
       // 等于什么都没做，源会一直挂着「有更新」的角标。同时把这个目标版本
       // 记为「已取过」，避免仓库 index 与脚本版本不一致时反复提示同一个更新。
       ComicSourceManager().acknowledgeUpdate(source.key, adoptEntry?.version);
-      if (!hadOrigin && adoptRepository != null && adoptEntry != null) {
+      if (needsLink) {
         try {
           await SourceRepositories.instance.link(
             source.key,
@@ -159,7 +212,15 @@ class ComicSourcePage extends StatelessWidget {
       // Always put the source back: it was removed from the manager above, so
       // leaving this out would make it disappear from the UI until the next
       // app restart whenever the update fails *or* the user cancels.
-      await ComicSourceManager().reload();
+      if (reloadNow) {
+        try {
+          await ComicSourceManager().reload();
+        } catch (e, s) {
+          // `finally` 里抛出的异常会替换掉 try/catch 正在往外抛的那个：失控的
+          // reload 会把真正的失败原因顶掉，用户看到的永远是 reload 的错误。
+          Log.error("Reload comic source", e, s);
+        }
+      }
       _syncSourceOrder();
       _addAllPagesWithComicSource(source);
       if (showLoading) {
@@ -199,9 +260,11 @@ class ComicSourcePage extends StatelessWidget {
       final manager = ComicSourceManager();
       final pending = Map<String, String>.from(result.updates)
         ..removeWhere((key, version) => manager.hasAcknowledgedUpdate(key, version));
-      if (pending.isNotEmpty) {
-        manager.updateAvailableUpdates(pending);
-      }
+      // 替换而不是合并：合并会让曾经报过的源在这个列表里永久残留。仓库不再
+      // 提供某个更新（已经装好了 / 条目被下架）时它本轮不会出现在
+      // result.updates 里，合并却把它留在原处；而「有更新」筛选只按 key 判断，
+      // 于是源会被钉在这个筛选里直到重启。
+      manager.replaceAvailableUpdates(pending);
       return SourceUpdateCheck(
         updates: pending,
         failures: result.failures,
@@ -676,7 +739,9 @@ class _BodyState extends State<_Body> {
       final s = ComicSource.find(k);
       if (s != null) {
         try {
-          await ComicSourcePage.update(s, false);
+          // reloadNow=false：reload 会把磁盘上每个脚本重新解析一遍，批量的话
+          // 等于 N 个源 × N 次解析，一轮下来慢到像全部失败。
+          await ComicSourcePage.update(s, false, false);
         } catch (e, s2) {
           // `update` rethrows when `showLoading` is false. Never let one broken
           // script abort the batch — and never leave the loading dialog up.
@@ -684,6 +749,11 @@ class _BodyState extends State<_Body> {
           Log.error("Update comic source", e, s2);
         }
       }
+    }
+    try {
+      await ComicSourceManager().reload();
+    } catch (e, s2) {
+      Log.error("Reload comic source", e, s2);
     }
     controller.close();
     if (mounted) {
@@ -857,7 +927,8 @@ class _BodyState extends State<_Body> {
         final s = ComicSource.find(key);
         if (s == null) continue;
         try {
-          await ComicSourcePage.update(s, false);
+          // reloadNow=false：每个源单独 reload 一次等于把全部脚本重新解析 N 遍。
+          await ComicSourcePage.update(s, false, false);
         } catch (e, s2) {
           // `update` rethrows when `showLoading` is false; without this the
           // first broken script would skip the `setState` below and leave
@@ -865,6 +936,12 @@ class _BodyState extends State<_Body> {
           failures.add((s.name, updateFailureMessage(e)));
           Log.error("Update comic source", e, s2);
         }
+      }
+      // 整批结束统一重建一次：中间每个源都跳过 reload，源列表到这里才恢复。
+      try {
+        await ComicSourceManager().reload();
+      } catch (e, s2) {
+        Log.error("Reload comic source", e, s2);
       }
     }
     App.forceRebuild();
@@ -1185,6 +1262,10 @@ void _syncSourceOrder() {
   final all = ComicSource.all();
   final currentKeys = all.map((s) => s.key).toSet();
   final order = List<String>.from(appdata.settings['sourceOrder'] ?? []);
+  // 一个都没加载出来通常意味着这次 reload 出了问题（脚本解析临时失败就会被
+  // 静默跳过）。照常“清理”会把用户排好的顺序整份清空，之后所有源都按文件顺
+  // 序重新排列。宁可什么都不做。
+  if (all.isEmpty) return;
   order.removeWhere((k) => !currentKeys.contains(k));
   for (var s in all) {
     if (!order.contains(s.key)) order.add(s.key);

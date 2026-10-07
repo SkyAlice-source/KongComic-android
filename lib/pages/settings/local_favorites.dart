@@ -52,8 +52,19 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
           title: "Delete all unavailable local favorite items".tl,
           callback: () async {
             var controller = showLoadingDialog(context);
-            var count = await LocalFavoritesManager().removeInvalid();
-            controller.close();
+            int count;
+            try {
+              count = await LocalFavoritesManager().removeInvalid();
+            } catch (e) {
+              // Without this the dialog closes never — it has no other exit.
+              if (mounted) {
+                context.showMessage(message: e.toString());
+              }
+              return;
+            } finally {
+              controller.close();
+            }
+            if (!context.mounted) return;
             context.showMessage(
                 message: "Deleted @a favorite items".tlParams({'a': count}));
           },

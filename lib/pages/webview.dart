@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/proxy.dart';
 import 'package:kong_comic/utils/ext.dart';
 import 'package:kong_comic/utils/translations.dart';
@@ -327,13 +328,17 @@ class DesktopWebview {
   String? title;
 
   void onMessage(String message) {
-    var json = jsonDecode(message);
-    if (json is Map) {
-      if (json["id"] == "document_created") {
-        title = json["data"]["title"];
-        _ua = json["data"]["ua"];
-        onTitleChange?.call(title!, this);
+    try {
+      var json = jsonDecode(message);
+      if (json is Map) {
+        if (json["id"] == "document_created") {
+          title = json["data"]["title"];
+          _ua = json["data"]["ua"];
+          onTitleChange?.call(title!, this);
+        }
       }
+    } catch (e) {
+      Log.info("Webview", "Message is not valid JSON, ignored: $e");
     }
   }
 

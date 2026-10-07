@@ -95,6 +95,14 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
   }
 
   void updateComics() {
+    // We are a listener of `LocalFavoritesManager`. When the currently open
+    // folder is deleted, `deleteFolder()` drops the table *before* notifying,
+    // so reaching `getFolderComics` below would throw SqliteException
+    // "no such table" — and that exception propagates back out of
+    // `deleteFolder`, aborting its remaining cleanup. Bail out instead.
+    if (!isAllFolder && !manager.existsFolder(widget.folder)) {
+      return;
+    }
     // In pagination mode, just refresh the grid.
     if (_usePagination && _gridKey.currentState != null) {
       _gridKey.currentState!.refresh();

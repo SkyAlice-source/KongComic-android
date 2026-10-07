@@ -68,13 +68,13 @@ class _AuthPageState extends State<AuthPage> {
       localizedReason: "Please authenticate to continue".tl,
       authMessages: [
         AndroidAuthMessages(
-          signInTitle: "需要身份验证",
-          signInHint: "请验证身份",
-          cancelButton: "取消",
+          signInTitle: "Sign in".tl,
+          signInHint: "Verify your identity".tl,
+          cancelButton: "Cancel".tl,
         ),
         IOSAuthMessages(
-          cancelButton: "取消",
-          localizedFallbackTitle: "使用密码",
+          cancelButton: "Cancel".tl,
+          localizedFallbackTitle: "Use password".tl,
         ),
       ],
     );

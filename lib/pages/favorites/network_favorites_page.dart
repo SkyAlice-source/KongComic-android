@@ -282,6 +282,15 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
 
   Map<String, String>? folders;
 
+  @override
+  void initState() {
+    super.initState();
+    // Loading used to be kicked off from `build()` behind an `if (_loading)`,
+    // which re-fired the request on every rebuild and left no way to recover
+    // when `loadFolders` threw instead of returning an error.
+    loadPage();
+  }
+
   void showFolders() {
     context
         .findAncestorStateOfType<_FavoritesPageState>()
@@ -289,17 +298,34 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
   }
 
   void loadPage() async {
-    var res = await widget.data.loadFolders!();
-    _loading = false;
-    if (res.error) {
-      setState(() {
-        _errorMessage = res.errorMessage;
-      });
-    } else {
-      setState(() {
-        folders = res.data;
-      });
+    Map<String, String>? loadedFolders;
+    String? error;
+    try {
+      final res = await widget.data.loadFolders!();
+      if (res.error) {
+        error = res.errorMessage;
+      } else {
+        loadedFolders = res.data;
+      }
+    } catch (e) {
+      error = e.toString();
     }
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _errorMessage = error;
+      if (error == null) {
+        folders = loadedFolders;
+      }
+    });
+  }
+
+  void retry() {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+    loadPage();
   }
 
   void openFolder(String key, String title) {
@@ -345,7 +371,6 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
     );
 
     if (_loading) {
-      loadPage();
       return Column(
         children: [
           appBar,
@@ -364,17 +389,12 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
             child: NetworkError(
               message: friendlyError(_errorMessage!),
               withAppbar: false,
-              retry: () {
-                setState(() {
-                  _loading = true;
-                  _errorMessage = null;
-                });
-              },
+              retry: retry,
             ),
           )
         ],
       );
-    } else {
+    } else if (folders != null) {
       var length = folders!.length;
       if (widget.data.allFavoritesId != null) length++;
       final keys = folders!.keys.toList();
@@ -400,9 +420,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                     deleteFolder: widget.data.deleteFolder == null
                         ? null
                         : () => widget.data.deleteFolder!(keys[i]),
-                    updateState: () => setState(() {
-                      _loading = true;
-                    }),
+                    updateState: retry,
                   );
                 }
               } else {
@@ -412,9 +430,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                   deleteFolder: widget.data.deleteFolder == null
                       ? null
                       : () => widget.data.deleteFolder!(keys[i]),
-                  updateState: () => setState(() {
-                    _loading = true;
-                  }),
+                  updateState: retry,
                 );
               }
             }),
@@ -444,9 +460,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                         builder: (context) {
                           return _CreateFolderDialog(
                             widget.data,
-                            () => setState(() {
-                              _loading = true;
-                            }),
+                            retry,
                           );
                         },
                       );
@@ -455,6 +469,17 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                 ),
               ),
             )
+        ],
+      );
+    } else {
+      // Loaded successfully but the source returned no folder map. Reaching
+      // this used to be impossible to distinguish from a crash on `folders!`.
+      return Column(
+        children: [
+          appBar,
+          Expanded(
+            child: Center(child: Text("No folders".tl)),
+          ),
         ],
       );
     }

@@ -137,8 +137,25 @@ class ComicSourceManager with ChangeNotifier, Init {
   /// Key is the source key, value is the version.
   final _availableUpdates = <String, String>{};
 
+  /// Merges [updates] into the pending updates.
+  ///
+  /// [checkComicSourceUpdate] should prefer [replaceAvailableUpdates]: merging
+  /// keeps advertising an update the repositories no longer list, and the
+  /// "has update" filter selects by key alone, so a source that is already up
+  /// to date would stay pinned in that filter for the rest of the session.
   void updateAvailableUpdates(Map<String, String> updates) {
     _availableUpdates.addAll(updates);
+    notifyListeners();
+  }
+
+  /// Replaces the pending updates with the outcome of a fresh check.
+  ///
+  /// This is what a check must do: whatever survived this round *is* the truth,
+  /// anything missing has either been updated or stopped being offered.
+  void replaceAvailableUpdates(Map<String, String> updates) {
+    _availableUpdates
+      ..clear()
+      ..addAll(updates);
     notifyListeners();
   }
 

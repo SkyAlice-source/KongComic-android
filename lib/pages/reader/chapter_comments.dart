@@ -52,6 +52,21 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
   }
 
   void firstLoad() async {
+    // A thrown exception (as opposed to a returned error) used to leave
+    // `_loading` stuck at true forever, showing nothing but a spinner with no
+    // way back — not even the error page.
+    try {
+      await _doFirstLoad();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _doFirstLoad() async {
     var res = await widget.source.chapterCommentsLoader!(
       widget.comicId,
       widget.epId,
@@ -130,9 +145,14 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
       return NetworkError(
         message: _error!,
         retry: () {
+          // Clearing `_error` *and* reloading is required: the `_loading`
+          // branch above renders a plain spinner and never triggers a fetch,
+          // so retrying without this would spin forever.
           setState(() {
             _loading = true;
+            _error = null;
           });
+          firstLoad();
         },
         withAppbar: false,
       );
@@ -280,6 +300,9 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
                       _page = 1;
                       maxPage = null;
                     });
+                    // Must actually refetch: nothing else reloads comments
+                    // after initState, so the panel would spin forever.
+                    firstLoad();
                   } else {
                     context.showMessage(message: b.errorMessage ?? "Error".tl);
                     setState(() {
@@ -653,6 +676,20 @@ class _EmbeddedChapterCommentsPageState
   }
 
   void firstLoad() async {
+    // Same guard as the non-embedded variant: a thrown exception must not
+    // strand `_loading` at true forever.
+    try {
+      await _doFirstLoad();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _doFirstLoad() async {
     var res = await widget.source.chapterCommentsLoader!(
       widget.comicId,
       widget.epId,
@@ -771,6 +808,7 @@ class _EmbeddedChapterCommentsPageState
             _loading = true;
             _error = null;
           });
+          firstLoad();
         },
         withAppbar: false,
       );
@@ -887,6 +925,9 @@ class _EmbeddedChapterCommentsPageState
                       _page = 1;
                       maxPage = null;
                     });
+                    // Nothing else refetches after initState — without this
+                    // the embedded panel spins forever right after posting.
+                    firstLoad();
                   } else {
                     if (mounted) {
                       context.showMessage(message: b.errorMessage ?? "Error".tl);

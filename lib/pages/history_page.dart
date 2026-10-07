@@ -26,6 +26,7 @@ class _HistoryPageState extends State<HistoryPage> {
   void dispose() {
     HistoryManager().removeListener(onUpdate);
     _scrollController.dispose();
+    searchController.dispose();
     super.dispose();
   }
 

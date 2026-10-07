@@ -343,10 +343,18 @@ class LoadingDialogController {
       return;
     }
     closed = true;
-    if (_closeDialog == null) {
-      Future.microtask(_closeDialog!);
+    final closeDialog = _closeDialog;
+    if (closeDialog != null) {
+      closeDialog();
     } else {
-      _closeDialog!();
+      // The caller got hold of the controller before `showLoadingDialog`
+      // finished attaching the route (i.e. `_closeDialog` was still null).
+      // Retry once on the next microtask, by which point it is assigned.
+      Future.microtask(() {
+        if (closed) {
+          _closeDialog?.call();
+        }
+      });
     }
   }
 

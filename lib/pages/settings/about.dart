@@ -71,7 +71,7 @@ class _AboutSettingsState extends State<AboutSettings> {
           title: "Check for updates on startup".tl,
           settingKey: "checkUpdateOnStart",
         ).toSliver(),
-        const _MirrorSetting().toSliver(),
+        _MirrorSetting(onChanged: () => setState(() {})).toSliver(),
         if (UpdateMirrorPreference.mode == 'custom')
           ListTile(
             contentPadding:
@@ -123,7 +123,12 @@ class _AboutSettingsState extends State<AboutSettings> {
 /// CI publishes with the release, so a mirror can fail an update but can never
 /// silently substitute a different APK.
 class _MirrorSetting extends StatefulWidget {
-  const _MirrorSetting();
+  /// Called after the mode changes. The parent owns the "Mirror template" row,
+  /// whose visibility depends on the mode, so it has to rebuild too — otherwise
+  /// picking Custom leaves the row hidden until you leave and re-enter.
+  const _MirrorSetting({this.onChanged});
+
+  final VoidCallback? onChanged;
 
   @override
   State<_MirrorSetting> createState() => _MirrorSettingState();
@@ -195,10 +200,11 @@ class _MirrorSettingState extends State<_MirrorSetting> {
                 ),
               )
               .toList(),
-        ).then((value) {
+        )        .then((value) {
           if (value != null) {
             UpdateMirrorPreference.mode = value;
             setState(() {});
+            widget.onChanged?.call();
           }
         });
       },
@@ -378,11 +384,16 @@ Future<void> _showUpdateDialog(AppUpdateInfo info) async {
         title: "New version available".tl,
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          // See the note on `_buildProgressSection`: ContentDialog measures its
+          // content with IntrinsicWidth, so `stretch` here would resolve to the
+          // intrinsic width of the markdown block and overflow the dialog.
+          // Each child declares its own width instead.
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Version @v"
                     .tlParams({"v": info.latestVersion}))
-                .paddingHorizontal(16),
+                .paddingHorizontal(16)
+                .fixWidth(double.infinity),
             if (info.releaseNotes.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -395,7 +406,7 @@ Future<void> _showUpdateDialog(AppUpdateInfo info) async {
                     ),
                   ),
                 ),
-              ),
+              ).fixWidth(double.infinity),
             const SizedBox(height: 8),
           ],
         ),
@@ -659,24 +670,27 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
       title: "New version available".tl,
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        // Same reason as the dialog above: `stretch` + IntrinsicWidth pushes
+        // content past the dialog bounds.
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Version @v"
                   .tlParams({"v": widget.info.latestVersion}))
-              .paddingHorizontal(16),
+              .paddingHorizontal(16)
+              .fixWidth(double.infinity),
           if (widget.info.releaseNotes.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 180),
                 child: SingleChildScrollView(
-                  child: MarkdownBody(
-                    data: widget.info.releaseNotes,
-                    styleSheet: _mdStyleSheet(context),
+                    child: MarkdownBody(
+                      data: widget.info.releaseNotes,
+                      styleSheet: _mdStyleSheet(context),
+                    ),
                   ),
                 ),
-              ),
-            ),
+              ).fixWidth(double.infinity),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: _buildProgressSection(colorScheme),
@@ -768,7 +782,10 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
       );
     }
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      // Not `stretch`: ContentDialog wraps its content in IntrinsicWidth, so a
+      // stretched child asks for the widest possible intrinsic size and gets
+      // painted outside the dialog frame. Explicit widths keep it inside.
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         LinearProgressIndicator(value: _progress),
         const SizedBox(height: 6),
@@ -787,7 +804,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
             ),
           ),
       ],
-    );
+    ).fixWidth(double.infinity);
   }
 
   String _formatSpeed(int bytesPerSecond) {

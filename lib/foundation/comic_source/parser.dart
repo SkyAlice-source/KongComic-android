@@ -1,5 +1,20 @@
 part of 'comic_source.dart';
 
+/// Reads one numeric field out of a version string.
+///
+/// Anything that is not a plain number — a missing segment ("1.2"), a suffix
+/// glued to the digits ("1.0.0rc1"), or an empty string — degrades to 0 instead
+/// of throwing. `compareSemVer` runs inside `build()`, inside `stats()` and on
+/// every update check, so a single malformed `version` field in one script used
+/// to be enough to take the whole source page down.
+int _versionPart(List<String> parts, int index) {
+  if (index >= parts.length) return 0;
+  final direct = int.tryParse(parts[index]);
+  if (direct != null) return direct;
+  final leading = RegExp(r'\d+').firstMatch(parts[index])?.group(0);
+  return leading == null ? 0 : int.parse(leading);
+}
+
 /// return true if ver1 > ver2
 bool compareSemVer(String ver1, String ver2) {
   ver1 = ver1.replaceFirst("-", ".");
@@ -8,8 +23,8 @@ bool compareSemVer(String ver1, String ver2) {
   List<String> v2 = ver2.split('.');
 
   for (int i = 0; i < 3; i++) {
-    int num1 = int.parse(v1[i]);
-    int num2 = int.parse(v2[i]);
+    int num1 = _versionPart(v1, i);
+    int num2 = _versionPart(v2, i);
 
     if (num1 > num2) {
       return true;

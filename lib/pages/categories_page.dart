@@ -42,6 +42,9 @@ class _CategoriesPageState extends State<CategoriesPage>
       setState(() {
         this.categories = categories;
       });
+      // Dispose the previous one, otherwise every settings change leaks the
+      // AnimationController + Ticker that TabController owns internally.
+      controller.dispose();
       controller = TabController(length: categories.length, vsync: this);
     }
   }
@@ -82,7 +85,7 @@ class _CategoriesPageState extends State<CategoriesPage>
         .toList();
     _sortBySourceOrder(this.categories);
     appdata.settings.addListener(onSettingsChanged);
-    controller = TabController(length: categories.length, vsync: this);
+    controller = TabController(length: this.categories.length, vsync: this);
   }
 
   void addPage() {

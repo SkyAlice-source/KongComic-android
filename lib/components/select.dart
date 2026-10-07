@@ -295,6 +295,7 @@ class OptionChip extends StatelessWidget {
             : cs.onSurface);
     return AnimatedContainer(
       duration: _fastAnimationDuration,
+      constraints: const BoxConstraints(minHeight: 40),
       decoration: BoxDecoration(
         color: bg,
         border: Border.all(color: borderColor),

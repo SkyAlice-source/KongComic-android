@@ -68,11 +68,17 @@ class _ExplorePageState extends State<ExplorePage>
   }
 
   void onNaviItemTapped(int index) {
-    if (index == 2) {
-      int page = controller.index;
-      String currentPageId = pages[page];
-      GlobalState.find<_SingleExplorePageState>(currentPageId).toTop();
-    }
+    // The bottom bar is Categories(0) / Favorites(1) / Home(2) / Explore(3) /
+    // History(4), so this page is 3 — the old `index == 2` check both
+    // swallowed the "tap the current tab again to scroll to top" gesture and
+    // ran the body when the *Home* tab was tapped instead.
+    if (index != 3) return;
+    if (pages.isEmpty) return;
+    final page = controller.index;
+    if (page < 0 || page >= pages.length) return;
+    // `find` throws when the page state has not registered yet (e.g. the tab
+    // was never built); use the nullable variant and skip quietly.
+    GlobalState.findOrNull<_SingleExplorePageState>(pages[page])?.toTop();
   }
 
   void addPage() {

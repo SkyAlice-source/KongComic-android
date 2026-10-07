@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -239,14 +241,26 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   }
 
   /// 更新单个源：无论成功还是失败都给出明确结果。
+  ///
+  /// 这里必须按「用户看到的那一条」的下载地址更新（[ComicSourcePage.updateFromEntry]），
+  /// 而不是让源按自己的归属去解析：归属可能指向另一个仓库，于是页面显示
+  /// 「已安装 1.0.3 / 可更新 1.1.3」，点更新却装回那个仓库的 1.0.3，按钮永远
+  /// 消不掉。顺带把归属重链到本仓库，以后检查更新也走这里。
   Future<void> _updateEntry(
     SourceCatalogEntry entry,
     ComicSource installed,
   ) async {
+    final repository = _opened;
+    if (repository == null) return;
     setState(() => _updating.add(entry.key));
     var changed = false;
     try {
-      final outcome = await ComicSourcePage.update(installed, false);
+      final outcome = await ComicSourcePage.updateFromEntry(
+        installed,
+        repository,
+        entry,
+        false,
+      );
       changed = outcome != null;
       if (!mounted) return;
       // 报实际装上的版本，而不是仓库宣称的版本：脚本文件可能还停在旧版本
@@ -269,6 +283,74 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
       setState(() => _catalog = null);
       await _load();
     }
+  }
+
+  /// 重装确认：重装会从仓库重新拉脚本并覆盖本地文件，可能冲掉手改，先问一声。
+  Future<void> _confirmReinstall(
+    SourceCatalogEntry entry,
+    ComicSource installed,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => ContentDialog(
+        title: "Reinstall".tl,
+        content: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text("Reinstall confirm".tlParams({'name': entry.name})),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text("Cancel".tl),
+          ),
+          Button.filled(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text("Reinstall".tl),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await _updateEntry(entry, installed);
+    }
+  }
+
+  /// 逐条卸载：只移除这一个源（删文件 + 从管理器注销），不影响其它源。
+  Future<void> _confirmUninstall(SourceCatalogEntry entry) async {
+    final source = ComicSource.find(entry.key);
+    if (source == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => ContentDialog(
+        title: "Uninstall".tl,
+        content: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text("Uninstall confirm".tlParams({'name': entry.name})),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text("Cancel".tl),
+          ),
+          Button.filled(
+            color: context.colorScheme.error,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text("Uninstall".tl),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await File(source.filePath).delete();
+      ComicSourceManager().remove(entry.key);
+      context.showMessage(
+        message: "Source uninstalled".tlParams({'name': entry.name}),
+      );
+    } catch (e) {
+      if (mounted) context.showMessage(message: e.toString());
+    }
+    setState(() {});
   }
 
   @override
@@ -791,14 +873,17 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
 
   Future<void> _batchUpdate() async {
     final catalog = _catalog;
-    if (catalog == null || _busy) return;
+    final repository = _opened;
+    if (catalog == null || repository == null || _busy) return;
     final keys = _selected.toList();
-    final targets = <ComicSource>[];
+    // 记的是「条目」而不是源：更新的下载地址必须来自用户看到的这一条
+    // （见 [_updateEntry] 的说明）。
+    final targets = <SourceCatalogEntry>[];
     for (final entry in catalog.entries) {
       if (!keys.contains(entry.key)) continue;
       final installed = ComicSource.find(entry.key);
       if (installed != null && compareSemVer(entry.version, installed.version)) {
-        targets.add(installed);
+        targets.add(entry);
       }
     }
     if (targets.isEmpty) {
@@ -808,23 +893,47 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     setState(() => _busy = true);
     var ok = 0;
     var fail = 0;
-    for (final source in targets) {
+    // 仓库 index 比脚本文件新的时候（作者漏改 / CDN 没同步），下载会成功、
+    // 版本却纹丝不动。这种「更新成功」是假的，单独计数告诉用户。
+    var stale = 0;
+    for (final entry in targets) {
+      final installed = ComicSource.find(entry.key);
+      if (installed == null) continue;
       try {
-        await ComicSourcePage.update(source, false);
-        ok++;
+        // reloadNow=false：逐个 reload 会把全部脚本重解析 N 遍，这里统一一次。
+        final outcome = await ComicSourcePage.updateFromEntry(
+          installed,
+          repository,
+          entry,
+          false,
+          false,
+        );
+        if (outcome != null && outcome.installed != outcome.target) {
+          stale++;
+        } else {
+          ok++;
+        }
       } catch (e, s) {
         Log.error('Comic source', e, s);
         fail++;
       }
     }
+    try {
+      await ComicSourceManager().reload();
+    } catch (e, s) {
+      Log.error('Comic source', e, s);
+    }
     if (!mounted) return;
     setState(() => _busy = false);
-    context.showMessage(
-      message: "Updated @ok, failed @fail".tlParams({
-        'ok': ok.toString(),
-        'fail': fail.toString(),
-      }),
-    );
+    var message = "Updated @ok, failed @fail".tlParams({
+      'ok': ok.toString(),
+      'fail': fail.toString(),
+    });
+    if (stale > 0) {
+      message += " · "
+          "${"Repository out of sync: @n".tlParams({'n': stale.toString()})}";
+    }
+    context.showMessage(message: message);
     // Versions changed, refresh the snapshot so the badges update.
     setState(() => _catalog = null);
     await _load();
@@ -864,6 +973,11 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   Widget _buildEntry(SourceCatalogEntry entry) {
     final scheme = context.colorScheme;
     final installed = ComicSource.find(entry.key);
+    // 已经试过、而且确认下不到仓库宣称的那个版本：index 比脚本文件新
+    // （作者漏改 / CDN 未同步），再点更新也是白点。见 [update] 的确认记录。
+    final outOfSync = installed != null &&
+        compareSemVer(entry.version, installed.version) &&
+        ComicSourceManager().hasAcknowledgedUpdate(entry.key, entry.version);
 
     // Selection mode: tapping toggles membership, no install/update action.
     if (_selecting) {
@@ -925,30 +1039,56 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
       );
     }
 
-    final Widget action;
+    final Widget primaryAction;
     if (installed == null) {
-      action = FilledButton.tonal(
+      primaryAction = FilledButton.tonal(
         onPressed: () => _install(entry),
         child: Text("Add".tl),
       );
-    } else if (compareSemVer(entry.version, installed.version)) {
+    } else {
+      // 只有「真能拿到的新版」才显示 Update；否则（已是最新、或仓库未同步）
+      // 这个按钮用来「重装 / 修复」——重新拉一次脚本覆盖本地文件。重装会
+      // 冲掉本地手改的脚本，所以走确认弹窗（见 [_confirmReinstall]）。
+      final realUpdate =
+          compareSemVer(entry.version, installed.version) && !outOfSync;
       final updating = _updating.contains(entry.key);
-      action = FilledButton.tonal(
-        // 点下去立刻变成进度圈：之前没有加载状态，网络慢时看起来像「点了没反应」。
-        onPressed: updating ? null : () => _updateEntry(entry, installed),
+      primaryAction = FilledButton.tonal(
+        onPressed: updating
+            ? null
+            : (realUpdate
+                ? () => _updateEntry(entry, installed)
+                : () => _confirmReinstall(entry, installed)),
         child: updating
             ? const SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : Text("Update".tl),
+            : Text(realUpdate ? "Update".tl : "Reinstall".tl),
       );
+    }
+
+    final Widget trailing;
+    if (installed == null) {
+      trailing = primaryAction;
     } else {
-      action = HugeIcon(
-        icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-        size: 20,
-        color: scheme.primary,
+      // 逐条卸载：只移除这一个源，不影响其它源。带确认，避免误删。
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          primaryAction,
+          const SizedBox(width: kcSpaceXs),
+          IconButton(
+            tooltip: "Uninstall".tl,
+            visualDensity: VisualDensity.compact,
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedDelete02,
+              size: 18,
+              color: scheme.error,
+            ),
+            onPressed: () => _confirmUninstall(entry),
+          ),
+        ],
       );
     }
     return _card(
@@ -993,21 +1133,38 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                 ],
                 if (entry.version.isNotEmpty) ...[
                   const SizedBox(height: kcSpaceXxs),
-                  AppBadge(
-                    entry.version,
-                    type: AppBadgeType.neutral,
-                    fontSize: kcFont13,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
+                  Wrap(
+                    spacing: kcSpaceXxs,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      AppBadge(
+                        entry.version,
+                        type: AppBadgeType.neutral,
+                        fontSize: kcFont13,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                      ),
+                      if (outOfSync)
+                        AppBadge(
+                          "Repository out of sync".tl,
+                          type: AppBadgeType.warning,
+                          fontSize: kcFont13,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ],
             ),
           ),
           const SizedBox(width: kcSpaceSm),
-          action,
+          trailing,
         ],
       ),
     );

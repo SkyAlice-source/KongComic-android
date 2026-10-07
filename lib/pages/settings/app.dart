@@ -33,8 +33,20 @@ class _AppSettingsState extends State<AppSettings> {
       barrierDismissible: false,
       allowCancel: false,
     );
-    var res = await manager.setNewPath(result, overwrite: overwrite);
-    loadingDialog.close();
+    // The dialog above has no cancel button and cannot be dismissed, so any
+    // throw out of `setNewPath` (isolate work, file IO) would strand it on
+    // screen forever with no way to close it.
+    String? res;
+    try {
+      res = await manager.setNewPath(result, overwrite: overwrite);
+    } catch (e) {
+      if (mounted) {
+        context.showMessage(message: e.toString());
+      }
+      return;
+    } finally {
+      loadingDialog.close();
+    }
     if (!mounted) return;
     if (res != null) {
       context.showMessage(message: res);

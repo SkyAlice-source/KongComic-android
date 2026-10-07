@@ -167,6 +167,10 @@ class _NetworkSection extends StatefulWidget {
 class _NetworkSectionState extends State<_NetworkSection> {
   bool isLoading = false;
   Map<String, String>? folders;
+  /// Set when `loadFolders()` fails. Without it `folders` stays null while
+  /// `isLoadingFolders` is already false, and building the multi-folder panel
+  /// would hit `folders!` and take the whole sheet down.
+  String? foldersError;
   var addedFolders = <String>{};
   var isLoadingFolders = true;
   bool? localIsFavorite;
@@ -192,6 +196,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
       context.showMessage(message: friendlyError(res.errorMessage!));
       setState(() {
         isLoadingFolders = false;
+        foldersError = res.errorMessage;
       });
     } else {
       folders = res.data;
@@ -272,10 +277,58 @@ class _NetworkSectionState extends State<_NetworkSection> {
     bool isMultiFolder = widget.comicSource.favoriteData!.loadFolders != null;
 
     if (isMultiFolder) {
+      // `loadFolders` exists but may have failed, leaving `folders` null.
+      if (folders == null) {
+        return _buildFoldersErrorState();
+      }
       return _buildMultiFolder();
     } else {
       return _buildSingleFolder();
     }
+  }
+
+  Widget _buildFoldersErrorState() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            "Network Favorites".tl,
+            style: ts.s14.copyWith(
+              fontWeight: FontWeight.w600,
+              color: context.colorScheme.primary,
+            ),
+          ),
+        ),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 40),
+              const SizedBox(height: kcSpaceSm),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
+                child: Text(
+                  foldersError ?? "Network error".tl,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    foldersError = null;
+                    isLoadingFolders = true;
+                  });
+                  loadFolders();
+                },
+                child: Text("Retry".tl),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildSingleFolder() {

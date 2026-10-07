@@ -968,6 +968,13 @@
     "This source is no longer listed in @name.": "此源已不在 @name 中列出。",
     "Updated source": "已更新该源",
     "Script is still @v, but the repository lists @new (the repository may be out of sync)": "脚本仍是 @v，但源仓库列为 @new（仓库可能未同步）",
+    "Repository out of sync": "仓库未同步",
+    "Repository out of sync: @n": "仓库未同步 @n 个",
+    "Reinstall": "重装",
+    "Uninstall": "卸载",
+    "Reinstall confirm": "确定要重装 @name 吗？这会重新下载脚本并覆盖本地改动。",
+    "Uninstall confirm": "确定要卸载 @name 吗？该源将从应用中移除。",
+    "Source uninstalled": "@name 已卸载",
     "Download mirror": "下载镜像加速",
     "Auto (recommended)": "自动（推荐）",
     "GitHub (direct)": "GitHub（直连）",
@@ -981,7 +988,25 @@
     "Connecting to @source...": "正在连接 @source…",
     "Source: @source": "线路：@source",
     "Every download source failed. Open the release page in your browser to update manually.": "所有下载线路均失败。请用浏览器打开发布页手动下载更新。",
-    "Updates are normally downloaded straight from GitHub. When that connection is blocked or very slow, KongComic can fetch the same file through a mirror instead. Every download is verified against the SHA-256 published with the release, so a mirror cannot tamper with your update — it can only succeed or fail.": "更新默认直接从 GitHub 下载。当该连接被阻断或极慢时，KongComic 会改从镜像拉取同一个文件。每次下载都会与 Release 中发布的 SHA-256 校验值比对，因此镜像无法篡改你的更新包——它只可能成功或失败。"
+    "Updates are normally downloaded straight from GitHub. When that connection is blocked or very slow, KongComic can fetch the same file through a mirror instead. Every download is verified against the SHA-256 published with the release, so a mirror cannot tamper with your update — it can only succeed or fail.": "更新默认直接从 GitHub 下载。当该连接被阻断或极慢时，KongComic 会改从镜像拉取同一个文件。每次下载都会与 Release 中发布的 SHA-256 校验值比对，因此镜像无法篡改你的更新包——它只可能成功或失败。",
+    "Sign in": "需要身份验证",
+    "Verify your identity": "请验证身份",
+    "No comics yet? Add a comic source or favorite some comics.": "还没有漫画？去添加漫画源或收藏漫画吧",
+    "No folders": {
+      "zh_CN": "没有文件夹",
+      "zh_TW": "沒有文件夾",
+      "ja_JP": "フォルダがありません"
+    },
+    "Please select a start and end time": {
+      "zh_CN": "请选择开始和结束时间",
+      "zh_TW": "請選擇開始和結束時間",
+      "ja_JP": "開始と終了の時刻を選択してください"
+    },
+    "The end time must be after the start time": {
+      "zh_CN": "结束时间必须晚于开始时间",
+      "zh_TW": "結束時間必須晚於開始時間",
+      "ja_JP": "終了時刻は開始時刻より後でなければなりません"
+    }
   },
   "zh_TW": {
     "Authentication required": "需要身份驗證",
@@ -1952,6 +1977,13 @@
     "This source is no longer listed in @name.": "此來源已不在 @name 中列出。",
     "Updated source": "已更新該來源",
     "Script is still @v, but the repository lists @new (the repository may be out of sync)": "腳本仍是 @v，但來源儲存庫列為 @new（儲存庫可能未同步）",
+    "Repository out of sync": "儲存庫未同步",
+    "Repository out of sync: @n": "儲存庫未同步 @n 個",
+    "Reinstall": "重裝",
+    "Uninstall": "卸載",
+    "Reinstall confirm": "確定要重裝 @name 嗎？這會重新下載腳本並覆蓋本地改動。",
+    "Uninstall confirm": "確定要卸載 @name 嗎？該來源將從應用中移除。",
+    "Source uninstalled": "@name 已卸載",
     "Download mirror": "下載鏡像加速",
     "Auto (recommended)": "自動（推薦）",
     "GitHub (direct)": "GitHub（直連）",
@@ -1965,7 +1997,25 @@
     "Connecting to @source...": "正在連線 @source…",
     "Source: @source": "線路：@source",
     "Every download source failed. Open the release page in your browser to update manually.": "所有下載線路皆失敗。請用瀏覽器開啟發佈頁面手動下載更新。",
-    "Updates are normally downloaded straight from GitHub. When that connection is blocked or very slow, KongComic can fetch the same file through a mirror instead. Every download is verified against the SHA-256 published with the release, so a mirror cannot tamper with your update — it can only succeed or fail.": "更新預設直接從 GitHub 下載。當該連線被封鎖或極慢時，KongComic 會改從鏡像拉取同一個檔案。每次下載都會與 Release 中發布的 SHA-256 校驗值比對，因此鏡像無法竄改你的更新包——它只可能成功或失敗。"
+    "Updates are normally downloaded straight from GitHub. When that connection is blocked or very slow, KongComic can fetch the same file through a mirror instead. Every download is verified against the SHA-256 published with the release, so a mirror cannot tamper with your update — it can only succeed or fail.": "更新預設直接從 GitHub 下載。當該連線被封鎖或極慢時，KongComic 會改從鏡像拉取同一個檔案。每次下載都會與 Release 中發布的 SHA-256 校驗值比對，因此鏡像無法竄改你的更新包——它只可能成功或失敗。",
+    "Sign in": "需要身份驗證",
+    "Verify your identity": "請驗證身份",
+    "No comics yet? Add a comic source or favorite some comics.": "還沒有漫畫？去添加漫畫源或收藏漫畫吧",
+    "No folders": {
+      "zh_CN": "没有文件夹",
+      "zh_TW": "沒有文件夾",
+      "ja_JP": "フォルダがありません"
+    },
+    "Please select a start and end time": {
+      "zh_CN": "请选择开始和结束时间",
+      "zh_TW": "請選擇開始和結束時間",
+      "ja_JP": "開始と終了の時刻を選択してください"
+    },
+    "The end time must be after the start time": {
+      "zh_CN": "结束时间必须晚于开始时间",
+      "zh_TW": "結束時間必須晚於開始時間",
+      "ja_JP": "終了時刻は開始時刻より後でなければなりません"
+    }
   },
   "ja_JP": {
     "Authentication required": "認証が必要です",
@@ -2936,6 +2986,13 @@
     "This source is no longer listed in @name.": "このソースは @name の一覧から削除されています。",
     "Updated source": "ソースを更新しました",
     "Script is still @v, but the repository lists @new (the repository may be out of sync)": "スクリプトは @v のままです（リポジトリは @new を掲載／同期されていない可能性）",
+    "Repository out of sync": "リポジトリ未同期",
+    "Repository out of sync: @n": "リポジトリ未同期 @n 件",
+    "Reinstall": "再インストール",
+    "Uninstall": "アンインストール",
+    "Reinstall confirm": "@name を再インストールしますか？スクリプトを再ダウンロードし、ローカルの変更を上書きします。",
+    "Uninstall confirm": "@name をアンインストールしますか？このソースはアプリから削除されます。",
+    "Source uninstalled": "@name をアンインストールしました",
     "Download mirror": "ダウンロードミラー",
     "Auto (recommended)": "自動（推奨）",
     "GitHub (direct)": "GitHub（直接接続）",
@@ -2949,6 +3006,24 @@
     "Connecting to @source...": "@source に接続中…",
     "Source: @source": "経路：@source",
     "Every download source failed. Open the release page in your browser to update manually.": "すべてのダウンロード経路に失敗しました。ブラウザでリリースページを開き、手動で更新してください。",
-    "Updates are normally downloaded straight from GitHub. When that connection is blocked or very slow, KongComic can fetch the same file through a mirror instead. Every download is verified against the SHA-256 published with the release, so a mirror cannot tamper with your update — it can only succeed or fail.": "更新は通常 GitHub から直接ダウンロードします。その接続がブロックされている、または極端に遅い場合、KongComic はミラー経由で同じファイルを取得します。すべてのダウンロードはリリースに記載された SHA-256 と照合されるため、ミラーが更新ファイルを改ざんすることはできず、成功するか失敗するかのどちらかです。"
+    "Updates are normally downloaded straight from GitHub. When that connection is blocked or very slow, KongComic can fetch the same file through a mirror instead. Every download is verified against the SHA-256 published with the release, so a mirror cannot tamper with your update — it can only succeed or fail.": "更新は通常 GitHub から直接ダウンロードします。その接続がブロックされている、または極端に遅い場合、KongComic はミラー経由で同じファイルを取得します。すべてのダウンロードはリリースに記載された SHA-256 と照合されるため、ミラーが更新ファイルを改ざんすることはできず、成功するか失敗するかのどちらかです。",
+    "Sign in": "サインイン",
+    "Verify your identity": "本人確認してください",
+    "No comics yet? Add a comic source or favorite some comics.": "まだ漫画はありませんか？漫画ソースを追加するかお気に入りに追加してください",
+    "No folders": {
+      "zh_CN": "没有文件夹",
+      "zh_TW": "沒有文件夾",
+      "ja_JP": "フォルダがありません"
+    },
+    "Please select a start and end time": {
+      "zh_CN": "请选择开始和结束时间",
+      "zh_TW": "請選擇開始和結束時間",
+      "ja_JP": "開始と終了の時刻を選択してください"
+    },
+    "The end time must be after the start time": {
+      "zh_CN": "结束时间必须晚于开始时间",
+      "zh_TW": "結束時間必須晚於開始時間",
+      "ja_JP": "終了時刻は開始時刻より後でなければなりません"
+    }
   }
 }

@@ -18,29 +18,11 @@ class ReaderSettings extends StatefulWidget {
 
 class _ReaderSettingsState extends State<ReaderSettings> {
   bool _isChapterCommentsAtEndSupported() {
-    String? readerMode;
-    bool? showChapterComments;
-
-    if (widget.comicId != null &&
-        widget.comicSource != null &&
-        appdata.settings.isComicSpecificSettingsEnabled(
-          widget.comicId,
-          widget.comicSource,
-        )) {
-      readerMode = appdata.settings.getReaderSetting(
-        widget.comicId!,
-        widget.comicSource!,
-        'readerMode',
-      );
-      showChapterComments = appdata.settings.getReaderSetting(
-        widget.comicId!,
-        widget.comicSource!,
-        'showChapterComments',
-      );
-    } else {
-      readerMode = appdata.settings['readerMode'] as String?;
-      showChapterComments = appdata.settings['showChapterComments'] as bool?;
-    }
+    // Route through the scope-aware helpers: reading the global key directly
+    // skips the comic- and device-specific overrides, so this entry would show
+    // (or hide) based on the wrong value.
+    final readerMode = _readReaderSetting('readerMode');
+    final showChapterComments = _readReaderSetting('showChapterComments');
 
     // Must have showChapterComments enabled and be in gallery mode
     if (showChapterComments != true) return false;
@@ -50,35 +32,14 @@ class _ReaderSettingsState extends State<ReaderSettings> {
   }
 
   void _onShowChapterCommentsChanged() {
-    // When showChapterComments is turned off, also turn off showChapterCommentsAtEnd
-    bool? showChapterComments;
-
-    if (widget.comicId != null &&
-        widget.comicSource != null &&
-        appdata.settings.isComicSpecificSettingsEnabled(
-          widget.comicId,
-          widget.comicSource,
-        )) {
-      showChapterComments = appdata.settings.getReaderSetting(
-        widget.comicId!,
-        widget.comicSource!,
-        'showChapterComments',
-      );
-      if (showChapterComments != true) {
-        appdata.settings.setReaderSetting(
-          widget.comicId!,
-          widget.comicSource!,
-          'showChapterCommentsAtEnd',
-          false,
-        );
-      }
-    } else {
-      showChapterComments = appdata.settings['showChapterComments'] as bool?;
-      if (showChapterComments != true) {
-        appdata.settings['showChapterCommentsAtEnd'] = false;
-      }
+    // When showChapterComments is turned off, also turn off
+    // showChapterCommentsAtEnd — and do it in the same override scope. Writing
+    // the global key used to miss entirely whenever comic- or device-specific
+    // settings were in effect.
+    final showChapterComments = _readReaderSetting('showChapterComments');
+    if (showChapterComments != true) {
+      _writeReaderSetting('showChapterCommentsAtEnd', false);
     }
-
     setState(() {});
     widget.onChanged?.call("showChapterComments");
   }
@@ -383,7 +344,10 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           useDeviceSettings: useDeviceSpecificSettings,
         ).toSliver(),
         SliverAnimatedVisibility(
-          visible: appdata.settings['enableLongPressToZoom'] == true,
+          // Must respect the same override scope as the switch above, otherwise
+          // with comic/device-specific settings enabled this sub-option never
+          // appears even though long-press zoom is on in this scope.
+          visible: _readReaderSetting('enableLongPressToZoom') == true,
           child: SelectSetting(
             title: "Long press zoom position".tl,
             settingKey: "longPressZoomPosition",

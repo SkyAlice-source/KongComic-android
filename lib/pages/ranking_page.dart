@@ -20,7 +20,8 @@ class _RankingPageState extends State<RankingPage> {
 
   void findData() {
     for (final source in ComicSource.enabled()) {
-      if (source.categoryData?.key == widget.categoryKey) {
+      if (source.categoryData?.key == widget.categoryKey &&
+          source.categoryComicsData?.rankingData != null) {
         data = source.categoryComicsData!;
         options = data.rankingData!.options;
         optionValue = options.keys.first;

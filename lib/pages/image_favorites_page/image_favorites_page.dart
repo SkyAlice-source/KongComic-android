@@ -520,6 +520,25 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
       actions: [
         FilledButton(
           onPressed: () {
+            // In custom mode neither date is pre-filled, and picking only one
+            // (or none) would make `end!`/`start!` below throw — the dialog
+            // must say what is missing instead of crashing.
+            if (timeRangeType == TimeRangeType.custom) {
+              final startValue = start;
+              final endValue = end;
+              if (startValue == null || endValue == null) {
+                context.showMessage(
+                  message: "Please select a start and end time".tl,
+                );
+                return;
+              }
+              if (endValue.isBefore(startValue)) {
+                context.showMessage(
+                  message: "The end time must be after the start time".tl,
+                );
+                return;
+              }
+            }
             appdata.implicitData["image_favorites_sort"] = sortType.value;
             TimeRange timeRange;
             if (timeRangeType == TimeRangeType.custom) {

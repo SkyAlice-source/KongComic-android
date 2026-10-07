@@ -461,8 +461,10 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
               } else {
                 // prevent dirty data
                 var comic =
-                    LocalManager().find(c.id, ComicType.fromKey(c.sourceKey))!;
-                comic.read();
+                    LocalManager().find(c.id, ComicType.fromKey(c.sourceKey));
+                if (comic != null) {
+                  comic.read();
+                }
               }
             },
             menuBuilder: (c) {

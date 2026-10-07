@@ -86,7 +86,8 @@ Future<void> runHeadlessMode(List<String> args) async {
                 }
               };
               try {
-                await ComicSourcePage.update(source, false);
+                // reloadNow=false：批量的话不再每个源都重解析全部脚本一次。
+                await ComicSourcePage.update(source, false, false);
                 updated++;
                 cliPrint({
                   'status': 'running',
@@ -105,6 +106,12 @@ Future<void> runHeadlessMode(List<String> args) async {
                 });
               }
             }
+          }
+          // 上面每个源都跳过了 reload，这里补一次统一重建。
+          try {
+            await ComicSourceManager().reload();
+          } catch (e, s) {
+            Log.error("Reload comic source", e, s);
           }
           cliPrint({
             'status': 'success',

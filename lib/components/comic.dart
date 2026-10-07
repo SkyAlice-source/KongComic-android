@@ -867,18 +867,22 @@ class _ComicDescription extends StatelessWidget {
         if (processedTags != null && processedTags.isNotEmpty)
           Expanded(
             child: LayoutBuilder(builder: (context, constraints) {
-              if (constraints.maxHeight < 22) {
+              // 一行的实际高度 = 标签 21 + 行间距 8 = 29。高度只按「能完整放下的
+              // 行数」给，多出来的空间留白 —— 以前用 21 + cnt * 25 估算（把
+              // runSpacing 当成 4），容器比内容矮 4px/行，于是最后一行总是被
+              // 裁掉一截：标题折成两行、可用高度变小的时候，第二排标签的底部
+              // 就缺一块。宁可少显示一行，也不要显示半截。
+              const double tagHeight = 21;
+              const double tagRunSpacing = 8;
+              final rows = ((constraints.maxHeight + tagRunSpacing) /
+                      (tagHeight + tagRunSpacing))
+                  .floor();
+              if (rows <= 0) {
                 return Container();
               }
-              int cnt = (constraints.maxHeight - 22).toInt() ~/ 25;
-              // Height must fit `cnt + 1` tag rows: the first 21px row plus
-              // `cnt` more rows of 25px each (21px tag + 4px runSpacing). The
-              // old `21 + cnt * 24` was 1px short per row, so a partial next
-              // row peeked through and its bottom got clipped by Clip.antiAlias
-              // ("第二排底部被裁切").
               return Container(
                 clipBehavior: Clip.antiAlias,
-                height: 21 + cnt * 25,
+                height: rows * tagHeight + (rows - 1) * tagRunSpacing,
                 width: double.infinity,
                 decoration: const BoxDecoration(),
                 child: Wrap(
@@ -886,7 +890,7 @@ class _ComicDescription extends StatelessWidget {
                   clipBehavior: Clip.antiAlias,
                   crossAxisAlignment: WrapCrossAlignment.end,
                   spacing: 8,
-                  runSpacing: 8,
+                  runSpacing: tagRunSpacing,
                   children: [
                     for (var s in processedTags)
                       Builder(builder: (context) {
@@ -898,7 +902,7 @@ class _ComicDescription extends StatelessWidget {
                                 brightness,
                                 amoled: amoled);
                         return Container(
-                          height: 21,
+                          height: tagHeight,
                           padding:
                               const EdgeInsets.symmetric(horizontal: 8),
                           constraints: BoxConstraints(
@@ -2232,7 +2236,12 @@ class PaginatedSliverGridComicsState
   }
 
   Future<void> _loadNextPage() async {
-    if (_isLoading || !_hasMore) return;
+    // `_error` has to gate re-entry too: when a page throws, `_isLoading` goes
+    // back to false in `finally`, so without this check the footer slot below
+    // would re-request the same failing page every single frame. That both
+    // hammered the network and left the user staring at an endless spinner
+    // with no way to retry. Recovery goes exclusively through `retry()`.
+    if (_isLoading || !_hasMore || _error != null) return;
     _isLoading = true;
     if (_initialized) {
       setState(() {});
@@ -2287,6 +2296,15 @@ class PaginatedSliverGridComicsState
     }
   }
 
+  /// Clear a failed page state and try again. This is the only supported way
+  /// out of an error, see the guard at the top of [_loadNextPage].
+  void retry() {
+    setState(() {
+      _error = null;
+    });
+    _loadNextPage();
+  }
+
   /// Reset and reload from page 1.
   Future<void> refresh() async {
     _comics.clear();
@@ -2333,7 +2351,9 @@ class PaginatedSliverGridComicsState
         child: EmptyState(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
           title: 'No comics'.tl,
-          subtitle: (widget.emptySubtitle ?? "还没有漫画？去添加漫画源或收藏漫画吧").tl,
+          subtitle: (widget.emptySubtitle ??
+                  "No comics yet? Add a comic source or favorite some comics.")
+              .tl,
         ),
       );
     }
@@ -2348,6 +2368,29 @@ class PaginatedSliverGridComicsState
         (context, index) {
           // Footer slot
           if (index == _comics.length) {
+            // A failed page must be *visible*, otherwise the user only sees a
+            // spinner where the rest of the list should have arrived.
+            if (_error != null) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(kcSpaceLg),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _error.toString(),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: kcSpaceSm),
+                      TextButton(
+                        onPressed: retry,
+                        child: Text("Retry".tl),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
             if (showFooter) {
               if (!_isLoading) {
                 // Trigger next page load

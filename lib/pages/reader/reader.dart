@@ -278,7 +278,18 @@ class _ReaderState extends State<Reader>
   @override
   void dispose() {
     autoPageTurningTimer?.cancel();
-    _updateHistoryTimer?.cancel();
+    // Progress is persisted on a 1s debounce (see [updateHistory]). Simply
+    // cancelling the timer throws away whatever happened during that last
+    // second — which is exactly the common "flip to the next page and
+    // immediately press back" sequence. Flush the pending write instead.
+    if (_updateHistoryTimer != null) {
+      _updateHistoryTimer!.cancel();
+      _updateHistoryTimer = null;
+      final pendingHistory = history;
+      if (pendingHistory != null) {
+        HistoryManager().addHistoryAsync(pendingHistory);
+      }
+    }
     _animationTimer?.cancel();
     focusNode.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -331,6 +342,21 @@ class _ReaderState extends State<Reader>
   /// Prevent multiple history updates in a short time.
   /// `HistoryManager().addHistoryAsync` is a high-cost operation because it creates a new isolate.
   Timer? _updateHistoryTimer;
+
+  /// Writes any history record still sitting on the debounce timer without
+  /// waiting for it to fire. Implemented on [_ReaderState]; declared abstract
+  /// on [_ReaderLocation] so `toChapter` can reach it from the mixin.
+  @override
+  void flushPendingHistory() {
+    if (_updateHistoryTimer != null) {
+      _updateHistoryTimer!.cancel();
+      _updateHistoryTimer = null;
+      final pendingHistory = history;
+      if (pendingHistory != null) {
+        HistoryManager().addHistoryAsync(pendingHistory);
+      }
+    }
+  }
 
   void updateHistory() {
     if (history != null) {
@@ -596,6 +622,10 @@ abstract mixin class _VolumeListener {
 }
 
 mixin _ReaderLocation on State<Reader> {
+  /// Persists any pending reading progress immediately. Implemented by
+  /// [_ReaderState], which owns the debounce timer and the [History] record.
+  void flushPendingHistory();
+
   int _page = 1;
   int? _pendingPage;
 
@@ -742,6 +772,11 @@ mixin _ReaderLocation on State<Reader> {
 
   bool toChapter(int c, {bool toLastPage = false}) {
     if (_validateChapter(c) && !isLoading) {
+      // Flush the *current* chapter's progress before switching: `page = 1`
+      // below synchronously calls `updateHistory()` with the new `chapter`
+      // already assigned but `images` still holding the previous chapter's
+      // list, which pairs the new chapter with the old page count.
+      flushPendingHistory();
       chapter = c;
       page = 1;
       _jumpToLastPageOnLoad = toLastPage;
