@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
+import 'package:kong_comic/foundation/log.dart';
 import '../foundation/app.dart';
 
 extension AppTranslation on String {
@@ -16,7 +17,7 @@ extension AppTranslation on String {
 
   String get tl => _translate();
 
-  String get tlEN => translations["en_US"]![this] ?? this;
+  String get tlEN => translations["en_US"]?[this] ?? this;
 
   String tlParams(Map<String, Object> values) {
     var res = _translate();
@@ -26,14 +27,34 @@ extension AppTranslation on String {
     return res;
   }
 
-  static late final Map<String, Map<String, String>> translations;
+  /// Never `late`: the table has to be readable even when loading it failed.
+  /// A `late` field that never gets assigned turns every single `.tl` into a
+  /// `LateInitializationError`, and the first one happens while `MaterialApp`
+  /// is being built — before the custom `ErrorWidget.builder` is installed, so
+  /// the user is left staring at the default grey screen with no way out.
+  /// An empty table degrades to the source strings (English) instead.
+  static Map<String, Map<String, String>> translations = {};
 
   static Future<void> init() async {
-    var data = await rootBundle.load("assets/translation.json");
-    var json = jsonDecode(utf8.decode(data.buffer.asUint8List()));
-    translations = {
-      for (var e in json.entries) e.key: Map<String, String>.from(e.value)
-    };
+    try {
+      var data = await rootBundle.load("assets/translation.json");
+      var json = jsonDecode(utf8.decode(data.buffer.asUint8List()));
+      translations = {
+        for (var e in json.entries)
+          e.key: Map<String, String>.fromEntries(
+            (e.value as Map).entries
+                .where((entry) => entry.value is String)
+                .map((entry) =>
+                    MapEntry(entry.key.toString(), entry.value as String)),
+          ),
+      };
+    } catch (e, s) {
+      // One malformed entry used to abort the whole table (a value written as
+      // an object instead of a string is enough). Skip bad entries rather than
+      // losing every translation, and never leave the table unassigned.
+      translations = {};
+      Log.error("Translation", "Failed to load translations: $e\n$s");
+    }
   }
 
   /// Translate a string using specified comic source

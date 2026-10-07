@@ -992,21 +992,9 @@
     "Sign in": "需要身份验证",
     "Verify your identity": "请验证身份",
     "No comics yet? Add a comic source or favorite some comics.": "还没有漫画？去添加漫画源或收藏漫画吧",
-    "No folders": {
-      "zh_CN": "没有文件夹",
-      "zh_TW": "沒有文件夾",
-      "ja_JP": "フォルダがありません"
-    },
-    "Please select a start and end time": {
-      "zh_CN": "请选择开始和结束时间",
-      "zh_TW": "請選擇開始和結束時間",
-      "ja_JP": "開始と終了の時刻を選択してください"
-    },
-    "The end time must be after the start time": {
-      "zh_CN": "结束时间必须晚于开始时间",
-      "zh_TW": "結束時間必須晚於開始時間",
-      "ja_JP": "終了時刻は開始時刻より後でなければなりません"
-    }
+    "No folders": "没有文件夹",
+    "Please select a start and end time": "请选择开始和结束时间",
+    "The end time must be after the start time": "结束时间必须晚于开始时间"
   },
   "zh_TW": {
     "Authentication required": "需要身份驗證",
@@ -2001,21 +1989,9 @@
     "Sign in": "需要身份驗證",
     "Verify your identity": "請驗證身份",
     "No comics yet? Add a comic source or favorite some comics.": "還沒有漫畫？去添加漫畫源或收藏漫畫吧",
-    "No folders": {
-      "zh_CN": "没有文件夹",
-      "zh_TW": "沒有文件夾",
-      "ja_JP": "フォルダがありません"
-    },
-    "Please select a start and end time": {
-      "zh_CN": "请选择开始和结束时间",
-      "zh_TW": "請選擇開始和結束時間",
-      "ja_JP": "開始と終了の時刻を選択してください"
-    },
-    "The end time must be after the start time": {
-      "zh_CN": "结束时间必须晚于开始时间",
-      "zh_TW": "結束時間必須晚於開始時間",
-      "ja_JP": "終了時刻は開始時刻より後でなければなりません"
-    }
+    "No folders": "沒有文件夾",
+    "Please select a start and end time": "請選擇開始和結束時間",
+    "The end time must be after the start time": "結束時間必須晚於開始時間"
   },
   "ja_JP": {
     "Authentication required": "認証が必要です",
@@ -3010,20 +2986,8 @@
     "Sign in": "サインイン",
     "Verify your identity": "本人確認してください",
     "No comics yet? Add a comic source or favorite some comics.": "まだ漫画はありませんか？漫画ソースを追加するかお気に入りに追加してください",
-    "No folders": {
-      "zh_CN": "没有文件夹",
-      "zh_TW": "沒有文件夾",
-      "ja_JP": "フォルダがありません"
-    },
-    "Please select a start and end time": {
-      "zh_CN": "请选择开始和结束时间",
-      "zh_TW": "請選擇開始和結束時間",
-      "ja_JP": "開始と終了の時刻を選択してください"
-    },
-    "The end time must be after the start time": {
-      "zh_CN": "结束时间必须晚于开始时间",
-      "zh_TW": "結束時間必須晚於開始時間",
-      "ja_JP": "終了時刻は開始時刻より後でなければなりません"
-    }
+    "No folders": "フォルダがありません",
+    "Please select a start and end time": "開始と終了の時刻を選択してください",
+    "The end time must be after the start time": "終了時刻は開始時刻より後でなければなりません"
   }
 }
