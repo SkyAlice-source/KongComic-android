@@ -102,7 +102,10 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
       _error = null;
     });
     try {
-      final catalog = await repositories.load(repository);
+      // fresh: 用户主动打开/下拉刷新仓库，就是要看它现在的样子。吃 12 小时
+      // 的 CDN 缓存会让「已安装 1.0.5 / 可更新 1.0.6」这类状态一直停在过期
+      // 版本上，点更新则装到另一个版本，看起来像更新失败。
+      final catalog = await repositories.load(repository, fresh: true);
       if (!mounted) return;
       setState(() {
         _catalog = catalog;
@@ -241,8 +244,10 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     ComicSource installed,
   ) async {
     setState(() => _updating.add(entry.key));
+    var changed = false;
     try {
       final outcome = await ComicSourcePage.update(installed, false);
+      changed = outcome != null;
       if (!mounted) return;
       // 报实际装上的版本，而不是仓库宣称的版本：脚本文件可能还停在旧版本
       // （CDN 缓存 / 作者忘了改），直接报宣称值会让人以为更新成功了。
@@ -256,6 +261,13 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
       }
     } finally {
       if (mounted) setState(() => _updating.remove(entry.key));
+    }
+    // 真的装上了新版本之后重新拉一次 index。作者常常在同一次提交里既改脚本
+    // 又改 index，页面却还拿更新前的快照去比「已安装 x / 可更新 y」，两个数字
+    // 对不上；批量更新走的是同一条刷新，单个更新以前漏了。
+    if (changed && mounted) {
+      setState(() => _catalog = null);
+      await _load();
     }
   }
 

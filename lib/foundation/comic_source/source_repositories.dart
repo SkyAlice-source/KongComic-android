@@ -396,15 +396,27 @@ class SourceRepositories extends ChangeNotifier {
     return candidates.length == 1 ? candidates.single : null;
   }
 
-  Future<SourceCatalog> load(SourceRepository repository) async {
+  /// Loads (and caches for [catalogTtl]) a repository's `index.json`.
+  ///
+  /// Pass `fresh: true` for actions that must see the truth *now* — checking for
+  /// updates, resolving a download link, or opening a repository the user is
+  /// about to act on. `index.json` is served by the same 12-hour per-file CDN
+  /// cache as the scripts, and jsDelivr ignores the `cache-time` header, so
+  /// without the cache-buster those actions can be answered from a stale index:
+  /// a source shows "update available" forever, or an update reports a version
+  /// the repository no longer lists.
+  Future<SourceCatalog> load(
+    SourceRepository repository, {
+    bool fresh = false,
+  }) async {
     final cached = _catalogCache[repository.id];
-    if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
+    if (!fresh && cached != null && DateTime.now().isBefore(cached.expiresAt)) {
       return cached.catalog;
     }
     final url = normalizeUrl(repository.url);
     final dio = AppDio();
     final response = await dio.get<String>(
-      url,
+      fresh ? bypassCache(url) : url,
       options: Options(
         responseType: ResponseType.plain,
         headers: {"cache-time": "no"},
@@ -684,7 +696,7 @@ class SourceRepositories extends ChangeNotifier {
     final repository = linkedRepository(source.key);
     if (repository != null) {
       try {
-        final catalog = await load(repository);
+        final catalog = await load(repository, fresh: true);
         final match = matchEntry(catalog.entries, source,
             preferredUrl: recordedUrl);
         if (match != null) {
@@ -721,7 +733,7 @@ class SourceRepositories extends ChangeNotifier {
     for (final candidateRepository in all) {
       final SourceCatalog catalog;
       try {
-        catalog = await load(candidateRepository);
+        catalog = await load(candidateRepository, fresh: true);
       } catch (_) {
         // 单个仓库不可达不应该挡住其它仓库里的同名源。
         continue;
@@ -777,7 +789,8 @@ class SourceRepositories extends ChangeNotifier {
     final loadFailures = <String, String>{};
     for (final repository in repositories) {
       try {
-        catalogs[repository.id] = await load(repository);
+        // 检查更新必须看仓库的当下状态，不能吃 12 小时内的 CDN/内存缓存。
+        catalogs[repository.id] = await load(repository, fresh: true);
       } catch (e) {
         loadFailures[repository.id] = e.toString();
       }

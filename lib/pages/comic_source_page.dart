@@ -21,7 +21,19 @@ import 'package:kong_comic/utils/translations.dart';
 /// 更新失败时展示给用户的文案：异常自带可读说明时直接用它。
 String updateFailureMessage(Object error) {
   if (error is String && error.trim().isNotEmpty) return error;
-  return "Failed to update source".tl;
+  // 网络异常不是 String，以前一律被压成一句「Failed to update source」。
+  // 批量更新时用户只看到「N 个源更新失败」，既不知道是超时、404 还是别的，
+  // 也没法反馈。这里把状态码 / 失败类型带出来。
+  if (error is DioException) {
+    final code = error.response?.statusCode;
+    if (code != null) {
+      return "Server returned @code".tlParams({"code": code.toString()});
+    }
+    return "${"Network error".tl} (${error.type.name})";
+  }
+  final text = error.toString().trim();
+  if (text.isEmpty || text.length > 160) return "Failed to update source".tl;
+  return text;
 }
 
 /// What an update actually did.
@@ -837,20 +849,21 @@ class _BodyState extends State<_Body> {
     final updates =
         Map<String, String>.from(ComicSourceManager().availableUpdates);
     final n = updates.length;
-    var updateFailures = 0;
+    // 失败不能只记个数：光报「N 个源更新失败」，用户不知道该重试谁、我们
+    // 也没法定位是超时、404 还是脚本解析失败。把源名和原因一起收起来。
+    final failures = <(String name, String reason)>[];
     if (n > 0) {
       for (final key in updates.keys) {
         final s = ComicSource.find(key);
-        if (s != null) {
-          try {
-            await ComicSourcePage.update(s, false);
-          } catch (e, s2) {
-            // `update` rethrows when `showLoading` is false; without this the
-            // first broken script would skip the `setState` below and leave
-            // the button stuck in its loading state forever.
-            updateFailures++;
-            Log.error("Update comic source", e, s2);
-          }
+        if (s == null) continue;
+        try {
+          await ComicSourcePage.update(s, false);
+        } catch (e, s2) {
+          // `update` rethrows when `showLoading` is false; without this the
+          // first broken script would skip the `setState` below and leave
+          // the button stuck in its loading state forever.
+          failures.add((s.name, updateFailureMessage(e)));
+          Log.error("Update comic source", e, s2);
         }
       }
     }
@@ -869,10 +882,12 @@ class _BodyState extends State<_Body> {
           "n": result.repositoryFailures.length.toString(),
         }),
       );
-    } else if (updateFailures > 0 || result.failures.isNotEmpty) {
+    } else if (failures.isNotEmpty) {
+      await _showUpdateFailures(failures);
+    } else if (result.failures.isNotEmpty) {
       App.rootContext.showMessage(
         message: "@n sources could not be updated".tlParams({
-          "n": (updateFailures + result.failures.length).toString(),
+          "n": result.failures.length.toString(),
         }),
       );
     } else {
@@ -880,6 +895,61 @@ class _BodyState extends State<_Body> {
         message: n > 0 ? "Updated sources".tl : "All sources up to date".tl,
       );
     }
+  }
+
+  /// 列出每个更新失败的源和原因。
+  ///
+  /// 只报一个数字没法行动：用户不知道该重试哪个，也没法把问题反馈清楚。
+  Future<void> _showUpdateFailures(
+    List<(String name, String reason)> failures,
+  ) async {
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => ContentDialog(
+        title: "@n sources could not be updated".tlParams({
+          "n": failures.length.toString(),
+        }),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: failures.length,
+              itemBuilder: (context, index) {
+                final (name, reason) = failures[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        reason,
+                        style: TextStyle(
+                          fontSize: kcFont13,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        actions: [
+          Button.filled(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text("OK".tl),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget buildCard(BuildContext context) {
