@@ -196,9 +196,50 @@ class _ReaderState extends State<Reader>
 
   var focusNode = FocusNode();
 
+  /// 外层导航框架（[NaviPane]）的 State。全屏阅读时收起它的左侧栏/底栏，
+  /// 退出阅读时恢复。为 null 表示阅读器不在 NaviPane 之下（独立路由打开）。
+  NaviPaneState? _naviPane;
+
+  /// 是否在阅读时收起外层导航。可在「阅读设置」里关闭（issue #3 要求的开关），
+  /// 关闭后保持导航常驻（旧行为）。改开关后需重新进入阅读器生效。
+  bool get _autoHideNavigation =>
+      appdata.settings['autoHideNavigationInReader'] ?? true;
+
+  /// 收起外层导航。必须等首帧之后：[initState] 阶段 context 还不能向上查找
+  /// 祖先 State，直接调用会抛错。
+  void _hideNaviChrome() {
+    _naviPane ??= context.findAncestorStateOfType<NaviPaneState>();
+    _naviPane?.setChromeHidden(true);
+  }
+
+  void _restoreNaviChrome() {
+    _naviPane?.setChromeHidden(false);
+    _naviPane = null;
+  }
+
+  /// 应用阅读器的系统栏模式（按「显示系统状态栏」设置）。
+  ///
+  /// 隐藏时用 [SystemUiMode.immersiveSticky] 而不是 `immersive`：后者不是
+  /// 粘性的，旋转屏幕等配置变更后会被系统重置，状态栏会重新冒出来压在漫画
+  /// 上（默认设置就是隐藏，所以这属于回退）。
+  void _applySystemUiMode() {
+    if (appdata.settings.getReaderSetting(
+      cid,
+      type.sourceKey,
+      'showSystemStatusBar',
+    )) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _autoHideNavigation) _hideNaviChrome();
+    });
     page = widget.initialPage ?? 1;
     if (page < 1) {
       page = 1;
@@ -216,13 +257,7 @@ class _ReaderState extends State<Reader>
       appdata.settings.getReaderSetting(cid, type.sourceKey, 'readerMode'),
     );
     history = widget.history;
-    if (!appdata.settings.getReaderSetting(
-      cid,
-      type.sourceKey,
-      'showSystemStatusBar',
-    )) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-    }
+    _applySystemUiMode();
     if (appdata.settings.getReaderSetting(
       cid,
       type.sourceKey,
@@ -250,6 +285,8 @@ class _ReaderState extends State<Reader>
       // For orientation changed
       _checkImagesPerPageChange();
     }
+    // 旋转屏幕后系统会重置沉浸状态，这里重新下发一次，避免状态栏冒出来。
+    _applySystemUiMode();
     initReaderWindow();
   }
 
@@ -292,6 +329,8 @@ class _ReaderState extends State<Reader>
     }
     _animationTimer?.cancel();
     focusNode.dispose();
+    // 退出阅读：恢复外层导航框架（左侧栏/底栏）。
+    _restoreNaviChrome();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     stopVolumeEvent();
     if (_originalCacheSize != null) {

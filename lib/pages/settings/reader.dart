@@ -443,6 +443,18 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
           useDeviceSettings: useDeviceSpecificSettings,
         ).toSliver(),
+        // 全局设置，故意不传 comicId/comicSource/useDeviceSettings：
+        // 导航栏是全 App 共用的框架，按漫画或按设备分开配置会自相矛盾
+        // （issue #3 的作者要求「加一个开关自行选择」）。
+        _SwitchSetting(
+          title: "Hide navigation while reading".tl,
+          subtitle: "Hides the side/bottom navigation bar so the page fills the screen"
+              .tl,
+          settingKey: "autoHideNavigationInReader",
+          onChanged: () {
+            widget.onChanged?.call("autoHideNavigationInReader");
+          },
+        ).toSliver(),
         _SwitchSetting(
           title: "Show system status bar".tl,
           settingKey: "showSystemStatusBar",

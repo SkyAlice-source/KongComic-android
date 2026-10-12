@@ -39,7 +39,9 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
     }
     // Bottom toolbar area
     final screenHeight = MediaQuery.of(context).size.height;
-    if (position.dy > screenHeight - _ReaderScaffoldState.kBottomBarHeight - bottomPadding) {
+    // 横屏底栏是单行（更矮），必须用 state 上的动态高度，不能用常量，
+    // 否则横屏下底栏上方的空白会被误判成「工具栏区域」而吞掉翻页点击。
+    if (position.dy > screenHeight - scaffold.bottomBarHeight - bottomPadding) {
       return true;
     }
     return false;

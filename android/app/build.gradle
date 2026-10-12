@@ -34,16 +34,17 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.KongComic.reader"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion "28.2.13676358"
+    // Gradle 10 起移除「空格赋值」语法（`prop value`），统一写成 `prop = value`
+    ndkVersion = "28.2.13676358"
     externalNativeBuild {
         cmake {
-            version "4.1.2"
+            version = "4.1.2"
         }
     }
 
     packaging {
         jniLibs {
-            useLegacyPackaging true
+            useLegacyPackaging = true
         }
     }
 
@@ -51,15 +52,15 @@ android {
         abi {
             reset()
             include 'armeabi-v7a', 'arm64-v8a', 'x86_64'
-            enable true
-            universalApk true
+            enable = true
+            universalApk = true
         }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        coreLibraryDesugaringEnabled true
+        coreLibraryDesugaringEnabled = true
     }
     kotlinOptions{
         jvmTarget = JavaVersion.VERSION_17
@@ -68,18 +69,18 @@ android {
     signingConfigs {
         debug {
             if (keystoreProperties['storeFile'] != null) {
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
+                storeFile = file(keystoreProperties['storeFile'])
+                storePassword = keystoreProperties['storePassword']
+                keyAlias = keystoreProperties['keyAlias']
+                keyPassword = keystoreProperties['keyPassword']
             }
         }
         release {
             if (keystoreProperties['storeFile'] != null) {
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
+                keyAlias = keystoreProperties['keyAlias']
+                keyPassword = keystoreProperties['keyPassword']
+                storeFile = file(keystoreProperties['storeFile'])
+                storePassword = keystoreProperties['storePassword']
             }
         }
     }
@@ -96,14 +97,14 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled true
+            minifyEnabled = true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            shrinkResources true
+            shrinkResources = true
             ndk {
                 abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
             }
             if (keystoreProperties['storeFile'] != null) {
-                signingConfig signingConfigs.release
+                signingConfig = signingConfigs.release
             }
         }
         debug {
@@ -111,7 +112,7 @@ android {
                 abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
             }
             if (keystoreProperties['storeFile'] != null) {
-                signingConfig signingConfigs.debug
+                signingConfig = signingConfigs.debug
             }
         }
     }

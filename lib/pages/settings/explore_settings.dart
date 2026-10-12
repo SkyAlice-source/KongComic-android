@@ -140,10 +140,10 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
   }
 
   void add() {
+    final controller = TextEditingController();
     showDialog(
       context: App.rootContext,
       builder: (context) {
-        var controller = TextEditingController();
         String? error;
         return StatefulBuilder(builder: (context, setState) {
           return ContentDialog(
@@ -184,7 +184,8 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
           );
         });
       },
-    );
+      // Covers every dismissal path: button, back gesture and barrier tap.
+    ).then((_) => controller.dispose());
   }
 }
 
@@ -285,10 +286,10 @@ class _ManageBlockingCommentWordViewState extends State<_ManageBlockingCommentWo
   }
 
   void add() {
+    final controller = TextEditingController();
     showDialog(
       context: App.rootContext,
       builder: (context) {
-        var controller = TextEditingController();
         String? error;
         return StatefulBuilder(builder: (context, setState) {
           return ContentDialog(
@@ -329,6 +330,7 @@ class _ManageBlockingCommentWordViewState extends State<_ManageBlockingCommentWo
           );
         });
       },
-    );
+      // Covers every dismissal path: button, back gesture and barrier tap.
+    ).then((_) => controller.dispose());
   }
 }

@@ -41,6 +41,12 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
     super.initState();
   }
 
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
   void onPop() {
     List<ImageFavorite> tempList = cancelImageFavorites.entries
         .where((e) => e.value == true)

@@ -182,9 +182,10 @@ class AppUpdate {
   /// Fallback release notes shown when a GitHub release has no description
   /// body. Kept concise and version-agnostic (real releases ship a curated
   /// bilingual changelog via `changelogs/<version>.md`).
-  static const String _defaultReleaseNotes =
-      "本次更新包含若干问题修复与使用体验优化。\n\n"
-      "This update includes bug fixes and UX improvements.";
+  /// 以前这里是「中文 + 英文」双语硬编码，英/日语言设备也会看到中文段落。
+  /// 改为走翻译表，三语各自只显示一种语言。
+  static String get _defaultReleaseNotes =>
+      "This update includes bug fixes and UX improvements.".tl;
 
   /// Maximum number of retries for transient network failures.
   static const int _maxRetries = 2;

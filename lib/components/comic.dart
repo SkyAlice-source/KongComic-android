@@ -206,8 +206,11 @@ class ComicTile extends StatelessWidget {
           ? (history.page / history.maxPage!).clamp(0.0, 1.0)
           : 0.0;
       final text = hasProgress
-          ? "第${history.ep}话 · ${(progress * 100).toInt()}%"
-          : "第${history.ep}话";
+          ? "Ep @ep·@progress%".tlParams({
+              'ep': history.ep,
+              'progress': (progress * 100).toInt(),
+            })
+          : "Ep @ep".tlParams({'ep': history.ep});
       histBadge = ClipRRect(
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(kcCardInnerRadius),

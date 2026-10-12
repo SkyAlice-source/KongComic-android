@@ -236,6 +236,10 @@ class Settings with ChangeNotifier {
     'quickFavorite': null,
     'enableTurnPageByVolumeKey': true,
     'enableClockAndBatteryInfoInReader': true,
+    // 全屏阅读时自动收起外层导航。宽屏（横屏手机 / 平板，宽度 > changePoint）
+    // 下导航会变成左侧竖排侧栏并一直挡在漫画左边（issue #3）；关掉此开关则
+    // 保持导航常驻。全局设置，不跟随单本漫画。
+    'autoHideNavigationInReader': true,
     'quickCollectImage': 'No', // No, DoubleTap, Swipe
     'authorizationRequired': false,
     'onClickFavorite': 'viewDetail', // viewDetail, read

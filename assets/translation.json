@@ -1,5 +1,8 @@
 {
   "zh_CN": {
+    "Hide navigation while reading": "阅读时隐藏导航栏",
+    "Hides the side/bottom navigation bar so the page fills the screen": "收起侧边/底部导航栏，让画面占满整屏",
+    "This update includes bug fixes and UX improvements.": "本次更新包含若干问题修复与使用体验优化。",
     "Authentication required": "需要身份验证",
     "Please verify your identity": "请验证身份",
     "Use password": "使用密码",
@@ -997,6 +1000,9 @@
     "The end time must be after the start time": "结束时间必须晚于开始时间"
   },
   "zh_TW": {
+    "Hide navigation while reading": "閱讀時隱藏導覽列",
+    "Hides the side/bottom navigation bar so the page fills the screen": "收起側邊/底部導覽列，讓畫面佔滿整個螢幕",
+    "This update includes bug fixes and UX improvements.": "本次更新包含若干問題修正與使用體驗優化。",
     "Authentication required": "需要身份驗證",
     "Please verify your identity": "請驗證身份",
     "Use password": "使用密碼",
@@ -1994,6 +2000,9 @@
     "The end time must be after the start time": "結束時間必須晚於開始時間"
   },
   "ja_JP": {
+    "Hide navigation while reading": "閲覧時にナビゲーションを隠す",
+    "Hides the side/bottom navigation bar so the page fills the screen": "サイド/下部のナビゲーションを隠し、ページを全画面で表示します",
+    "This update includes bug fixes and UX improvements.": "今回のアップデートでは、不具合の修正と使い勝手の改善を行いました。",
     "Authentication required": "認証が必要です",
     "Please verify your identity": "本人確認を行ってください",
     "Use password": "パスワードを使用",
@@ -2300,8 +2309,8 @@
     "Auto": "自動",
     "Simplified Chinese": "簡体字中国語",
     "Traditional Chinese": "繁体字中国語",
-    "Ep @ep": "Ep @ep",
-    "Ep @ep·@progress%": "Ep @ep·@progress%",
+    "Ep @ep": "第@ep話",
+    "Ep @ep·@progress%": "第@ep話·@progress%",
     "Proxy": "プロキシ",
     "Venera is a free and open-source app for comic reading.": "Veneraは漫画を読むための無料のオープンソースアプリです。",
     "Check for updates": "更新を確認",

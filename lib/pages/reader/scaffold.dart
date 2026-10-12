@@ -18,6 +18,23 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   // 多出的空白让整条工具栏显得又高又空、压缩阅读区。收紧到 100dp。
   static const kBottomBarHeight = 100.0;
 
+  // 横屏时竖向空间本来就紧张，底栏再吃掉 100dp 会让漫画只剩窄窄一条。
+  // 横屏改为单行（翻章按钮 + 进度条 + 功能按钮横排），高度压到 56dp。
+  static const kLandscapeBottomBarHeight = 56.0;
+
+  /// 当前实际使用的底栏高度（横屏单行 / 竖屏两行）。
+  ///
+  /// [build] 的收起位移与手势层的点击区域判定（gesture.dart）都必须用它，
+  /// 不能用常量，否则横屏下会出现「点了底栏却翻页」的穿透。
+  double get bottomBarHeight =>
+      MediaQuery.of(context).orientation == Orientation.landscape
+          ? kLandscapeBottomBarHeight
+          : kBottomBarHeight;
+
+  /// 横屏时底栏排成单行。
+  bool get _isLandscape =>
+      MediaQuery.of(context).orientation == Orientation.landscape;
+
   bool get isOpen => _isOpen;
 
   bool get isReversed =>
@@ -132,9 +149,10 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     setState(() {
       _isOpen = !_isOpen;
     });
-    // 打开/关闭都遵循「隐藏系统状态栏」设置，避免翻页时状态栏突然弹出
+    // 打开/关闭都遵循「隐藏系统状态栏」设置，避免翻页时状态栏突然弹出。
+    // 用 immersiveSticky：普通 immersive 会被旋转等配置变更重置。
     if (!appdata.settings['showSystemStatusBar']) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     } else {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
@@ -173,7 +191,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           duration: AppAnimations.duration(const Duration(milliseconds: 180)),
           bottom: _isOpen
               ? 0
-              : -(kBottomBarHeight + MediaQuery.of(context).padding.bottom),
+              : -(bottomBarHeight + MediaQuery.of(context).padding.bottom),
           left: 0,
           right: 0,
           child: buildBottom(),
@@ -574,33 +592,17 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     ];
 
     Widget child = SizedBox(
-      height: kBottomBarHeight,
-      child: Column(
+      height: bottomBarHeight,
+      child: _isLandscape
+          ? _buildLandscapeBar(buttons, text)
+          : Column(
         children: [
           Row(
             children: [
               const SizedBox(width: 8),
-              IconButton.filledTonal(
-                onPressed: () => !isReversed
-                    ? context.reader.chapter > 1
-                          ? context.reader.toPrevChapter()
-                          : context.reader.toPage(1)
-                    : context.reader.chapter < context.reader.maxChapter
-                    ? context.reader.toNextChapter()
-                    : context.reader.toPage(context.reader.maxPage),
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedBackward01, size: 20),
-              ),
+              _chapterJumpButton(false),
               Expanded(child: buildSlider()),
-              IconButton.filledTonal(
-                onPressed: () => !isReversed
-                    ? context.reader.chapter < context.reader.maxChapter
-                          ? context.reader.toNextChapter()
-                          : context.reader.toPage(context.reader.maxPage)
-                    : context.reader.chapter > 1
-                    ? context.reader.toPrevChapter()
-                    : context.reader.toPage(1),
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedForward01, size: 20),
-              ),
+              _chapterJumpButton(true),
               const SizedBox(width: 8),
             ],
           ),
@@ -610,22 +612,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
               return Row(
                 children: [
                   if (!small)
-                    Container(
-                      height: 24,
-                      padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.tertiaryContainer,
-                        borderRadius: BorderRadius.circular(kcRadius8),
-                      ),
-                      child: Center(
-                        child: Text(
-                          text,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onTertiaryContainer,
-                          ),
-                        ),
-                      ),
-                    ).paddingLeft(16),
+                    _buildPageChip(text).paddingLeft(16),
                   const Spacer(),
                   for (var button in buttons)
                     if (!small)
@@ -669,6 +656,84 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           child: child,
         ),
       ),
+    );
+  }
+
+  /// 翻章按钮。[forward]=true 为下一章；阅读方向反转（右到左）时对调。
+  Widget _chapterJumpButton(bool forward) {
+    return IconButton.filledTonal(
+      onPressed: () {
+        final reader = context.reader;
+        final wantNext = isReversed ? !forward : forward;
+        if (wantNext) {
+          if (reader.chapter < reader.maxChapter) {
+            reader.toNextChapter();
+          } else {
+            reader.toPage(reader.maxPage);
+          }
+        } else {
+          if (reader.chapter > 1) {
+            reader.toPrevChapter();
+          } else {
+            reader.toPage(1);
+          }
+        }
+      },
+      icon: HugeIcon(
+        icon: forward
+            ? HugeIcons.strokeRoundedForward01
+            : HugeIcons.strokeRoundedBackward01,
+        size: 20,
+      ),
+    );
+  }
+
+  /// 页码胶囊（"E1 : P5"）。
+  Widget _buildPageChip(String text) {
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(kcRadius8),
+      ),
+      child: Center(
+        child: Text(
+          text,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onTertiaryContainer,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 横屏单行底栏：翻章按钮 + 进度条 + 页码 + 功能按钮全部横排，
+  /// 把竖向占用从 100dp 压到 [kLandscapeBottomBarHeight]（56dp）。
+  Widget _buildLandscapeBar(List<Widget> buttons, String text) {
+    return LayoutBuilder(
+      builder: (context, constrains) {
+        // 极窄横屏（小平板、折叠屏外屏）优先保证按钮不溢出，页码让位
+        // —— 章节名与进度本来就在进度条上显示，丢掉页码不损失信息。
+        final compact = constrains.maxWidth < 640;
+        return Row(
+          children: [
+            const SizedBox(width: 8),
+            _chapterJumpButton(false),
+            Expanded(child: buildSlider()),
+            _chapterJumpButton(true),
+            const SizedBox(width: 8),
+            if (!compact)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: _buildPageChip(text),
+              ),
+            for (var button in buttons)
+              SizedBox(width: 44, height: 44, child: button),
+            const SizedBox(width: 8),
+          ],
+        );
+      },
     );
   }
 

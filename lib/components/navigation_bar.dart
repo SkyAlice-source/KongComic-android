@@ -81,8 +81,45 @@ class NaviPane extends StatefulWidget {
 typedef NaviItemTapListener = void Function(int);
 
 class NaviPaneState extends State<NaviPane>
-    with SingleTickerProviderStateMixin {
+    // 必须用复数版：本 State 现在有两个 AnimationController（宽度分档 controller
+    // + 收起导航 _chromeController）。SingleTickerProviderStateMixin 只允许一个
+    // Ticker，再建第二个时 debug 模式会直接抛
+    // "SingleTickerProviderStateMixin is already used as a TickerProvider"。
+    with TickerProviderStateMixin {
   bool _canPop = true;
+
+  /// 全屏页面（目前是阅读器）要求收起导航框架的**请求数**。
+  ///
+  /// 用计数而不是 bool：路由 replace 时新页面 init 早于旧页面 dispose，
+  /// bool 会被旧页面的 dispose 误刷回「显示」，计数不会。
+  /// 横屏手机宽度 > [changePoint] 时左侧栏常驻，全屏阅读会一直挤占画面
+  /// （issue #3），这里让它滑动收起。
+  int _chromeHideRequests = 0;
+
+  bool get chromeHidden => _chromeHideRequests > 0;
+
+  /// 0 = 导航框架正常显示，1 = 完全收起。
+  late final AnimationController _chromeController = AnimationController(
+    duration: const Duration(milliseconds: 200),
+    value: 0,
+    vsync: this,
+  );
+
+  /// 全屏页面进入/退出时调用，收起或恢复左侧栏与主视图左边距。
+  void setChromeHidden(bool hidden) {
+    // 阅读器 dispose 可能晚于本 State（例如应用正在退出），此时动画控制器
+    // 已释放，再驱动它会抛断言。
+    if (!mounted) return;
+    if (hidden) {
+      _chromeHideRequests++;
+    } else if (_chromeHideRequests > 0) {
+      _chromeHideRequests--;
+    }
+    final target = chromeHidden ? 1.0 : 0.0;
+    if (_chromeController.value != target) {
+      _chromeController.animateTo(target);
+    }
+  }
 
   /// Whether the current route is a root tab page (no inner page is shown).
   /// When true, the shared mobile top bar should be rendered.
@@ -188,6 +225,7 @@ class NaviPaneState extends State<NaviPane>
   @override
   void dispose() {
     controller.dispose();
+    _chromeController.dispose();
     _pageNotifier.dispose();
     widget.observer.removeListener(onNavigatorStateChange);
     pageActionsNotifier.removeListener(_onPageActionsChanged);
@@ -226,13 +264,6 @@ class NaviPaneState extends State<NaviPane>
   @override
   Widget build(BuildContext context) {
     onRebuild(context);
-    final mq = MediaQuery.of(context);
-    final sideInsets = (App.isMobile && mq.orientation == Orientation.landscape)
-        ? EdgeInsets.only(
-            left: math.max(mq.viewPadding.left, mq.systemGestureInsets.left),
-            right: math.max(mq.viewPadding.right, mq.systemGestureInsets.right),
-          )
-        : EdgeInsets.zero;
     return _NaviPopScope(
       action: () {
         if (App.mainNavigatorKey!.currentState!.canPop()) {
@@ -243,33 +274,74 @@ class NaviPaneState extends State<NaviPane>
       },
       popGesture: App.isIOS && context.width >= changePoint,
       child: AnimatedBuilder(
-        animation: controller,
-        builder: (context, child) {
-          final value = controller.value;
-          Widget content = Stack(
-            children: [
-              Positioned(
-                left: _kFoldedSideBarWidth * ((value - 2.0).clamp(-1.0, 0.0)),
-                top: 0,
-                bottom: 0,
-                child: buildLeft(),
-              ),
-              Positioned.fill(
-                left:
-                    _kFoldedSideBarWidth * ((value - 1).clamp(0, 1)) +
-                    (_kSideBarWidth - _kFoldedSideBarWidth) *
-                        ((value - 2).clamp(0, 1)),
-                child: buildMainView(),
-              ),
-            ],
+        // 外层监听「收起导航」动画、内层监听宽度分档动画，任一变化都要重绘。
+        // 不用 Listenable.merge 是避免每次 build 都新建 Listenable。
+        animation: _chromeController,
+        builder: (context, _) {
+          return AnimatedBuilder(
+            animation: controller,
+            builder: (context, child) {
+              final value = controller.value;
+              // hideProgress 0 → 1：左侧栏整条滑出屏幕，主视图补满全宽。
+              final hideProgress = _chromeController.value;
+              final sideBarWidth = _kFoldedSideBarWidth +
+                  (_kSideBarWidth - _kFoldedSideBarWidth) *
+                      ((value - 2.0).clamp(0.0, 1.0));
+              final sideBarVisibleLeft =
+                  _kFoldedSideBarWidth * ((value - 2.0).clamp(-1.0, 0.0));
+              final sideBarLeft = sideBarVisibleLeft +
+                  (-sideBarWidth - sideBarVisibleLeft) * hideProgress;
+              final mainVisibleLeft =
+                  _kFoldedSideBarWidth * ((value - 1).clamp(0, 1)) +
+                  (_kSideBarWidth - _kFoldedSideBarWidth) *
+                      ((value - 2).clamp(0, 1));
+              final mainLeft = mainVisibleLeft * (1 - hideProgress);
+              // 横屏安全区留白（刘海 / 手势区）。收起导航 = 全屏页面接管整屏，
+              // 留白同步收缩到 0：否则侧栏滑出后左边仍会留下一条与侧栏几乎等宽
+              // 的空白（看起来像"没收干净"），而且阅读器被挤在安全区里、相对
+              // 整屏偏右。
+              final mq = MediaQuery.of(context);
+              final fullInsets =
+                  (App.isMobile && mq.orientation == Orientation.landscape)
+                  ? EdgeInsets.only(
+                      left: math.max(
+                        mq.viewPadding.left,
+                        mq.systemGestureInsets.left,
+                      ),
+                      right: math.max(
+                        mq.viewPadding.right,
+                        mq.systemGestureInsets.right,
+                      ),
+                    )
+                  : EdgeInsets.zero;
+              final sideInsets = EdgeInsets.lerp(
+                fullInsets,
+                EdgeInsets.zero,
+                hideProgress,
+              )!;
+              Widget content = Stack(
+                children: [
+                  Positioned(
+                    left: sideBarLeft,
+                    top: 0,
+                    bottom: 0,
+                    child: buildLeft(),
+                  ),
+                  Positioned.fill(
+                    left: mainLeft,
+                    child: buildMainView(),
+                  ),
+                ],
+              );
+              if (sideInsets != EdgeInsets.zero) {
+                content = Padding(
+                  padding: sideInsets,
+                  child: content,
+                );
+              }
+              return content;
+            },
           );
-          if (sideInsets != EdgeInsets.zero) {
-            content = Padding(
-              padding: sideInsets,
-              child: content,
-            );
-          }
-          return content;
         },
       ),
     );
