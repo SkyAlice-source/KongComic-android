@@ -22,6 +22,51 @@ import 'app.dart';
 import 'appdata.dart';
 import 'history.dart';
 
+/// 一次「存储目录失效 → 自动回退」的记录。
+///
+/// 存储目录失效（SAF 授权被系统收回、用户删掉了自建目录、SD 卡卸载等）时 App
+/// 会静默切回默认目录，界面上所有已下载的漫画随之消失，而文件其实还在原处。
+/// 这里把原路径持久化下来，设置页据此提示用户「可以切回去」，而不是让用户以为
+/// 数据丢了。
+class LocalPathFallback {
+  final String originalPath;
+
+  final String fallbackPath;
+
+  /// 失效原因，仅用于日志/排障：`not-writable` / `missing`。
+  final String reason;
+
+  final DateTime time;
+
+  const LocalPathFallback({
+    required this.originalPath,
+    required this.fallbackPath,
+    required this.reason,
+    required this.time,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'originalPath': originalPath,
+        'fallbackPath': fallbackPath,
+        'reason': reason,
+        'time': time.millisecondsSinceEpoch,
+      };
+
+  static LocalPathFallback? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    try {
+      return LocalPathFallback(
+        originalPath: raw['originalPath'] as String,
+        fallbackPath: raw['fallbackPath'] as String,
+        reason: (raw['reason'] as String?) ?? 'unknown',
+        time: DateTime.fromMillisecondsSinceEpoch(raw['time'] as int),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
 class LocalComic with HistoryMixin implements Comic {
   static List<String> _safeDecodeList(dynamic value) {
     try {
@@ -251,6 +296,18 @@ class LocalManager with ChangeNotifier {
 
   bool get isMigrating => _isMigrating;
 
+  /// 上次启动检测到「存储目录不可用、已临时切换」的记录；正常启动为 null。
+  ///
+  /// 只在用户明确处理（切回原目录 / 另选目录 / 忽略）后清除，**不会**因为
+  /// 重启后新目录可用就自动消失 —— 否则用户永远看不到这条提示，也就无从找回
+  /// 留在原目录里的文件。
+  LocalPathFallback? _pendingFallback;
+
+  LocalPathFallback? get pendingPathFallback => _pendingFallback;
+
+  /// 标记文件名，存放在 App.dataPath（随 App 数据一起消失，不参与 WebDAV 同步）。
+  static const _pathFallbackFile = 'local_path_invalid';
+
   void _checkNoMedia() {
     if (App.isAndroid) {
       try {
@@ -473,6 +530,151 @@ class LocalManager with ChangeNotifier {
     });
   }
 
+  /// [dir] 是否位于当前存储目录 [path] 之下。
+  ///
+  /// 用规范化后的前缀比较而不是 `contains`：后者会把 `/data/ComicBackup`
+  /// 误判成在 `/data/Comic` 之下。SAF 路径（`android://...`）分隔符同样是 `/`，
+  /// 因此这里同时接受平台分隔符和 `/`。
+  bool _isUnderStorageRoot(String dir) {
+    if (dir.isEmpty) return true;
+    var root = p.normalize(path);
+    var target = p.normalize(dir);
+    if (p.equals(root, target)) return true;
+    for (var sep in [p.separator, '/']) {
+      if (sep.isEmpty) continue;
+      if (target.startsWith('$root$sep')) return true;
+    }
+    return false;
+  }
+
+  /// 文件不在当前存储目录下的本地漫画。
+  ///
+  /// 导入本地漫画时 `directory` 可能被写成绝对路径（见 import_comic.dart），
+  /// 这些漫画的文件散落在 [path] 之外 —— 正是「Move to Current Storage Path」
+  /// 要归拢的对象。因此判据必须是每部漫画的 baseDir，而不是拿存储根目录和它
+  /// 自己相比（那样恒等，功能永远是死的）。
+  List<LocalComic> get externalComics {
+    var result = <LocalComic>[];
+    var res = _db.select('SELECT * FROM comics;');
+    for (var row in res) {
+      LocalComic comic;
+      try {
+        comic = LocalComic.fromRow(row);
+      } catch (e) {
+        // 单行损坏不该让整个设置页的功能失效。
+        Log.error("Local", "Failed to read a local comic row: $e", null);
+        continue;
+      }
+      if (!_isUnderStorageRoot(comic.baseDir)) {
+        result.add(comic);
+      }
+    }
+    return result;
+  }
+
+  /// 在 [root] 下挑一个不冲突的目录名。
+  String _uniqueDirName(String root, String name, Set<String> used) {
+    var base = name.trim();
+    if (base.isEmpty) base = 'comic';
+    if (!used.contains(base)) return base;
+    for (var i = 1; i < 10000; i++) {
+      var candidate = '${base}_$i';
+      if (!used.contains(candidate)) return candidate;
+    }
+    return '${base}_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// 把 [externalComics] 的文件夹搬进当前存储目录，并把数据库里的 `directory`
+  /// 改写为相对目录名（之后 baseDir 就会解析到新位置）。
+  ///
+  /// 与 [setNewPath] 的区别：[setNewPath] 是「整个存储目录搬家」，这里是
+  /// 「把散落的单部漫画收进来」，存储路径设置本身不变。
+  /// 返回 null 表示成功，否则返回错误信息。
+  Future<String?> gatherExternalComics() async {
+    if (_isMigrating) {
+      return "A storage migration is already in progress".tl;
+    }
+    var comics = externalComics;
+    if (comics.isEmpty) return null;
+    var root = path;
+    _isMigrating = true;
+    notifyListeners();
+    var paused = <DownloadTask>[];
+    for (var task in downloadingTasks) {
+      if (!task.isPaused) {
+        task.pause();
+        paused.add(task);
+      }
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    var moved = 0;
+    var failed = 0;
+    try {
+      var rootDir = Directory(root);
+      if (!await rootDir.exists()) {
+        await rootDir.create(recursive: true);
+      }
+      var used = <String>{};
+      try {
+        for (var entity in rootDir.listSync(recursive: false)) {
+          used.add(p.basename(entity.path));
+        }
+      } catch (_) {}
+      for (var comic in comics) {
+        var source = Directory(comic.baseDir);
+        bool exists;
+        try {
+          exists = await source.exists();
+        } catch (_) {
+          exists = false;
+        }
+        if (!exists) {
+          // 源目录已被外部删除，没什么可搬的，跳过而不是报错中断整批。
+          failed++;
+          continue;
+        }
+        var name = _uniqueDirName(root, p.basename(comic.baseDir), used);
+        used.add(name);
+        var destination = Directory(FilePath.join(root, name));
+        try {
+          await _copyWithStrategy(source, destination, overwrite: false);
+          // 只有复制成功才删源，避免两头都不完整。
+          await source.delete(recursive: true);
+        } catch (e, s) {
+          Log.error("IO", "Failed to move comic '${comic.title}': $e", s);
+          // 清掉可能残留的半成品，防止下次导入出现半套文件。
+          try {
+            if (await destination.exists()) {
+              await destination.delete(recursive: true);
+            }
+          } catch (_) {}
+          failed++;
+          continue;
+        }
+        _db.execute(
+          'UPDATE comics SET directory = ? WHERE id = ? AND comic_type = ?;',
+          [name, comic.id, comic.comicType.value],
+        );
+        moved++;
+      }
+      notifyListeners();
+      if (moved == 0) {
+        return "Failed to move comics. Check storage permission and try again."
+            .tl;
+      }
+      if (failed > 0) {
+        Log.warning(
+            "Local", "Moved $moved comic(s) into storage path, $failed failed.");
+      }
+      return null;
+    } finally {
+      _isMigrating = false;
+      // 存储根目录没变，下载任务原地恢复即可。
+      _resumePausedTasks(paused, null, root);
+      notifyListeners();
+    }
+  }
+
   /// 探测公共 Download/Comic 目录是否可用（Android）。
   /// 用 getExternalStorageDirectory() 拿当前用户的外部存储根，避免硬编码
   /// /storage/emulated/0 在多用户 / 应用分身场景下写错目录。可用返回完整路径，
@@ -547,16 +749,140 @@ class LocalManager with ChangeNotifier {
     }
   }
 
-  Future<void> _checkPathValidation() async {
-    var testFile = File(FilePath.join(path, 'kongcomic_test'));
+  /// 目录是否真的可写：能创建且能删除一个测试文件才算数。
+  ///
+  /// 只 [exists] 是不够的 —— SAF 授权被收回的目录仍然"存在"，但一写就抛异常。
+  Future<bool> canWrite(String dir) async {
     try {
+      var directory = Directory(dir);
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+      var testFile = File(FilePath.join(dir, 'kongcomic_test'));
       testFile.createSync();
       testFile.deleteSync();
+      return true;
     } catch (e) {
-      Log.error("IO",
-          "Failed to create test file in local path: $e\nUsing default path instead.");
-      path = await findDefaultPath();
+      return false;
     }
+  }
+
+  /// 切回默认目录，并记下这次失效（供设置页提示找回）。
+  ///
+  /// 之前这里是静默 `path = await findDefaultPath()`：文件还在原目录，界面却
+  /// 什么都不剩，用户只会以为数据被 App 弄丢了。现在至少留一条可追踪的记录。
+  Future<void> _fallbackToDefaultPath(String previousPath, String reason) async {
+    var fallback = await findDefaultPath();
+    if (!await canWrite(fallback)) {
+      // 兜底中的兜底：App 私有目录几乎不可能写不进去。
+      fallback = FilePath.join(App.dataPath, 'local');
+      try {
+        Directory(fallback).createSync(recursive: true);
+      } catch (_) {}
+    }
+    if (p.equals(previousPath, fallback)) {
+      // 默认目录就是当前目录，切换毫无意义，也不必打扰用户。
+      path = fallback;
+      return;
+    }
+    var record = LocalPathFallback(
+      originalPath: previousPath,
+      fallbackPath: fallback,
+      reason: reason,
+      time: DateTime.now(),
+    );
+    _pendingFallback = record;
+    try {
+      File(FilePath.join(App.dataPath, _pathFallbackFile))
+          .writeAsString(jsonEncode(record.toJson()));
+    } catch (e, s) {
+      Log.error("IO", "Failed to persist invalid path flag: $e", s);
+    }
+    Log.warning(
+        "Local",
+        "Storage path is unavailable ($reason): '$previousPath'. "
+            "Falling back to '$fallback'. Files are still in the original folder.");
+    path = fallback;
+  }
+
+  Future<void> _loadPathFallback() async {
+    try {
+      var file = File(FilePath.join(App.dataPath, _pathFallbackFile));
+      if (!file.existsSync()) {
+        _pendingFallback = null;
+        return;
+      }
+      _pendingFallback = LocalPathFallback.fromJson(jsonDecode(file.readAsStringSync()));
+      if (_pendingFallback == null) {
+        // 内容损坏：宁可不提示，也不要拿半截路径去误导用户。
+        file.deleteIgnoreError();
+      }
+    } catch (e, s) {
+      Log.error("IO", "Failed to read invalid path flag: $e", s);
+      _pendingFallback = null;
+    }
+  }
+
+  /// 用户已处理（切回原目录 / 另选目录 / 主动忽略），丢弃提示。
+  Future<void> clearPathFallback() async {
+    _pendingFallback = null;
+    try {
+      File(FilePath.join(App.dataPath, _pathFallbackFile)).deleteIgnoreError();
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  Future<void> _checkPathValidation() async {
+    var previous = path;
+    if (await canWrite(path)) {
+      // 注意：这里**不**清除失效提示。local_path 已经被写成回退后的目录，
+      // 下次启动校验必然通过，若在此清除，用户永远看不到「文件还在原处」的提示。
+      return;
+    }
+    await _fallbackToDefaultPath(previous, 'not-writable');
+  }
+
+  /// 只把存储目录切换到 [newPath]，**不搬运任何文件**。
+  ///
+  /// 用于「目录失效后找回原目录」：文件本来就在 [newPath] 里。若走
+  /// [setNewPath]，它会把当前（空的临时）目录复制过去并清空目标 ——
+  /// 恰好把用户的数据抹掉，所以这里必须是纯切换。
+  /// 返回 null 表示成功，否则返回错误信息。
+  Future<String?> switchPathWithoutMoving(String newPath) async {
+    if (newPath.isEmpty) {
+      return "Directory does not exist".tl;
+    }
+    if (newPath.startsWith('content://') || newPath.startsWith('file://')) {
+      return "Please pick a regular file system directory, not a document tree"
+          .tl;
+    }
+    var dir = Directory(newPath);
+    bool exists;
+    try {
+      exists = await dir.exists();
+    } catch (e, s) {
+      Log.error("IO", "Failed to stat path: $e", s);
+      return "Directory does not exist".tl;
+    }
+    if (!exists) {
+      return "Directory does not exist".tl;
+    }
+    if (!await canWrite(newPath)) {
+      return "Cannot write to this directory".tl;
+    }
+    try {
+      await File(FilePath.join(App.dataPath, 'local_path'))
+          .writeAsString(newPath);
+    } catch (e, s) {
+      Log.error("IO", "Failed to persist local_path: $e", s);
+      return "Failed to save storage path. Please try again.".tl;
+    }
+    path = newPath;
+    // 这里刻意不写 .nomedia：目录由用户选定且可能还在被其它应用使用，
+    // 写进去会让其中的图片/视频对系统相册整体隐藏。
+    await clearPathFallback();
+    notifyListeners();
+    return null;
   }
 
   Future<void> init() async {
@@ -582,10 +908,12 @@ class LocalManager with ChangeNotifier {
     _db.execute('CREATE INDEX IF NOT EXISTS idx_comics_type ON comics(comic_type);');
     _db.execute('CREATE INDEX IF NOT EXISTS idx_comics_directory ON comics(directory);');
     _db.execute('CREATE INDEX IF NOT EXISTS idx_comics_title ON comics(title);');
+    await _loadPathFallback();
     if (File(FilePath.join(App.dataPath, 'local_path')).existsSync()) {
       path = File(FilePath.join(App.dataPath, 'local_path')).readAsStringSync();
       if (!directory.existsSync()) {
-        path = await findDefaultPath();
+        // 目录被外部删除 / SAF 授权失效：记录下来，让设置页能提示用户找回。
+        await _fallbackToDefaultPath(path, 'missing');
       }
     } else {
       path = await findDefaultPath();

@@ -997,7 +997,16 @@
     "No comics yet? Add a comic source or favorite some comics.": "还没有漫画？去添加漫画源或收藏漫画吧",
     "No folders": "没有文件夹",
     "Please select a start and end time": "请选择开始和结束时间",
-    "The end time must be after the start time": "结束时间必须晚于开始时间"
+    "The end time must be after the start time": "结束时间必须晚于开始时间",
+    "Move comics into storage path": "移动漫画到存储路径",
+    "Found @count comic(s) stored outside the current storage path. Move them into this folder?": "发现 @count 部漫画存放在当前存储路径之外，要将它们移动到该文件夹吗？",
+    "Comics moved into storage path": "漫画已移动到存储路径",
+    "Storage path unavailable": "存储路径不可用",
+    "The folder used last time is no longer accessible, so a temporary folder is in use. Your files are still in the original folder.": "上次使用的文件夹已无法访问，当前正在使用临时文件夹。你的文件仍在原文件夹中。",
+    "Use original folder": "使用原文件夹",
+    "Choose a different folder": "选择其他文件夹",
+    "Ignore": "忽略",
+    "Cannot write to this directory": "无法写入此目录"
   },
   "zh_TW": {
     "Hide navigation while reading": "閱讀時隱藏導覽列",
@@ -1997,7 +2006,16 @@
     "No comics yet? Add a comic source or favorite some comics.": "還沒有漫畫？去添加漫畫源或收藏漫畫吧",
     "No folders": "沒有文件夾",
     "Please select a start and end time": "請選擇開始和結束時間",
-    "The end time must be after the start time": "結束時間必須晚於開始時間"
+    "The end time must be after the start time": "結束時間必須晚於開始時間",
+    "Move comics into storage path": "移動漫畫到儲存路徑",
+    "Found @count comic(s) stored outside the current storage path. Move them into this folder?": "發現 @count 部漫畫存放在目前的儲存路徑之外，要將它們移動到該資料夾嗎？",
+    "Comics moved into storage path": "漫畫已移動到儲存路徑",
+    "Storage path unavailable": "儲存路徑不可用",
+    "The folder used last time is no longer accessible, so a temporary folder is in use. Your files are still in the original folder.": "上次使用的資料夾已無法存取，目前正使用暫存資料夾。你的檔案仍在原資料夾中。",
+    "Use original folder": "使用原資料夾",
+    "Choose a different folder": "選擇其他資料夾",
+    "Ignore": "忽略",
+    "Cannot write to this directory": "無法寫入此目錄"
   },
   "ja_JP": {
     "Hide navigation while reading": "閲覧時にナビゲーションを隠す",
@@ -2997,6 +3015,15 @@
     "No comics yet? Add a comic source or favorite some comics.": "まだ漫画はありませんか？漫画ソースを追加するかお気に入りに追加してください",
     "No folders": "フォルダがありません",
     "Please select a start and end time": "開始と終了の時刻を選択してください",
-    "The end time must be after the start time": "終了時刻は開始時刻より後でなければなりません"
+    "The end time must be after the start time": "終了時刻は開始時刻より後でなければなりません",
+    "Move comics into storage path": "漫画を保存フォルダーに移動",
+    "Found @count comic(s) stored outside the current storage path. Move them into this folder?": "@count 件の漫画が現在の保存フォルダー外にあります。このフォルダーに移動しますか？",
+    "Comics moved into storage path": "漫画を保存フォルダーに移動しました",
+    "Storage path unavailable": "保存フォルダーを利用できません",
+    "The folder used last time is no longer accessible, so a temporary folder is in use. Your files are still in the original folder.": "前回使用していたフォルダーにアクセスできないため、一時フォルダーを使用しています。ファイルは元のフォルダーに残っています。",
+    "Use original folder": "元のフォルダーを使う",
+    "Choose a different folder": "別のフォルダーを選ぶ",
+    "Ignore": "無視",
+    "Cannot write to this directory": "このフォルダーに書き込めません"
   }
 }

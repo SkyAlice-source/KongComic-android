@@ -56,6 +56,80 @@ class _AppSettingsState extends State<AppSettings> {
     }
   }
 
+  /// 把散落在存储目录之外的本地漫画归拢进当前存储路径。
+  ///
+  /// 之前这里的判据是 `manager.directory.path == manager.path` —— 两边永远相等
+  /// （`directory` 就是 `Directory(path)`），按钮点了永远只弹一句「已在当前存储
+  /// 路径」，什么都不会搬。真正该判断的是「有没有 baseDir 不在当前路径下的漫画」。
+  Future<void> _moveExternalToCurrentPath() async {
+    final manager = LocalManager();
+    final comics = manager.externalComics;
+    if (!mounted) return;
+    if (comics.isEmpty) {
+      context.showMessage(message: "Already in current storage path".tl);
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => ContentDialog(
+        title: "Move comics into storage path".tl,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Found @count comic(s) stored outside the current storage path. Move them into this folder?"
+                  .tlParams({'count': comics.length}),
+            ).paddingBottom(8),
+            Text(
+              manager.path,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: kcCaption,
+                color: context.colorScheme.onSurfaceVariant,
+                fontFamily: "monospace",
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Button.text(
+            onPressed: () => ctx.pop(false),
+            child: Text("Cancel".tl),
+          ),
+          Button.filled(
+            onPressed: () => ctx.pop(true),
+            child: Text("Move".tl),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+    var loadingDialog = showLoadingDialog(
+      App.rootContext,
+      barrierDismissible: false,
+      allowCancel: false,
+    );
+    String? res;
+    try {
+      res = await manager.gatherExternalComics();
+    } catch (e, s) {
+      Log.error("Local", "Failed to gather external comics: $e", s);
+      res = e.toString();
+    } finally {
+      loadingDialog.close();
+    }
+    if (!mounted) return;
+    if (res != null) {
+      context.showMessage(message: res);
+    } else {
+      context.showMessage(message: "Comics moved into storage path".tl);
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SmoothCustomScrollView(
@@ -86,6 +160,11 @@ class _AppSettingsState extends State<AppSettings> {
             },
           ),
         ).toSliver(),
+        // 上次启动发现存储目录不可用、已临时切换时，提示用户文件还在原处。
+        if (LocalManager().pendingPathFallback != null)
+          _StoragePathFallbackBanner(
+            onResolved: () => setState(() {}),
+          ).toSliver(),
         _CallbackSetting(
           title: "Set New Storage Path".tl,
           actionTitle: "Set".tl,
@@ -109,21 +188,7 @@ class _AppSettingsState extends State<AppSettings> {
               "Move all your local comics into the Storage Path folder. No extra permission needed, and the setting stays unchanged."
                   .tl,
           actionTitle: "Move".tl,
-          callback: () async {
-            final manager = LocalManager();
-            // 迁移目标 = 设置里「Storage Path for local comics」已经配置好的路径
-            // （LocalManager().path）。不重新探测/挑选默认目录，也绝不改写该设置，
-            // 这样点这个开关只会把散落在别处的漫画归拢进当前设定的文件夹，不会再像
-            // 之前「Move to Download/Comic」那样把默认路径覆盖成别的值、也不会去
-            // 申请「所有文件访问」权限而闪退。
-            final target = manager.path;
-            if (!mounted) return;
-            if (manager.directory.path == target) {
-              context.showMessage(message: "Already in current storage path".tl);
-              return;
-            }
-            await _setStoragePath(target);
-          },
+          callback: () => _moveExternalToCurrentPath(),
         ).toSliver(),
         ListTile(
           title: Text("Cache Size".tl),
@@ -332,6 +397,151 @@ class _AppSettingsState extends State<AppSettings> {
             subtitle: "Ask before exiting via back gesture at root".tl,
           ).toSliver(),
       ],
+    );
+  }
+}
+
+/// 「上次使用的存储目录不可用，已临时切换」提示条。
+///
+/// 目录失效（SAF 授权被收回 / 文件夹被删 / SD 卡卸载）后 App 会切到默认目录，
+/// 已下载的漫画随之从界面消失，但文件仍在原目录。这里把这件事说清楚，并给出
+/// 「切回原目录 / 另选目录」两条找回路径，避免用户以为数据丢了。
+class _StoragePathFallbackBanner extends StatefulWidget {
+  const _StoragePathFallbackBanner({required this.onResolved});
+
+  final VoidCallback onResolved;
+
+  @override
+  State<_StoragePathFallbackBanner> createState() =>
+      _StoragePathFallbackBannerState();
+}
+
+class _StoragePathFallbackBannerState
+    extends State<_StoragePathFallbackBanner> {
+  bool _busy = false;
+
+  /// 纯切换目录，不搬运文件 —— 文件本来就在目标目录里。
+  Future<void> _switchTo(String path) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    String? res;
+    try {
+      res = await LocalManager().switchPathWithoutMoving(path);
+    } catch (e, s) {
+      Log.error("Local", "Failed to switch storage path: $e", s);
+      res = e.toString();
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res != null) {
+      context.showMessage(message: res);
+      return;
+    }
+    context.showMessage(message: "Path set successfully".tl);
+    widget.onResolved();
+  }
+
+  /// 用户确认「知道了」：丢掉提示，不再打扰。
+  void _ignore() {
+    LocalManager().clearPathFallback().then((_) {
+      if (mounted) widget.onResolved();
+    });
+  }
+
+  void _startPick() {
+    _pickFolder();
+  }
+
+  Future<void> _pickFolder() async {
+    if (_busy) return;
+    String? result;
+    if (App.isAndroid) {
+      result = (await DirectoryPicker().pickDirectory())?.path;
+    } else if (App.isIOS) {
+      result = await selectDirectoryIOS();
+    } else {
+      result = await selectDirectory();
+    }
+    if (result == null || result.isEmpty) return;
+    if (!mounted) return;
+    await _switchTo(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = LocalManager().pendingPathFallback;
+    if (fallback == null) return const SizedBox.shrink();
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.all(kcSpaceSm),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(kcRadius8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedInformationCircle,
+                size: 20,
+                color: colorScheme.onErrorContainer,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Storage path unavailable".tl,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onErrorContainer,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "The folder used last time is no longer accessible, so a temporary folder is in use. Your files are still in the original folder."
+                .tl,
+            style: TextStyle(
+              fontSize: kcCaption,
+              color: colorScheme.onErrorContainer,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            fallback.originalPath,
+            style: TextStyle(
+              fontSize: kcCaption,
+              color: colorScheme.onErrorContainer,
+              fontFamily: "monospace",
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Button.text(
+                onPressed: _ignore,
+                child: Text("Ignore".tl),
+              ),
+              const SizedBox(width: 4),
+              Button.text(
+                onPressed: _startPick,
+                child: Text("Choose a different folder".tl),
+              ),
+              const SizedBox(width: 4),
+              Button.filled(
+                isLoading: _busy,
+                onPressed: () => _switchTo(fallback.originalPath),
+                child: Text("Use original folder".tl),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
