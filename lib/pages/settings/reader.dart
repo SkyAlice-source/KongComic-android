@@ -95,18 +95,45 @@ class _ReaderSettingsState extends State<ReaderSettings> {
         if (comicId != null && sourceKey != null)
           SliverMainAxisGroup(
             slivers: [
-              SwitchListTile(
-                title: Text("Enable comic specific settings".tl),
-                value: isEnabledSpecificSettings,
-                onChanged: (b) {
+              // 用与下方 _SwitchSetting 完全相同的结构（InkWell + 16dp 内边距 +
+              // Row + 12dp 间隔 + Switch），不要用 SwitchListTile：它的 trailing
+              // 会多让出 8dp，导致这一个开关比下面所有开关靠左 24px（实测
+              // 开关中心 1181 vs 1205 @480dpi），整列开关参差不齐。
+              InkWell(
+                onTap: () {
                   setState(() {
                     appdata.settings.setEnabledComicSpecificSettings(
                       comicId,
                       sourceKey,
-                      b,
+                      !isEnabledSpecificSettings,
                     );
                   });
                 },
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text("Enable comic specific settings".tl),
+                      ),
+                      const SizedBox(width: 12),
+                      Switch(
+                        value: isEnabledSpecificSettings,
+                        onChanged: (b) {
+                          setState(() {
+                            appdata.settings.setEnabledComicSpecificSettings(
+                              comicId,
+                              sourceKey,
+                              b,
+                            );
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ).toSliver(),
               if (isEnabledSpecificSettings)
                 Center(

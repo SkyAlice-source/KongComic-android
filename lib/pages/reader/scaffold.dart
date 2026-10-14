@@ -12,6 +12,8 @@ class _ReaderScaffold extends StatefulWidget {
 class _ReaderScaffoldState extends State<_ReaderScaffold> {
   bool _isOpen = false;
 
+  // 顶栏的「最小高度」基准。真实高度见 [topBarHeight]：系统字号放大后
+  // 标题 + 章节副标题两行会超过 56dp，此时顶栏必须跟着长高。
   static const kTopBarHeight = 56.0;
 
   // 底栏内容高度：原先 125dp，但实际内容（两行 40dp 按钮）只有 ~88dp，
@@ -30,6 +32,31 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       MediaQuery.of(context).orientation == Orientation.landscape
           ? kLandscapeBottomBarHeight
           : kBottomBarHeight;
+
+  /// 当前章节标题（章节数据缺失时为 null）。
+  String? get _currentEpName =>
+      context.reader.widget.chapters?.titles.elementAtOrNull(
+        context.reader.chapter - 1,
+      );
+
+  /// 顶栏实际高度。
+  ///
+  /// 顶栏内容在「书名 + 章节副标题」两行时高度随系统字号线性增长
+  /// （fs1.0 约 39dp，fs2.0 约 78dp）。原先写死 56dp，于是 fs≥1.5 起就
+  /// RenderFlex 下溢（fs2.0 实测 BOTTOM OVERFLOWED BY 22 PIXELS，副标题整行被裁）。
+  /// 这里按当前 textScaler 估算内容高度并取 [kTopBarHeight] 为下限。
+  ///
+  /// 注意：build() 已不再给 AnimatedPositioned 传 height —— 真实高度由内容
+  /// 决定，本 getter 只用于「收起」动画的位移量，估算偏差最多让动画多移一点。
+  double get topBarHeight {
+    final scaler = MediaQuery.textScalerOf(context);
+    final content = _currentEpName == null
+        ? scaler.scale(AppFontSizes.s18) * kcLineHeightFactor
+        : scaler.scale(AppFontSizes.s16) * kcLineHeightFactor +
+            scaler.scale(AppFontSizes.s12) * kcLineHeightFactor;
+    final estimated = content + 8;
+    return estimated > kTopBarHeight ? estimated : kTopBarHeight;
+  }
 
   /// 横屏时底栏排成单行。
   bool get _isLandscape =>
@@ -181,10 +208,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           buildStatusInfo(),
         AnimatedPositioned(
           duration: AppAnimations.duration(const Duration(milliseconds: 180)),
-          top: _isOpen ? 0 : -(kTopBarHeight + context.padding.top),
+          top: _isOpen ? 0 : -(topBarHeight + context.padding.top),
           left: 0,
           right: 0,
-          height: kTopBarHeight + context.padding.top,
+          // 不传 height：顶栏高度必须由内容决定，否则放大系统字号后
+          // 「书名 + 章节副标题」两行会撑破固定高度而被裁（见 topBarHeight）。
           child: buildTop(),
         ),
         AnimatedPositioned(
@@ -201,10 +229,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   }
 
   Widget buildTop() {
-    final epName =
-      context.reader.widget.chapters?.titles.elementAtOrNull(
-        context.reader.chapter - 1,
-      );
+    final epName = _currentEpName;
 
     return BlurEffect(
       child: Container(

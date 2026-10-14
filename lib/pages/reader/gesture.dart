@@ -33,8 +33,9 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
     if (!scaffold.isOpen) return false;
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    // Top toolbar area
-    if (position.dy < _ReaderScaffoldState.kTopBarHeight + topPadding) {
+    // Top toolbar area —— 用 state 上的动态高度（顶栏会随系统字号长高），
+    // 用常量会把顶栏下方的阅读区误判成工具栏而吞掉翻页点击。
+    if (position.dy < scaffold.topBarHeight + topPadding) {
       return true;
     }
     // Bottom toolbar area

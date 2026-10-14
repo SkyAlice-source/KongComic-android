@@ -432,6 +432,21 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   Widget buildActions() {
     bool isMobile = context.width < changePoint;
     bool hasHistory = history != null && (history!.ep > 1 || history!.page > 1);
+    // 「继续阅读」进度条的高度。它有两行文字（章节名 + 阅读进度），会随系统
+    // 字号线性放大：固定 44dp 时 fs2.0 内容约 69dp，Column 下溢 26px、第二行
+    // 被整行裁掉。这里按当前 textScaler 取足高度，下限仍是 44dp。
+    final textScaler = MediaQuery.textScalerOf(context);
+    final continueTrackHeight = math.max(
+      44.0,
+      textScaler.scale(kcCaption) * kcLineHeightFactor +
+          2 +
+          textScaler.scale(kcFont10) * kcLineHeightFactor +
+          8,
+    );
+    // 下载进度条同理：固定 22dp 时放大字号会把「Downloading xx%」裁掉半行
+    // （单行 Text 不报 RenderFlex 异常，属于静默裁切，更隐蔽）。
+    final downloadTrackHeight =
+        math.max(22.0, textScaler.scale(kcFont11) * kcLineHeightFactor + 4);
     return SliverLazyToBoxAdapter(
       child: Column(
         children: [
@@ -522,7 +537,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SizedBox(
-                  height: 44,
+                  height: continueTrackHeight,
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(kcRadius22),
@@ -626,7 +641,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SizedBox(
-                  height: 22,
+                  height: downloadTrackHeight,
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(kcRadius11),

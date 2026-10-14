@@ -30,6 +30,7 @@ import 'package:kong_comic/foundation/image_provider/reader_image.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/foundation/res.dart';
+import 'package:kong_comic/foundation/text_styles.dart';
 import 'package:kong_comic/network/images.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/clipboard_image.dart';

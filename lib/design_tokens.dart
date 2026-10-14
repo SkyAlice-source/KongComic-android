@@ -22,6 +22,15 @@ const double kcSubtitle = 16;
 const double kcBody = 14;
 const double kcCaption = 12;
 
+// ── 行高估算 ───────────────────────────────────────────
+/// 未显式指定 `TextStyle.height` 时，中文字体（Noto Sans CJK）的实际行高倍率。
+///
+/// 用于「按系统字号估算固定高度容器该多高」的场景（阅读器顶栏、详情页
+/// 「继续阅读」/「下载中」进度条等）：`行高 ≈ fontSize * kcLineHeightFactor`。
+/// 系数由 fs2.0 实测反推（kcCaption+kcFont10 两行内容 70px ÷ 基线 44px 等），
+/// 取值比实测 1.545 略高，用于覆盖不同 ROM 的字体度量差异。
+const double kcLineHeightFactor = 1.55;
+
 // ── 层级阴影（取代各处长硬编码 black α）─────────────────
 /// 统一卡片阴影：亮色用浅黑、暗色用浅白，保证暗色下投影逻辑一致。
 BoxShadow kcCardShadow(BuildContext context) {

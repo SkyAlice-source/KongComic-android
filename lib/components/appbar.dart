@@ -168,6 +168,12 @@ class SliverAppbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 侧栏（SideBarRoute）内 AppBar 紧贴着同底色的面板内容，玻璃态
+    // （半透明白 0.66 + BackdropFilter 模糊）在这里会与内容区形成明显色块分层：
+    // 标题栏看起来「浮」在面板上，左缘还多出一道由模糊内容透出的灰白渐变色带。
+    // 侧栏内退回不透明样式，与面板底色（colorScheme.surface / 全局 bg 同为纯白）一致。
+    final effectiveStyle =
+        ModalRoute.of(context) is SideBarRoute ? AppbarStyle.shadow : style;
     return SliverPersistentHeader(
       pinned: true,
       delegate: _MySliverAppBarDelegate(
@@ -176,7 +182,7 @@ class SliverAppbar extends StatelessWidget {
         actions: actions,
         topPadding: MediaQuery.of(context).padding.top,
         radius: radius,
-        style: style,
+        style: effectiveStyle,
       ),
     );
   }
