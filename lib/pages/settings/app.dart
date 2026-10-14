@@ -7,7 +7,41 @@ class AppSettings extends StatefulWidget {
   State<AppSettings> createState() => _AppSettingsState();
 }
 
-class _AppSettingsState extends State<AppSettings> {
+class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
+  /// 是否已获得「所有文件访问」(MANAGE_EXTERNAL_STORAGE)。
+  ///
+  /// 这个权限只在 Manifest 里声明、从未运行时申请过；只有拿到它，默认存储目录
+  /// 才可能是公共 Download/Comic。这里把状态显示出来并给出入口，而不是让
+  /// findDefaultPath() 悄悄探测失败后回退。
+  bool _allFilesAccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadAllFilesAccess();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 从系统设置页返回后重新取一次，状态才会跟着变。
+    if (state == AppLifecycleState.resumed) {
+      _loadAllFilesAccess();
+    }
+  }
+
+  Future<void> _loadAllFilesAccess() async {
+    var granted = await LocalManager.hasAllFilesAccess();
+    if (!mounted) return;
+    if (granted == _allFilesAccess) return;
+    setState(() => _allFilesAccess = granted);
+  }
   /// 把下载目录迁移到 [result]：冲突检测 → 弹窗选择覆盖/合并 → 复制+删旧。
   /// 与「Set New Storage Path」和「Move to Download/Comic」共用。
   Future<void> _setStoragePath(String result) async {
@@ -151,7 +185,12 @@ class _AppSettingsState extends State<AppSettings> {
         ),
         ListTile(
           title: Text("Storage Path for local comics".tl),
-          subtitle: Text(LocalManager().path, softWrap: false),
+          // 路径很长：加省略号，否则会被硬裁到半截，用户看不出还有内容没显示。
+          subtitle: Text(
+            LocalManager().path,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+          ),
           trailing: IconButton(
             icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
             onPressed: () {
@@ -190,6 +229,15 @@ class _AppSettingsState extends State<AppSettings> {
           actionTitle: "Move".tl,
           callback: () => _moveExternalToCurrentPath(),
         ).toSliver(),
+        if (App.isAndroid)
+          _CallbackSetting(
+            title: "All files access".tl,
+            subtitle: _allFilesAccess
+                ? "Granted".tl
+                : "Required only to use the public Download/Comic folder".tl,
+            actionTitle: "Open".tl,
+            callback: () => LocalManager.openAllFilesAccessSettings(),
+          ).toSliver(),
         ListTile(
           title: Text("Cache Size".tl),
           subtitle: Text(bytesToReadableString(CacheManager().currentSize)),
@@ -520,19 +568,20 @@ class _StoragePathFallbackBannerState
             ),
           ),
           const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          // 三个按钮在 448dp 宽的手机屏上排成一行会溢出约 15px
+          // （"Choose a different folder" 太长），用 Wrap 让它们按需换行。
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 4,
             children: [
               Button.text(
                 onPressed: _ignore,
                 child: Text("Ignore".tl),
               ),
-              const SizedBox(width: 4),
               Button.text(
                 onPressed: _startPick,
                 child: Text("Choose a different folder".tl),
               ),
-              const SizedBox(width: 4),
               Button.filled(
                 isLoading: _busy,
                 onPressed: () => _switchTo(fallback.originalPath),

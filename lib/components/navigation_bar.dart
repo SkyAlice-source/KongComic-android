@@ -696,7 +696,10 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
       child: AnimatedContainer(
         duration: AppAnimations.duration(const Duration(milliseconds: 200)),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        // 横向 padding 从 16 收到 10：448dp 宽的手机屏（如 1344×2992@480）分 5 格
+        // 后每格约 83dp，16 的 padding 只剩 51dp，11sp 的 "Categories"（约 57dp）
+        // 放不下，会在底部导航里溢出约 7px（文字被裁成 "Categorie"）。
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           // 选中态背景交给底栏的「液体选中框」滑动药丸（_LiquidIndicator），
           // 这里只保留文字/图标的高亮色，避免两层背景叠加。
@@ -715,12 +718,18 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
               child: SizedBox(width: 22, height: 22, child: icon),
             ),
             const SizedBox(height: 3),
-            Text(
-              widget.entry.label,
-              style: TextStyle(
-                fontSize: kcFont11,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? activeClr : inactiveClr,
+            // 更长的标签（或更大字号/更窄的屏）再兜一层：缩放到格子内，
+            // 短标签不受影响，避免出现省略号或裁字。
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                widget.entry.label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: kcFont11,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  color: isActive ? activeClr : inactiveClr,
+                ),
               ),
             ),
           ],

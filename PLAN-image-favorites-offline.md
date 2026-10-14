@@ -252,7 +252,7 @@ if (manager.directory.path == target) {   // ← 恒为 true
 - 设置页新增 `_StoragePathFallbackBanner`（errorContainer 配色），放在存储路径项下方，
   展示原路径 + 三个操作按钮。
 
-### 7.3 🟠 `MANAGE_EXTERNAL_STORAGE` 声明了但从不申请
+### 7.3 🟠 `MANAGE_EXTERNAL_STORAGE` 声明了但从不申请 ✅ 已修（2026-10-14）
 - `AndroidManifest.xml:3` 声明了该权限，`local.dart:521-535 findDefaultPath()` 依赖它去写
   公共 `Download/Comic`（`detectDownloadComicPath()` :480）。
 - 但**全仓库没有任何运行时申请代码**（`grep -rn "requestPermission\|MANAGE_EXTERNAL_STORAGE" lib/` 为空，
@@ -262,16 +262,45 @@ if (manager.directory.path == target) {   // ← 恒为 true
 - 另：Google Play 上架时这个权限需要特殊声明且大概率被拒（ISSUES 清单 P2-1 已标记）。
 - 建议：要么删掉这条声明 + 明确只走 SAF，要么补一个显式引导页说明为何需要。
 
-### 7.4 🟡 `.nomedia` 会被写进用户选的任意目录
+**修复**（保留声明 + 补显式入口，因为方案 A 已定「默认私有 + 可选 SAF」）：
+- `MainActivity.kt` 新增两个方法：`hasAllFilesAccess`（API 30+ 用
+  `Environment.isExternalStorageManager()`，以下用 WRITE_EXTERNAL_STORAGE 检查）与
+  `openAllFilesAccessSettings`（API 30+ 跳 `ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION`）。
+- `LocalManager.hasAllFilesAccess()` / `openAllFilesAccessSettings()` 包成静态方法。
+- `findDefaultPath()`：**先查权限状态再决定是否探测** Download/Comic。没授予就直接用
+  app 专属外部目录 —— 把「探测失败 → 静默回退」这条隐形分支变成显式分支。
+- 设置页新增「All files access」项（仅 Android），显示 已授予/未授予 + 「Open」跳系统设置；
+  用 `WidgetsBindingObserver.didChangeAppLifecycleState(resumed)` 在返回时刷新状态。
+
+### 7.4 🟡 `.nomedia` 会被写进用户选的任意目录 ✅ 已修（2026-10-14）
 `local.dart:254-266 _checkNoMedia()` 在**每次 init 和每次换目录后**往 `path` 根写 `.nomedia`。
 若用户把目录指向自己还在用的相册/共享文件夹，其中的图片视频会**对系统相册整体隐藏**。
 建议：仅在目录为空或由 App 创建时写；SAF 树下写失败也应提示而非静默。
 
-### 7.5 🟡 根目录 Uri 匹配用的是子串查找
+**修复**：`_checkNoMedia()` 先 `listSync().isEmpty` 判断，**只有空目录才写**（新用户首次创建 /
+迁移到空目录的场景）；非空目录一律不写，列表异常时按非空处理（宁可不写也不误伤）。
+
+### 7.5 🟡 根目录 Uri 匹配用的是子串查找 ✅ 已修（2026-10-14）
 `FlutterSafPlugin.kt:101 getRootUriByName()` 对每个已授权 root 做 `path.indexOf(k)`，
 命中第一个即认为匹配。若用户先后授权过 `primary:Comic` 和 `primary:ComicBackup`，
 `android://primary:ComicBackup/...` 会被 `primary:Comic` 先命中 → 解析到错误的树。
 建议：改成前缀匹配 + 取最长匹配。
+
+**修复**：`getRootUriByName()` 改为 `startsWith` 前缀匹配，且要求 root id 后面紧跟 `/` 或到结尾
+（否则 `primary:Comic` 仍会吞掉 `primary:ComicBackup`），多个命中时取最长者；返回值仍为
+`Pair(0, uri)`，调用方的 `path.substring(rootInfo.first)` 切片逻辑不变。
+
+### 7.8 🔴 1.5K 手机屏（1344×2992 @480dpi = 448dp 宽）下的两处布局溢出 ✅ 已修（2026-10-14 实测发现）
+
+在 Pixel 8 Pro 规格的模拟器上实测发现（此前只在 1080p / 平板尺寸下跑过）：
+1. **底部导航标签溢出 7px**：5 个 tab 每格约 83dp，减掉 `horizontal: 16` 的 padding 只剩
+   51dp，11sp 的 "Categories"（约 57dp）放不下，文字被裁成 "Categorie" 并抛 overflow 警告。
+   修复：`_SingleBottomNaviWidget` 的横向 padding 16 → 10，外层再套
+   `FittedBox(scaleDown)` 兜底（短标签不受影响，长标签自动缩，不出现省略号）。
+2. **失效提示横幅的按钮行溢出 15px**："Choose a different folder" 与另外两个按钮排一行放不下。
+   修复：`Row` → `Wrap(alignment: end, spacing: 4)` 按需换行。
+3. 顺带：设置页存储路径的 subtitle 原先 `softWrap: false` 无省略号，长路径被硬裁成半截，
+   补 `overflow: TextOverflow.ellipsis`。
 
 ### 7.6 🟡 图片收藏目录与存储路径设置完全脱钩
 `ImageFavoritesProvider.localImageFile()` 写死在 `App.dataPath/image_favorites_local/`，
@@ -279,7 +308,23 @@ if (manager.directory.path == target) {   // ← 恒为 true
 这正是方案 A 要解决的：把图片收藏纳入同一套「存储位置」设置（第 6 节决策 2）。
 
 ### 7.7 结论
-- 必须修：**7.1**（一行判据错，功能是死的）、**7.2**（静默丢数据的观感问题）。
-- 建议修：**7.3 / 7.4**（权限与副作用），其中 7.3 与上架合规相关。
-- 可选：**7.5**（多目录授权的边界情况）。
-- 7.6 由本次方案 A 一并解决。
+- 必须修：**7.1**（一行判据错，功能是死的）、**7.2**（静默丢数据的观感问题）。→ ✅ 已修
+- 建议修：**7.3 / 7.4**（权限与副作用），其中 7.3 与上架合规相关。→ ✅ 已修
+- 可选：**7.5**（多目录授权的边界情况）。→ ✅ 已修
+- 7.6 由本次方案 A 一并解决。→ ⏳ 待方案 A 实施
+- 额外：**7.8**（1.5K 屏实测发现的布局溢出）→ ✅ 已修
+
+实测验证记录（Pixel 8 Pro 规格模拟器，1344×2992 @480dpi）：
+| 项 | 操作 | 结果 |
+|---|---|---|
+| 7.1 | 点 Move（无散落漫画） | 提示 "Already in current storage path"，不崩 ✓ |
+| 7.2 | 把 local_path 指向不存在目录后重启 | 生成 `local_path_invalid`，回退到默认目录 ✓ |
+| 7.2 | 进设置页 | 横幅正常显示，含原路径 + 三按钮 ✓ |
+| 7.2 | 点 Use original folder（目录存在但不可写） | 提示 "Cannot write to this directory"，不改路径 ✓ |
+| 7.2 | 点 Ignore | 横幅消失、标记文件删除、路径不变 ✓ |
+| 7.3 | 设置页 | 「All files access」显示未授予；存储路径走 app 专属目录（不再静默探测）✓ |
+| 7.3 | 点 Open | 跳到系统「所有文件访问」页（com.android.settings/.spa.SpaActivity）✓ |
+| 7.4 | 目录非空时重启 | 不再写 `.nomedia` ✓（空目录仍会写） |
+| 7.8 | 首页 + 设置页 | 底栏 "Categories" 完整显示、横幅按钮换行、路径带省略号，无 overflow 警告 ✓ |
+
+未覆盖：SAF 目录（`android://`）下的 7.5 前缀匹配只能靠代码审查，模拟器上无法构造多目录授权场景。

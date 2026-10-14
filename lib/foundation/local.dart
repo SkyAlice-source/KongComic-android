@@ -309,16 +309,29 @@ class LocalManager with ChangeNotifier {
   static const _pathFallbackFile = 'local_path_invalid';
 
   void _checkNoMedia() {
-    if (App.isAndroid) {
+    if (!App.isAndroid) return;
+    try {
+      var dir = Directory(path);
+      // 只在这个目录确实是给 App 用的（空的 / 刚建出来的）时才写 .nomedia。
+      //
+      // .nomedia 会让**整个目录树**里的图片、视频对系统相册隐藏，且用户很难察觉。
+      // 之前不管目录里有什么都写：一旦用户把存储路径指向自己还在用的相册或共享
+      // 文件夹，其中的媒体就整体从系统相册消失了。非空的目录一律不写。
+      bool isEmpty;
       try {
-        var file = File(FilePath.join(path, '.nomedia'));
-        if (!file.existsSync()) {
-          file.createSync();
-        }
-      } catch (e, s) {
-        // 防御：路径异常（如权限中途被收回）时不能让 init 直接崩掉。
-        Log.error("IO", "Failed to write .nomedia: $e", s);
+        isEmpty = dir.listSync().isEmpty;
+      } catch (_) {
+        // 列不出来（权限/SAF 异常）时按非空处理，宁可不写也不误伤。
+        isEmpty = false;
       }
+      if (!isEmpty) return;
+      var file = File(FilePath.join(path, '.nomedia'));
+      if (!file.existsSync()) {
+        file.createSync();
+      }
+    } catch (e, s) {
+      // 防御：路径异常（如权限中途被收回）时不能让 init 直接崩掉。
+      Log.error("IO", "Failed to write .nomedia: $e", s);
     }
   }
 
@@ -720,14 +733,45 @@ class LocalManager with ChangeNotifier {
     return null;
   }
 
+  /// 是否已获得「所有文件访问」(MANAGE_EXTERNAL_STORAGE)。
+  ///
+  /// 这个权限只在 Manifest 里声明过，**从未在运行时申请**，所以默认必然是未授予。
+  /// 用它把 Download/Comic 探测「门」起来：未授予就直接用 app 专属目录，不再出现
+  /// 「探测失败 → 静默回退」这种用户看不见的分支。
+  /// Android 10 及以下没有这个权限模型，按已授予处理（那时走 WRITE_EXTERNAL_STORAGE）。
+  static Future<bool> hasAllFilesAccess() async {
+    if (!App.isAndroid) return false;
+    try {
+      return await const MethodChannel('kong_comic/method_channel')
+              .invokeMethod<bool>('hasAllFilesAccess') ??
+          false;
+    } catch (e) {
+      Log.warning("IO", "Failed to query all-files access: $e");
+      return false;
+    }
+  }
+
+  /// 打开系统的「所有文件访问」设置页，由用户自己决定是否授予。
+  static Future<void> openAllFilesAccessSettings() async {
+    if (!App.isAndroid) return;
+    try {
+      await const MethodChannel('kong_comic/method_channel')
+          .invokeMethod('openAllFilesAccessSettings');
+    } catch (e) {
+      Log.error("IO", "Failed to open all-files access settings: $e", null);
+    }
+  }
+
   Future<String> findDefaultPath() async {
     if (App.isAndroid) {
-      // 优先使用公共 Download/Comic 目录（用户可见、方便用文件管理器管理/拷出）。
-      // 依赖 MANAGE_EXTERNAL_STORAGE「所有文件访问」权限（Manifest 已声明）；
-      // 未授予时写测试文件失败，自动回退到应用专属外部目录，不影响使用。
-      var comic = await detectDownloadComicPath();
-      if (comic != null) {
-        return comic;
+      // 公共 Download/Comic 需要「所有文件访问」权限。先查状态再决定：没授予还硬
+      // 去探测，结果必然是写测试文件失败后静默回退 —— 用户以为默认在
+      // Download/Comic，实际不在。设置页提供了授权入口，授予后这里会自动生效。
+      if (await hasAllFilesAccess()) {
+        var comic = await detectDownloadComicPath();
+        if (comic != null) {
+          return comic;
+        }
       }
       var external = await getExternalStorageDirectories();
       if (external != null && external.isNotEmpty) {

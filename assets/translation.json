@@ -1006,7 +1006,10 @@
     "Use original folder": "使用原文件夹",
     "Choose a different folder": "选择其他文件夹",
     "Ignore": "忽略",
-    "Cannot write to this directory": "无法写入此目录"
+    "Cannot write to this directory": "无法写入此目录",
+    "All files access": "所有文件访问权限",
+    "Granted": "已授予",
+    "Required only to use the public Download/Comic folder": "仅在使用公共 Download/Comic 目录时需要"
   },
   "zh_TW": {
     "Hide navigation while reading": "閱讀時隱藏導覽列",
@@ -2015,7 +2018,10 @@
     "Use original folder": "使用原資料夾",
     "Choose a different folder": "選擇其他資料夾",
     "Ignore": "忽略",
-    "Cannot write to this directory": "無法寫入此目錄"
+    "Cannot write to this directory": "無法寫入此目錄",
+    "All files access": "所有檔案存取權限",
+    "Granted": "已授予",
+    "Required only to use the public Download/Comic folder": "僅在使用公開 Download/Comic 目錄時需要"
   },
   "ja_JP": {
     "Hide navigation while reading": "閲覧時にナビゲーションを隠す",
@@ -3024,6 +3030,9 @@
     "Use original folder": "元のフォルダーを使う",
     "Choose a different folder": "別のフォルダーを選ぶ",
     "Ignore": "無視",
-    "Cannot write to this directory": "このフォルダーに書き込めません"
+    "Cannot write to this directory": "このフォルダーに書き込めません",
+    "All files access": "すべてのファイルへのアクセス",
+    "Granted": "付与済み",
+    "Required only to use the public Download/Comic folder": "公開の Download/Comic フォルダーを使う場合のみ必要"
   }
 }

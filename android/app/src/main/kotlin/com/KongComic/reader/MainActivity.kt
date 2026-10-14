@@ -162,6 +162,45 @@ class MainActivity : FlutterFragmentActivity() {
                     res.success(Environment.getExternalStorageDirectory().absolutePath)
                 }
 
+                // MANAGE_EXTERNAL_STORAGE is declared in the manifest but was never
+                // requested at runtime, so `Download/Comic` probing used to fail
+                // silently and fall back to the app-specific directory. Expose the
+                // real state so the default-path logic can branch on it instead of
+                // guessing, and give the settings page an entry point to grant it.
+                "hasAllFilesAccess" -> {
+                    res.success(
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            Environment.isExternalStorageManager()
+                        } else {
+                            // Pre-11 uses WRITE_EXTERNAL_STORAGE instead.
+                            ContextCompat.checkSelfPermission(
+                                this,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                            ) == PackageManager.PERMISSION_GRANTED
+                        }
+                    )
+                }
+
+                "openAllFilesAccessSettings" -> {
+                    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        Intent(
+                            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                            Uri.parse("package:$packageName")
+                        )
+                    } else {
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:$packageName")
+                        )
+                    }
+                    try {
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Log.w("MainActivity", "Cannot open all-files access settings: $e")
+                    }
+                    res.success(null)
+                }
+
                 "getWebViewCookie" -> {
                     val url = call.argument<String>("url")
                     if (url.isNullOrEmpty()) {

@@ -99,13 +99,26 @@ class SAFPathWrapper(private val myContext: Context) {
   }
 
   private fun getRootUriByName(path: String): Pair<Int, Uri>? {
-    for (k in _roots.keys) {
-      val pos = path.indexOf(k)
-      if (pos != -1) {
-        return Pair(pos, _roots[k])
+    // Must be a prefix match, not `indexOf`: with two granted roots such as
+    // `primary:Comic` and `primary:ComicBackup`, a plain substring search
+    // resolves `primary:ComicBackup/foo` to whichever root happens to be
+    // iterated first — i.e. the wrong tree, and the path then silently
+    // degrades to "accessible by direct path" instead of opening the file.
+    // When several roots match, the longest (most specific) one wins.
+    var bestId: String? = null
+    var bestUri: Uri? = null
+    for ((id, uri) in _roots) {
+      if (id.isEmpty() || !path.startsWith(id)) continue
+      // `id` has to end on a path boundary, otherwise `primary:Comic` would
+      // still swallow `primary:ComicBackup`.
+      if (path.length > id.length && path[id.length] != '/') continue
+      if (bestId == null || id.length > bestId!!.length) {
+        bestId = id
+        bestUri = uri
       }
     }
-    return null
+    // The root id always sits at the head of `path`, so callers slice from 0.
+    return bestId?.let { Pair(0, bestUri!!) }
   }
 
   //document descriptor:
