@@ -214,14 +214,17 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
       borderRadius: BorderRadius.circular(kcRadius8),
       child: Container(
         width: 98,
-        height: 128,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(kcRadius8),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Column(
           children: [
-            Container(
+            // 缩略图不再占死高度：外层行高是固定的 145，图片 128 + 页码文字在系统
+            // 字号放大后会超过它（fs1.8 溢出 9~11px、fs2.5 溢出 19~22px）。
+            // Flexible(loose) 让图片在空间不足时自己收缩，默认字号下仍是 128。
+            Flexible(
+              child: Container(
               height: 128,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(kcRadius8),
@@ -232,7 +235,10 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                   children: [
                     Positioned.fill(
                       child: Hero(
-                        tag: "${image.sourceKey}${image.ep}${image.page}",
+                        // 必须带上漫画 id：同一源下不同漫画的第 N 页会共用
+                        // sourceKey+ep+page，Hero 标签重复会在打开全屏预览时抛
+                        // "multiple heroes share the same tag"（并让动画接错图）。
+                        tag: "${image.sourceKey}@${image.id}@${image.ep}@${image.page}",
                         child: AnimatedImage(
                           // Key by the image's full identity so that when the
                           // list reorders after a delete, Flutter rebuilds this
@@ -244,6 +250,12 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                           height: 128,
                           fit: BoxFit.cover,
                           filterQuality: FilterQuality.medium,
+                          // 缩略图只有 96x128，按原图解码会把整张页面（可达 8K）
+                          // 都放进内存；限制解码尺寸后每个缩略图只占约 1/20 内存。
+                          cacheWidth:
+                              (96 * MediaQuery.of(context).devicePixelRatio).round(),
+                          cacheHeight:
+                              (128 * MediaQuery.of(context).devicePixelRatio).round(),
                         ),
                       ),
                     ),
@@ -305,6 +317,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                   ],
                 ),
               ),
+            ),
             Text(
               pageText,
               style: ts.s10,

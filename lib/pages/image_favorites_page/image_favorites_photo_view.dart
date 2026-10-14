@@ -74,7 +74,10 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
         });
       },
       heroAttributes: PhotoViewHeroAttributes(
-        tag: "${image.sourceKey}${image.ep}${image.page}",
+        // Keep this in sync with the thumbnail Hero in image_favorites_item.dart:
+        // the comic id is required for uniqueness (same source + ep + page can
+        // belong to several comics, which would duplicate the tag).
+        tag: "${image.sourceKey}@${image.id}@${image.ep}@${image.page}",
       ),
     );
   }

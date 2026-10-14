@@ -72,7 +72,7 @@ class ImageFavoritesProvider
   }
 
   Future<void> writeToCache(Uint8List image) async {
-    var fileName = md5.convert(key.codeUnits).toString();
+    var fileName = _cacheFileName(imageFavorite);
     var file = File(FilePath.join(App.cachePath, 'image_favorites', fileName));
     if (!file.existsSync()) {
       file.createSync(recursive: true);
@@ -81,7 +81,7 @@ class ImageFavoritesProvider
   }
 
   Future<Uint8List?> readFromCache() async {
-    var fileName = md5.convert(key.codeUnits).toString();
+    var fileName = _cacheFileName(imageFavorite);
     var file = File(FilePath.join(App.cachePath, 'image_favorites', fileName));
     if (!file.existsSync()) {
       return null;
@@ -89,12 +89,41 @@ class ImageFavoritesProvider
     return await file.readAsBytes();
   }
 
+  /// The one and only source of truth for the provider key / cache file name.
+  ///
+  /// `page` must be part of it: the key is also the provider's identity
+  /// (`operator ==` / `hashCode`), and Flutter's image cache is keyed by it.
+  /// Without `page`, every page of one chapter produced the same key — so all
+  /// the thumbnails of a chapter showed whichever page decoded first, and the
+  /// on-disk cache (one file per key) got overwritten page by page.
+  ///
+  /// [deleteFromCache] used to hash `imageFavorite.imageKey` alone, which never
+  /// matched what [writeToCache] wrote — so deleting a favorite left its cached
+  /// image on disk permanently.
+  static String _cacheKeyOf(ImageFavorite f) =>
+      "ImageFavorites ${f.imageKey}@${f.sourceKey}@${f.id}@${f.eid}@${f.page}";
+
+  static String _cacheFileName(ImageFavorite f) =>
+      md5.convert(_cacheKeyOf(f).codeUnits).toString();
+
   /// Delete a image favorite cache
   static Future<void> deleteFromCache(ImageFavorite imageFavorite) async {
-    var fileName = md5.convert(imageFavorite.imageKey.codeUnits).toString();
-    var file = File(FilePath.join(App.cachePath, 'image_favorites', fileName));
-    if (file.existsSync()) {
-      await file.delete();
+    // Current name + the two legacy names (key without `page`, and
+    // `md5(imageKey)`), so files orphaned by older versions are reclaimed too.
+    final names = <String>{
+      _cacheFileName(imageFavorite),
+      md5.convert("ImageFavorites ${imageFavorite.imageKey}@"
+              "${imageFavorite.sourceKey}@${imageFavorite.id}@"
+              "${imageFavorite.eid}"
+              .codeUnits)
+          .toString(),
+      md5.convert(imageFavorite.imageKey.codeUnits).toString(),
+    };
+    for (final name in names) {
+      final file = File(FilePath.join(App.cachePath, 'image_favorites', name));
+      if (file.existsSync()) {
+        await file.delete();
+      }
     }
     // also drop the persistent offline copy if present
     final local = localImageFile(imageFavorite);
@@ -205,6 +234,5 @@ class ImageFavoritesProvider
   }
 
   @override
-  String get key =>
-      "ImageFavorites ${imageFavorite.imageKey}@${imageFavorite.sourceKey}@${imageFavorite.id}@${imageFavorite.eid}";
+  String get key => _cacheKeyOf(imageFavorite);
 }
