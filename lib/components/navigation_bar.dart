@@ -163,6 +163,19 @@ class NaviPaneState extends State<NaviPane>
 
   static const _kBottomBarHeight = 58.0;
 
+  /// 底栏栏体的实际高度（随系统字体缩放自适应）。
+  ///
+  /// 每个 tab 的内容是「图标 22 + 间隙 3 + 文字」这一列，系统字体放大时它会变高。
+  /// 1080×2400@420 + fontScale 1.8 实测：内容需要 54dp，而栏体扣掉上下各 4dp
+  /// 内边距后只剩 50dp，5 个 tab 会一起抛
+  /// 「RenderFlex overflowed by 4.0 pixels on the bottom」（见 navigation_bar.dart
+  /// 的 buildContent）。所以栏体高度跟随文字缩放同步长高，上限 1.6 倍
+  /// （对应 fontScale≈3.0 仍放得下），避免大字号下底栏把导航内容裁掉。
+  double get bottomBarBodyHeight {
+    final scale = MediaQuery.textScalerOf(context).scale(1.0);
+    return _kBottomBarHeight * scale.clamp(1.0, 1.6);
+  }
+
   /// 悬浮胶囊底栏四周的留白（浮岛式导航：不贴边、不贴底）。
   /// ⚠️ 改动这里的竖向值必须同步 [bottomBarHeight]，否则页面预留的底部
   /// 空间和底栏实际占位不一致，列表最后一项会被压在底栏下面。
@@ -178,7 +191,7 @@ class NaviPaneState extends State<NaviPane>
   /// 底栏**实际遮挡**的高度：栏体 + 下方留白 + 系统手势区。
   /// 页面（列表底部 padding、悬浮按钮）靠它给内容让位。
   double get bottomBarHeight =>
-      _kBottomBarHeight + _kBottomBarMarginV + MediaQuery.of(context).padding.bottom;
+      bottomBarBodyHeight + _kBottomBarMarginV + MediaQuery.of(context).padding.bottom;
 
   /// 底栏外边距。底部额外留出系统手势区，避免胶囊压在手势条上。
   EdgeInsets bottomBarMargin(BuildContext context) => EdgeInsets.fromLTRB(
@@ -458,7 +471,7 @@ class NaviPaneState extends State<NaviPane>
 
   Widget buildBottom(BuildContext context) {
     return GlassBottomBar(
-      height: _kBottomBarHeight,
+      height: bottomBarBodyHeight,
       edgeToEdge: true,
       // ColorOS 17 浮岛式导航：胶囊底栏悬浮在内容之上，两侧与底部留白，
       // 而非全宽贴边，强化「轻盈、分层」的视觉。
@@ -467,6 +480,9 @@ class NaviPaneState extends State<NaviPane>
         pageListenable: _pageNotifier,
         count: widget.paneItems.length,
         width: width,
+        // 药丸高度与栏体同步（保持 44/58 的比例），否则大字号下底栏长高了、
+        // 选中药丸还是原来那个小尺寸，观感会很别扭。
+        height: bottomBarBodyHeight * 44 / _kBottomBarHeight,
       ),
       children: [
         ...List<Widget>.generate(widget.paneItems.length, (index) {
@@ -557,22 +573,35 @@ class _SideNaviWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final icon = enabled ? entry.activeIcon : entry.icon;
-    return InkWell(
-      borderRadius: BorderRadius.circular(kcCardRadius),
+    // 宽屏（>changePoint）下导航由底部胶囊换成左侧栏，而左侧栏整条子树不会
+    // 进入语义树 —— 实测 1706x1066dp 的平板界面上，侧栏 5 个入口对
+    // uiautomator / TalkBack 完全不可见（底部导航却正常暴露）。
+    // 结果是用读屏软件的平板/横屏用户根本没有导航可用。
+    // 这里显式补一个语义节点：带 label、button、selected 与 onTap，
+    // 并 excludeSemantics 掉子树，避免与内部 Text 重复朗读。
+    return Semantics(
+      label: entry.label,
+      button: true,
+      selected: enabled,
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        height: 38,
-        decoration: BoxDecoration(
-          color: enabled ? colorScheme.primaryContainer : null,
-          borderRadius: BorderRadius.circular(kcCardRadius),
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(kcCardRadius),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          height: 38,
+          decoration: BoxDecoration(
+            color: enabled ? colorScheme.primaryContainer : null,
+            borderRadius: BorderRadius.circular(kcCardRadius),
+          ),
+          child: showTitle
+              ? Row(
+                  children: [icon, const SizedBox(width: 12), Text(entry.label)],
+                )
+              : Align(alignment: Alignment.centerLeft, child: icon),
         ),
-        child: showTitle
-            ? Row(
-                children: [icon, const SizedBox(width: 12), Text(entry.label)],
-              )
-            : Align(alignment: Alignment.centerLeft, child: icon),
       ),
     ).paddingVertical(4);
   }
@@ -592,18 +621,26 @@ class _PaneActionWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = entry.icon;
-    return InkWell(
+    // 同 _SideNaviWidget：侧栏里的动作项（搜索/切换视图等）也要补语义节点，
+    // 否则宽屏下读屏用户同样看不到这些入口。
+    return Semantics(
+      label: entry.label,
+      button: true,
       onTap: entry.onTap,
-      borderRadius: BorderRadius.circular(kcCardRadius),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        height: 38,
-        child: showTitle
-            ? Row(
-                children: [icon, const SizedBox(width: 12), Text(entry.label)],
-              )
-            : Align(alignment: Alignment.centerLeft, child: icon),
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: entry.onTap,
+        borderRadius: BorderRadius.circular(kcCardRadius),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          height: 38,
+          child: showTitle
+              ? Row(
+                  children: [icon, const SizedBox(width: 12), Text(entry.label)],
+                )
+              : Align(alignment: Alignment.centerLeft, child: icon),
+        ),
       ),
     ).paddingVertical(4);
   }
@@ -749,10 +786,14 @@ class _LiquidIndicator extends StatelessWidget {
   /// 底栏内容宽度（由 GlassBottomBar 的 LayoutBuilder 测得）。
   final double width;
 
+  /// 药丸高度，跟随栏体高度自适应（大字号下栏体变高）。
+  final double height;
+
   const _LiquidIndicator({
     required this.pageListenable,
     required this.count,
     required this.width,
+    this.height = 44,
   });
 
   @override
@@ -789,7 +830,7 @@ class _LiquidIndicator extends StatelessWidget {
                       // 显式尺寸：药丸需要包住 item 的「图标 22 + 间隙 3 + 文字」，
                       // 不能靠 padding 撑（无 child 时只有 32×8 的小点，看不见）。
                       width: 62,
-                      height: 44,
+                      height: height,
                       decoration: BoxDecoration(
                         color: cs.primary.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(999),
