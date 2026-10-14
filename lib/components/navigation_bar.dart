@@ -537,19 +537,35 @@ class NaviPaneState extends State<NaviPane>
           children: [
             const SizedBox(height: 16),
             SizedBox(height: MediaQuery.of(context).padding.top),
-            ...List<Widget>.generate(
-              widget.paneItems.length,
-              (index) => _SideNaviWidget(
-                enabled: currentPage == index,
-                entry: widget.paneItems[index],
-                showTitle: value == 3,
-                onTap: () {
-                  updatePage(index);
-                },
-                key: ValueKey(index),
+            // 侧栏内容的总高度并不固定：main_page 会按当前页额外注入一个动作
+            // （收藏页的「切换列表/网格视图」，见 _showLayoutToggle），于是
+            // 动作区在 2 项和 3 项之间浮动，每项 46dp。
+            // 横屏手机的高度只有 ~400dp：891x411dp 的折叠侧栏遇到 3 个动作时
+            // 5 个入口 + 3 个动作 + 上下留白共需 ~432dp，实测抛
+            // 「RenderFlex overflowed by 17 pixels on the bottom」。
+            //
+            // 这里把入口区改成可滚动、动作区固定在底部：空间足够时 Expanded
+            // 占据剩余空间、把动作压到底，观感与原 Spacer 完全一致；空间不够时
+            // 入口区可上下滚动，而不是把整个 Column 顶破。
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List<Widget>.generate(
+                    widget.paneItems.length,
+                    (index) => _SideNaviWidget(
+                      enabled: currentPage == index,
+                      entry: widget.paneItems[index],
+                      showTitle: value == 3,
+                      onTap: () {
+                        updatePage(index);
+                      },
+                      key: ValueKey(index),
+                    ),
+                  ),
+                ),
               ),
             ),
-            const Spacer(),
             ...List<Widget>.generate(
               widget.paneActions.length,
               (index) => _PaneActionWidget(
@@ -619,7 +635,13 @@ class _SideNaviWidget extends StatelessWidget {
           ),
           child: showTitle
               ? Row(
-                  children: [icon, const SizedBox(width: 12), Text(entry.label)],
+                  children: [
+                    icon,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(entry.label, overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
                 )
               : Align(alignment: Alignment.centerLeft, child: icon),
         ),
@@ -660,7 +682,13 @@ class _PaneActionWidget extends StatelessWidget {
           height: 38,
           child: showTitle
               ? Row(
-                  children: [icon, const SizedBox(width: 12), Text(entry.label)],
+                  children: [
+                    icon,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(entry.label, overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
                 )
               : Align(alignment: Alignment.centerLeft, child: icon),
         ),

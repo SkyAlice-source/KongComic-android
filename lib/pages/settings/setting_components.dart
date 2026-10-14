@@ -205,9 +205,14 @@ class _DoubleLineSelectSettingsState extends State<_DoubleLineSelectSettings> {
         : appdata.settings[widget.settingKey];
 
     return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      // 标题行是「标题文字 + 帮助按钮」：文字必须有宽度上限，否则系统字体放大后
+      // 一整行 Text 会把 Row 顶破。实测 411x914dp + fontScale 2.5 的「发现」设置页
+      // 会抛「RenderFlex overflowed by 64 pixels on the right」。
       title: Row(
         children: [
-          Text(widget.title),
+          Flexible(
+            child: Text(widget.title, overflow: TextOverflow.ellipsis),
+          ),
           const SizedBox(width: 4),
           if (widget.help != null)
             Button.icon(
@@ -334,9 +339,12 @@ class _EndSelectorSelectSettingState extends State<_EndSelectorSelectSetting> {
         ? appdata.settings.getDeviceReaderSetting(widget.settingKey)
         : appdata.settings[widget.settingKey];
     return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      // 同 _DoubleLineSelectSettings：标题文字需要宽度上限，避免大字号下溢出。
       title: Row(
         children: [
-          Text(widget.title),
+          Flexible(
+            child: Text(widget.title, overflow: TextOverflow.ellipsis),
+          ),
           const SizedBox(width: 4),
           if (widget.help != null)
             Button.icon(
@@ -755,9 +763,13 @@ class _SettingPartTitle extends StatelessWidget {
           children: [
             icon,
             const SizedBox(width: 12),
-            Text(title, style: ts.s18.copyWith(
-              color: cs.onSurface,
-            )),
+            Flexible(
+              child: Text(title,
+                  style: ts.s18.copyWith(
+                    color: cs.onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis),
+            ),
           ],
         ),
       ),
