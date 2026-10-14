@@ -1280,10 +1280,12 @@ class LocalManager with ChangeNotifier {
       notifyListeners();
       saveCurrentDownloadingTasks();
     }
-    // Never resume a task the user paused themselves: adding a new download
-    // (or finishing one) would otherwise silently undo that pause.
+    // Only auto-start the head when the user did not pause it and it is not in
+    // an error state. `isPaused` is intentionally *not* used here: it is
+    // `!_isRunning`, so a freshly queued task reports `paused` and would never
+    // start. `pausedByUser` records an explicit user pause instead.
     final head = downloadingTasks.firstOrNull;
-    if (head != null && !head.isPaused) {
+    if (head != null && !head.pausedByUser && !head.isError) {
       head.resume();
     }
   }

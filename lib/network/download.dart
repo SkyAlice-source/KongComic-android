@@ -46,6 +46,15 @@ abstract class DownloadTask with ChangeNotifier {
   /// root path for the comic. If null, the task is not scheduled.
   String? path;
 
+  /// Whether the user explicitly paused this task.
+  ///
+  /// This is deliberately separate from [isPaused], which is simply
+  /// `!_isRunning` and is therefore *also* true for a task that has been queued
+  /// but not started yet. Queue management uses this flag instead of [isPaused]
+  /// so that adding a new download actually starts it, while a task the user
+  /// paused on purpose is never resumed behind their back.
+  bool pausedByUser = false;
+
   /// convert current state to json, which can be used to restore the task
   Map<String, dynamic> toJson();
 
@@ -149,6 +158,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
     if (isPaused) {
       return;
     }
+    pausedByUser = true;
     _isRunning = false;
     _message = "Paused".tl;
     _currentSpeed = 0;
@@ -250,6 +260,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
     _isError = false;
     _message = "Resuming...".tl;
     _isRunning = true;
+    pausedByUser = false;
     notifyListeners();
     runRecorder();
 
@@ -785,6 +796,7 @@ class ArchiveDownloadTask extends DownloadTask {
   @override
   void pause() {
     _isRunning = false;
+    pausedByUser = true;
     _message = "Paused".tl;
     _downloader?.stop();
     notifyListeners();
@@ -801,6 +813,7 @@ class ArchiveDownloadTask extends DownloadTask {
     }
     _isError = false;
     _isRunning = true;
+    pausedByUser = false;
     notifyListeners();
     _message = "Downloading...".tl;
 

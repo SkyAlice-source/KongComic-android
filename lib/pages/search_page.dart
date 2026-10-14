@@ -738,8 +738,7 @@ class _SearchPageState extends State<SearchPage> {
       );
     }
 
-    return RepaintBoundary(
-      child: SliverMainAxisGroup(
+    return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
           child: ListTile(
@@ -766,7 +765,7 @@ class _SearchPageState extends State<SearchPage> {
           ),
         ),
       ],
-    ));
+    );
   }
 
   Widget _buildTopSearchBar() {
