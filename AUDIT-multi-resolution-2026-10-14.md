@@ -75,7 +75,7 @@
   | 2.0 | 244px（命中 1.6 倍上限） | 0 |
   | 2.5 | 244px | 0 |
 
-### 3.2 宽屏左侧导航栏无无障碍语义（已加标注，生效性待跟进 ⚠️）
+### 3.2 宽屏左侧导航栏无无障碍语义（已修复 ✅）
 
 - **现象**：宽度 > `changePoint`(600dp) 时导航由底部胶囊换成左侧栏，而**侧栏整条子树
   不进入语义树**。1706×1066dp 与 1973×1232dp 两档上，`uiautomator` 只能看到主内容区
@@ -84,11 +84,33 @@
   完全正常——说明不是本 App 未接入无障碍，而是**侧栏这条子树**的问题。
 - **影响**：使用读屏软件（TalkBack）的平板用户与横屏手机用户没有导航可用。
   属无障碍缺陷，不影响视觉与手势。
-- **已做**：给 `_SideNaviWidget` / `_PaneActionWidget` 补
-  `Semantics(label/button/selected/onTap + excludeSemantics)`。
-- **未决**：补标后 `uiautomator` **仍读不到**侧栏节点。已排除「`wm size` override 导致
-  无障碍树不完整」这一可能（用真实旋转的 997×448dp 横屏复现同样现象）。
-  根因未定位，标注保留。
+- **第一次尝试（无效）**：给 `_SideNaviWidget` / `_PaneActionWidget` 补
+  `Semantics(label/button/selected/onTap + excludeSemantics)`，`uiautomator` 仍读不到；
+  且折叠态（无 `Text`）与展开态（有 `Text`）**都一样读不到**，说明与侧栏自身标注无关。
+- **根因（本轮定位）**：问题不在侧栏，而在**主视图**。
+  - 侧栏与主视图是这个 `Stack` 的两个同层兄弟（侧栏先、主视图后）。
+  - 主视图内部是 `Navigator → route → ModalBarrier`，而 `ModalBarrier` 用
+    `BlockSemantics` 包住内容（见 `flutter/lib/src/widgets/modal_barrier.dart:264`），
+    其语义是「屏蔽排在它前面的所有兄弟」。
+  - 该 `isBlockingPreviousSibling` 标记会沿语义树**向上传播**，直到撞上一个语义边界
+    （`isSemanticBoundary`）才停；而本 `Stack` 与主视图之间没有任何边界，于是传播到
+    Stack 这一层，Stack 收集子节点时按规则**把排在主视图前面的侧栏整条清掉**
+    （`_RenderObjectSemantics.updateChildren` → `_getNonBlockedChildren`：遇到 blocking
+    子节点会先 `result.clear()` 再加自己，见 `rendering/object.dart`）。
+  - 所以侧栏「整条子树」被抹掉，与侧栏自身有没有补 Semantics、折叠/展开都无关。
+- **修复**：给主视图套一个语义边界
+  `Semantics(container: true, child: buildMainView())`，把内部的 `BlockSemantics` 关在
+  边界内（`isBlockingPreviousSibling` 遇到边界节点直接返回 `false`），不再向上泄漏。
+  侧栏各项保留 `Semantics(container: true, …)`：折叠态图标项没有 `Text`，必须自己成
+  边界才能暴露 label，同时避免 label/onTap 被合并到根节点。
+- **验证**（`uiautomator` 为准；横屏用真实旋转 997×448dp，展开用 1706×1066dp）：
+
+  | 场景 | 修复前 | 修复后 |
+  |---|---|---|
+  | 横屏折叠（997dp `value=2.0`） | 仅 3 个主内容节点，侧栏 0 个 | 侧栏 5 入口 + 2 动作全部可见（`content-desc` 齐全） |
+  | 展开（1706dp `value=3.0`） | 侧栏 0 个 | 侧栏 5 + 2 全部可见 |
+  | 竖屏（448dp `value=0.0`） | 底部导航正常 | 底部导航正常；侧栏因在屏幕外被 Flutter 正确丢弃，**无重复朗读** |
+
 - **顺带澄清**：审计中途一度以为「横屏下侧栏点不动」，实为**我自己的坐标算错**——
   横屏有 151px（≈50dp）左侧安全区，侧栏实际位于 x∈[187,331]px，我点在了它的内边距里。
   用正确坐标后 5 个 tab 依序全部命中，手势完全正常。
@@ -115,4 +137,5 @@
 - 16 档分辨率 × 字号配置下，**除已修的底栏溢出外，无越界、无压扁、无布局异常**。
 - 响应式断点（600 / 720 / 1300dp）行为符合预期，`changePoint2` 的全展开侧栏分支
   （1706dp / 1973dp 两档）首次得到验证。
-- 遗留一项待跟进：宽屏侧栏的无障碍语义（3.2）。
+- 遗留一项已闭环：宽屏侧栏的无障碍语义（3.2）——根因是主视图的 `BlockSemantics`
+  反向清掉了同层侧栏兄弟，已用语义边界隔离修复，并经 `uiautomator` 三场景验证。

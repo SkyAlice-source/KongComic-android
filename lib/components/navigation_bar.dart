@@ -342,7 +342,21 @@ class NaviPaneState extends State<NaviPane>
                   ),
                   Positioned.fill(
                     left: mainLeft,
-                    child: buildMainView(),
+                    // 主视图内部（Navigator → route → ModalBarrier）会设置
+                    // BlockSemantics 来把「排在自己前面的兄弟」从语义树里清掉
+                    // （见 modal_barrier.dart：ModalBarrier 用 BlockSemantics
+                    // 包住 ExcludeSemantics）。这个「屏蔽前序兄弟」的标记会沿
+                    // 语义树向上传播，直到撞上一个语义边界才停；而本 Stack 与
+                    // 主视图之间没有任何边界，于是主视图反过来把左侧栏（同层、
+                    // 排在它前面的兄弟）整条从语义树里抹掉 —— 这才是宽屏下
+                    // 「左侧栏整条子树对 TalkBack / uiautomator 不可见」的真正
+                    // 原因，跟侧栏自身有没有补 Semantics 无关。
+                    // 修复：给主视图套一个语义边界（container），把内部的
+                    // BlockSemantics 关在边界内，不再向上泄漏到 Stack。
+                    child: Semantics(
+                      container: true,
+                      child: buildMainView(),
+                    ),
                   ),
                 ],
               );
@@ -573,13 +587,20 @@ class _SideNaviWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final icon = enabled ? entry.activeIcon : entry.icon;
-    // 宽屏（>changePoint）下导航由底部胶囊换成左侧栏，而左侧栏整条子树不会
-    // 进入语义树 —— 实测 1706x1066dp 的平板界面上，侧栏 5 个入口对
+    // 宽屏（>changePoint）下导航由底部胶囊换成左侧栏，而左侧栏整条子树默认
+    // 不会进入语义树 —— 实测 1706x1066dp 的平板界面上，侧栏 5 个入口对
     // uiautomator / TalkBack 完全不可见（底部导航却正常暴露）。
     // 结果是用读屏软件的平板/横屏用户根本没有导航可用。
-    // 这里显式补一个语义节点：带 label、button、selected 与 onTap，
-    // 并 excludeSemantics 掉子树，避免与内部 Text 重复朗读。
+    //
+    // 根因：单纯给节点补 label/button/onTap 不够。Flutter 里
+    // `excludeSemantics:true` 只让节点「排除子树」，并不会让它成为语义边界
+    // （语义边界由 `container` 或 `identifier` 决定，见 rendering/object.dart
+    // 的 `isSemanticBoundary = container || identifier != null`）。缺少边界时
+    // 该节点的 label/onTap 会被合并到最近的边界祖先（这里是根节点）而丢失。
+    // 所以这里必须 `container:true` 让它成为独立语义节点，再用
+    // `excludeSemantics:true` 排除内部 Text，避免折叠态/展开态重复朗读。
     return Semantics(
+      container: true,
       label: entry.label,
       button: true,
       selected: enabled,
@@ -622,8 +643,10 @@ class _PaneActionWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = entry.icon;
     // 同 _SideNaviWidget：侧栏里的动作项（搜索/切换视图等）也要补语义节点，
-    // 否则宽屏下读屏用户同样看不到这些入口。
+    // 否则宽屏下读屏用户同样看不到这些入口。同样需要 container:true 成为
+    // 独立语义边界，否则 label/onTap 会被合并到根节点而丢失。
     return Semantics(
+      container: true,
       label: entry.label,
       button: true,
       onTap: entry.onTap,
