@@ -1,6 +1,6 @@
 # KongComic 🎨
 
-> A comic reader based on [Venera](https://github.com/venera-app/venera) | UI overhaul · Bug fixes · Performance
+> An AI-assisted rework of [Venera](https://github.com/venera-app/venera) | UI overhaul · Bug fixes · Performance
 
 <p align="center">
   <b>English</b> | <a href="README.md">中文</a>
@@ -33,10 +33,15 @@ Download APK from [Releases](https://github.com/SkyAlice-source/KongComic-androi
 
 ## ✨ Features
 
-- **Multi-source search** — Aggregate search across sources
-- **Offline download** — CBZ packaging support
-- **Local favorites** — Multi-level folders + custom covers
+- **Multi-source search** — Aggregate search across comic sources in one tap
+- **Online comics** — Read network comics via Venera JavaScript sources
+- **Local comics** — Read comics stored on your device
+- **Source management** — Install / customize JS comic sources; repo update, reinstall & uninstall
+- **Favorites** — Multi-level folders + custom covers
+- **Offline download** — CBZ packaging for reading anywhere
 - **Reader** — Multiple page modes + auto-scroll
+- **Comments & tags** — View comments, tags, etc. when the source supports it
+- **Account login** — Login to comment, rate, etc. when the source supports it
 - **Backup & restore** — Settings, favorites, covers in one click
 - **Crash reporting** — Sentry monitoring for trackable issues
 
