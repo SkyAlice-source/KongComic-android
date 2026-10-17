@@ -157,7 +157,7 @@ class _HistoryPageState extends State<HistoryPage> {
     if (comic.sourceKey.startsWith("Unknown")) {
       HistoryManager().remove(
         comic.id,
-        ComicType(int.parse(comic.sourceKey.split(':')[1])),
+        ComicType(int.tryParse(comic.sourceKey.split(':').elementAtOrNull(1) ?? '') ?? 0),
       );
     } else if (comic.sourceKey == 'local') {
       HistoryManager().remove(

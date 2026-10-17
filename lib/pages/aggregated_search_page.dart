@@ -254,6 +254,7 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
+      showDragHandle: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kcSurfaceRadius)),
       ),

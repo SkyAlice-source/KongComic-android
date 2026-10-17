@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 
 /// KongComic 设计令牌 —— 统一卡片圆角 / 描边 / 阴影 / 字号阶梯，消灭魔法数字。
 ///
@@ -16,8 +17,8 @@ const double kcPillRadius = 999; // 胶囊 / 底栏激活态
 const double kcChipRadius = 10; // 文件夹 chip / 标签
 
 // ── 字号阶梯（对齐用户习惯，杜绝 18/20 混用）─────────────
-const double kcTitleMain = 18; // 全局根页主标题（粗体）
-const double kcTitleLarge = 20; // 页面级标题（如内部栏）
+const double kcTitleMain = 20; // 全局根页主标题（粗体）
+const double kcTitleLarge = 22; // 页面级标题（如内部栏）
 const double kcSubtitle = 16;
 const double kcBody = 14;
 const double kcCaption = 12;
@@ -240,3 +241,40 @@ ColorScheme kcDarkColorfulFromLight(
     onTertiary: kcOnColor(t),
   );
 }
+
+// ── 弹性动效（Material 3 Expressive）─────────────────────
+/// 物理弹簧曲线：把「选中 / 切换 / 进入」等过渡从线性缓动换成欠阻尼弹簧，
+/// 带来轻微的回弹与活力，贴合 Material 3 Expressive 的「灵动」观感。
+///
+/// 通过 [transform] 把归一化进度 t∈[0,1] 映射到约 0.5s 的物理时间，
+/// 用 [SpringSimulation] 解出位置（允许轻微过冲，框架会把越界值夹到可用范围）。
+/// 系统开启「减弱动效」时不建议使用本曲线（由调用方改用 Duration.zero）。
+class KcSpring extends Curve {
+  const KcSpring({this.stiffness = 180, this.damping = 20, this.settle = 0.5});
+
+  /// 刚度，越大回弹越快越「脆」。
+  final double stiffness;
+
+  /// 阻尼，越小回弹越明显。0.746 为欠阻尼（轻微过冲）。
+  final double damping;
+
+  /// 物理收敛时长（秒），决定曲线在 t=1 时是否已基本落定。
+  final double settle;
+
+  @override
+  double transform(double t) {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    final sim = SpringSimulation(
+      SpringDescription(mass: 1, stiffness: stiffness, damping: damping),
+      0,
+      1,
+      0,
+    );
+    // 允许轻微过冲（负向/略大于 1），让回弹可见但不夸张。
+    return sim.x(t * settle).clamp(-0.15, 1.1);
+  }
+}
+
+/// 统一弹簧曲线实例：选中态 / 页面切换复用，避免各处重复构造。
+const kcSpring = KcSpring();

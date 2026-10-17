@@ -1132,6 +1132,7 @@ class _BodyState extends State<_Body> {
     }
     var splits = url.split("/");
     splits.removeWhere((element) => element == "");
+    if (splits.isEmpty) return null;
     var fileName = splits.last;
     bool cancel = false;
     var controller = showLoadingDialog(
@@ -2176,8 +2177,9 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             }
           } else {
             current =
-                item.value['options'].firstWhere(
+                (item.value['options'] as List? ?? const []).firstWhere(
                   (e) => e['value'] == current,
+                  orElse: () => <String, dynamic>{},
                 )['text'] ??
                 current;
           }
@@ -2185,9 +2187,9 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             title: Text((item.value['title'] as String).ts(source.key)),
             trailing: Select(
               current: (current as String).ts(source.key),
-              values: (item.value['options'] as List)
+              values: (item.value['options'] as List? ?? const [])
                   .map<String>(
-                    (e) => ((e['text'] ?? e['value']) as String).ts(source.key),
+                    (e) => ((e['text'] ?? e['value'] ?? '') as String).ts(source.key),
                   )
                   .toList(),
               onTap: (i) {

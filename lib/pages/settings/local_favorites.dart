@@ -123,8 +123,10 @@ class _HomeBannerFoldersSettingState extends State<_HomeBannerFoldersSetting> {
           final isAll = tempSelected.isEmpty;
           return ContentDialog(
             title: "Home banner folders".tl,
-            content: SingleChildScrollView(
-              child: Column(
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 360),
+              child: SingleChildScrollView(
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   CheckboxListTile(
@@ -155,6 +157,7 @@ class _HomeBannerFoldersSettingState extends State<_HomeBannerFoldersSetting> {
                   }),
                 ],
               ),
+            ),
             ),
             actions: [
               TextButton(

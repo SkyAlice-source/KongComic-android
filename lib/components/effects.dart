@@ -31,7 +31,9 @@ class BlurEffect extends StatelessWidget {
           ),
           child: child,
         );
-        if (!scrolling) {
+        // blurSigma = 0 表示「不要模糊，只保留裁剪/边框」：给需要实心底的
+        // 界面用（阅读器工具栏——底图是任意漫画页，透光会让底色随翻页跳动）。
+        if (!scrolling && blurSigma > 0) {
           body = BackdropFilter(
             filter: ui.ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
             child: body,

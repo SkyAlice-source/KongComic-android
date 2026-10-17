@@ -35,7 +35,7 @@ class _App {
   final version = "1.6.4";
   // Populated from package_info_plus during [init] so the About page and the
   // update check always reflect the real build version (no manual bump needed).
-  String appVersion = "1.3.12";
+  String appVersion = "1.3.14";
 
   bool get isAndroid => Platform.isAndroid;
 
@@ -114,7 +114,10 @@ class _App {
     cachePath = (await getApplicationCacheDirectory()).path;
     dataPath = (await getApplicationSupportDirectory()).path;
     if (isAndroid) {
-      externalStoragePath = (await getExternalStorageDirectory())!.path;
+      final extDir = await getExternalStorageDirectory();
+      if (extDir != null) {
+        externalStoragePath = extDir.path;
+      }
     }
     // Reflect the real build version in [appVersion] (About page + update check).
     try {

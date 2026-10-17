@@ -202,6 +202,8 @@ Future<List<FavoriteItem>> updateComicsInfo(String folder) async {
         valueListenable: finished,
         builder: (context, value, child) {
           var isFinished = value == comics.length;
+          final cs = Theme.of(context).colorScheme;
+          final isDark = cs.brightness == Brightness.dark;
           return ContentDialog(
             title: isFinished ? "Finished".tl : "Updating".tl,
             showClose: false,
@@ -212,6 +214,13 @@ Future<List<FavoriteItem>> updateComicsInfo(String folder) async {
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
                   value: value / comics.length,
+                  color: isDark
+                      ? Color.alphaBlend(cs.primary.withValues(alpha: 0.34), cs.surface)
+                      : cs.primary,
+                  backgroundColor: isDark
+                      ? Color.alphaBlend(
+                          cs.onSurface.withValues(alpha: 0.08), cs.surface)
+                      : cs.surfaceContainerHighest,
                 ),
                 const SizedBox(height: 4),
                 Text("$value/${comics.length}"),
@@ -443,6 +452,8 @@ Future<void> importNetworkFolder(
         builder: (context, setState) {
           updateDialog = () => setState(() {});
           closeDialog = () => Navigator.pop(context);
+          final cs = Theme.of(context).colorScheme;
+          final isDark = cs.brightness == Brightness.dark;
           return ContentDialog(
             title: isFinished
                 ? "Finished".tl
@@ -457,6 +468,13 @@ Future<void> importNetworkFolder(
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
                   value: isFinished ? 1 : null,
+                  color: isDark
+                      ? Color.alphaBlend(cs.primary.withValues(alpha: 0.34), cs.surface)
+                      : cs.primary,
+                  backgroundColor: isDark
+                      ? Color.alphaBlend(
+                          cs.onSurface.withValues(alpha: 0.08), cs.surface)
+                      : cs.surfaceContainerHighest,
                 ),
                 const SizedBox(height: 4),
                 Text("Imported @a comics, loaded @b pages, received @c comics"

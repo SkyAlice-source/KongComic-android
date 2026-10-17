@@ -48,7 +48,8 @@ class ScrollTopFab extends StatelessWidget {
     final colors = scrollTopFabColors(context);
     final fab = FloatingActionButton(
       heroTag: heroTag,
-      mini: true,
+      // Material 3 Expressive：标准尺寸（56dp）实心 FAB，比 mini 更具存在感。
+      mini: false,
       onPressed: onPressed,
       shape: CircleBorder(side: colors.side ?? BorderSide.none),
       backgroundColor: colors.background,
@@ -58,7 +59,7 @@ class ScrollTopFab extends StatelessWidget {
       focusElevation: 0,
       hoverElevation: 0,
       disabledElevation: 0,
-      child: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
+      child: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 22),
     );
     if (avoidNavBar) {
       return Padding(

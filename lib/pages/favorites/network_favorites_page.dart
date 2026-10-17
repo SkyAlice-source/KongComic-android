@@ -503,38 +503,45 @@ class _FolderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Material(
+      color: Colors.transparent,
       child: InkWell(
+        borderRadius: BorderRadius.circular(kcRadius8),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          padding: const EdgeInsets.fromLTRB(kcSpaceLg, 10, kcSpaceLg, 10),
           child: Row(
             children: [
-              HugeIcon(icon: 
-                HugeIcons.strokeRoundedFolder01,
-                size: 28,
-                color: Theme.of(context).colorScheme.secondary,
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedFolder01,
+                size: 20,
+                color: scheme.onSurfaceVariant,
               ),
-              const SizedBox(
-                width: 16,
-              ),
+              const SizedBox(width: kcSpaceMd),
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    name,
-                    style: const TextStyle(
-                        fontSize: kcSubtitle, fontWeight: FontWeight.w500),
-                  ),
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                      fontSize: kcSubtitle, fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (deleteFolder != null)
                 IconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedDelete01,
+                    size: 18,
+                    color: scheme.onSurfaceVariant,
+                  ),
                   onPressed: () => onDeleteFolder(context),
                 )
               else
-                HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowRight01,
+                  size: 18,
+                  color: scheme.onSurfaceVariant,
+                ),
             ],
           ),
         ),

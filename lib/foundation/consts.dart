@@ -4,7 +4,11 @@ const changePoint = 600;
 /// If window width is less than this value, it is considered as tablet.
 ///
 /// If it is more than this value, it is considered as desktop.
-const changePoint2 = 1300;
+///
+/// 改为 840 以对齐 Material 3 响应式断点：compact <600（悬浮底栏）、
+/// 600–840 折叠导航栏（仅图标）、≥840 展开导航栏（图标+文字）。原 1300
+/// 偏高，平板（约 800–1000dp 宽）迟迟不展开文字标签，观感偏「窄屏」。
+const changePoint2 = 840;
 
 /// Default user agent for http requests.
 const webUA =

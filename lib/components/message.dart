@@ -405,11 +405,21 @@ LoadingDialogController showLoadingDialog(
           });
         };
         final progress = controller._progress;
+        final isDark = context.colorScheme.brightness == Brightness.dark;
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(kcRadius16),
+            // 与 app 统一弹窗（ContentDialog）一致：24dp 大圆角 + 极细凝光描边
+            borderRadius: BorderRadius.circular(kcSurfaceRadius),
+            side: BorderSide(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.06),
+              width: 0.5,
+            ),
           ),
           insetPadding: const EdgeInsets.symmetric(horizontal: 48),
+          elevation: 6,
+          shadowColor: context.colorScheme.shadow.withValues(alpha: 0.18),
           backgroundColor: context.colorScheme.surfaceContainerHigh,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -428,8 +438,19 @@ LoadingDialogController showLoadingDialog(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(kcRadius6),
                         child: LinearProgressIndicator(
-                          value: progress,
+                          // 收敛到 [0,1]：上游镜像下载可能把 downloadedBytes 报得
+                          // 大于 totalBytes（Content-Length 不准），或传入 NaN/Infinity，
+                          // 越界会让 LinearProgressIndicator 抛断言。null/NaN 走不确定态。
+                          value: progress == null || progress.isNaN
+                              ? null
+                              : progress.clamp(0.0, 1.0),
                           minHeight: 8,
+                          color: context.colorScheme.brightness == Brightness.dark
+                              ? Color.alphaBlend(
+                                  context.colorScheme.primary.withValues(alpha: 0.34),
+                                  context.colorScheme.surface,
+                                )
+                              : context.colorScheme.primary,
                           backgroundColor:
                               context.colorScheme.surfaceContainerHighest,
                         ),
@@ -543,8 +564,9 @@ class ContentDialog extends StatelessWidget {
           width: 0.5,
         ),
       ),
-      insetPadding: context.width < 400
-          ? const EdgeInsets.symmetric(horizontal: 4)
+      // 窄屏下 minWidth 已是「屏宽 - 16」，边距必须 ≤8，否则卡片会比可用宽度更宽而溢出屏外。
+      insetPadding: context.width < 420
+          ? const EdgeInsets.symmetric(horizontal: 8)
           : const EdgeInsets.symmetric(horizontal: 16),
       elevation: 6,
       shadowColor: context.colorScheme.shadow.withValues(alpha: 0.18),

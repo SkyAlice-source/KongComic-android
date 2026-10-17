@@ -101,6 +101,7 @@ class _SearchPageState extends State<SearchPage> {
   void _showSourcePicker(List<ComicSource> sources, String id) {
     showModalBottomSheet(
       context: context,
+      showDragHandle: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kcSurfaceRadius)),
       ),

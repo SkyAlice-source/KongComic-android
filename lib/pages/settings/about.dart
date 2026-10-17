@@ -587,7 +587,8 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
         onProgress: (p, speed) {
           if (!mounted) return;
           setState(() {
-            _progress = p;
+            // 镜像下载可能把 totalBytes 报小，使 p 略大于 1；收敛到 [0,1] 防断言。
+            _progress = p.clamp(0.0, 1.0);
             _bytesPerSecond = speed;
           });
         },
@@ -787,7 +788,21 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
       // painted outside the dialog frame. Explicit widths keep it inside.
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LinearProgressIndicator(value: _progress),
+        LinearProgressIndicator(
+          value: _progress,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Color.alphaBlend(
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.34),
+                  Theme.of(context).colorScheme.surface,
+                )
+              : Theme.of(context).colorScheme.primary,
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? Color.alphaBlend(
+                  Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
+                  Theme.of(context).colorScheme.surface,
+                )
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
+        ),
         const SizedBox(height: 6),
         Text(
           "${(_progress * 100).toStringAsFixed(1)}%  ${_formatSpeed(_bytesPerSecond)}",

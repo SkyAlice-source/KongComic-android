@@ -317,24 +317,32 @@ mixin class _JSEngineApi {
         _documents[data["key"]] = DocumentWrapper.parse(data["data"]);
         return null;
       case "querySelector":
-        var key = data["key"];
-        return _documents[key]!.querySelector(data["query"]);
+        final doc = _documents[data["key"]];
+        if (doc == null) return null;
+        return doc.querySelector(data["query"]);
       case "querySelectorAll":
-        var key = data["key"];
-        return _documents[key]!.querySelectorAll(data["query"]);
+        final doc = _documents[data["key"]];
+        if (doc == null) return null;
+        return doc.querySelectorAll(data["query"]);
       case "getText":
-        return _documents[data["doc"]]!.elementGetText(data["key"]);
+        final doc = _documents[data["doc"]];
+        if (doc == null) return null;
+        return doc.elementGetText(data["key"]);
       case "getAttributes":
-        var res = _documents[data["doc"]]!.elementGetAttributes(data["key"]);
-        return res;
+        final doc = _documents[data["doc"]];
+        if (doc == null) return null;
+        return doc.elementGetAttributes(data["key"]);
       case "dom_querySelector":
-        var doc = _documents[data["doc"]]!;
+        final doc = _documents[data["doc"]];
+        if (doc == null) return null;
         return doc.elementQuerySelector(data["key"], data["query"]);
       case "dom_querySelectorAll":
-        var doc = _documents[data["doc"]]!;
+        final doc = _documents[data["doc"]];
+        if (doc == null) return null;
         return doc.elementQuerySelectorAll(data["key"], data["query"]);
       case "getChildren":
-        var doc = _documents[data["doc"]]!;
+        final doc = _documents[data["doc"]];
+        if (doc == null) return null;
         return doc.elementGetChildren(data["key"]);
       case "getNodes":
         var doc = _documents[data["doc"]]!;

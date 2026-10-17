@@ -91,7 +91,17 @@ class _ReaderSettingsState extends State<ReaderSettings> {
 
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("Reader Settings".tl)),
+        SliverAppbar(
+          title: Text("Reader Settings".tl),
+          // 浮层（DialogRoute）里退回实心头，避免毛玻璃把下面滚动内容透出来；
+          // 底色对齐卡片的 surfaceContainerHigh，固定头部才不会像一块贴纸。
+          style: AppbarStyle.shadow,
+          backgroundColor: context.colorScheme.surfaceContainerHigh,
+          leading: IconButton(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+            onPressed: () => Navigator.maybePop(context),
+          ),
+        ),
         if (comicId != null && sourceKey != null)
           SliverMainAxisGroup(
             slivers: [

@@ -202,6 +202,8 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 136,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -216,7 +218,13 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
             ),
             clipBehavior: Clip.antiAlias,
             child: widget.task.cover == null
-                ? null
+                ? Center(
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedImage01,
+                      size: 28,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  )
                 : Image(
                     image: CachedImageProvider(widget.task.cover!),
                     filterQuality: FilterQuality.medium,
@@ -282,7 +290,22 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
                   ),
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
-                  value: widget.task.progress,
+                  // 收敛到 [0,1]：压缩/校验阶段 current 可能短暂超过 expected。
+                  value: widget.task.progress.clamp(0.0, 1.0),
+                  minHeight: 5,
+                  borderRadius: BorderRadius.circular(kcPillRadius),
+                  color: isDark
+                      ? Color.alphaBlend(
+                          cs.primary.withValues(alpha: 0.34),
+                          cs.surface,
+                        )
+                      : cs.primary,
+                  backgroundColor: isDark
+                      ? Color.alphaBlend(
+                          cs.onSurface.withValues(alpha: 0.08),
+                          cs.surface,
+                        )
+                      : cs.surfaceContainerHighest,
                 ),
                 const SizedBox(height: 8),
               ],

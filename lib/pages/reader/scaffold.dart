@@ -202,10 +202,16 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
             child: widget.child,
           ),
         ),
-        if (appdata.settings['showPageNumberInReader'] == true && !isOnChapterCommentsPage)
-          buildPageInfoText(),
-        if (!isOnChapterCommentsPage)
-          buildStatusInfo(),
+        // 页码 / 时钟 / 电量是「无工具栏时的 HUD」：它固定在屏幕左下、右下
+        // （bottom: 13），而底栏打开后正好盖住这两处。以前底栏是 0.6 薄玻璃，
+        // HUD 会从底栏后面透出来，看着像文字重叠的渲染错误；工具栏打开期间
+        // 直接隐藏，两者永不共存。
+        if (!_isOpen) ...[
+          if (appdata.settings['showPageNumberInReader'] == true &&
+              !isOnChapterCommentsPage)
+            buildPageInfoText(),
+          if (!isOnChapterCommentsPage) buildStatusInfo(),
+        ],
         AnimatedPositioned(
           duration: AppAnimations.duration(const Duration(milliseconds: 180)),
           top: _isOpen ? 0 : -(topBarHeight + context.padding.top),
@@ -231,11 +237,22 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   Widget buildTop() {
     final epName = _currentEpName;
 
+    // 阅读器不做玻璃 —— 全站唯一一处刻意「不合群」的界面。
+    //
+    // 玻璃质感依赖一个稳定的底：导航栏背后是列表和封面，颜色分布可预期，
+    // 6% 的透光只加一层氛围。阅读器背后是任意黑白漫画页：同一块蒙层在白页
+    // 上是「一层雾」，压到黑底网点页上又变成「一层灰膜」，同一条顶栏会随翻页
+    // 不停变色，书名/章节名的对比度也跟着飘。0.6 时页码和标题直接糊进画面；
+    // 即使提到 0.94，纯黑页边缘仍能透出 8 级灰差。
+    //
+    // 所以这里 `blurSigma: 0` + 实心 surface：换成一块边界明确、对比恒定的
+    // 界面层，同时省掉整帧 BackdropFilter 的开销。
     return BlurEffect(
+      blurSigma: 0,
       child: Container(
         padding: EdgeInsets.only(top: context.padding.top),
         decoration: BoxDecoration(
-          color: context.colorScheme.surface.withValues(alpha: 0.6),
+          color: context.colorScheme.surface,
           border: Border(
             bottom: BorderSide(
               color: context.colorScheme.outlineVariant,
@@ -498,7 +515,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     return Tooltip(
       message: "More".tl,
       child: PopupMenuButton<String>(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 20),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 24),
         onSelected: (v) {
           switch (v) {
             case 'rotate':
@@ -581,8 +598,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         message: isLiked() ? "Favorited".tl : "Collect the image".tl,
         child: IconButton(
           icon: isLiked()
-              ? HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20, color: kcBrandColor)
-              : HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
+              ? HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 24, color: kcBrandColor)
+              : HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 24),
           onPressed: addImageFavorite,
           style: isLiked()
               ? IconButton.styleFrom(
@@ -595,82 +612,84 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         Tooltip(
           message: "Chapters".tl,
           child: IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 20),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 24),
             onPressed: openChapterDrawer,
           ),
         ),
       Tooltip(
         message: "Save Image".tl,
         child: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 20),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 24),
           onPressed: saveCurrentImage,
         ),
       ),
       Tooltip(
         message: "Share".tl,
         child: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 20),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 24),
           onPressed: share,
         ),
       ),
       _buildMoreMenu(),
     ];
 
+    // 单页章节时进度条不渲染（max-min<=0），页码胶囊顶上，避免信息丢失。
+    final showPageChip = context.reader.maxPage <= 1;
+
     Widget child = SizedBox(
       height: bottomBarHeight,
       child: _isLandscape
           ? _buildLandscapeBar(buttons, text)
           : Column(
-        children: [
-          Row(
-            children: [
-              const SizedBox(width: 8),
-              _chapterJumpButton(false),
-              Expanded(child: buildSlider()),
-              _chapterJumpButton(true),
-              const SizedBox(width: 8),
-            ],
-          ),
-          LayoutBuilder(
-            builder: (context, constrains) {
-              final small = (constrains.maxWidth - buttons.length * 50) < 120;
-              return Row(
-                children: [
-                  if (!small)
-                    _buildPageChip(text).paddingLeft(16),
-                  const Spacer(),
-                  for (var button in buttons)
-                    if (!small)
-                      Material(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(kcRadius20),
-                        clipBehavior: Clip.antiAlias,
-                        child: button.paddingHorizontal(4),
-                      )
-                    else
-                      ...[SizedBox(width: 36, height: 36, child: button), const Spacer()],
-                  if (!small)
-                    const SizedBox(width: 4),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
+              children: [
+                SizedBox(
+                  height: 48,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 8),
+                      _chapterJumpButton(false),
+                      Expanded(child: buildSlider()),
+                      _chapterJumpButton(true),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                ),
+                // 功能键行：进度条已写明「章节名 · 页码」，此处不再重复页码胶囊，
+                // 5 个键均分整行，图标 24dp、点击区 48dp。
+                Expanded(
+                  child: showPageChip
+                      ? Row(
+                          children: [
+                            _buildPageChip(text).paddingLeft(16),
+                            const Spacer(),
+                            for (var button in buttons) _bottomAction(button),
+                            const SizedBox(width: 8),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            for (var button in buttons) _bottomAction(button),
+                          ],
+                        ),
+                ),
+              ],
+            ),
     );
 
+    // 与顶栏同一块实心 surface：底栏承载进度条、页码胶囊和 6 个功能键，背景
+    // 必须是稳定底，否则漫画网点会从按钮缝隙里透出来（0.6 玻璃版实测很脏）。
     return BlurEffect(
+      blurSigma: 0,
       child: Container(
         decoration: BoxDecoration(
-          color: context.colorScheme.surface.withValues(alpha: 0.6),
-          border: isOpen
-              ? Border(
-                  top: BorderSide(
-                    color: context.colorScheme.outlineVariant,
-                    width: 0.5,
-                  ),
-                )
-              : null,
+          color: context.colorScheme.surface,
+          border: Border(
+            top: BorderSide(
+              color: context.colorScheme.outlineVariant,
+              width: 0.5,
+            ),
+          ),
         ),
         padding: EdgeInsets.only(bottom: context.padding.bottom),
         child: Padding(
@@ -681,6 +700,17 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           child: child,
         ),
       ),
+    );
+  }
+
+  /// 功能键外壳：底栏本身不是 Material，不套一层的话 IconButton 的水波纹会画到
+  /// 底色下面（完全看不见）。裁成圆形，和左右翻章按钮的观感一致。
+  Widget _bottomAction(Widget button) {
+    return Material(
+      color: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
+      shape: const CircleBorder(),
+      child: button,
     );
   }
 
@@ -708,7 +738,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
         icon: forward
             ? HugeIcons.strokeRoundedForward01
             : HugeIcons.strokeRoundedBackward01,
-        size: 20,
+        size: 22,
       ),
     );
   }
@@ -754,7 +784,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                 child: _buildPageChip(text),
               ),
             for (var button in buttons)
-              SizedBox(width: 44, height: 44, child: button),
+              SizedBox(width: 48, height: 48, child: button),
             const SizedBox(width: 8),
           ],
         );
@@ -772,8 +802,13 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           context.reader.chapter - 1,
         ) ??
         "E${context.reader.chapter}";
-    if (epName.length > 10) {
-      epName = "${epName.substring(0, 10)}...";
+    // 章节标题常带「[繁体]」「[简体]」这类尾部标签。进度胶囊很窄，先去掉这些
+    // 元数据标签再按长度截断，否则会截出「[繁体…」这种缺右括号的残缺标签。
+    epName = epName
+        .replaceFirst(RegExp(r"\s*[\[［][^\]］]*[\]］]\s*$"), "")
+        .trim();
+    if (epName.length > 14) {
+      epName = "${epName.substring(0, 14)}...";
     }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -863,11 +898,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   }
 
   void openChapterDrawer() {
-    _openSideBar(
+    showCenteredPanel(
+      context,
       context.reader.widget.chapters!.isGrouped
           ? _GroupedChaptersView(context.reader)
           : _ChaptersView(context.reader),
-      width: 400,
     );
   }
 
@@ -1049,7 +1084,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   }
 
   void openSetting() {
-    _openSideBar(
+    showCenteredPanel(
+      context,
       ReaderSettings(
         comicId: context.reader.cid,
         comicSource: context.reader.type.sourceKey,
@@ -1083,19 +1119,6 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           context.reader.update();
         },
       ),
-      width: 400,
-    );
-  }
-
-  void _openSideBar(Widget widget, {double width = 400}) {
-    // Route chapter/settings sidebars through the main navigator (the same
-    // stack the reader page lives in) so closing the drawer returns to the
-    // reader instead of popping past it back to the comic source.
-    showSideBar(
-      context,
-      widget,
-      width: width,
-      dismissible: true,
     );
   }
 

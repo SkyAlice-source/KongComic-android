@@ -49,24 +49,49 @@ abstract mixin class _ComicPageActions {
   }
 
   void openFavPanel() {
-    showSideBar(
-      App.rootContext,
-      _FavoritePanel(
-        cid: comic.id,
-        type: comic.comicType,
-        isFavorite: isFavorite,
-        onFavorite: (local, network) {
-          if (network != null) {
-            isFavorite = network;
-          }
-          if (local != null) {
-            isAddToLocalFav = local;
-          }
-          update();
-        },
-        favoriteItem: _toFavoriteItem(),
-        updateTime: comic.findUpdateTime(),
+    // 改用居中对话框（与收藏页文件夹选择器同源），不再走 showSideBar 右滑抽屉。
+    // 详情页收藏面板含本地 + 网络两套列表，内容较多，居中卡片高度自适应、超出屏高则内滚。
+    final reduceMotion = kcReduceMotion(App.rootContext);
+    showGeneralDialog(
+      context: App.rootContext,
+      barrierDismissible: true,
+      barrierLabel: 'Favorite'.tl,
+      barrierColor: Colors.black.withValues(alpha: 0.42),
+      transitionDuration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, _, __) => _FavoriteDialog(
+        panel: _FavoritePanel(
+          cid: comic.id,
+          type: comic.comicType,
+          isFavorite: isFavorite,
+          onFavorite: (local, network) {
+            if (network != null) {
+              isFavorite = network;
+            }
+            if (local != null) {
+              isAddToLocalFav = local;
+            }
+            update();
+          },
+          favoriteItem: _toFavoriteItem(),
+          updateTime: comic.findUpdateTime(),
+        ),
       ),
+      transitionBuilder: (context, animation, _, child) {
+        if (reduceMotion) return child;
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.93, end: 1).animate(curved),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
@@ -288,7 +313,7 @@ abstract mixin class _ComicPageActions {
           }
         }
       }
-      await showSideBar(
+      await showCenteredPanel(
         App.rootContext,
         _SelectDownloadChapter(
           comic.chapters!.titles.toList(),

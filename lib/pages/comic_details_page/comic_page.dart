@@ -22,6 +22,7 @@ import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/foundation/res.dart';
 import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/network/cache.dart';
+import 'package:kong_comic/pages/downloading_page.dart';
 import 'package:kong_comic/pages/favorites/favorites_page.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
 import 'package:kong_comic/utils/file_type.dart';
@@ -43,11 +44,6 @@ part 'comments_preview.dart';
 part 'actions.dart';
 
 part 'cover_viewer.dart';
-
-const _chapterTextShadow = [
-  Shadow(color: Colors.black87, blurRadius: 4),
-  Shadow(color: Colors.black54, blurRadius: 1),
-];
 
 class ComicPage extends StatefulWidget {
   const ComicPage({
@@ -221,8 +217,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               onPressed: () {
                 scrollController.animateTo(
                   0,
-                  duration: AppAnimations.duration(const Duration(milliseconds: 200)),
-                  curve: Curves.ease,
+                  duration: AppAnimations.duration(const Duration(milliseconds: 400)),
+                  curve: kcSpring,
                 );
               },
             )
@@ -432,27 +428,13 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   Widget buildActions() {
     bool isMobile = context.width < changePoint;
     bool hasHistory = history != null && (history!.ep > 1 || history!.page > 1);
-    // 「继续阅读」进度条的高度。它有两行文字（章节名 + 阅读进度），会随系统
-    // 字号线性放大：固定 44dp 时 fs2.0 内容约 69dp，Column 下溢 26px、第二行
-    // 被整行裁掉。这里按当前 textScaler 取足高度，下限仍是 44dp。
-    final textScaler = MediaQuery.textScalerOf(context);
-    final continueTrackHeight = math.max(
-      44.0,
-      textScaler.scale(kcCaption) * kcLineHeightFactor +
-          2 +
-          textScaler.scale(kcFont10) * kcLineHeightFactor +
-          8,
-    );
-    // 下载进度条同理：固定 22dp 时放大字号会把「Downloading xx%」裁掉半行
-    // （单行 Text 不报 RenderFlex 异常，属于静默裁切，更隐蔽）。
-    final downloadTrackHeight =
-        math.max(22.0, textScaler.scale(kcFont11) * kcLineHeightFactor + 4);
     return SliverLazyToBoxAdapter(
       child: Column(
         children: [
           ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            // 12 + chip 自带 4 = 16dp，与下方主按钮、进度注脚的左右边距对齐。
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             children: [
               if (hasHistory && !isMobile)
                 _ActionButton(
@@ -461,18 +443,34 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   onPressed: continueRead,
                   iconColor: kcBrandColor,
                 ),
-              if (!isMobile || hasHistory)
+              // 手机端主阅读入口已移到下方大按钮（继续/开始），这里只在桌面端放
+              // Start chip；否则手机上会出现「Start」chip 与下方「Read/Continue」大按钮
+              // 两个阅读入口并列，有历史时还会同时冒出「Start」和「Continue」两个。
+              if (!isMobile)
                 _ActionButton(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedPlayCircle, size: 18),
                   text: 'Start'.tl,
                   onPressed: read,
                   iconColor: kcBrandColor,
                 ),
-              if (!isMobile && !isDownloaded)
+              // 「下载」从主按钮行移到动作行：它是对章节的批量操作，和收藏 /
+              // 评论 / 分享同属次级动作，不该和「继续阅读」平起平坐抢同一行宽度
+              // （两个药丸等宽不等宽都会让右边缘参差，主 CTA 反而变弱）。
+              // 下载中：只停用 + 转圈，不显示百分比 —— 百分比统一由下方下载卡片
+              // 表达，同一个数字不在两处出现。
+              if (isDownloaded)
+                _ActionButton(
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedTick01, size: 18),
+                  text: "Downloaded".tl,
+                  onPressed: null,
+                  iconColor: context.colorScheme.onSurfaceVariant,
+                )
+              else
                 _ActionButton(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
                   text: 'Download'.tl,
                   onPressed: download,
+                  isLoading: _downloadTask != null,
                   iconColor: kcBrandColor,
                 ),
               if (data!.isLiked != null)
@@ -513,184 +511,94 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               ),
             ],
           ).fixHeight(48),
-          if (isMobile)
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    onPressed: download,
-                    child: Text("Download".tl),
+          // 手机端只有一个阅读入口，且它和进度是同一样东西：做成一张卡，整卡
+          // 命中即继续阅读。此前是「满宽实心按钮 + 下方进度注脚」，两个块各自
+          // 可点、各自有形状，读起来像两个按钮在抢同一个动作。
+          if (isMobile && hasHistory && history!.maxPage != null)
+            _ContinueReadingCard(
+              ep: _lastReadEp(),
+              page: history!.page,
+              maxPage: history!.maxPage!,
+              onTap: continueRead,
+            ).paddingHorizontal(16).paddingTop(12).paddingBottom(2)
+          else if (isMobile)
+            // 没有阅读历史时没有进度可合并，回到一颗满宽实心按钮。
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: read,
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedPlayCircle,
+                    size: 20,
+                  ),
+                  label: Text("Read".tl),
+                  style: FilledButton.styleFrom(
+                    // 52dp：满宽 CTA 需要比次级按钮更有分量，仍远高于 48dp 触摸目标。
+                    minimumSize: const Size(0, 52),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    textStyle: const TextStyle(
+                      fontSize: kcFont15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(kcPillRadius),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: hasHistory
-                      ? FilledButton(
-                          onPressed: continueRead,
-                          child: Text("Continue".tl),
-                        )
-                      : FilledButton(onPressed: read, child: Text("Read".tl)),
-                ),
-              ],
-            ).paddingHorizontal(16).paddingVertical(8),
-          if (history != null && history!.maxPage != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SizedBox(
-                  height: continueTrackHeight,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(kcRadius22),
-                      boxShadow: [...kcContourGlow(context)],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(kcRadius22),
-                      child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: continueRead,
-                      borderRadius: BorderRadius.circular(kcRadius22),
-                      child: LayoutBuilder(builder: (context, constraints) {
-                    final readPct = (history!.page / history!.maxPage!).clamp(0.0, 1.0);
-                    // 构建集数文字
-                    bool haveChapter = comic.chapters != null;
-                    var page = history!.page;
-                    var ep = history!.ep;
-                    var group = history!.group;
-                    String epText;
-                    if (haveChapter) {
-                      var epName = "E$ep";
-                      String? groupName;
-                      try {
-                        if (group == null) {
-                          epName = comic.chapters!.titles.elementAt(
-                            math.min(ep - 1, comic.chapters!.length - 1),
-                          );
-                        } else {
-                          groupName = comic.chapters!.groups.elementAt(group - 1);
-                          epName = comic.chapters!
-                              .getGroupByIndex(group - 1).values.elementAt(ep - 1);
-                        }
-                      } catch (e) {
-                        // Ignore parsing errors for chapter info
-                      }
-                      epText = groupName == null
-                          ? "${"Last Reading".tl}: $epName"
-                          : "$groupName $epName";
-                    } else {
-                      epText = "Last Reading".tl;
-                    }
-                    final textColor = Theme.of(context).brightness == Brightness.light
-                        ? Theme.of(context).colorScheme.onSurface
-                        : Colors.white;
-                    return Stack(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: double.infinity,
-                          color: context.colorScheme.surfaceContainerHighest,
-                        ),
-                        FractionallySizedBox(
-                          widthFactor: readPct,
-                          child: Container(
-                            color: context.colorScheme.primary,
-                          ),
-                        ),
-                        Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                epText,
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: kcCaption,
-                                  fontWeight: FontWeight.w600,
-                                  shadows: _chapterTextShadow,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                "Reading progress @progress  Page @page".tlParams({
-                                  'progress': "${(readPct * 100).toInt()}%",
-                                  'page': "P$page/${history!.maxPage}",
-                                }),
-                                style: TextStyle(
-                                  color: textColor.withValues(alpha: 0.85),
-                                  fontSize: kcFont10,
-                                  fontWeight: FontWeight.w500,
-                                  shadows: _chapterTextShadow,
-                                ),
-                                maxLines: 1,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                ),
-              ),
               ),
             ),
-          ),
-        ).paddingVertical(3),
+          // 桌面端已有「Continue」chip，不再重复大卡，只留一行进度注脚。
+          if (!isMobile && hasHistory && history!.maxPage != null)
+            _ReadProgressLine(
+              ep: _lastReadEp(),
+              page: history!.page,
+              maxPage: history!.maxPage!,
+              onTap: continueRead,
+            ).paddingHorizontal(16).paddingTop(8).paddingBottom(6),
           if (_downloadTask != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SizedBox(
-                  height: downloadTrackHeight,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(kcRadius11),
-                      boxShadow: [...kcContourGlow(context)],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(kcRadius11),
-                      child: LayoutBuilder(builder: (context, constraints) {
-                    final dlPct = _downloadTask!.progress.clamp(0.0, 1.0);
-                    return Stack(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: double.infinity,
-                          color: context.colorScheme.surfaceContainerHighest,
-                        ),
-                        FractionallySizedBox(
-                          widthFactor: dlPct,
-                          child: Container(
-                            color: context.colorScheme.tertiary,
-                          ),
-                        ),
-                        Center(
-                          child: Text(
-                            "Downloading @progress".tlParams({
-                              'progress': "${(dlPct * 100).toInt()}%",
-                            }),
-                                style: TextStyle(
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.light
-                                      ? Theme.of(context).colorScheme.onSurface
-                                      : Colors.white,
-                                  fontSize: kcFont11,
-                                  fontWeight: FontWeight.w600,
-                                  shadows: _chapterTextShadow,
-                                ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                ),
-              ),
-              ),
-            ).paddingVertical(3),
+            _DownloadStatusCard(
+              task: _downloadTask!,
+              // 卡片本身不再承载取消等破坏性动作（误触会删掉已下好的文件），
+              // 点卡片进下载队列页，取消/置顶等动作在那里完成。
+              onOpenQueue: () =>
+                  showPopUpWidget(context, const DownloadingPage()),
+            ).paddingHorizontal(16).paddingTop(8).paddingBottom(4),
           const Divider(),
         ],
       ).paddingTop(16),
     );
+  }
+
+  /// 「上次阅读」的章节文案。章节表缺失或索引越界时退回纯「上次阅读」。
+  ///
+  /// 拆成 prefix + name 两段返回：进度注脚可以把前缀渲染成小灰字、章节名渲染成
+  /// 加粗深色字，避免整行同字重导致前缀比章名还抢眼。
+  ({String? prefix, String name}) _lastReadEp() {
+    final h = history;
+    final chapters = comic.chapters;
+    final fallback = (prefix: null, name: 'Last Reading'.tl);
+    if (h == null) return fallback;
+    if (chapters == null) return fallback;
+    var epName = 'E${h.ep}';
+    String? groupName;
+    try {
+      if (h.group == null) {
+        epName = chapters.titles.elementAt(
+          math.min(h.ep - 1, chapters.length - 1),
+        );
+      } else {
+        groupName = chapters.groups.elementAt(h.group! - 1);
+        epName = chapters.getGroupByIndex(h.group! - 1).values.elementAt(h.ep - 1);
+      }
+    } catch (_) {
+      // 章节信息解析失败时保留兜底文案（E<n>），不影响进度展示。
+    }
+    if (groupName != null) {
+      return (prefix: 'Last Reading'.tl, name: '$groupName $epName');
+    }
+    return (prefix: 'Last Reading'.tl, name: epName);
   }
 
   Widget buildDescription() {
@@ -1099,7 +1007,8 @@ class _ActionButton extends StatelessWidget {
 
   final String text;
 
-  final void Function() onPressed;
+  /// 传 null 即为「状态 chip」：保留外形但不可点（如整本已下载后的「已下载」）。
+  final void Function()? onPressed;
 
   final bool? isLoading;
 
@@ -1119,11 +1028,13 @@ class _ActionButton extends StatelessWidget {
         ),
       ),
       child: InkWell(
-        onTap: () {
-          if (!(isLoading ?? false)) {
-            onPressed();
-          }
-        },
+        onTap: onPressed == null
+            ? null
+            : () {
+                if (!(isLoading ?? false)) {
+                  onPressed!();
+                }
+              },
         onLongPress: onLongPressed,
         borderRadius: BorderRadius.circular(kcRadius18),
         child: IconTheme.merge(
@@ -1166,33 +1077,83 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 居中浮层卡片已经铺了 surfaceContainerHigh，Scaffold 再刷默认底色会把
+      // 卡片色调盖掉。
+      backgroundColor: Colors.transparent,
       appBar: Appbar(
         title: Text("Download".tl),
-        backgroundColor: context.colorScheme.surfaceContainerLow,
+        // 透明头部 + 关闭（×）：与 ContentDialog 的对话框语义一致（旧版是 ←）。
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+          onPressed: () => Navigator.maybePop(context),
+        ),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildSummary(),
           Expanded(
             child: ListView.builder(
               padding: EdgeInsets.zero,
               itemCount: widget.eps.length,
               itemBuilder: (context, i) {
-                return CheckboxListTile(
-                  title: Text(widget.eps[i]),
-                  value:
-                      selected.contains(i) || widget.downloadedEps.contains(i),
-                  onChanged: widget.downloadedEps.contains(i)
-                      ? null
-                      : (v) {
-                          setState(() {
-                            if (selected.contains(i)) {
-                              selected.remove(i);
-                            } else {
-                              selected.add(i);
-                            }
-                          });
-                        },
+                final cs = context.colorScheme;
+                final isDownloaded = widget.downloadedEps.contains(i);
+                final isSelected = selected.contains(i);
+                // 已下载的章不是「候选项」。旧版给它 value:true + onChanged:null，
+                // 画出来是一个勾选且禁用的框 —— 和用户自己勾的那一行长得一模一样，
+                // 分不清哪些是自己选的、哪些本来就有；而「下载选中」又会把已下载
+                // 的排除掉，外观和行为对不上。现在已下载改成右侧文字标签。
+                if (isDownloaded) {
+                  return ListTile(
+                    enabled: false,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    title: Text(
+                      widget.eps[i],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedTick01,
+                          size: 14,
+                          color: cs.outline,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "Downloaded".tl,
+                          style: ts.s12.withColor(cs.outline),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return ColoredBox(
+                  // 勾选行给一层极浅的主色底，长列表里一眼能看出自己勾了哪几行。
+                  color: isSelected
+                      ? cs.primary.withValues(alpha: 0.06)
+                      : Colors.transparent,
+                  child: CheckboxListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    title: Text(
+                      widget.eps[i],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    value: isSelected,
+                    onChanged: (v) {
+                      setState(() {
+                        if (v == true) {
+                          selected.add(i);
+                        } else {
+                          selected.remove(i);
+                        }
+                      });
+                    },
+                  ),
                 );
               },
             ),
@@ -1219,7 +1180,11 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
                       widget.finishSelect(res);
                       context.pop();
                     },
-                    child: Text("Download All".tl),
+                    child: Text(
+                      "${"Download All".tl} (${widget.eps.length - widget.downloadedEps.length})",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1231,7 +1196,11 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
                             widget.finishSelect(selected);
                             context.pop();
                           },
-                    child: Text("Download Selected".tl),
+                    child: Text(
+                      "${"Download Selected".tl} (${selected.length})",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1239,6 +1208,38 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
             ),
           ),
           SizedBox(height: MediaQuery.of(context).padding.bottom),
+        ],
+      ),
+    );
+  }
+
+  /// 顶部计数条：勾了几章、本来有几章。列表几百行时，没有这行计数就只能靠
+  /// 数勾选框知道自己选了多少，按钮上的数字也失去了对照。
+  Widget _buildSummary() {
+    final cs = context.colorScheme;
+    final downloaded = widget.downloadedEps.length;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: 0.6),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            "@n selected".tlParams({'n': "${selected.length}"}),
+            style: ts.s12.withColor(cs.onSurfaceVariant),
+          ),
+          const Spacer(),
+          if (downloaded > 0)
+            Text(
+              "@n downloaded".tlParams({'n': "$downloaded"}),
+              style: ts.s12.withColor(cs.outline),
+            ),
         ],
       ),
     );
@@ -1317,13 +1318,19 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (context.width < changePoint)
-            Row(
-              children: [
-                Expanded(child: buildContainer(null, 36, radius: 18)),
-                const SizedBox(width: 16),
-                Expanded(child: buildContainer(null, 36, radius: 18)),
-              ],
-            ).paddingHorizontal(16),
+            // 与加载完成后的按钮布局对齐：主按钮占满剩余宽 + 下载按钮内容宽度，
+            // 48dp 高、胶囊圆角。旧骨架是两条等宽 36dp 圆角 18 的灰条，加载完成
+            // 后换成「宽实心 + 窄描边」会跳一下。
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Row(
+                children: [
+                  Expanded(child: buildContainer(null, 48, radius: kcPillRadius)),
+                  const SizedBox(width: 10),
+                  buildContainer(108, 48, radius: kcPillRadius),
+                ],
+              ),
+            ),
           const Divider(),
           const SizedBox(height: 8),
           Center(
@@ -1367,6 +1374,498 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
         width: 144 * 0.72,
         clipBehavior: Clip.antiAlias,
         child: child,
+      ),
+    );
+  }
+}
+
+/// 手机端阅读入口：主按钮与阅读进度合成的一张卡。
+///
+/// 历史形态在这里反复摇摆过三次：① 实心胶囊进度条 + 文字压在上面；② 满宽
+/// 实心按钮 + 下方独立进度卡片（播放圆钮 + 右箭头，看着像第二个按钮）；
+/// ③ 满宽实心按钮 + 无形状的进度注脚（视觉干净了，但进度不可点、信息也被
+/// 压成脚注）。
+///
+/// 现在回到「一个动作一张卡」：左侧播放圆钮是唯一的主色实心块，中间两行
+/// 分别是「上次阅读: 章节名」和「阅读进度 26% · P6/19」，右侧箭头暗示可进，
+/// 卡底压一条 3dp 进度线。整卡命中即继续阅读——只有一个入口，也就谈不上
+/// 和谁重复。
+class _ContinueReadingCard extends StatelessWidget {
+  const _ContinueReadingCard({
+    required this.ep,
+    required this.page,
+    required this.maxPage,
+    required this.onTap,
+  });
+
+  final ({String? prefix, String name}) ep;
+  final int page;
+  final int maxPage;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final pct = (page / maxPage).clamp(0.0, 1.0).toDouble();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(kcRadius16),
+      child: Material(
+        // 品牌色轻染（7%）叠在低对比容器上：既有主入口的分量，又不会像整块
+        // primaryContainer 那样把下方所有内容压成背景。
+        color: Color.alphaBlend(
+          cs.primary.withValues(alpha: 0.07),
+          cs.surfaceContainerLow,
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 11, 10, 0),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: cs.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        // 实心三角（不是 strokeRoundedPlay 的空心描边三角）：
+                        // 18dp 的空心三角在深色圆钮上只剩一圈细线，读不出「播放」。
+                        child: Icon(
+                          Icons.play_arrow_rounded,
+                          size: 22,
+                          color: cs.onPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                if (ep.prefix != null)
+                                  TextSpan(
+                                    text: '${ep.prefix}: ',
+                                    style: TextStyle(
+                                      color: cs.onSurfaceVariant,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                TextSpan(
+                                  text: ep.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: kcFont13,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            "Reading progress @progress · P@page".tlParams({
+                              'progress': "${(pct * 100).round()}%",
+                              'page': "$page/$maxPage",
+                            }),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: kcFont11,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedArrowRight01,
+                      size: 18,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ],
+                ),
+              ),
+              // 进度线内缩 12dp 并圆头收尾，和卡片内文字左边缘对齐；不做通栏
+              // 出血，否则看起来像下拉刷新的边缘指示器而不是「这一话的进度」。
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(kcPillRadius),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final full = constraints.maxWidth;
+                      return Stack(
+                        children: [
+                          Container(
+                            height: 3,
+                            width: full,
+                            color: cs.onSurface.withValues(alpha: 0.08),
+                          ),
+                          Container(
+                            height: 3,
+                            width: full * pct,
+                            color: cs.primary,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 详情页的「下载中」任务卡。
+///
+/// 旧实现是一条 11px 文字 + 通栏 4dp 进度线，线直接压在卡片下边框上：线色取
+/// `tertiary`（本主题下是酱紫色）既和下载页的 `primary` 进度色撞不上，通栏使
+/// 进度条看起来像卡片渲染溢出的下边框，而右侧一大片空白既没有信息也没有操作。
+///
+/// 现在与 [_ContinueReadingCard] 同构：40dp 前导圆钮 + 双行文字 + 右侧百分比 +
+/// 内缩 3dp 细线。层级靠"描边卡片 + primaryContainer 圆钮"低一档，不抢主阅读
+/// 入口。卡片整块可点 → 打开下载队列（取消/置顶等破坏性操作留在那页）。
+class _DownloadStatusCard extends StatelessWidget {
+  const _DownloadStatusCard({required this.task, required this.onOpenQueue});
+
+  final DownloadTask task;
+  final VoidCallback onOpenQueue;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final pct = task.progress.clamp(0.0, 1.0).toDouble();
+    final failed = task.isError;
+    // 只把"用户主动暂停"算暂停。排队中的任务 isPaused 也是 true（它等于
+    // !_isRunning），当成暂停会显示「已暂停」，而它其实只是在队列里等。
+    final paused = task.isPaused && task.pausedByUser && !failed;
+
+    // 进度色与下载队列页对齐（primary）；失败转 error，暂停时降透明度表达
+    // "停住了"，而不是换一个色系让人以为下载被取消。
+    final barColor = failed
+        ? cs.error
+        : paused
+        ? cs.primary.withValues(alpha: 0.45)
+        : cs.primary;
+
+    final title = failed ? 'Download failed'.tl : 'Downloading'.tl;
+
+    // 副标题只陈述一次状态：失败给原因，暂停给状态词，正常给「图数 · 速度」。
+    // task.message 在图片任务里是 "128/240"，打包阶段是 "Packaging..."。
+    String? subtitle;
+    if (failed) {
+      final msg = task.message.trim();
+      subtitle = msg.isEmpty ? null : msg;
+    } else if (paused) {
+      subtitle = 'Paused'.tl;
+    } else {
+      final parts = <String>[
+        if (task.message.trim().isNotEmpty) task.message.trim(),
+        if (task.speed > 0) '${bytesToReadableString(task.speed)}/s',
+      ];
+      subtitle = parts.isEmpty ? null : parts.join(' · ');
+    }
+
+    return Material(
+      color: cs.surfaceContainerLow,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kcRadius16),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: InkWell(
+        onTap: onOpenQueue,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 0),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: failed ? cs.errorContainer : cs.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Icon(
+                        failed
+                            ? Icons.priority_high_rounded
+                            : paused
+                            ? Icons.pause_rounded
+                            : Icons.download_rounded,
+                        size: 21,
+                        color: failed
+                            ? cs.onErrorContainer
+                            : cs.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: kcFont13,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // 百分比等宽数字：进度跳动时右边缘不左右抖。
+                            Text(
+                              "${(pct * 100).toInt()}%",
+                              style: TextStyle(
+                                fontSize: kcFont13,
+                                fontWeight: FontWeight.w600,
+                                color: cs.onSurfaceVariant,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: kcFont11,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurfaceVariant,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures(),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // 只放"可逆"的暂停/继续；取消会删掉已下好的章节，不放这里。
+                  _DownloadIconButton(
+                    icon: failed
+                        ? Icons.refresh_rounded
+                        : paused
+                        ? Icons.play_arrow_rounded
+                        : Icons.pause_rounded,
+                    tooltip: failed
+                        ? 'Resume'.tl
+                        : paused
+                        ? 'Resume'.tl
+                        : 'Pause'.tl,
+                    onPressed: () {
+                      if (failed || paused) {
+                        task.resume();
+                      } else {
+                        task.pause();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            // 细线内缩 12dp、圆头收尾，和文字左边缘对齐；不做通栏出血，
+            // 否则会和卡片下边框糊成一条。
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(kcPillRadius),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: pct),
+                  duration: kcReduceMotion(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) => LayoutBuilder(
+                    builder: (context, constraints) {
+                      final full = constraints.maxWidth;
+                      return Stack(
+                        children: [
+                          Container(
+                            height: 3,
+                            width: full,
+                            color: cs.onSurface.withValues(alpha: 0.08),
+                          ),
+                          Container(
+                            height: 3,
+                            width: full * value,
+                            color: barColor,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 卡内的小图标按钮：36dp 命中区（配合整卡 40dp 圆钮不至于过密），
+/// 无背景、仅 onSurfaceVariant 色，避免在卡片里再长出一颗按钮。
+class _DownloadIconButton extends StatelessWidget {
+  const _DownloadIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(icon, size: 20),
+      color: context.colorScheme.onSurfaceVariant,
+      tooltip: tooltip,
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+      style: IconButton.styleFrom(
+        foregroundColor: context.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+/// 桌面端阅读进度注脚：章节名 + 右侧百分比 / 页码，下面压一条 3dp 细线。
+///
+/// 手机端已由 [_ContinueReadingCard] 承担「按钮 + 进度」二合一，这里只服务
+/// 桌面端：那侧主入口是动作行里的「Continue」chip，进度只做陈述，所以去掉
+/// 圆钮、边框、箭头，避免和 chip 争同一个动作。仍可点击。
+class _ReadProgressLine extends StatelessWidget {
+  const _ReadProgressLine({
+    required this.ep,
+    required this.page,
+    required this.maxPage,
+    required this.onTap,
+  });
+
+  final ({String? prefix, String name}) ep;
+  final int page;
+  final int maxPage;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final pct = (page / maxPage).clamp(0.0, 1.0).toDouble();
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(kcRadius8),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 2, 4, 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        if (ep.prefix != null)
+                          TextSpan(
+                            text: '${ep.prefix} ',
+                            style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        TextSpan(
+                          text: ep.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: kcFont13, color: cs.onSurface),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // 数字用等宽字形：翻页时百分比不会左右抖。
+                Text(
+                  '${(pct * 100).round()}% · P$page/$maxPage',
+                  style: TextStyle(
+                    fontSize: kcFont11,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(kcPillRadius),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final full = constraints.maxWidth;
+                  return Stack(
+                    children: [
+                      Container(
+                        height: 3,
+                        width: full,
+                        color: cs.surfaceContainerHighest,
+                      ),
+                      Container(
+                        height: 3,
+                        width: full * pct,
+                        color: cs.primary,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

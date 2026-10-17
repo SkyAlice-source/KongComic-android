@@ -135,49 +135,117 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
   }
 
   void sort() {
-    showDialog(
+    final scheme = context.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final reduceMotion = kcReduceMotion(context);
+    showGeneralDialog(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(builder: (context, setState) {
-          return ContentDialog(
-            title: "Sort".tl,
-            content: RadioGroup<LocalSortType>(
-              groupValue: sortType,
-              onChanged: (v) {
-                setState(() {
-                  sortType = v ?? sortType;
-                });
-              },
-              child: Column(
-                children: [
-                  RadioListTile<LocalSortType>(
-                    title: Text("Name".tl),
-                    value: LocalSortType.name,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.42),
+      transitionDuration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, _, __) {
+        return StatefulBuilder(builder: (ctx, setState) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Material(
+                  color: scheme.surfaceContainerHigh,
+                  elevation: 3,
+                  shadowColor: scheme.shadow.withValues(alpha: 0.18),
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(kcSurfaceRadius),
+                    side: BorderSide(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.06),
+                      width: 0.5,
+                    ),
                   ),
-                  RadioListTile<LocalSortType>(
-                    title: Text("Date".tl),
-                    value: LocalSortType.timeAsc,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 16, 6),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "Sort".tl,
+                            style: Theme.of(ctx)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      RadioGroup<LocalSortType>(
+                        groupValue: sortType,
+                        onChanged: (v) {
+                          setState(() {
+                            sortType = v ?? sortType;
+                          });
+                        },
+                        child: Column(
+                          children: [
+                            RadioListTile<LocalSortType>(
+                              title: Text("Name".tl),
+                              value: LocalSortType.name,
+                            ),
+                            RadioListTile<LocalSortType>(
+                              title: Text("Date".tl),
+                              value: LocalSortType.timeAsc,
+                            ),
+                            RadioListTile<LocalSortType>(
+                              title: Text("Date Desc".tl),
+                              value: LocalSortType.timeDesc,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding:
+                            const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            FilledButton(
+                              onPressed: () {
+                                appdata.implicitData["local_sort"] =
+                                    sortType.value;
+                                appdata.writeImplicitData();
+                                ctx.pop();
+                                update();
+                              },
+                              child: Text("Confirm".tl),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  RadioListTile<LocalSortType>(
-                    title: Text("Date Desc".tl),
-                    value: LocalSortType.timeDesc,
-                  ),
-                ],
+                ),
               ),
             ),
-            actions: [
-              FilledButton(
-                onPressed: () {
-                  appdata.implicitData["local_sort"] = sortType.value;
-                  appdata.writeImplicitData();
-                  Navigator.pop(context);
-                  update();
-                },
-                child: Text("Confirm".tl),
-              ),
-            ],
           );
         });
+      },
+      transitionBuilder: (context, animation, _, child) {
+        if (reduceMotion) return child;
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.93, end: 1).animate(curved),
+            child: child,
+          ),
+        );
       },
     );
   }
@@ -318,30 +386,64 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
           onPressed: () async {
             var result = await showModalBottomSheet(
               context: context,
+              showDragHandle: true,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(kcSurfaceRadius)),
               ),
               builder: (ctx) => SafeArea(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 16, 4),
+                      child: Text(
+                        "Import".tl,
+                        style: Theme.of(ctx)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ),
                     ListTile(
-                      leading: HugeIcon(icon: HugeIcons.strokeRoundedArchive, size: 18),
-                      title: Text("Import CBZ / ZIP / 7Z".tl),
+                      leading: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArchive,
+                        size: 20,
+                        color: context.colorScheme.onSurfaceVariant,
+                      ),
+                      title: Text("Import a CBZ / ZIP / 7Z file".tl),
+                      subtitle: Text("Add a single comic archive".tl),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                       onTap: () => Navigator.pop(ctx, 'cbz'),
                     ),
                     ListTile(
-                      leading: HugeIcon(icon: HugeIcons.strokeRoundedFolderZip, size: 18),
-                      title: Text("Import archives from folder".tl),
-                      subtitle: Text("Batch import .cbz/.zip/.7z files".tl),
+                      leading: HugeIcon(
+                        icon: HugeIcons.strokeRoundedFolderZip,
+                        size: 20,
+                        color: context.colorScheme.onSurfaceVariant,
+                      ),
+                      title: Text("Import archives in a folder".tl),
+                      subtitle: Text(
+                          "Batch import .cbz/.zip/.7z/.cb7 files from a folder".tl),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                       onTap: () => Navigator.pop(ctx, 'multiCbz'),
                     ),
                     ListTile(
-                      leading: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 18),
+                      leading: HugeIcon(
+                        icon: HugeIcons.strokeRoundedFolder01,
+                        size: 20,
+                        color: context.colorScheme.onSurfaceVariant,
+                      ),
                       title: Text("Import image folders".tl),
-                      subtitle: Text("Import folders containing images as comics".tl),
+                      subtitle:
+                          Text("Each subfolder with images becomes a comic".tl),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                       onTap: () => Navigator.pop(ctx, 'folder'),
                     ),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -521,60 +623,123 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
 
   Future<bool> deleteComics(List<LocalComic> comics) async {
     bool isDeleted = false;
-    await showDialog(
+    await showGeneralDialog(
       context: App.rootContext,
-      builder: (context) {
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.42),
+      transitionDuration:
+          kcReduceMotion(App.rootContext) ? Duration.zero : const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, _, __) {
         bool removeComicFile = false;
         bool removeFavoriteAndHistory = false;
-        return StatefulBuilder(builder: (context, state) {
-          return ContentDialog(
-            title: "Delete".tl,
-            content: Column(
-              children: [
-                CheckboxListTile(
-                  title: Text("Remove local favorite and history".tl),
-                  value: removeFavoriteAndHistory,
-                  onChanged: (v) {
-                    state(() {
-                      removeFavoriteAndHistory = !removeFavoriteAndHistory;
-                    });
-                  },
+        return StatefulBuilder(builder: (ctx, state) {
+          final scheme = Theme.of(ctx).colorScheme;
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 340),
+                child: Material(
+                  color: scheme.surfaceContainerHigh,
+                  elevation: 3,
+                  shadowColor: scheme.shadow.withValues(alpha: 0.18),
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(kcSurfaceRadius),
+                    side: BorderSide(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.06),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 16, 4),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "Delete".tl,
+                            style: Theme.of(ctx)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      CheckboxListTile(
+                        title: Text("Remove local favorite and history".tl),
+                        value: removeFavoriteAndHistory,
+                        onChanged: (v) {
+                          state(() {
+                            removeFavoriteAndHistory = !removeFavoriteAndHistory;
+                          });
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                      CheckboxListTile(
+                        title: Text("Also remove files on disk".tl),
+                        value: removeComicFile,
+                        onChanged: (v) {
+                          state(() {
+                            removeComicFile = !removeComicFile;
+                          });
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (comics.length == 1 && comics.first.hasChapters)
+                              TextButton(
+                                child: Text("Delete Chapters".tl),
+                                onPressed: () {
+                                  ctx.pop();
+                                  showDeleteChaptersPopWindow(App.rootContext, comics.first);
+                                },
+                              ),
+                            FilledButton(
+                              onPressed: () {
+                                ctx.pop();
+                                LocalManager().batchDeleteComics(
+                                  comics,
+                                  removeComicFile,
+                                  removeFavoriteAndHistory,
+                                );
+                                isDeleted = true;
+                              },
+                              child: Text("Confirm".tl),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                CheckboxListTile(
-                  title: Text("Also remove files on disk".tl),
-                  value: removeComicFile,
-                  onChanged: (v) {
-                    state(() {
-                      removeComicFile = !removeComicFile;
-                    });
-                  },
-                )
-              ],
-            ),
-            actions: [
-              if (comics.length == 1 && comics.first.hasChapters)
-                TextButton(
-                  child: Text("Delete Chapters".tl),
-                  onPressed: () {
-                    context.pop();
-                    showDeleteChaptersPopWindow(context, comics.first);
-                  },
-                ),
-              FilledButton(
-                onPressed: () {
-                  context.pop();
-                  LocalManager().batchDeleteComics(
-                    comics,
-                    removeComicFile,
-                    removeFavoriteAndHistory,
-                  );
-                  isDeleted = true;
-                },
-                child: Text("Confirm".tl),
               ),
-            ],
+            ),
           );
         });
+      },
+      transitionBuilder: (context, animation, _, child) {
+        if (kcReduceMotion(App.rootContext)) return child;
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.93, end: 1).animate(curved),
+            child: child,
+          ),
+        );
       },
     );
     return isDeleted;
@@ -744,58 +909,152 @@ Future<void> openComicFolder(LocalComic comic) async {
   }
 }
 
-void showDeleteChaptersPopWindow(BuildContext context, LocalComic comic) {
-  var chapters = <String>[];
+class _DeleteChaptersDialog extends StatefulWidget {
+  const _DeleteChaptersDialog({required this.comic});
 
-  showPopUpWidget(
-    context,
-    PopUpWidgetScaffold(
-      title: "Delete Chapters".tl,
-      body: StatefulBuilder(builder: (context, setState) {
-        return Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                itemCount: comic.downloadedChapters.length,
-                itemBuilder: (context, index) {
-                  var id = comic.downloadedChapters[index];
-                  var chapter = comic.chapters![id] ?? "Unknown Chapter".tl;
-                  return CheckboxListTile(
-                    title: Text(chapter),
-                    value: chapters.contains(id),
-                    onChanged: (v) {
-                      setState(() {
-                        if (v == true) {
-                          chapters.add(id);
-                        } else {
-                          chapters.remove(id);
-                        }
-                      });
-                    },
-                  );
-                },
+  final LocalComic comic;
+
+  @override
+  State<_DeleteChaptersDialog> createState() => _DeleteChaptersDialogState();
+}
+
+class _DeleteChaptersDialogState extends State<_DeleteChaptersDialog> {
+  final List<String> _chapters = [];
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screen = MediaQuery.sizeOf(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 360,
+            maxHeight: (screen.height * 0.72).clamp(240.0, 560.0),
+          ),
+          child: Material(
+            color: scheme.surfaceContainerHigh,
+            elevation: 3,
+            shadowColor: scheme.shadow.withValues(alpha: 0.18),
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(kcSurfaceRadius),
+              side: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
+                width: 0.5,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(kcSpaceSm),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  FilledButton(
-                    onPressed: () {
-                      Future.delayed(const Duration(milliseconds: 200), () {
-                        LocalManager().deleteComicChapters(comic, chapters);
-                      });
-                      App.rootContext.pop();
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 52,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: kcSpaceXs),
+                      IconButton(
+                        icon: HugeIcon(
+                          icon: HugeIcons.strokeRoundedCancel01,
+                          size: 18,
+                        ),
+                        color: scheme.onSurfaceVariant,
+                        onPressed: () => context.pop(),
+                      ),
+                      const SizedBox(width: kcSpaceXs),
+                      Expanded(
+                        child: Text(
+                          "Delete Chapters".tl,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(width: kcSpaceMd),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView.builder(
+                    itemCount: widget.comic.downloadedChapters.length,
+                    itemBuilder: (context, index) {
+                      final id = widget.comic.downloadedChapters[index];
+                      final chapter =
+                          widget.comic.chapters![id] ?? "Unknown Chapter".tl;
+                      return CheckboxListTile(
+                        title: Text(chapter),
+                        value: _chapters.contains(id),
+                        onChanged: (v) {
+                          setState(() {
+                            if (v == true) {
+                              _chapters.add(id);
+                            } else {
+                              _chapters.remove(id);
+                            }
+                          });
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                      );
                     },
-                    child: Text("Submit".tl),
-                  )
-                ],
-              ),
-            )
-          ],
-        );
-      }),
-    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      FilledButton(
+                        onPressed: () {
+                          Future.delayed(const Duration(milliseconds: 200), () {
+                            LocalManager().deleteComicChapters(
+                                widget.comic, _chapters);
+                          });
+                          context.pop();
+                        },
+                        child: Text("Submit".tl),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+void showDeleteChaptersPopWindow(BuildContext context, LocalComic comic) {
+  final reduceMotion = kcReduceMotion(context);
+  showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierColor: Colors.black.withValues(alpha: 0.42),
+    transitionDuration:
+        reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+    pageBuilder: (dialogContext, _, __) => _DeleteChaptersDialog(comic: comic),
+    transitionBuilder: (context, animation, _, child) {
+      if (reduceMotion) return child;
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.93, end: 1).animate(curved),
+          child: child,
+        ),
+      );
+    },
   );
 }

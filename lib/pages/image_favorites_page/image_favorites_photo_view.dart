@@ -241,7 +241,7 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
         ),
         MenuEntry(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
-          text: "Read".tl,
+          text: "Open Original Comic".tl,
           onClick: () async {
             var comic = widget.comic;
             var ep = images[currentPage].ep;

@@ -1554,12 +1554,12 @@ class _ContinuousModeState extends State<_ContinuousMode>
       context.readerScaffold.addImageFavorite();
       return;
     }
+    final initialScale = photoViewController.getInitialScale?.call() ?? 1.0;
     double target;
-    if (photoViewController.scale !=
-        photoViewController.getInitialScale?.call()) {
-      target = photoViewController.getInitialScale!.call()!;
+    if (photoViewController.scale != initialScale) {
+      target = initialScale;
     } else {
-      target = photoViewController.getInitialScale!.call()! * 1.75;
+      target = initialScale * 1.75;
     }
     var size = MediaQuery.of(context).size;
     photoViewController.animateScale?.call(
@@ -1574,7 +1574,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
     if (!appdata.settings['enableLongPressToZoom'] || delayedIsScrolling) {
       return;
     }
-    double target = photoViewController.getInitialScale!.call()! * 1.75;
+    double target = (photoViewController.getInitialScale?.call() ?? 1.0) * 1.75;
     var size = reader.size;
     Offset zoomPosition;
     if (appdata.settings['longPressZoomPosition'] != 'center') {
@@ -1591,11 +1591,11 @@ class _ContinuousModeState extends State<_ContinuousMode>
   }
 
   @override
-  void handleLongPressUp(Offset location) {
+    void handleLongPressUp(Offset location) {
     if (!appdata.settings['enableLongPressToZoom']) {
       return;
     }
-    double target = photoViewController.getInitialScale!.call()!;
+    double target = photoViewController.getInitialScale?.call() ?? 1.0;
     photoViewController.animateScale?.call(target);
     onScaleUpdate(target);
     isLongPressing = false;

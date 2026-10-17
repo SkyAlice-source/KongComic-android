@@ -81,8 +81,10 @@ class _ExplorePageState extends State<ExplorePage>
     GlobalState.findOrNull<_SingleExplorePageState>(pages[page])?.toTop();
   }
 
-  void addPage() {
-    showPopUpWidget(App.rootContext, setExplorePagesWidget());
+  /// 发现页右上「添加」的真实意图是「添加漫画源」，而不是在已装源里勾选探索页 tab。
+  /// 探索页 tab 的勾选管理仍保留在「设置 → 探索 → Explore Pages」。
+  void addComicSource() {
+    context.to(() => const ComicSourcePage());
   }
 
   NaviPaneState? naviPane;
@@ -160,7 +162,7 @@ class _ExplorePageState extends State<ExplorePage>
       title: "No Explore Pages".tl,
       subtitle: "Please check your source settings".tl,
       actionLabel: "Manage".tl,
-      onAction: addPage,
+      onAction: () => showPopUpWidget(App.rootContext, setExplorePagesWidget()),
     );
   }
 
@@ -180,7 +182,7 @@ class _ExplorePageState extends State<ExplorePage>
         actionButton: TabActionButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
           text: "Add".tl,
-          onPressed: addPage,
+          onPressed: addComicSource,
         ),
       ),
     ).paddingTop(context.padding.top);

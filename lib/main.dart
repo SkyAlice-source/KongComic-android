@@ -334,13 +334,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       textTheme: (isDark ? ThemeData.dark() : ThemeData.light()).textTheme.copyWith(
         displayLarge: const TextStyle(height: 1.3),
         displayMedium: const TextStyle(height: 1.3),
-        displaySmall: const TextStyle(height: 1.35),
-        headlineLarge: const TextStyle(height: 1.3),
-        headlineMedium: const TextStyle(height: 1.35),
-        headlineSmall: const TextStyle(height: 1.4),
-        titleLarge: const TextStyle(height: 1.35),
-        titleMedium: const TextStyle(height: 1.4),
-        titleSmall: const TextStyle(height: 1.4),
+        displaySmall: const TextStyle(height: 1.35, fontWeight: FontWeight.w700),
+        headlineLarge: const TextStyle(height: 1.3, fontWeight: FontWeight.w600),
+        headlineMedium: const TextStyle(height: 1.35, fontWeight: FontWeight.w600),
+        headlineSmall: const TextStyle(height: 1.4, fontWeight: FontWeight.w600),
+        titleLarge: const TextStyle(height: 1.35, fontWeight: FontWeight.w600),
+        titleMedium: const TextStyle(height: 1.4, fontWeight: FontWeight.w600),
+        titleSmall: const TextStyle(height: 1.4, fontWeight: FontWeight.w600),
         bodyLarge: const TextStyle(height: 1.5),
         bodyMedium: const TextStyle(height: 1.45),
         bodySmall: const TextStyle(height: 1.4),
@@ -353,7 +353,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         titleTextStyle: TextStyle(
           fontSize: kcTitleLarge,
           height: 1.35,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           // ⚠️ 必须显式给 color：AppBarTheme.titleTextStyle 一旦定义，
           // 就会整体接管 AppBar 标题样式；color 为 null 时标题颜色会丢，
           // 在浅色背景上渲染成近乎白色（分享图片选择页因此看不清）。

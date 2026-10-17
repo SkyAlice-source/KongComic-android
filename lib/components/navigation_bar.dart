@@ -626,7 +626,8 @@ class _SideNaviWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(kcCardRadius),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: AppAnimations.duration(const Duration(milliseconds: 260)),
+          curve: kcSpring,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           height: 38,
           decoration: BoxDecoration(
@@ -677,7 +678,8 @@ class _PaneActionWidget extends StatelessWidget {
         onTap: entry.onTap,
         borderRadius: BorderRadius.circular(kcCardRadius),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: AppAnimations.duration(const Duration(milliseconds: 260)),
+          curve: kcSpring,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           height: 38,
           child: showTitle
@@ -753,7 +755,7 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: CurvedAnimation(parent: controller, curve: Curves.ease),
+      animation: CurvedAnimation(parent: controller, curve: kcSpring),
       builder: (context, child) {
         return MouseRegion(
           cursor: SystemMouseCursors.click,
@@ -782,8 +784,8 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
     // 旧实现是 56×56 的淡色圆形色斑，只在图标外圈晕一点色，观感差很远。
     return Center(
       child: AnimatedContainer(
-        duration: AppAnimations.duration(const Duration(milliseconds: 200)),
-        curve: Curves.easeOutCubic,
+        duration: AppAnimations.duration(const Duration(milliseconds: 260)),
+        curve: kcSpring,
         // 横向 padding 从 16 收到 10：448dp 宽的手机屏（如 1344×2992@480）分 5 格
         // 后每格约 83dp，16 的 padding 只剩 51dp，11sp 的 "Categories"（约 57dp）
         // 放不下，会在底部导航里溢出约 7px（文字被裁成 "Categorie"）。
@@ -1154,7 +1156,9 @@ class _NaviMainViewState extends State<_NaviMainView> {
                         return false;
                       },
                     child: AnimatedSwitcher(
-                      duration: AppAnimations.duration(const Duration(milliseconds: 160)),
+                      duration: AppAnimations.duration(const Duration(milliseconds: 320)),
+                      switchInCurve: kcSpring,
+                      switchOutCurve: kcSpring,
                       child: state.buildMainViewContent(),
                     ),
                   ),

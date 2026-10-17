@@ -681,6 +681,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
       );
     }
 
+    if (!mounted) return;
     setState(() {
       updatedComics = [];
       allComics = [];

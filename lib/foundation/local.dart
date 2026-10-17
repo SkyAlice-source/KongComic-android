@@ -1185,8 +1185,12 @@ class LocalManager with ChangeNotifier {
     var comic = find(id, type) ?? (throw "Local comic not found".tl);
     var directory = Directory(comic.baseDir);
     if (comic.hasChapters) {
-      var cid =
-          ep is int ? comic.chapters!.ids.elementAt(ep - 1) : (ep as String);
+      var cid = ep is int
+          ? comic.chapters!.ids.elementAtOrNull(ep - 1)
+          : (ep as String);
+      if (cid == null) {
+        throw "Chapter not found".tl;
+      }
       cid = getChapterDirectoryName(cid);
       directory = Directory(FilePath.join(directory.path, cid));
     }

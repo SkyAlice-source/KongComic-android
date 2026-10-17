@@ -1,13 +1,124 @@
 part of 'favorites_page.dart';
 
+/// 居中文件夹选择卡片。
+///
+/// 不能用 Material 的 Dialog / ContentDialog 包：它们内部有 IntrinsicWidth，
+/// 会向内容索要固有宽高，而 ListView 的视口（Viewport）明确不支持 intrinsic
+/// 查询，会让整张卡片布局断言失败 —— 表现就是「只有一层灰遮罩、卡片不出现」。
+/// 这里自绘 Material 卡片：高度由内容决定，上限屏高 62%，超出则内部滚动。
+class _FolderSelectorDialog extends StatelessWidget {
+  const _FolderSelectorDialog({required this.favPage});
+
+  final _FavoritesPageState favPage;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = context.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screen = MediaQuery.sizeOf(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            // 收窄宽度 + 限制高度，让卡片更精致、不占满整屏
+            maxWidth: 360,
+            maxHeight: math.min(screen.height * 0.7, 560),
+          ),
+          child: Material(
+            color: scheme.surfaceContainerHigh,
+            // 降 elevation、柔化阴影，去掉厚重感
+            elevation: 3,
+            shadowColor: scheme.shadow.withValues(alpha: 0.12),
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(kcSurfaceRadius),
+              side: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
+                width: 0.5,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 顶部抓取条：精致 sheet 暗示，点遮罩 / 返回即可关闭
+                const SizedBox(height: kcSpaceXxs),
+                Center(
+                  child: Container(
+                    width: 32,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(kcPillRadius),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: kcSpaceXxs),
+                SizedBox(
+                  height: 48,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: kcSpaceSm),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: kcSpaceXs),
+                          child: Text(
+                            'Folders'.tl,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: HugeIcon(
+                          icon: HugeIcons.strokeRoundedCancel01,
+                          size: 18,
+                        ),
+                        color: scheme.onSurfaceVariant,
+                        tooltip: 'Close'.tl,
+                        onPressed: context.pop,
+                      ),
+                      const SizedBox(width: kcSpaceXs),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: _LeftBar(
+                    favPage: favPage,
+                    inDialog: true,
+                    onSelected: () => context.pop(),
+                  ),
+                ),
+                const SizedBox(height: kcSpaceXxs),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _LeftBar extends StatefulWidget {
-  const _LeftBar({this.favPage, this.onSelected, this.withAppbar = false});
+  const _LeftBar({
+    this.favPage,
+    this.onSelected,
+    this.inDialog = false,
+  });
 
   final _FavoritesPageState? favPage;
 
   final VoidCallback? onSelected;
 
-  final bool withAppbar;
+  /// 是否作为居中对话框的内容（而非常驻侧栏/左滑抽屉）。
+  /// 为 true 时去掉侧栏右描边，并不再额外加状态栏安全区 padding。
+  final bool inDialog;
 
   @override
   State<_LeftBar> createState() => _LeftBarState();
@@ -105,136 +216,215 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
 
     return Container(
       width: double.infinity,
-      height: double.infinity,
-      decoration: BoxDecoration(
-        border: Border(
-          right: BorderSide(
-            color: context.colorScheme.outlineVariant,
-            width: 0.6,
-          ),
+      // 对话框里按内容高度收缩（外层 ConstrainedBox 限高后内部滚动）；
+      // 常驻侧栏/抽屉才撑满整屏。
+      height: widget.inDialog ? null : double.infinity,
+      decoration: widget.inDialog
+          ? null
+          : BoxDecoration(
+              border: Border(
+                right: BorderSide(
+                  color: context.colorScheme.outlineVariant,
+                  width: 0.6,
+                ),
+              ),
+            ),
+      child: Column(
+        mainAxisSize: widget.inDialog ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          widget.inDialog
+              ? ListView(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  children: items,
+                )
+              : Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.only(
+                      top: context.padding.top,
+                      bottom: kcSpaceLg,
+                    ),
+                    children: items,
+                  ),
+                )
+        ],
+      ),
+    );
+  }
+
+  /// 统一的选中/未选中文件夹行（本地与网络共用外观）。
+  Widget _folderRow({
+    required String label,
+    required bool isSelected,
+    required int count,
+    required VoidCallback onTap,
+    Widget? trailing,
+  }) {
+    final scheme = context.colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(kcRadius8),
+      onTap: isSelected ? null : onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 46),
+        margin: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: 1),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? scheme.primaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(kcRadius8),
+        ),
+        child: Row(
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedFolder01,
+              size: 20,
+              color: isSelected
+                  ? scheme.onPrimaryContainer
+                  : scheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: kcSpaceMd),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: kcBody,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? scheme.onPrimaryContainer : scheme.onSurface,
+                ),
+              ),
+            ),
+            const SizedBox(width: kcSpaceXs),
+            _countChip(count, isSelected),
+            if (trailing != null) trailing,
+          ],
         ),
       ),
-      child: Column(
+    );
+  }
+
+  /// 计数 chip：未选中=中性低对比胶囊；选中=叠在 primaryContainer 上的浅色胶囊。
+  Widget _countChip(int count, bool selected) {
+    final scheme = context.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: 2),
+      decoration: BoxDecoration(
+        color: selected
+            ? scheme.onPrimaryContainer.withValues(alpha: 0.14)
+            : scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kcChipRadius),
+      ),
+      child: Text(
+        count.toString(),
+        style: TextStyle(
+          fontSize: kcCaption,
+          fontWeight: FontWeight.w500,
+          color: selected
+              ? scheme.onPrimaryContainer
+              : scheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  /// 通用分区标题（Local / 分类 / 未分类 / 隐藏 / Network 共用一套排版）。
+  Widget _sectionHeader(Widget leading, String label, {Widget? trailing}) {
+    final scheme = context.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(kcSpaceLg, 12, kcSpaceSm, 4),
+      child: Row(
         children: [
-          if (widget.withAppbar)
-            SizedBox(
-              height: 56,
-              child: Row(
-                children: [
-                  const SizedBox(width: 8),
-                  const CloseButton(),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Folders".tl,
-                    style: ts.s18,
-                  ),
-                ],
-              ),
-            ).paddingTop(context.padding.top),
+          leading,
+          const SizedBox(width: kcSpaceSm),
           Expanded(
-            child: ListView(
-              padding: widget.withAppbar
-                  ? EdgeInsets.zero
-                  : EdgeInsets.only(top: context.padding.top),
-              children: items,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurfaceVariant,
+                  ),
             ),
-          )
+          ),
+          if (trailing != null) trailing,
         ],
       ),
     );
   }
 
   Widget buildLocalTitle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedActivity01,
-            size: 22,
-            color: context.colorScheme.secondary,
+    return _sectionHeader(
+      HugeIcon(
+        icon: HugeIcons.strokeRoundedActivity01,
+        size: 18,
+        color: context.colorScheme.onSurfaceVariant,
+      ),
+      "Local".tl,
+      trailing: MenuButton(
+        entries: [
+          MenuEntry(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
+            text: 'Create Folder'.tl,
+            onClick: () {
+              newFolder().then((value) {
+                setState(() {
+                  folders = LocalFavoritesManager().folderNames;
+                });
+              });
+            },
           ),
-          const SizedBox(width: 12),
-          Text("Local".tl),
-          const Spacer(),
-          MenuButton(
-            entries: [
-              MenuEntry(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
-                text: 'Create Folder'.tl,
-                onClick: () {
-                  newFolder().then((value) {
-                    setState(() {
-                      folders = LocalFavoritesManager().folderNames;
-                    });
-                  });
+          MenuEntry(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
+            text: 'Sort'.tl,
+            onClick: () {
+              sortFolders().then((value) {
+                setState(() {
+                  folders = LocalFavoritesManager().folderNames;
+                });
+              });
+            },
+          ),
+          MenuEntry(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder02, size: 18),
+            text: 'New Category'.tl,
+            onClick: () {
+              showInputDialog(
+                context: App.rootContext,
+                title: 'New Category'.tl,
+                hintText: 'Category Name'.tl,
+                onConfirm: (value) {
+                  if (value.isEmpty) {
+                    return 'Name cannot be empty'.tl;
+                  }
+                  BookshelfLayout.createCategory(value);
+                  return null;
                 },
-              ),
-              MenuEntry(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
-                text: 'Sort'.tl,
-                onClick: () {
-                  sortFolders().then((value) {
-                    setState(() {
-                      folders = LocalFavoritesManager().folderNames;
-                    });
-                  });
-                },
-              ),
-              MenuEntry(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder02, size: 18),
-                text: 'New Category'.tl,
-                onClick: () {
-                  showInputDialog(
-                    context: App.rootContext,
-                    title: 'New Category'.tl,
-                    hintText: 'Category Name'.tl,
-                    onConfirm: (value) {
-                      if (value.isEmpty) {
-                        return 'Name cannot be empty'.tl;
-                      }
-                      BookshelfLayout.createCategory(value);
-                      return null;
-                    },
-                  );
-                },
-              ),
-              MenuEntry(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
-                text: 'Manage Categories'.tl,
-                onClick: () {
-                  _manageCategoriesDialog();
-                },
-              ),
-            ],
+              );
+            },
+          ),
+          MenuEntry(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
+            text: 'Manage Categories'.tl,
+            onClick: () {
+              _manageCategoriesDialog();
+            },
           ),
         ],
-      ).paddingHorizontal(16),
+      ),
     );
   }
 
   Widget _buildCategoryHeader(String name, int count, String id) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      margin: const EdgeInsets.only(top: 12),
-      child: Row(
+    return _sectionHeader(
+      HugeIcon(
+        icon: HugeIcons.strokeRoundedFolder02,
+        size: 18,
+        color: context.colorScheme.onSurfaceVariant,
+      ),
+      name,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedFolder02,
-            size: 18,
-            color: context.colorScheme.secondary,
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(name, style: ts.s16)),
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: context.colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(kcRadius8),
-            ),
-            child: Text(count.toString()),
-          ),
+          _countChip(count, false),
           MenuButton(
             entries: [
               MenuEntry(
@@ -271,210 +461,154 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
             ],
           ),
         ],
-      ).paddingHorizontal(16),
+      ),
     );
   }
 
   Widget _buildGroupHeader(String title) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      margin: const EdgeInsets.only(top: 12),
-      child: Row(
-        children: [
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedFolder02,
-            size: 18,
-            color: context.colorScheme.secondary,
-          ),
-          const SizedBox(width: 8),
-          Text(title, style: ts.s16),
-        ],
-      ).paddingHorizontal(16),
+    return _sectionHeader(
+      HugeIcon(
+        icon: HugeIcons.strokeRoundedFolder02,
+        size: 18,
+        color: context.colorScheme.onSurfaceVariant,
+      ),
+      title,
     );
   }
 
   Widget _buildHiddenHeader() {
+    final scheme = context.colorScheme;
     return InkWell(
       onTap: () {
         setState(() {
           _hiddenExpanded = !_hiddenExpanded;
         });
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        margin: const EdgeInsets.only(top: 12),
-        child: Row(
-          children: [
-            HugeIcon(
-              icon: HugeIcons.strokeRoundedViewOff,
-              size: 18,
-              color: context.colorScheme.secondary,
-            ),
-            const SizedBox(width: 8),
-            Text('Hidden'.tl, style: ts.s16),
-            const Spacer(),
-            HugeIcon(icon: _hiddenExpanded ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01, size: 18),
-          ],
-        ).paddingHorizontal(16),
+      child: _sectionHeader(
+        HugeIcon(
+          icon: HugeIcons.strokeRoundedViewOff,
+          size: 18,
+          color: context.colorScheme.onSurfaceVariant,
+        ),
+        'Hidden'.tl,
+        trailing: HugeIcon(
+          icon: _hiddenExpanded
+              ? HugeIcons.strokeRoundedArrowUp01
+              : HugeIcons.strokeRoundedArrowDown01,
+          size: 18,
+          color: scheme.onSurfaceVariant,
+        ),
       ),
     );
   }
 
   Widget _buildHiddenFolderRow(String name) {
-    return Container(
-      height: 42,
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.only(left: 32),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              name,
-              style: ts.s14.copyWith(
-                color: context.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedView, size: 18),
-            tooltip: 'Restore'.tl,
-            onPressed: () {
-              BookshelfLayout.unhideFolder(name);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget buildNetworkTitle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      margin: const EdgeInsets.only(top: 12),
-      child: Row(
-        children: [
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedCloud,
-            size: 22,
-            color: context.colorScheme.secondary,
-          ),
-          const SizedBox(width: 12),
-          Text("Network".tl),
-          const Spacer(),
-          IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
-            onPressed: () {
-              showPopUpWidget(
-                App.rootContext,
-                setFavoritesPagesWidget(),
-              );
-            },
-          ),
-        ],
-      ).paddingHorizontal(16),
-    );
-  }
-
-  Widget buildLocalFolder(String name) {
-    bool isSelected = name == favPage.folder && !favPage.isNetwork;
-    int count = 0;
-    if (name == _localAllFolderLabel) {
-      count = LocalFavoritesManager().totalComics;
-    } else {
-      count = LocalFavoritesManager().folderComics(name);
-    }
-    var folderName = name == _localAllFolderLabel
-        ? "All".tl
-        : getFavoriteDataOrNull(name)?.title ?? name;
+    final scheme = context.colorScheme;
     return InkWell(
-      onTap: () {
-        if (isSelected) {
-          return;
-        }
-        favPage.setFolder(false, name);
-        widget.onSelected?.call();
-      },
+      onTap: () => BookshelfLayout.unhideFolder(name),
       child: Container(
-        height: 42,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        alignment: Alignment.centerLeft,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? context.colorScheme.primaryContainer.withValues(alpha: 0.5)
-              : null,
-          borderRadius:
-              isSelected ? BorderRadius.circular(kcRadius8) : null,
-        ),
-        padding: const EdgeInsets.only(left: 12),
+        constraints: const BoxConstraints(minHeight: 48),
+        margin: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: 2),
+        padding: const EdgeInsets.only(left: 32, right: kcSpaceMd),
         child: Row(
           children: [
             Expanded(
-              child: Text(folderName),
-            ),
-            Container(
-              margin: const EdgeInsets.only(right: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: context.colorScheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(kcRadius8),
+              child: Text(
+                name,
+                style: TextStyle(fontSize: kcBody, color: scheme.onSurfaceVariant),
               ),
-              child: Text(count.toString()),
             ),
-            if (name != _localAllFolderLabel)
-              MenuButton(
-                entries: [
-                  MenuEntry(
-                    icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedFolder02, size: 18),
-                    text: 'Set category'.tl,
-                    onClick: () {
-                      _pickCategoryDialog(name);
-                    },
-                  ),
-                  MenuEntry(
-                    icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedViewOff, size: 18),
-                    text: 'Hide'.tl,
-                    onClick: () {
-                      BookshelfLayout.hideFolder(name);
-                    },
-                  ),
-                ],
+            IconButton(
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedView,
+                size: 18,
+                color: scheme.onSurfaceVariant,
               ),
+              tooltip: 'Restore'.tl,
+              onPressed: () => BookshelfLayout.unhideFolder(name),
+            ),
           ],
         ),
       ),
     );
   }
 
+  Widget buildNetworkTitle() {
+    final scheme = context.colorScheme;
+    return _sectionHeader(
+      HugeIcon(
+        icon: HugeIcons.strokeRoundedCloud,
+        size: 18,
+        color: context.colorScheme.onSurfaceVariant,
+      ),
+      "Network".tl,
+      trailing: IconButton(
+        icon: HugeIcon(
+          icon: HugeIcons.strokeRoundedSettings01,
+          size: 18,
+          color: scheme.onSurfaceVariant,
+        ),
+        onPressed: () {
+          showPopUpWidget(
+            App.rootContext,
+            setFavoritesPagesWidget(),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget buildLocalFolder(String name) {
+    final isSelected = name == favPage.folder && !favPage.isNetwork;
+    final count = name == _localAllFolderLabel
+        ? LocalFavoritesManager().totalComics
+        : LocalFavoritesManager().folderComics(name);
+    final folderName = name == _localAllFolderLabel
+        ? "All".tl
+        : getFavoriteDataOrNull(name)?.title ?? name;
+    return _folderRow(
+      label: folderName,
+      isSelected: isSelected,
+      count: count,
+      onTap: () {
+        favPage.setFolder(false, name);
+        widget.onSelected?.call();
+      },
+      trailing: name != _localAllFolderLabel
+          ? MenuButton(
+              entries: [
+                MenuEntry(
+                  icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedFolder02, size: 18),
+                  text: 'Set category'.tl,
+                  onClick: () => _pickCategoryDialog(name),
+                ),
+                MenuEntry(
+                  icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedViewOff, size: 18),
+                  text: 'Hide'.tl,
+                  onClick: () => BookshelfLayout.hideFolder(name),
+                ),
+              ],
+            )
+          : null,
+    );
+  }
+
   Widget buildNetworkFolder(String key) {
-    var data = getFavoriteDataOrNull(key);
+    final data = getFavoriteDataOrNull(key);
     if (data == null) {
       return const SizedBox();
     }
-    bool isSelected = key == favPage.folder && favPage.isNetwork;
-    return InkWell(
+    final isSelected = key == favPage.folder && favPage.isNetwork;
+    return _folderRow(
+      label: data.title,
+      isSelected: isSelected,
+      count: 0,
       onTap: () {
-        if (isSelected) {
-          return;
-        }
         favPage.setFolder(true, key);
         widget.onSelected?.call();
       },
-      child: Container(
-        height: 42,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        alignment: Alignment.centerLeft,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? context.colorScheme.primaryContainer.withValues(alpha: 0.5)
-              : null,
-          borderRadius:
-              isSelected ? BorderRadius.circular(kcRadius8) : null,
-        ),
-        padding: const EdgeInsets.only(left: 12),
-        child: Text(data.title),
-      ),
     );
   }
 
@@ -502,7 +636,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
                   ),
                   for (var cat in cats)
                     ListTile(
-                      title: Text(cat['name']!),
+                      title: Text(cat['name'] ?? ''),
                       selected: current == cat['id'],
                       onTap: () {
                         BookshelfLayout.setCategory(folder, cat['id']);
@@ -553,7 +687,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
                             icon: HugeIcons.strokeRoundedArrange,
                             size: 18,
                           ),
-                          title: Text(cat['name']!),
+                          title: Text(cat['name'] ?? ''),
                         );
                       },
                     ),
@@ -562,7 +696,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
               FilledButton(
                 onPressed: () {
                   BookshelfLayout.reorderCategories(
-                    cats.map((c) => c['id']!).toList(),
+                    cats.map((c) => c['id'] ?? '').toList(),
                   );
                   context.pop();
                 },

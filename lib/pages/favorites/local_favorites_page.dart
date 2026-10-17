@@ -451,22 +451,38 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
             style: context.width < changePoint
                 ? AppbarStyle.shadow
                 : AppbarStyle.shadow,
-            leading: Tooltip(
-              message: "Folders".tl,
-              child: context.width <= _kTwoPanelChangeWidth
-                  ? IconButton(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                      color: context.colorScheme.primary,
-                      onPressed: favPage.showFolderSelector,
-                    )
-                  : const SizedBox(),
-            ),
-            title: GestureDetector(
-              onTap: context.width < _kTwoPanelChangeWidth
-                  ? favPage.showFolderSelector
-                  : null,
-              child: Text(title),
-            ),
+            leading: const SizedBox(),
+            title: context.width <= _kTwoPanelChangeWidth
+                ? Tooltip(
+                    message: "Folders".tl,
+                    child: GestureDetector(
+                      onTap: favPage.showFolderSelector,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedFolder02,
+                            size: 20,
+                            color: context.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: kcSpaceSm),
+                          Flexible(
+                            child: Text(
+                              title,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowDown01,
+                            size: 16,
+                            color: context.colorScheme.onSurfaceVariant,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Text(title),
             actions: [
               if (networkSource != null && !isAllFolder)
                 Tooltip(

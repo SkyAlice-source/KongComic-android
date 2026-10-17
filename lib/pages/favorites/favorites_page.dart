@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:math';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -180,40 +180,33 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   void showFolderSelector() {
-    Navigator.of(App.mainNavigatorKey?.currentContext ?? context).push(PageRouteBuilder(
+    // 用 showGeneralDialog 统一动画：遮罩与卡片同步淡入 + 轻微缩放。
+    // 系统默认 DialogRoute 只淡入卡片，遮罩首帧就已铺满，慢设备上会先闪一屏灰。
+    final reduceMotion = kcReduceMotion(context);
+    showGeneralDialog(
+      context: App.mainNavigatorKey?.currentContext ?? context,
       barrierDismissible: true,
-      fullscreenDialog: true,
-      opaque: false,
-      barrierColor: Colors.black.withValues(alpha: 0.36),
-      pageBuilder: (context, animation, secondary) {
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: Material(
-            child: SizedBox(
-              width: min(300, context.width - 16),
-              child: _LeftBar(
-                withAppbar: true,
-                favPage: this,
-                onSelected: () {
-                  context.pop();
-                },
-              ),
-            ),
+      barrierLabel: 'Folders'.tl,
+      barrierColor: Colors.black.withValues(alpha: 0.42),
+      transitionDuration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, _, __) => _FolderSelectorDialog(favPage: this),
+      transitionBuilder: (context, animation, _, child) {
+        if (reduceMotion) return child;
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.93, end: 1).animate(curved),
+            child: child,
           ),
         );
       },
-      transitionsBuilder: (context, animation, secondary, child) {
-        var offset =
-            Tween<Offset>(begin: const Offset(-1, 0), end: const Offset(0, 0));
-        return SlideTransition(
-          position: offset.animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.fastOutSlowIn,
-          )),
-          child: child,
-        );
-      },
-    ));
+    );
   }
 
   Widget buildBody() {

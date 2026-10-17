@@ -47,10 +47,43 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   /// 正在更新的源（key），用于在条目按钮上显示进度。
   final Set<String> _updating = {};
 
+  /// 正在进行整仓库更新的仓库：id -> 进度（已完成 / 总数）。
+  ///
+  /// 只在列表页用得到：更新期间把该仓库的「更新」按钮换成进度圈，
+  /// 顶部再显示一条总进度，否则几十个源依次下载看起来像卡死。
+  final Map<String, ({int done, int total})> _repoUpdates = {};
+
   @override
   void initState() {
     super.initState();
     repositories.addListener(_update);
+    _prefetchCatalogs();
+  }
+
+  /// 后台预取各仓库的 `index.json`，让列表卡片能显示「N 个源 · M 个可更新」。
+  ///
+  /// [SourceRepositories.stats] 只能读到内存里的快照，以前没点开过某个仓库时
+  /// 卡片副标题只能退回显示 URL，用户既看不出这个仓库有几个源，也看不出有没有
+  /// 更新可用 —— 那就没法知道该不该点「更新」。失败静默忽略：卡片显示 URL，
+  /// 与以前一致。并发拉取，别让第二个仓库排在第一个后面白等一轮 RTT。
+  Future<void> _prefetchCatalogs() async {
+    final pending = [
+      for (final repository in repositories.all)
+        if (repositories.stats(repository.id) == null) repository,
+    ];
+    if (pending.isEmpty) return;
+    await Future.wait([
+      for (final repository in pending) _prefetchOne(repository),
+    ]);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _prefetchOne(SourceRepository repository) async {
+    try {
+      await repositories.load(repository);
+    } catch (_) {
+      // 拉不到就保持 URL 副标题，等用户自己点开时再报错。
+    }
   }
 
   @override
@@ -495,8 +528,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   Widget _buildRepositoryList() {
     final all = repositories.all;
     if (all.isEmpty) return _buildEmpty();
+    final banner = _buildRepoUpdateBanner();
     // 长按拖动排序：仓库的先后顺序即用户优先级，持久化在设置里。
-    return ReorderableListView.builder(
+    final list = ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceSm, kcSpaceMd, kcSpaceLg),
       itemCount: all.length,
       proxyDecorator: _dragProxy,
@@ -504,6 +538,67 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
       itemBuilder: (context, index) => KeyedSubtree(
         key: ValueKey(all[index].id),
         child: _buildRepositoryCard(all[index]),
+      ),
+    );
+    if (banner == null) return list;
+    return Column(children: [banner, Expanded(child: list)]);
+  }
+
+  /// 整仓库更新的总进度条。
+  ///
+  /// 一个仓库可能有几十个源，逐个下载期间按钮上的转圈不足以说明「还在动」，
+  /// 这里给出「第几个 / 共几个」。
+  Widget? _buildRepoUpdateBanner() {
+    if (_repoUpdates.isEmpty) return null;
+    final entry = _repoUpdates.entries.first;
+    final repository = repositories.find(entry.key);
+    final done = entry.value.done;
+    final total = entry.value.total;
+    final scheme = context.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(kcSpaceMd, 0, kcSpaceMd, kcSpaceSm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "Updating @name".tlParams({
+                    'name': repository?.name ?? '',
+                  }),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: kcFont13,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(width: kcSpaceSm),
+              Text(
+                '$done/$total',
+                style: TextStyle(
+                  fontSize: kcFont13,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: kcSpaceXs),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(kcRadius4),
+            child: LinearProgressIndicator(
+              value: total == 0 ? null : done / total,
+              minHeight: 4,
+              color: scheme.brightness == Brightness.dark
+                  ? Color.alphaBlend(
+                      scheme.primary.withValues(alpha: 0.34), scheme.surface)
+                  : scheme.primary,
+              backgroundColor: scheme.surfaceContainerHighest,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -527,8 +622,14 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
             ? "${"N sources".tlParams({'count': stats.total})} · "
                 "${"sources updatable".tlParams({'count': stats.updatable})}"
             : "N sources".tlParams({'count': stats.total});
+    final progress = _repoUpdates[repository.id];
+    // 有更新时按钮染成主色，与副标题里的「N 个可更新」呼应；没有更新也保留
+    // 这个按钮 —— 它同时是「检查这个仓库有没有新版」的入口。
+    final hasUpdate = (stats?.updatable ?? 0) > 0;
+    // 别的仓库正在更新时一起置灰：重复点击会并发跑两批，进度条也会串。
+    final repoBusy = _repoUpdates.isNotEmpty;
     return _card(
-      onTap: () => _open(repository),
+      onTap: repoBusy ? null : () => _open(repository),
       child: Row(
         children: [
           _iconBadge(HugeIcons.strokeRoundedFolder01),
@@ -560,6 +661,23 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
             ),
           ),
           const SizedBox(width: kcSpaceXs),
+          IconButton(
+            tooltip: "Update repository".tl,
+            visualDensity: VisualDensity.compact,
+            onPressed:
+                repoBusy ? null : () => _updateRepository(repository),
+            icon: progress != null
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : HugeIcon(
+                    icon: HugeIcons.strokeRoundedRefresh,
+                    size: 18,
+                    color: hasUpdate ? scheme.primary : null,
+                  ),
+          ),
           IconButton(
             tooltip: "Edit".tl,
             visualDensity: VisualDensity.compact,
@@ -871,36 +989,23 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     _exitSelect();
   }
 
-  Future<void> _batchUpdate() async {
-    final catalog = _catalog;
-    final repository = _opened;
-    if (catalog == null || repository == null || _busy) return;
-    final keys = _selected.toList();
-    // 记的是「条目」而不是源：更新的下载地址必须来自用户看到的这一条
-    // （见 [_updateEntry] 的说明）。
-    final targets = <SourceCatalogEntry>[];
-    for (final entry in catalog.entries) {
-      if (!keys.contains(entry.key)) continue;
-      final installed = ComicSource.find(entry.key);
-      if (installed != null && compareSemVer(entry.version, installed.version)) {
-        targets.add(entry);
-      }
-    }
-    if (targets.isEmpty) {
-      _exitSelect();
-      return;
-    }
-    setState(() => _busy = true);
+  /// 逐条更新 [targets]，返回成功 / 失败 / 「仓库未同步」的计数。
+  ///
+  /// 每个源都跳过 reload（`reloadNow: false`），由调用方在整批结束后统一
+  /// reload 一次，否则会把全部脚本重解析 N 遍。
+  Future<({int ok, int fail, int stale})> _applyUpdates(
+    SourceRepository repository,
+    List<(SourceCatalogEntry, ComicSource)> targets, {
+    void Function(int done, int total)? onProgress,
+  }) async {
     var ok = 0;
     var fail = 0;
     // 仓库 index 比脚本文件新的时候（作者漏改 / CDN 没同步），下载会成功、
     // 版本却纹丝不动。这种「更新成功」是假的，单独计数告诉用户。
     var stale = 0;
-    for (final entry in targets) {
-      final installed = ComicSource.find(entry.key);
-      if (installed == null) continue;
+    for (var i = 0; i < targets.length; i++) {
+      final (entry, installed) = targets[i];
       try {
-        // reloadNow=false：逐个 reload 会把全部脚本重解析 N 遍，这里统一一次。
         final outcome = await ComicSourcePage.updateFromEntry(
           installed,
           repository,
@@ -917,7 +1022,44 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
         Log.error('Comic source', e, s);
         fail++;
       }
+      onProgress?.call(i + 1, targets.length);
     }
+    return (ok: ok, fail: fail, stale: stale);
+  }
+
+  String _batchResultMessage(({int ok, int fail, int stale}) result) {
+    var message = "Updated @ok, failed @fail".tlParams({
+      'ok': result.ok.toString(),
+      'fail': result.fail.toString(),
+    });
+    if (result.stale > 0) {
+      message += " · "
+          "${"Repository out of sync: @n".tlParams({'n': result.stale.toString()})}";
+    }
+    return message;
+  }
+
+  Future<void> _batchUpdate() async {
+    final catalog = _catalog;
+    final repository = _opened;
+    if (catalog == null || repository == null || _busy) return;
+    final keys = _selected.toList();
+    // 记的是「条目」而不是源：更新的下载地址必须来自用户看到的这一条
+    // （见 [_updateEntry] 的说明）。
+    final targets = <(SourceCatalogEntry, ComicSource)>[];
+    for (final entry in catalog.entries) {
+      if (!keys.contains(entry.key)) continue;
+      final installed = ComicSource.find(entry.key);
+      if (installed != null && compareSemVer(entry.version, installed.version)) {
+        targets.add((entry, installed));
+      }
+    }
+    if (targets.isEmpty) {
+      _exitSelect();
+      return;
+    }
+    setState(() => _busy = true);
+    final result = await _applyUpdates(repository, targets);
     try {
       await ComicSourceManager().reload();
     } catch (e, s) {
@@ -925,19 +1067,76 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     }
     if (!mounted) return;
     setState(() => _busy = false);
-    var message = "Updated @ok, failed @fail".tlParams({
-      'ok': ok.toString(),
-      'fail': fail.toString(),
-    });
-    if (stale > 0) {
-      message += " · "
-          "${"Repository out of sync: @n".tlParams({'n': stale.toString()})}";
-    }
-    context.showMessage(message: message);
+    context.showMessage(message: _batchResultMessage(result));
     // Versions changed, refresh the snapshot so the badges update.
     setState(() => _catalog = null);
     await _load();
     _exitSelect();
+  }
+
+  /// 一键更新整个仓库：把这个仓库里所有「已安装且有新版」的源依次更新。
+  ///
+  /// 以前只有进入仓库 → 选择模式 → 全选 → 批量更新这一条路径，仓库多了以后
+  /// 每换一个仓库都要重走一遍，等于没有「更新整个仓库」的办法。这里在列表卡片
+  /// 上直接给一个入口，语义与批量更新一致（同样按目录条目的下载地址更新，
+  /// 同样把「仓库未同步」单独计数）。
+  Future<void> _updateRepository(SourceRepository repository) async {
+    // 一次只跑一个仓库：两个整仓库更新并行会抢同一个源的 remove/reload，
+    // 也会让顶部进度条对不上号。
+    if (_repoUpdates.isNotEmpty) return;
+    final SourceCatalog catalog;
+    try {
+      // 必须拿最新的 index：整仓库更新要据此挑出「确实有新版」的源，
+      // 用过期快照会把已经是最新的源又下载一遍。
+      catalog = await repositories.load(repository, fresh: true);
+    } catch (e) {
+      if (mounted) context.showMessage(message: updateFailureMessage(e));
+      return;
+    }
+    final targets = <(SourceCatalogEntry, ComicSource)>[];
+    for (final entry in catalog.entries) {
+      final installed = ComicSource.find(entry.key);
+      if (installed == null) continue;
+      if (!compareSemVer(entry.version, installed.version)) continue;
+      targets.add((entry, installed));
+    }
+    if (targets.isEmpty) {
+      if (!mounted) return;
+      // index 刚刷新过，顺手让卡片上的「N 个可更新」归零。
+      setState(() {});
+      context.showMessage(message: "Everything is up to date.".tl);
+      return;
+    }
+    setState(
+      () => _repoUpdates[repository.id] = (done: 0, total: targets.length),
+    );
+    ({int ok, int fail, int stale}) result;
+    try {
+      result = await _applyUpdates(
+        repository,
+        targets,
+        onProgress: (done, total) {
+          if (mounted) {
+            setState(
+              () => _repoUpdates[repository.id] = (done: done, total: total),
+            );
+          }
+        },
+      );
+    } catch (e, s) {
+      // 单条失败已在 [_applyUpdates] 内计数，这里兜的是意外：无论如何都不能
+      // 把进度条永远留在页面上。
+      Log.error('Comic source', e, s);
+      result = (ok: 0, fail: targets.length, stale: 0);
+    }
+    try {
+      await ComicSourceManager().reload();
+    } catch (e, s) {
+      Log.error('Comic source', e, s);
+    }
+    if (!mounted) return;
+    setState(() => _repoUpdates.remove(repository.id));
+    context.showMessage(message: _batchResultMessage(result));
   }
 
   Widget _buildError() {

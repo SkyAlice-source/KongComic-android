@@ -35,6 +35,19 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
 
   late ComicChapters chapters;
 
+  /// 已下载章节 id 集合，用于章节格子右上角的下载状态标。
+  /// 仅在漫画 id 变化时重新查库，避免每次 rebuild 都查 SQLite。
+  Set<String> _downloadedKeys = const {};
+  String? _downloadedComicId;
+
+  void _syncDownloaded() {
+    final id = state.comic.id;
+    if (_downloadedComicId == id) return;
+    _downloadedComicId = id;
+    final local = LocalManager().find(id, state.comic.comicType);
+    _downloadedKeys = local?.downloadedChapters.toSet() ?? const {};
+  }
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +59,7 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
   void didChangeDependencies() {
     state = context.findAncestorStateOfType<_ComicPageState>()!;
     chapters = state.comic.chapters!;
+    _syncDownloaded();
     super.didChangeDependencies();
   }
 
@@ -113,6 +127,7 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                     value: value,
                     visited: visited,
                     isCurrent: isCurrent,
+                    downloaded: _downloadedKeys.contains(key),
                     onTap: () => state.read(i + 1),
                   );
                 },
@@ -172,6 +187,18 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
 
   late int index;
 
+  /// 已下载章节 id 集合，用于章节格子右上角的下载状态标。
+  Set<String> _downloadedKeys = const {};
+  String? _downloadedComicId;
+
+  void _syncDownloaded() {
+    final id = state.comic.id;
+    if (_downloadedComicId == id) return;
+    _downloadedComicId = id;
+    final local = LocalManager().find(id, state.comic.comicType);
+    _downloadedKeys = local?.downloadedChapters.toSet() ?? const {};
+  }
+
   @override
   void initState() {
     super.initState();
@@ -188,6 +215,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
   void didChangeDependencies() {
     state = context.findAncestorStateOfType<_ComicPageState>()!;
     chapters = state.comic.chapters!;
+    _syncDownloaded();
     tabController = TabController(
       initialIndex: index,
       length: chapters.ids.length,
@@ -300,6 +328,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                     value: value,
                     visited: visited,
                     isCurrent: isCurrent,
+                    downloaded: _downloadedKeys.contains(key),
                     onTap: () => state.read(chapterIndex + 1),
                   );
                 },
@@ -342,49 +371,75 @@ Widget _buildChapterTile(
   required String value,
   required bool visited,
   required bool isCurrent,
+  required bool downloaded,
   required VoidCallback onTap,
 }) {
+  final cs = context.colorScheme;
   return Padding(
     padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
     child: Material(
       color: isCurrent
-          ? context.colorScheme.primaryContainer.withValues(alpha: 0.5)
-          : context.colorScheme.surfaceContainerLow,
+          ? cs.primaryContainer.withValues(alpha: 0.5)
+          : cs.surfaceContainerLow,
       borderRadius: BorderRadius.circular(kcCardRadius),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(kcCardRadius),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(kcCardRadius),
-            border: Border.all(
-              color: isCurrent
-                  ? context.colorScheme.primary
-                  : visited
-                      ? context.colorScheme.tertiary.withValues(alpha: 0.5)
-                      : context.colorScheme.outline.withValues(alpha: 0.3),
-              width: isCurrent ? 1.5 : 1,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Center(
-              child: Text(
-                value,
-                maxLines: 1,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(kcCardRadius),
+                border: Border.all(
                   color: isCurrent
-                      ? context.colorScheme.primary
+                      ? cs.primary
                       : visited
-                          ? context.colorScheme.onSurfaceVariant
-                          : context.colorScheme.onSurface,
-                  fontWeight: isCurrent ? FontWeight.w600 : null,
+                          ? cs.tertiary.withValues(alpha: 0.5)
+                          : cs.outline.withValues(alpha: 0.3),
+                  width: isCurrent ? 1.5 : 1,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Center(
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isCurrent
+                          ? cs.primary
+                          : visited
+                              ? cs.onSurfaceVariant
+                              : cs.onSurface,
+                      fontWeight: isCurrent ? FontWeight.w600 : null,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+            if (downloaded)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedTick01,
+                      size: 11,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     ),

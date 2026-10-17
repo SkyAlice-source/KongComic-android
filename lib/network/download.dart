@@ -530,6 +530,13 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       return null;
     }
 
+    final source = ComicSource.find(json["source"]);
+    if (source == null) {
+      // The comic source has been uninstalled; drop this persisted task
+      // instead of crashing at app startup while loading downloads.
+      return null;
+    }
+
     Map<String, List<String>>? images;
     if (json["images"] != null) {
       images = {};
@@ -539,7 +546,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
     }
 
     return ImagesDownloadTask(
-      source: ComicSource.find(json["source"])!,
+      source: source,
       comicId: json["comicId"],
       comic:
           json["comic"] == null ? null : ComicDetails.fromJson(json["comic"]),
@@ -739,7 +746,8 @@ class ArchiveDownloadTask extends DownloadTask {
   ///
   /// Currently only support zip file and comics without chapters
   ArchiveDownloadTask(this.archiveUrl, this.comic) {
-    source = ComicSource.find(comic.sourceKey)!;
+    source = ComicSource.find(comic.sourceKey) ??
+        (throw Exception('Download failed: source not found for ${comic.sourceKey}'));
   }
 
   FileDownloader? _downloader;

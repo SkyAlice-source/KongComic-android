@@ -158,11 +158,16 @@ class CookieJarSql {
     var cookies = loadForRequest(uri);
     var map = <String, Cookie>{};
     for (var cookie in cookies) {
-      if(map.containsKey(cookie.name)) {
-        if(cookie.domain![0] != '.' && map[cookie.name]!.domain![0] == '.') {
-          map[cookie.name] = cookie;
-        } else if(cookie.domain!.length > map[cookie.name]!.domain!.length) {
-          map[cookie.name] = cookie;
+      final existing = map[cookie.name];
+      if (existing != null) {
+        final d1 = cookie.domain;
+        final d2 = existing.domain;
+        if (d1 != null && d2 != null) {
+          if (d1[0] != '.' && d2[0] == '.') {
+            map[cookie.name] = cookie;
+          } else if (d1.length > d2.length) {
+            map[cookie.name] = cookie;
+          }
         }
       } else {
         map[cookie.name] = cookie;

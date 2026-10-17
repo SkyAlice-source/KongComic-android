@@ -77,7 +77,13 @@ class FileDownloader {
     }
 
     var lines = await file.readAsLines();
-    _blocks = lines.map((e) => _DownloadBlock.fromString(e)).toList();
+    // A truncated or partially-written state file can contain a malformed
+    // line; drop those instead of letting int.parse throw and abort the
+    // whole resume. Missing blocks are treated as "re-download from scratch".
+    _blocks = [
+      for (var e in lines)
+        if (_DownloadBlock.isValid(e)) _DownloadBlock.fromString(e)
+    ];
   }
 
   /// True if the already-downloaded file contains a ZIP End Of Central
@@ -137,7 +143,12 @@ class FileDownloader {
       throw Exception(
           "Download failed: server did not provide Content-Length for $url");
     }
-    _fileSize = int.parse(length);
+    final parsedLength = int.tryParse(length);
+    if (parsedLength == null) {
+      throw Exception(
+          "Download failed: invalid Content-Length '$length' for $url");
+    }
+    _fileSize = parsedLength;
 
     await _prepareFile();
 
@@ -449,4 +460,13 @@ class _DownloadBlock {
         end = int.parse(str.split("-")[1]),
         downloadedBytes = int.parse(str.split("-")[2]),
         downloading = false;
+
+  /// True only when [str] was produced by [toString] and can be parsed back
+  /// without throwing (exactly three numeric fields). Used to skip corrupt
+  /// lines in a partially-written `.download` state file.
+  static bool isValid(String str) {
+    final parts = str.split("-");
+    if (parts.length != 3) return false;
+    return parts.every((p) => int.tryParse(p) != null);
+  }
 }

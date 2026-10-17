@@ -490,7 +490,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
           var res = await widget.source.likeCommentFunc!(
             widget.comicId,
             widget.epId,
-            widget.comment.id!,
+            widget.comment.id ?? '',
             !isLiked,
           );
           if (!mounted) return;
@@ -543,7 +543,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
     var res = await widget.source.voteCommentFunc!(
       widget.comicId,
       widget.epId,
-      widget.comment.id!,
+      widget.comment.id ?? '',
       isUp,
       isCancel,
     );

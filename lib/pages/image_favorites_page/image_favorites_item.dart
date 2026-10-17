@@ -38,20 +38,6 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
         ));
   }
 
-  void goReaderPage(ImageFavoritesComic comic, int ep, int page) {
-    // Push onto the main navigator (same stack as ImageFavoritesPage) so the
-    // reader's back button returns here instead of popping to the home page.
-    App.mainNavigatorKey?.currentContext?.to(
-      () => ReaderWithLoading(
-        id: comic.id,
-        sourceKey: comic.sourceKey,
-        initialEp: ep,
-        initialPage: page,
-        imageFavoritesComic: comic,
-      ),
-    );
-  }
-
   void goPhotoView(ImageFavorite imageFavorite) {
     // Push onto the main navigator so the photo view sits above the image
     // favorites page; popping it returns to the favorites list instead of the
@@ -193,6 +179,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
   Widget buildItem(BuildContext context, int index) {
     var image = imageFavorites[index];
     bool isSelected = widget.selectedImageFavorites[image] ?? false;
+    final cs = Theme.of(context).colorScheme;
     final cached = ImageFavoritesProvider.localImageFile(image).existsSync();
     int curPage = image.page;
     String pageText = curPage == firstPage
@@ -201,11 +188,11 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
 
     return InkWell(
       onTap: () {
-        // 单击去阅读页面, 跳转到当前点击的page
+        // 单击打开独立图片浏览器，不再直接跳进漫画阅读器
         if (widget.multiSelectMode) {
           widget.addSelected(image);
         } else {
-          goReaderPage(widget.imageFavoritesComic, image.ep, curPage);
+          goPhotoView(image);
         }
       },
       onLongPress: () {
@@ -293,8 +280,8 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                               width: isSelected ? 2.5 : 1,
                             ),
                             color: isSelected
-                                ? Colors.black.withValues(alpha: 0.25)
-                                : Colors.black.withValues(alpha: 0.05),
+                                ? cs.onSurface.withValues(alpha: 0.25)
+                                : cs.onSurface.withValues(alpha: 0.05),
                           ),
                           child: isSelected
                               ? Center(
@@ -393,7 +380,6 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
               textAlign: TextAlign.right,
               style: const TextStyle(
                 fontSize: kcCaption,
-                overflow: TextOverflow.ellipsis,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

@@ -154,6 +154,7 @@ class SliverAppbar extends StatelessWidget {
     this.actions,
     this.radius = 0,
     this.style = AppbarStyle.blur,
+    this.backgroundColor,
   });
 
   final Widget? leading;
@@ -165,6 +166,11 @@ class SliverAppbar extends StatelessWidget {
   final double radius;
 
   final AppbarStyle style;
+
+  /// 实心（shadow）样式下的头部底色。默认沿用 scaffoldBackgroundColor；
+  /// 放进居中浮层时传 surfaceContainerHigh，让固定头部与卡片底色一致，
+  /// 否则头部会像一块贴在卡片上的浅色贴纸。
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +189,7 @@ class SliverAppbar extends StatelessWidget {
         topPadding: MediaQuery.of(context).padding.top,
         radius: radius,
         style: effectiveStyle,
+        backgroundColor: backgroundColor,
       ),
     );
   }
@@ -203,6 +210,8 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   final AppbarStyle style;
 
+  final Color? backgroundColor;
+
   _MySliverAppBarDelegate({
     this.leading,
     required this.title,
@@ -210,6 +219,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     required this.topPadding,
     this.radius = 0,
     this.style = AppbarStyle.blur,
+    this.backgroundColor,
   });
 
   @override
@@ -280,7 +290,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     } else {
       return SizedBox.expand(
         child: Material(
-          color: Theme.of(context).scaffoldBackgroundColor,
+          color: backgroundColor ?? Theme.of(context).scaffoldBackgroundColor,
           elevation: shrinkOffset == 0 ? 0 : 2,
           borderRadius: BorderRadius.circular(radius),
           child: body,
@@ -303,7 +313,8 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
         actions != oldDelegate.actions ||
         topPadding != oldDelegate.topPadding ||
         radius != oldDelegate.radius ||
-        style != oldDelegate.style;
+        style != oldDelegate.style ||
+        backgroundColor != oldDelegate.backgroundColor;
   }
 }
 
