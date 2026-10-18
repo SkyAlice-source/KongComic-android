@@ -21,7 +21,9 @@ class _ImageFavoritesItem extends StatefulWidget {
 }
 
 class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
-  late List<ImageFavorite> imageFavorites = widget.imageFavoritesComic.images.toList();
+  late List<ImageFavorite> imageFavorites =
+      widget.imageFavoritesComic.images.toList();
+  bool _expanded = true;
 
   @override
   void didUpdateWidget(covariant _ImageFavoritesItem oldWidget) {
@@ -55,13 +57,12 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
     App.rootContext.showMessage(message: 'Copy the title successfully'.tl);
   }
 
-  void onLongPress() {
-    var renderBox = context.findRenderObject() as RenderBox;
-    var size = renderBox.size;
-    var location = renderBox.localToGlobal(
+  Offset _menuLocation(BuildContext context) {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+    return renderBox.localToGlobal(
       Offset((size.width - 242) / 2, size.height / 2),
     );
-    showMenu(location, context);
   }
 
   void onSecondaryTap(TapDownDetails details) {
@@ -88,10 +89,11 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
           },
         ),
         MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
+          icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
           text: 'Select All'.tl,
           onClick: () {
-            for (var ele in widget.imageFavoritesComic.images) {
+            for (var ele in imageFavorites) {
               widget.addSelected(ele);
             }
           },
@@ -100,16 +102,18 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
           icon: HugeIcon(icon: HugeIcons.strokeRoundedBookOpen01, size: 18),
           text: 'Photo View'.tl,
           onClick: () {
-            goPhotoView(widget.imageFavoritesComic.images.first);
+            if (imageFavorites.isNotEmpty) {
+              goPhotoView(imageFavorites.first);
+            }
           },
         ),
         MenuEntry(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
           text: 'Cache All Images'.tl,
           onClick: () async {
-            var images = widget.imageFavoritesComic.images.toList();
+            final images = imageFavorites.toList();
             if (images.isEmpty) return;
-            var controller = showLoadingDialog(
+            final controller = showLoadingDialog(
               App.rootContext,
               message: "Cache All Images".tl,
               withProgress: true,
@@ -134,258 +138,231 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 0.6,
-        ),
-        borderRadius: BorderRadius.circular(kcRadius8),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildHeader(context),
+        if (_expanded) _buildGrid(context),
+      ],
+    ).paddingHorizontal(8).paddingVertical(4);
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final comicSource =
+        ComicSource.find(widget.imageFavoritesComic.sourceKey);
+    final time =
+        DateFormat('yyyy-MM-dd').format(widget.imageFavoritesComic.time);
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(kcRadius8),
-        onSecondaryTapDown: onSecondaryTap,
-        onLongPress: onLongPress,
         onTap: () {
           if (widget.multiSelectMode) {
-            for (var ele in widget.imageFavoritesComic.images) {
+            for (var ele in imageFavorites) {
               widget.addSelected(ele);
             }
           } else {
-            // 单击跳转漫画详情
             goComicInfo(widget.imageFavoritesComic);
           }
         },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            buildTop(),
-            SizedBox(
-              height: 145,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemBuilder: buildItem,
-                itemCount: imageFavorites.length,
+        onLongPress: () => showMenu(_menuLocation(context), context),
+        onSecondaryTapDown: onSecondaryTap,
+        borderRadius: BorderRadius.circular(kcRadius8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.imageFavoritesComic.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: kcSubtitle,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "$time | ${comicSource?.name ?? "Unknown".tl}",
+                      style: const TextStyle(fontSize: kcCaption),
+                    ),
+                  ],
+                ),
               ),
-            ).paddingHorizontal(8),
-            buildBottom(),
-          ],
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cs.secondaryContainer,
+                  borderRadius: BorderRadius.circular(kcRadius8),
+                ),
+                child: Text(
+                  "${imageFavorites.length}/${widget.imageFavoritesComic.maxPageFromEp}",
+                  style: TextStyle(fontSize: kcCaption),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowDown01,
+                    size: 18,
+                  ),
+                ),
+                color: cs.onSurfaceVariant,
+                tooltip: 'Collapse'.tl,
+                onPressed: () {
+                  setState(() {
+                    _expanded = !_expanded;
+                  });
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget buildItem(BuildContext context, int index) {
-    var image = imageFavorites[index];
-    bool isSelected = widget.selectedImageFavorites[image] ?? false;
+  Widget _buildGrid(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final cross = ((width - 32) / 110).floor().clamp(3, 6);
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: cross,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 96 / 128,
+      ),
+      itemCount: imageFavorites.length,
+      itemBuilder: (c, i) => _buildThumb(c, imageFavorites[i]),
+    );
+  }
+
+  Widget _buildThumb(BuildContext context, ImageFavorite image) {
+    final isSelected = widget.selectedImageFavorites[image] ?? false;
     final cs = Theme.of(context).colorScheme;
     final cached = ImageFavoritesProvider.localImageFile(image).existsSync();
-    int curPage = image.page;
-    String pageText = curPage == firstPage
+    final curPage = image.page;
+    final pageText = curPage == firstPage
         ? '@a Cover'.tlParams({"a": image.epName})
         : curPage.toString();
-
     return InkWell(
       onTap: () {
-        // 单击打开独立图片浏览器，不再直接跳进漫画阅读器
         if (widget.multiSelectMode) {
           widget.addSelected(image);
         } else {
           goPhotoView(image);
         }
       },
-      onLongPress: () {
-        goPhotoView(image);
-      },
+      onLongPress: () => showMenu(_menuLocation(context), context),
+      onSecondaryTapDown: onSecondaryTap,
       borderRadius: BorderRadius.circular(kcRadius8),
       child: Container(
-        width: 98,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(kcRadius8),
+          color: cs.secondaryContainer,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Column(
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
           children: [
-            // 缩略图不再占死高度：外层行高是固定的 145，图片 128 + 页码文字在系统
-            // 字号放大后会超过它（fs1.8 溢出 9~11px、fs2.5 溢出 19~22px）。
-            // Flexible(loose) 让图片在空间不足时自己收缩，默认字号下仍是 128。
-            Flexible(
-              child: Container(
-              height: 128,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(kcRadius8),
-                color: Theme.of(context).colorScheme.secondaryContainer,
-              ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Hero(
-                        // 必须带上漫画 id：同一源下不同漫画的第 N 页会共用
-                        // sourceKey+ep+page，Hero 标签重复会在打开全屏预览时抛
-                        // "multiple heroes share the same tag"（并让动画接错图）。
-                        tag: "${image.sourceKey}@${image.id}@${image.ep}@${image.page}",
-                        child: AnimatedImage(
-                          // Key by the image's full identity so that when the
-                          // list reorders after a delete, Flutter rebuilds this
-                          // cell with the correct provider instead of reusing a
-                          // stale cached image from a removed item.
-                          key: ValueKey("favimg_${image.sourceKey}_${image.ep}_${image.page}"),
-                          image: ImageFavoritesProvider(image),
-                          width: 96,
-                          height: 128,
-                          fit: BoxFit.cover,
-                          filterQuality: FilterQuality.medium,
-                          // 缩略图只有 96x128，按原图解码会把整张页面（可达 8K）
-                          // 都放进内存；限制解码尺寸后每个缩略图只占约 1/20 内存。
-                          cacheWidth:
-                              (96 * MediaQuery.of(context).devicePixelRatio).round(),
-                          cacheHeight:
-                              (128 * MediaQuery.of(context).devicePixelRatio).round(),
-                        ),
-                      ),
-                    ),
-                    if (cached)
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: HugeIcon(
-                            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                            size: 12,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                          ),
-                        ),
-                      ),
-                    if (widget.multiSelectMode)
-                      Positioned.fill(
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOut,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(kcRadius8),
-                            border: Border.all(
-                              color: isSelected
-                                  ? kcBrandColor
-                                  : Theme.of(context)
-                                      .colorScheme
-                                      .outline
-                                      .withValues(alpha: 0.45),
-                              width: isSelected ? 2.5 : 1,
-                            ),
-                            color: isSelected
-                                ? cs.onSurface.withValues(alpha: 0.25)
-                                : cs.onSurface.withValues(alpha: 0.05),
-                          ),
-                          child: isSelected
-                              ? Center(
-                                  child: Container(
-                                    padding: const EdgeInsets.all(5),
-                                    decoration: const BoxDecoration(
-                                      color: kcBrandColor,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: HugeIcon(
-                                      icon: HugeIcons.strokeRoundedTick01,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ),
-                  ],
+            Positioned.fill(
+              child: Hero(
+                tag: "${image.sourceKey}@${image.id}@${image.ep}@${image.page}",
+                child: AnimatedImage(
+                  key: ValueKey(
+                      "favimg_${image.sourceKey}_${image.ep}_${image.page}"),
+                  image: ImageFavoritesProvider(image),
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.medium,
+                  cacheWidth: (96 * MediaQuery.of(context).devicePixelRatio)
+                      .round(),
+                  cacheHeight: (128 * MediaQuery.of(context).devicePixelRatio)
+                      .round(),
                 ),
               ),
             ),
-            Text(
-              pageText,
-              style: ts.s10,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
+            if (cached)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: HugeIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    size: 12,
+                    color: cs.onPrimary,
+                  ),
+                ),
+              ),
+            if (widget.multiSelectMode)
+              Positioned.fill(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(kcRadius8),
+                    border: Border.all(
+                      color: isSelected
+                          ? kcBrandAdaptive(context)
+                          : cs.outline.withValues(alpha: 0.45),
+                      width: isSelected ? 2.5 : 1,
+                    ),
+                    color: isSelected
+                        ? cs.onSurface.withValues(alpha: 0.25)
+                        : cs.onSurface.withValues(alpha: 0.05),
+                  ),
+                  child: isSelected
+                      ? Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: kcBrandAdaptive(context),
+                              shape: BoxShape.circle,
+                            ),
+                            child: HugeIcon(
+                              icon: HugeIcons.strokeRoundedTick01,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                color: Colors.black.withValues(alpha: 0.45),
+                child: Text(
+                  pageText,
+                  style: TextStyle(fontSize: kcCaption).copyWith(color: Colors.white),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
           ],
         ),
       ),
-    ).paddingHorizontal(4);
-  }
-
-  Widget buildTop() {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            widget.imageFavoritesComic.title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-              fontSize: kcSubtitle,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            softWrap: true,
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(kcRadius8),
-          ),
-          child: Text(
-              "${imageFavorites.length}/${widget.imageFavoritesComic.maxPageFromEp}",
-              style: ts.s12),
-        ),
-      ],
-    ).paddingHorizontal(16).paddingVertical(8);
-  }
-
-  Widget buildBottom() {
-    var enableTranslate = App.locale.languageCode == 'zh';
-    String time =
-        DateFormat('yyyy-MM-dd').format(widget.imageFavoritesComic.time);
-    List<String> tags = [];
-    for (var tag in widget.imageFavoritesComic.tags) {
-      var text = enableTranslate ? tag.translateTagsToCN : tag;
-      if (text.contains(':')) {
-        text = text.split(':').last;
-      }
-      tags.add(text);
-      if (tags.length == 5) {
-        break;
-      }
-    }
-    var comicSource = ComicSource.find(widget.imageFavoritesComic.sourceKey);
-    return Row(
-      children: [
-        Text(
-          "$time | ${comicSource?.name ?? "Unknown".tl}",
-          textAlign: TextAlign.left,
-          style: const TextStyle(
-            fontSize: kcCaption,
-          ),
-        ).paddingRight(8),
-        if (tags.isNotEmpty)
-          Expanded(
-            child: Text(
-              tags
-                  .map((e) => enableTranslate ? e.translateTagsToCN : e)
-                  .join(" "),
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: kcCaption,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          )
-      ],
-    ).paddingHorizontal(8).paddingBottom(8);
+    );
   }
 }

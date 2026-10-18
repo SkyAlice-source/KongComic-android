@@ -234,9 +234,24 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
             var temp = images[currentPage];
             var imageProvider = ImageFavoritesProvider(temp);
             var data = await imageProvider.load(null, null);
-            var fileType = detectFileType(data);
-            var fileName = "${currentPage + 1}.${fileType.ext}";
-            await saveFile(filename: fileName, data: data);
+            if (!mounted) return;
+            final choice = await showImageSaveDialog(
+              context,
+              // 默认「漫画名_EP{话数}_P{页数}」——每张图的 ep/page 都是收藏时
+              // 记录的真实页码，比列表下标更适合当文件名。
+              initialName: buildImageSaveName(
+                comicTitle: widget.comic.title,
+                ep: temp.ep,
+                page: temp.page,
+              ),
+              originalExt: detectImageExt(data),
+            );
+            if (choice == null) return;
+            final result = await prepareImageForSave(data, choice.format);
+            // 注意：FileType.ext 自带前导点（`.jpg`），不要再补一个 `.`，
+            // 否则会存成 `3..jpg` 这种带双点的奇怪文件名。
+            var fileName = "${choice.name}${result.type.ext}";
+            await saveFile(filename: fileName, data: result.data);
           },
         ),
         MenuEntry(
@@ -246,13 +261,29 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
             var comic = widget.comic;
             var ep = images[currentPage].ep;
             var page = images[currentPage].page;
-            // Push the reader onto the main navigator FIRST (so it stacks
-            // above the image favorites page), THEN pop the photo view from
-            // the root navigator. The previous order (pop then push) caused
-            // the reader's back button to land on the home tab because the
-            // pop raced with the push and left the main navigator without
-            // the image favorites page in its current route.
-            App.mainNavigatorKey?.currentContext?.to(
+            // 用 pushReplacement 把大图页整页换成阅读器。
+            //
+            // 旧实现是「先 push 阅读器，再 pop 大图页」，但两者都在
+            // mainNavigator 这同一个栈上：push 之后栈顶已经是刚打开的阅读器，
+            // 紧接着的 pop 弹掉的正是它 —— 大图页原地不动，用户看到的就是
+            // 「点了没反应」。换成 pushReplacement 后一步到位：大图页被替换，
+            // 阅读器返回时直接回到图片收藏列表。
+            final navContext = App.mainNavigatorKey?.currentContext;
+            if (navContext == null) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => ReaderWithLoading(
+                    id: comic.id,
+                    sourceKey: comic.sourceKey,
+                    initialEp: ep,
+                    initialPage: page,
+                    imageFavoritesComic: comic,
+                  ),
+                ),
+              );
+              return;
+            }
+            navContext.toReplacement(
               () => ReaderWithLoading(
                 id: comic.id,
                 sourceKey: comic.sourceKey,
@@ -261,9 +292,6 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
                 imageFavoritesComic: comic,
               ),
             );
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            }
           },
         ),
         MenuEntry(

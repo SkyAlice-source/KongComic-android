@@ -37,10 +37,10 @@ packages:
     dependency: "direct main"
     description:
       name: archive
-      sha256: be169cf6ac481e052c4538715d88841d567150dfe1df38aaec76461a4e7b39f2
+      sha256: "0d58d1fa1fddf6588251ccf2819f3fb3b6d0452c1b2813ac7413a05592bfbefe"
       url: "https://pub.dev"
     source: hosted
-    version: "4.1.0"
+    version: "4.5.2"
   args:
     dependency: transitive
     description:
@@ -624,6 +624,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.7"
+  image:
+    dependency: "direct main"
+    description:
+      name: image
+      sha256: "89ed75b2f8231fe676808c5564f9590d728024ded7ac782a7ed8474f1c95b72a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.12.0"
   intl:
     dependency: "direct main"
     description:

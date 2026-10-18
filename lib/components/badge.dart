@@ -5,6 +5,11 @@ import 'package:kong_comic/design_tokens.dart';
 /// 用法：AppBadge("New Version", type: AppBadgeType.warning)
 enum AppBadgeType { info, warning, success, neutral }
 
+/// 紧凑徽章：padding 只有 `vertical: 2`，高度几乎被字号决定。
+///
+/// 因此它是 design_tokens 里「kcFont13 例外」的**合规使用点** —— 换成 kcBody(14)
+/// 会让每个徽章整体长高，与旁边的 chip / 图标基线错位。默认与调用处统一取
+/// [kcFont13]，不要再往下调（≤12 在 3x 屏上偏小）。
 class AppBadge extends StatelessWidget {
   final String text;
   final AppBadgeType type;
@@ -16,6 +21,10 @@ class AppBadge extends StatelessWidget {
   final Color? backgroundColor;
   final Color? foregroundColor;
 
+  /// 圆角。默认小圆角（8）用于「标签」；需要和胶囊按钮并排时传
+  /// [kcPillRadius]，避免同一行里既有方角标签又有圆角胶囊。
+  final double radius;
+
   const AppBadge(
     this.text, {
     super.key,
@@ -24,6 +33,7 @@ class AppBadge extends StatelessWidget {
     this.padding,
     this.backgroundColor,
     this.foregroundColor,
+    this.radius = kcRadius8,
   });
 
   @override
@@ -51,10 +61,16 @@ class AppBadge extends StatelessWidget {
       }
     }
     return Container(
-      padding: padding ??
-          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(kcRadius8)),
-      child: Text(text, style: TextStyle(fontSize: fontSize, color: fg)),
+      padding:
+          padding ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: fontSize, color: fg),
+      ),
     );
   }
 }

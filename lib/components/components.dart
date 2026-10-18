@@ -37,6 +37,7 @@ import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/favorites/favorites_page.dart';
 import 'package:kong_comic/utils/translations.dart';
+import 'package:kong_comic/utils/image_save.dart';
 import 'package:kong_comic/design_tokens.dart';
 export 'package:kong_comic/design_tokens.dart';
 
@@ -54,6 +55,7 @@ part 'navigation_bar.dart';
 part 'pop_up_widget.dart';
 part 'scroll.dart';
 part 'select.dart';
+part 'switch.dart';
 part 'side_bar.dart';
 part 'comic.dart';
 part 'effects.dart';
@@ -106,7 +108,7 @@ class EmptyState extends StatelessWidget {
               Text(
                 subtitle!,
                 style: TextStyle(
-                  fontSize: kcFont13,
+                  fontSize: kcBody,
                   color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                   height: 1.4,
                 ),

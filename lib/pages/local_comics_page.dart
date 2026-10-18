@@ -84,50 +84,72 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
   /// the download page without guessing. Shows a live count badge while
   /// downloads are active.
   Widget _buildDownloadEntry() {
+    final cs = Theme.of(context).colorScheme;
     final count = LocalManager().downloadingTasks.length;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => showPopUpWidget(context, const DownloadingPage()),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Row(
-            children: [
-              HugeIcon(
-                icon: HugeIcons.strokeRoundedDownload04,
-                size: 20,
-                color: context.colorScheme.primary,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  "Downloads".tl,
-                  style: Theme.of(context).textTheme.titleMedium,
+    // 做成主页「追更 / 本地」同款胶囊（填充 + 大圆角 + 发丝描边）：
+    // 之前是一条裸行直接贴在网格上方，既没有边界，也不像可点的入口。
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      child: Material(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kcRadius22),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => showPopUpWidget(context, const DownloadingPage()),
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(kcRadius22),
+              border: Border.all(color: cs.outlineVariant, width: 0.6),
+            ),
+            child: Row(
+              children: [
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedDownload04,
+                  size: 20,
+                  color: cs.primary,
                 ),
-              ),
-              if (count > 0)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: context.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(kcCardRadius),
-                  ),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Text(
-                    count.toString(),
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelSmall
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                    "Downloads".tl,
+                    style: TextStyle(
+                      fontSize: kcBody,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                    ),
                   ),
                 ),
-              const SizedBox(width: 8),
-              HugeIcon(
-                icon: HugeIcons.strokeRoundedArrowRight01,
-                size: 16,
-                color: context.colorScheme.outline,
-              ),
-            ],
+                if (count > 0) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    constraints: const BoxConstraints(minWidth: 22),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: BorderRadius.circular(kcPillRadius),
+                    ),
+                    child: Center(
+                      child: Text(
+                        count.toString(),
+                        style: TextStyle(
+                          fontSize: kcFont11,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowRight01,
+                  size: 16,
+                  color: cs.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -211,7 +233,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            FilledButton(
+                            Button.filled(
                               onPressed: () {
                                 appdata.implicitData["local_sort"] =
                                     sortType.value;
@@ -696,14 +718,14 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             if (comics.length == 1 && comics.first.hasChapters)
-                              TextButton(
-                                child: Text("Delete Chapters".tl),
+                              Button.text(
                                 onPressed: () {
                                   ctx.pop();
                                   showDeleteChaptersPopWindow(App.rootContext, comics.first);
                                 },
+                                child: Text("Delete Chapters".tl),
                               ),
-                            FilledButton(
+                            Button.filled(
                               onPressed: () {
                                 ctx.pop();
                                 LocalManager().batchDeleteComics(
@@ -970,10 +992,12 @@ class _DeleteChaptersDialogState extends State<_DeleteChaptersDialog> {
                           "Delete Chapters".tl,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
+                          // 与 ContentDialog 标题同一档（22 / w700），避免这个
+                          // 自绘弹窗的标题比标准弹窗小一号、层级倒挂。
+                          style: const TextStyle(
+                            fontSize: kcTitleLarge,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                       const SizedBox(width: kcSpaceMd),
@@ -1010,7 +1034,7 @@ class _DeleteChaptersDialogState extends State<_DeleteChaptersDialog> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      FilledButton(
+                      Button.filled(
                         onPressed: () {
                           Future.delayed(const Duration(milliseconds: 200), () {
                             LocalManager().deleteComicChapters(

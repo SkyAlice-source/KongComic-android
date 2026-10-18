@@ -54,14 +54,12 @@ class _NeutralOverscrollScrollBehavior extends MaterialScrollBehavior {
 Future<void> _initSentry() async {
   const dsn = String.fromEnvironment('SENTRY_DSN');
   if (dsn.isEmpty) return;
-  await SentryFlutter.init(
-    (options) {
-      options.dsn = dsn;
-      options.tracesSampleRate = 1.0;
-      options.release = 'kong_comic@${App.appVersion}';
-      options.attachThreads = true;
-    },
-  );
+  await SentryFlutter.init((options) {
+    options.dsn = dsn;
+    options.tracesSampleRate = 1.0;
+    options.release = 'kong_comic@${App.appVersion}';
+    options.attachThreads = true;
+  });
 }
 
 void main(List<String> args) {
@@ -71,39 +69,42 @@ void main(List<String> args) {
   }
   if (runWebViewTitleBarWidget(args)) return;
   overrideIO(() {
-    runZonedGuarded(() async {
-      WidgetsFlutterBinding.ensureInitialized();
-      await Workmanager().initialize(backupCallbackDispatcher);
-      await _initSentry();
-      await init();
-      runApp(const MyApp());
-      if (App.isDesktop) {
-        await windowManager.ensureInitialized();
-        windowManager.waitUntilReadyToShow().then((_) async {
-          await windowManager.setTitleBarStyle(
-            TitleBarStyle.hidden,
-            windowButtonVisibility: App.isMacOS,
-          );
-          if (App.isLinux) {
-            await windowManager.setBackgroundColor(Colors.transparent);
-          }
-          await windowManager.setMinimumSize(const Size(500, 600));
-          var placement = await WindowPlacement.loadFromFile();
-          if (App.isLinux) {
-            await windowManager.show();
-            await placement.applyToWindow();
-          } else {
-            await placement.applyToWindow();
-            await windowManager.show();
-          }
+    runZonedGuarded(
+      () async {
+        WidgetsFlutterBinding.ensureInitialized();
+        await Workmanager().initialize(backupCallbackDispatcher);
+        await _initSentry();
+        await init();
+        runApp(const MyApp());
+        if (App.isDesktop) {
+          await windowManager.ensureInitialized();
+          windowManager.waitUntilReadyToShow().then((_) async {
+            await windowManager.setTitleBarStyle(
+              TitleBarStyle.hidden,
+              windowButtonVisibility: App.isMacOS,
+            );
+            if (App.isLinux) {
+              await windowManager.setBackgroundColor(Colors.transparent);
+            }
+            await windowManager.setMinimumSize(const Size(500, 600));
+            var placement = await WindowPlacement.loadFromFile();
+            if (App.isLinux) {
+              await windowManager.show();
+              await placement.applyToWindow();
+            } else {
+              await placement.applyToWindow();
+              await windowManager.show();
+            }
 
-          WindowPlacement.loop();
-        });
-      }
-    }, (error, stack) {
-      Log.error("Unhandled Exception", error, stack);
-      Sentry.captureException(error, stackTrace: stack);
-    });
+            WindowPlacement.loop();
+          });
+        }
+      },
+      (error, stack) {
+        Log.error("Unhandled Exception", error, stack);
+        Sentry.captureException(error, stackTrace: stack);
+      },
+    );
   });
 }
 
@@ -197,15 +198,35 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   /// 返回 (primary, secondary) 配色对。
   (Color, Color) translateColorSetting() {
     return switch (appdata.settings['color']) {
-      'red' => (const Color(0xFFFF453A), const Color(0xFF0EA5E9)), // 高饱和珊瑚红 + 鲜天蓝
-      'pink' => (const Color(0xFFFF2D55), const Color(0xFF8B5CF6)), // 高饱和玫红 + 电光紫
-      'purple' => (const Color(0xFFBF5AF2), const Color(0xFFFF9F0A)), // 高饱和紫 + 鲜橙
-      'green' => (const Color(0xFF30D158), const Color(0xFFFF9F0A)), // 高饱和草绿 + 鲜橙
+      'red' => (
+        const Color(0xFFFF453A),
+        const Color(0xFF0EA5E9),
+      ), // 高饱和珊瑚红 + 鲜天蓝
+      'pink' => (
+        const Color(0xFFFF2D55),
+        const Color(0xFF8B5CF6),
+      ), // 高饱和玫红 + 电光紫
+      'purple' => (
+        const Color(0xFFBF5AF2),
+        const Color(0xFFFF9F0A),
+      ), // 高饱和紫 + 鲜橙
+      'green' => (
+        const Color(0xFF30D158),
+        const Color(0xFFFF9F0A),
+      ), // 高饱和草绿 + 鲜橙
       'blue' => (const Color(0xFF0A84FF), const Color(0xFFFF9F0A)), // 高饱和蓝 + 鲜橙
-      'yellow' => (const Color(0xFFFFD60A), const Color(0xFF0EA5E9)), // 高饱和黄 + 鲜天蓝
-      'cyan' => (const Color(0xFF5AC8FA), const Color(0xFF8B5CF6)), // 高饱和青 + 电光紫
-      'system' => (const Color(0xFF0A84FF), const Color(0xFFFF9F0A)),
-      _ => (const Color(0xFF0A84FF), const Color(0xFFFF9F0A)),
+      'yellow' => (
+        const Color(0xFFFFD60A),
+        const Color(0xFF0EA5E9),
+      ), // 高饱和黄 + 鲜天蓝
+      'cyan' => (
+        const Color(0xFF5AC8FA),
+        const Color(0xFF8B5CF6),
+      ), // 高饱和青 + 电光紫
+      // 默认（system）不再跟壁纸动态色，直接落到品牌红 + 同族珊瑚红：
+      // 浅色下的选中胶囊、次级按钮、勾选框才会和主 CTA 是同一套红。
+      'system' => (kcBrandColor, kcBrandColorOnDark),
+      _ => (kcBrandColor, kcBrandColorOnDark),
     };
   }
 
@@ -228,7 +249,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         'Microsoft YaHei',
         'PingFang SC',
         'Arial',
-        'sans-serif'
+        'sans-serif',
       ];
     } else {
       // 移动端也提供 CJK 字体回退栈，保证跨设备字形一致
@@ -237,90 +258,150 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         'Noto Sans SC',
         'Noto Sans TC',
         'Microsoft YaHei',
-        'sans-serif'
+        'sans-serif',
       ];
     }
     final bool isDark = brightness == Brightness.dark;
-    // 暗色模式下（非 AMOLED）采用「暗彩」风格：提高主题色饱和度、压低亮度，
-    // 得到比浅色更深更艳的暗彩观感（纯黑 AMOLED 分支另走中性灰）。
-    final effectivePrimary = isDark && !amoled
-        ? kcDarkColorful(primary)
-        : primary;
-    final effectiveSecondary = isDark && !amoled && secondary != null
-        ? kcDarkColorful(secondary)
-        : secondary;
-    final effectiveTertiary = isDark && !amoled && tertiary != null
-        ? kcDarkColorful(tertiary)
-        : tertiary;
-    // 浅色模式底色统一纯白，与 AppBar/导航栏/卡片保持一致，消除加载时底色割裂；
-    // 暗彩（非 AMOLED）压到接近纯黑但保留一丝暖度，与纯黑 AMOLED 区分。
+    // 三套外观，互不串味：
+    // · 浅色：用户所选强调色（蓝/红/绿…）的鲜艳配色；
+    // · 深色（含「跟随系统」落到暗色）：品牌红 + 暖近黑底，彩色只在强调处出现；
+    // · AMOLED：纯黑 + 纯灰阶，全站零彩色。
+    final bool grayscale = isDark && amoled;
     final Color bg = isDark
         ? (amoled ? const Color(0xFF0A0A0A) : const Color(0xFF100D0F))
         : Colors.white;
 
     final ColorScheme scheme;
-    if (amoled && isDark) {
-      // AMOLED/纯黑外观：去掉所有彩色主题色，用中性灰阶，保证对比清晰。
-      scheme = SeedColorScheme.fromSeeds(
-        primaryKey: Colors.white,
-        secondaryKey: const Color(0xFFB0B0B0),
-        tertiaryKey: const Color(0xFF808080),
-        brightness: brightness,
-        tones: FlexTones.soft(brightness),
-      ).copyWith(
-        surfaceTint: Colors.transparent,
-        // 纯黑外观下把 primary/secondary/tertiary 也压成中性灰白，
-        // 避免 SeedColorScheme 处理白色种子时意外偏色。
-        // 选中 tab/活跃图标用柔和浅灰而非纯白，减少纯黑底上的刺眼感。
-        primary: const Color(0xFFE0E0E0),
-        onPrimary: Colors.black,
-        secondary: const Color(0xFFB0B0B0),
-        onSecondary: Colors.black,
-        tertiary: const Color(0xFF808080),
-        onTertiary: Colors.white,
-        surface: const Color(0xFF0F0F0F),
-        surfaceContainerLowest: const Color(0xFF050505),
-        surfaceContainerLow: const Color(0xFF0F0F0F),
-        surfaceContainer: const Color(0xFF161616),
-        surfaceContainerHigh: const Color(0xFF1E1E1E),
-        surfaceContainerHighest: const Color(0xFF262626),
-        onSurface: Colors.white,
-        onSurfaceVariant: const Color(0xFFB0B0B0),
-        outline: const Color(0xFF3A3A3A),
-        outlineVariant: const Color(0xFF2A2A2A),
-        // 派生容器色一并压成中性灰，确保任何使用 primaryContainer/
-        // secondaryContainer/surfaceVariant 的组件（如主页计数徽标）在
-        // 纯黑外观下都不会泄漏主题色。
-        primaryContainer: const Color(0xFF2A2A2A),
+    if (grayscale) {
+      // 灰度深色：所有表面/容器/容器高都中性化，选中态、开关、CTA 等由组件层用
+      // cs.surfaceContainerHigh 等灰阶表达，绝不冒出主题色。
+      final surface = amoled
+          ? const Color(0xFF0F0F0F)
+          : const Color(0xFF171717);
+      final low = amoled ? const Color(0xFF141414) : const Color(0xFF1C1C1C);
+      final container = amoled
+          ? const Color(0xFF191919)
+          : const Color(0xFF242424);
+      final high = amoled ? const Color(0xFF212121) : const Color(0xFF2E2E2E);
+      final highest = amoled
+          ? const Color(0xFF2A2A2A)
+          : const Color(0xFF383838);
+      scheme =
+          SeedColorScheme.fromSeeds(
+            primaryKey: Colors.white,
+            secondaryKey: const Color(0xFFB0B0B0),
+            tertiaryKey: const Color(0xFF808080),
+            brightness: brightness,
+            tones: FlexTones.soft(brightness),
+          ).copyWith(
+            surfaceTint: Colors.transparent,
+            // primary 取柔和浅灰，减少纯黑底上的刺眼感；暗色零彩色，任何 primary
+            // 用法（Tab 文字、图标、计数徽标）都呈中性灰。
+            primary: const Color(0xFFE0E0E0),
+            onPrimary: Colors.black,
+            secondary: const Color(0xFFB0B0B0),
+            onSecondary: Colors.black,
+            tertiary: const Color(0xFF808080),
+            onTertiary: Colors.white,
+            surface: surface,
+            surfaceContainerLowest: amoled
+                ? const Color(0xFF050505)
+                : const Color(0xFF0E0E0E),
+            // 层高阶梯：AMOLED 的 Low(#141414) 与底(#0A0A0A) 原只差 5，卡片贴成一片；
+            // 拉开后 surfaceContainerLow 面才真正浮起。普通深灰(#121212) 同步等比抬高。
+            surfaceContainerLow: low,
+            surfaceContainer: container,
+            surfaceContainerHigh: high,
+            surfaceContainerHighest: highest,
+            onSurface: const Color(0xFFEDEAEB),
+            onSurfaceVariant: const Color(0xFFA9A6A7),
+            outline: const Color(0xFF3A3A3A),
+            outlineVariant: const Color(0xFF2A2A2A),
+            // 派生容器色一并压成中性灰，确保任何使用 primaryContainer/
+            // secondaryContainer/surfaceVariant 的组件（如主页计数徽标）在
+            // 纯黑外观下都不会泄漏主题色。
+        primaryContainer: highest,
         onPrimaryContainer: Colors.white,
-        secondaryContainer: const Color(0xFF2A2A2A),
+        secondaryContainer: highest,
         onSecondaryContainer: Colors.white,
-        tertiaryContainer: const Color(0xFF2A2A2A),
+        tertiaryContainer: highest,
         onTertiaryContainer: Colors.white,
-        inverseSurface: const Color(0xFFE0E0E0),
-        inversePrimary: const Color(0xFFB0B0B0),
-      );
+        // errorContainer 也必须压成灰：AppBadge 的 warning 类型（「需登录」
+        // 「新版本」）正是用它做底，不覆盖就会在纯黑界面上冒出一块红。
+        // 只收容器色，`error` 本身仍是红——删除类按钮按约定保留语义红。
+        errorContainer: high,
+        onErrorContainer: const Color(0xFFEDEAEB),
+            inverseSurface: const Color(0xFFE0E0E0),
+            inversePrimary: const Color(0xFFB0B0B0),
+          );
+    } else if (isDark) {
+      // 深色（品牌红）：暖近黑底 + 红色强调。大面积仍是中性深灰，红只出现在
+      // 主 CTA、开关 ON、当前章节、选中胶囊这些「落点」上，避免整屏泛红。
+      scheme =
+          SeedColorScheme.fromSeeds(
+            primaryKey: kcBrandColor,
+            secondaryKey: kcBrandColorOnDark,
+            tertiaryKey: const Color(0xFFFF9F0A),
+            brightness: brightness,
+            tones: FlexTones.soft(brightness),
+          ).copyWith(
+            surfaceTint: Colors.transparent,
+            // primary 用提亮一档的红（#E4553A）：它会落在图标、小字号文字上，
+            // 在暖近黑底上的对比度才够；面与线由 kcAccentColor 取深一档的
+            // #D4381B，配白字更稳。
+            primary: kcBrandColorOnDark,
+            onPrimary: Colors.white,
+            primaryContainer: const Color(0xFF4A1810),
+            onPrimaryContainer: const Color(0xFFFFDAD2),
+            secondary: const Color(0xFFE8A38F),
+            onSecondary: Colors.black,
+            tertiary: const Color(0xFFFFB86B),
+            onTertiary: Colors.black,
+            // 暖近黑：比纯黑多一点红调，和品牌红同源，卡片浮起时不会发蓝发灰。
+            surface: const Color(0xFF100D0F),
+            surfaceContainerLowest: const Color(0xFF0A0809),
+            surfaceContainerLow: const Color(0xFF181415),
+            surfaceContainer: const Color(0xFF1F1A1C),
+            surfaceContainerHigh: const Color(0xFF272123),
+            surfaceContainerHighest: const Color(0xFF302A2C),
+            onSurface: const Color(0xFFEDEAEB),
+            onSurfaceVariant: const Color(0xFFA9A6A7),
+            outline: const Color(0xFF4A4244),
+            outlineVariant: const Color(0xFF352E30),
+            secondaryContainer: const Color(0xFF2A2022),
+            onSecondaryContainer: const Color(0xFFF0E7E8),
+            tertiaryContainer: const Color(0xFF2A2022),
+            onTertiaryContainer: const Color(0xFFF0E7E8),
+            inverseSurface: const Color(0xFFE0E0E0),
+            inversePrimary: kcBrandColor,
+          );
     } else {
-      // 暗彩：刻意比浅色更深、更艳。
-      // FlexTones.vivid 在暗色下会把 primary 映射到 tone 80（浅色），导致暗彩
-      // accent 与浅色饱和度几乎一致、且偏浅（截图里按钮仍是浅蓝）。这里先生成
-      // 同一套种子在浅色下的 vivid 配色，再把它逐个 accent 经 kcDarkColorful
-      // 加深加饱和后覆盖到暗色彩色方案上，保证暗彩明显比浅色更深更艳且对比可读。
-      final lightScheme = SeedColorScheme.fromSeeds(
+      // 浅色：品牌红（或用户显式选的颜色）作为 primary。容器色仍交给
+      // FlexTones 派生，但 primary 取种子原色，避免 vivid 把它推到更亮的
+      // tone 后与 kcAccentColor 的红对不上，出现「两种红」。
+      final base = SeedColorScheme.fromSeeds(
         primaryKey: primary,
         secondaryKey: secondary,
         tertiaryKey: tertiary,
         brightness: Brightness.light,
         tones: FlexTones.vivid(Brightness.light),
-      ).copyWith(surfaceTint: Colors.transparent);
-      final darkBase = SeedColorScheme.fromSeeds(
-        primaryKey: effectivePrimary,
-        secondaryKey: effectiveSecondary,
-        tertiaryKey: effectiveTertiary,
-        brightness: brightness,
-        tones: FlexTones.vivid(brightness),
-      ).copyWith(surfaceTint: Colors.transparent);
-      scheme = kcDarkColorfulFromLight(lightScheme, darkBase);
+      );
+      scheme = base.copyWith(
+        surfaceTint: Colors.transparent,
+        primary: primary,
+        onPrimary: Colors.white,
+        // 表面层全部中性化：品牌红只做「强调」，不把卡片、弹窗、勾选行的底
+        // 染成粉色。种子派生出的中性色带红相（弹窗看起来像一块浅粉），
+        // 在城市白底上既不干净，也和「克制用色」的设计语汇相反。
+        surface: Colors.white,
+        surfaceContainerLowest: Colors.white,
+        surfaceContainerLow: const Color(0xFFF7F7F8),
+        surfaceContainer: const Color(0xFFF2F2F4),
+        surfaceContainerHigh: const Color(0xFFEDEDEF),
+        surfaceContainerHighest: const Color(0xFFE6E6E9),
+        outline: const Color(0xFFC9C9CE),
+        outlineVariant: const Color(0xFFE4E4E7),
+      );
     }
 
     final theme = ThemeData(
@@ -331,33 +412,110 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       fontFamily: font,
       fontFamilyFallback: fallback,
       // 中文行高：默认 1.0 偏挤，全局抬到舒适区间，长阅读不累
-      textTheme: (isDark ? ThemeData.dark() : ThemeData.light()).textTheme.copyWith(
-        displayLarge: const TextStyle(height: 1.3),
-        displayMedium: const TextStyle(height: 1.3),
-        displaySmall: const TextStyle(height: 1.35, fontWeight: FontWeight.w700),
-        headlineLarge: const TextStyle(height: 1.3, fontWeight: FontWeight.w600),
-        headlineMedium: const TextStyle(height: 1.35, fontWeight: FontWeight.w600),
-        headlineSmall: const TextStyle(height: 1.4, fontWeight: FontWeight.w600),
-        titleLarge: const TextStyle(height: 1.35, fontWeight: FontWeight.w600),
-        titleMedium: const TextStyle(height: 1.4, fontWeight: FontWeight.w600),
-        titleSmall: const TextStyle(height: 1.4, fontWeight: FontWeight.w600),
-        bodyLarge: const TextStyle(height: 1.5),
-        bodyMedium: const TextStyle(height: 1.45),
-        bodySmall: const TextStyle(height: 1.4),
-        labelLarge: const TextStyle(height: 1.4),
-        labelMedium: const TextStyle(height: 1.4),
-        labelSmall: const TextStyle(height: 1.4),
-      ),
-      // AppBar 标题统一降到 20px（仅 AppBar，不影响其它 titleLarge 用途）
+      textTheme: (isDark ? ThemeData.dark() : ThemeData.light()).textTheme
+          .copyWith(
+            displayLarge: const TextStyle(height: 1.3),
+            displayMedium: const TextStyle(height: 1.3),
+            displaySmall: const TextStyle(
+              height: 1.35,
+              fontWeight: FontWeight.w700,
+            ),
+            headlineLarge: const TextStyle(
+              height: 1.3,
+              fontWeight: FontWeight.w600,
+            ),
+            headlineMedium: const TextStyle(
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+            headlineSmall: const TextStyle(
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
+            titleLarge: const TextStyle(
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+            titleMedium: const TextStyle(
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
+            titleSmall: const TextStyle(
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
+            bodyLarge: const TextStyle(height: 1.5),
+            bodyMedium: const TextStyle(height: 1.45),
+            bodySmall: const TextStyle(height: 1.4),
+            labelLarge: const TextStyle(height: 1.4),
+            labelMedium: const TextStyle(height: 1.4),
+            labelSmall: const TextStyle(height: 1.4),
+          ),
+      // AppBar 标题统一跟随 kcAppbarTitle（20），与 Appbar/SliverAppbar 自绘标题
+      // 同尺寸，并与根页主标题（kcTitleMain 20）齐平；只作用于原生 AppBar。
       appBarTheme: AppBarTheme(
         titleTextStyle: TextStyle(
-          fontSize: kcTitleLarge,
+          fontSize: kcAppbarTitle,
           height: 1.35,
           fontWeight: FontWeight.w600,
           // ⚠️ 必须显式给 color：AppBarTheme.titleTextStyle 一旦定义，
           // 就会整体接管 AppBar 标题样式；color 为 null 时标题颜色会丢，
           // 在浅色背景上渲染成近乎白色（分享图片选择页因此看不清）。
           color: scheme.onSurface,
+        ),
+      ),
+      // 弹窗菜单（右上角 ⋮ / 设置页下拉）统一语汇：
+      // 默认 M2 菜单是 4dp 直角 + 重投影，和全站 16dp 圆角、发丝描边的扁平
+      // 卡片完全不像一套东西。这里改成「白/深灰面 + 0.8 描边 + 16 圆角 +
+      // 轻投影」，既有浮起的层级感，又不会像一块厚重的塑料片。
+      popupMenuTheme: PopupMenuThemeData(
+        color: isDark ? scheme.surfaceContainerHigh : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 3,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.55 : 0.14),
+        menuPadding: const EdgeInsets.symmetric(vertical: 6),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kcRadius16),
+          side: BorderSide(
+            color: isDark
+                ? scheme.outlineVariant
+                : scheme.outline.withValues(alpha: 0.45),
+            width: 0.8,
+          ),
+        ),
+        textStyle: TextStyle(
+          fontSize: kcBody,
+          height: 1.35,
+          color: scheme.onSurface,
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontSize: kcBody,
+            height: 1.35,
+            color: states.contains(WidgetState.disabled)
+                ? scheme.onSurface.withValues(alpha: 0.38)
+                : scheme.onSurface,
+          ),
+        ),
+      ),
+      // 对话框统一语汇：ContentDialog 是绝大多数弹窗的基座，但仍有少数地方
+      // 直接构造原生 Dialog（删除章节、加载中）。这里把 Dialog 的默认表面也锁到
+      // 与 ContentDialog 同一套「surfaceContainerHigh + 24 圆角 + 发丝描边 +
+      // 轻投影」，避免它们退回 M2 默认的浅色方角 + 重阴影，与源仓库卡片的扁平
+      // 语言（surfaceContainerLow + outlineVariant 描边）脱节。
+      dialogTheme: DialogThemeData(
+        backgroundColor: scheme.surfaceContainerHigh,
+        surfaceTintColor: Colors.transparent,
+        elevation: 6,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.5 : 0.16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kcSurfaceRadius),
+          side: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.06),
+            width: 0.5,
+          ),
         ),
       ),
       // 滚动条滑块用中性灰，避免跟随强调色（如选"绿"时右边缘出现绿条）
@@ -373,9 +531,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
     );
 
-    // AMOLED/纯黑外观：去掉彩色按钮，改为黑灰底 + 白字 + 细描边，
-    // 在柔和纯黑背景上呈现「黑灰高对比」的精髓。
-    if (amoled && isDark) {
+    // AMOLED 纯黑：去掉彩色按钮，改为黑灰底 + 白字 + 细描边，
+    // 在纯黑背景上呈现「黑灰高对比」的精髓。
+    if (grayscale) {
       const buttonBg = Color(0xFF242424);
       const buttonBorder = Color(0xFF3D3D3D);
       final overlay = WidgetStatePropertyAll(
@@ -385,6 +543,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         const StadiumBorder(),
       );
       return theme.copyWith(
+        // 勾选/单选在纯黑外观下也必须零彩色：用浅灰填充 + 深色勾，
+        // 比深灰块更清楚，也不会比开关更抢眼。
+        checkboxTheme: CheckboxThemeData(
+          fillColor: WidgetStateProperty.resolveWith(
+            (states) =>
+                states.contains(WidgetState.selected) ? scheme.primary : null,
+          ),
+          checkColor: const WidgetStatePropertyAll(Colors.black),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        ),
+        radioTheme: RadioThemeData(
+          fillColor: WidgetStateProperty.resolveWith(
+            (states) =>
+                states.contains(WidgetState.selected) ? scheme.primary : null,
+          ),
+        ),
+        progressIndicatorTheme: ProgressIndicatorThemeData(
+          color: scheme.primary,
+        ),
         filledButtonTheme: FilledButtonThemeData(
           style: ButtonStyle(
             backgroundColor: const WidgetStatePropertyAll(buttonBg),
@@ -428,7 +605,60 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
       );
     }
-    return theme;
+    // 浅色 / 深色：主按钮恒为品牌红 + 白字，次级按钮（取消、跳转说明等）走
+    // 中性灰文字而不是主题强调色。否则浅色下默认「蓝」会在红色设计里突兀地
+    // 冒出来（分页「前进」、弹窗「退出」都踩过这个坑）。
+    final Color disabledBg = scheme.onSurface.withValues(alpha: 0.08);
+    final Color disabledFg = scheme.onSurface.withValues(alpha: 0.38);
+    return theme.copyWith(
+      // 勾选 / 单选 / 进度条统一走品牌红：它们是最常出现「选中」语义的原生
+      // 控件，若仍跟着用户选的强调色（默认蓝），会和红色按钮同屏打架。
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? kcBrandColor : null,
+        ),
+        checkColor: const WidgetStatePropertyAll(Colors.white),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? kcBrandColor : null,
+        ),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: kcBrandColor,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? disabledBg
+                : kcBrandColor,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? disabledFg
+                : Colors.white,
+          ),
+          overlayColor: WidgetStatePropertyAll(
+            Colors.white.withValues(alpha: 0.10),
+          ),
+          elevation: const WidgetStatePropertyAll(0),
+          shape: const WidgetStatePropertyAll<OutlinedBorder>(StadiumBorder()),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: WidgetStatePropertyAll(scheme.onSurfaceVariant),
+          overlayColor: WidgetStatePropertyAll(
+            scheme.onSurfaceVariant.withValues(alpha: 0.08),
+          ),
+          shape: const WidgetStatePropertyAll<OutlinedBorder>(StadiumBorder()),
+        ),
+      ),
+    );
   }
 
   @override
@@ -443,119 +673,112 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     } else {
       home = const MainPage();
     }
-    return DynamicColorBuilder(builder: (light, dark) {
-      Color? primary, secondary, tertiary;
-      if (appdata.settings['color'] != 'system' ||
-          light == null ||
-          dark == null) {
-        final scheme = translateColorSetting();
-        primary = scheme.$1;
-        secondary = scheme.$2;
-      } else {
-        primary = light.primary;
-        secondary = light.secondary;
-        tertiary = light.tertiary;
-      }
-      return MaterialApp(
-        key: ValueKey(appdata.settings['language'] ?? 'system'),
-        title: "KongComic".tl,
-        home: home,
-        scrollBehavior: const _NeutralOverscrollScrollBehavior(),
-        debugShowCheckedModeBanner: false,
-        theme: getTheme(primary, secondary, tertiary, Brightness.light),
-        navigatorKey: App.rootNavigatorKey,
-        darkTheme: getTheme(
-          primary,
-          secondary,
-          tertiary,
-          Brightness.dark,
-          amoled: appdata.isAmoledMode,
-        ),
-        themeMode: switch (appdata.settings['theme_mode']) {
-          'light' => ThemeMode.light,
-          'dark' => ThemeMode.dark,
-          'amoled' => ThemeMode.dark,
-          _ => ThemeMode.system
-        },
-        color: Colors.transparent,
-        localizationsDelegates: [
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        locale: () {
-          var lang = appdata.settings['language'];
-          if (lang == 'system') {
-            return null;
-          }
-          return switch (lang) {
-            'zh-CN' => const Locale('zh', 'CN'),
-            'zh-TW' => const Locale('zh', 'TW'),
-            'ja-JP' => const Locale('ja', 'JP'),
-            'en-US' => const Locale('en'),
-            _ => null
-          };
-        }(),
-        supportedLocales: const [
-          Locale('zh', 'CN'),
-          Locale('zh', 'TW'),
-          Locale('ja', 'JP'),
-          Locale('en'),
-        ],
-        builder: (context, widget) {
-          ErrorWidget.builder = (details) {
-            Log.error("Unhandled Exception",
-                "${details.exception}\n${details.stack}");
-            return Material(
-              child: Center(
-                child: Text(details.exception.toString()),
-              ),
-            );
-          };
-          if (widget != null) {
-            /// 如果无法检测到状态栏高度设定指定高度
-            /// https://github.com/flutter/flutter/issues/161086
-            var isPaddingCheckError =
-                MediaQuery.of(context).viewPadding.top <= 0 ||
-                MediaQuery.of(context).viewPadding.top > 200;
-
-            if (isPaddingCheckError && Platform.isAndroid) {
-              widget = MediaQuery(
-                  data: MediaQuery.of(context).copyWith(
-                    viewPadding: const EdgeInsets.only(
-                      top: 15,
-                      bottom: 15,
-                    ),
-                    padding: const EdgeInsets.only(
-                      top: 15,
-                      bottom: 15,
-                    ),
-                  ),
-                  child: widget);
+    // 不再采用系统壁纸动态色（Android 12+）。动态色会把浅色主题的 primary
+    // 染成壁纸的蓝/紫，分页「前进」、弹窗按钮、次级胶囊图标就跟着变蓝，和
+    // 品牌红设计直接打架。「主题色」里显式选的颜色仍然生效，默认值落到品牌红。
+    return DynamicColorBuilder(
+      builder: (_, __) {
+        final pair = translateColorSetting();
+        final Color primary = pair.$1;
+        final Color secondary = pair.$2;
+        const Color? tertiary = null;
+        return MaterialApp(
+          key: ValueKey(appdata.settings['language'] ?? 'system'),
+          title: "KongComic".tl,
+          home: home,
+          scrollBehavior: const _NeutralOverscrollScrollBehavior(),
+          debugShowCheckedModeBanner: false,
+          theme: getTheme(primary, secondary, tertiary, Brightness.light),
+          navigatorKey: App.rootNavigatorKey,
+          darkTheme: getTheme(
+            primary,
+            secondary,
+            tertiary,
+            Brightness.dark,
+            amoled: appdata.isAmoledMode,
+          ),
+          themeMode: switch (appdata.settings['theme_mode']) {
+            'light' => ThemeMode.light,
+            'dark' => ThemeMode.dark,
+            'amoled' => ThemeMode.dark,
+            _ => ThemeMode.system,
+          },
+          color: Colors.transparent,
+          localizationsDelegates: [
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          locale: () {
+            var lang = appdata.settings['language'];
+            if (lang == 'system') {
+              return null;
             }
+            return switch (lang) {
+              'zh-CN' => const Locale('zh', 'CN'),
+              'zh-TW' => const Locale('zh', 'TW'),
+              'ja-JP' => const Locale('ja', 'JP'),
+              'en-US' => const Locale('en'),
+              _ => null,
+            };
+          }(),
+          supportedLocales: const [
+            Locale('zh', 'CN'),
+            Locale('zh', 'TW'),
+            Locale('ja', 'JP'),
+            Locale('en'),
+          ],
+          builder: (context, widget) {
+            ErrorWidget.builder = (details) {
+              Log.error(
+                "Unhandled Exception",
+                "${details.exception}\n${details.stack}",
+              );
+              return Material(
+                child: Center(child: Text(details.exception.toString())),
+              );
+            };
+            if (widget != null) {
+              /// 如果无法检测到状态栏高度设定指定高度
+              /// https://github.com/flutter/flutter/issues/161086
+              var isPaddingCheckError =
+                  MediaQuery.of(context).viewPadding.top <= 0 ||
+                  MediaQuery.of(context).viewPadding.top > 200;
 
-            widget = OverlayWidget(widget);
-            if (App.isDesktop) {
-              widget = Shortcuts(
-                shortcuts: {
-                  LogicalKeySet(LogicalKeyboardKey.escape): VoidCallbackIntent(
-                    App.pop,
+              if (isPaddingCheckError && Platform.isAndroid) {
+                widget = MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    viewPadding: const EdgeInsets.only(top: 15, bottom: 15),
+                    padding: const EdgeInsets.only(top: 15, bottom: 15),
                   ),
-                },
-                child: MouseBackDetector(
-                  onTapDown: App.pop,
-                  child: WindowFrame(widget),
+                  child: widget,
+                );
+              }
+
+              widget = OverlayWidget(widget);
+              if (App.isDesktop) {
+                widget = Shortcuts(
+                  shortcuts: {
+                    LogicalKeySet(LogicalKeyboardKey.escape):
+                        VoidCallbackIntent(App.pop),
+                  },
+                  child: MouseBackDetector(
+                    onTapDown: App.pop,
+                    child: WindowFrame(widget),
+                  ),
+                );
+              }
+              return _SystemUiProvider(
+                Material(
+                  color: App.isLinux ? Colors.transparent : null,
+                  child: widget,
                 ),
               );
             }
-            return _SystemUiProvider(Material(
-              color: App.isLinux ? Colors.transparent : null,
-              child: widget,
-            ));
-          }
-          throw ('widget is null');
-        },
-      );
-    });
+            throw ('widget is null');
+          },
+        );
+      },
+    );
   }
 }
 

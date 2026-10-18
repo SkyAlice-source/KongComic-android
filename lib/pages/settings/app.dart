@@ -107,6 +107,7 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
       context: context,
       builder: (ctx) => ContentDialog(
         title: "Move comics into storage path".tl,
+        contentPadding: ContentDialog.hPadding,
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,14 +184,11 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
           title: "Data".tl,
           icon: HugeIcon(icon: HugeIcons.strokeRoundedDatabase, size: 18),
         ),
-        ListTile(
+        _KcSettingTile(
           title: Text("Storage Path for local comics".tl),
-          // 路径很长：加省略号，否则会被硬裁到半截，用户看不出还有内容没显示。
-          subtitle: Text(
-            LocalManager().path,
-            softWrap: false,
-            overflow: TextOverflow.ellipsis,
-          ),
+          // 路径很长：基座里的副标题统一做单行省略，避免被硬裁到半截。
+          subtitle: LocalManager().path,
+          subtitleMaxLines: 1,
           trailing: IconButton(
             icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
             onPressed: () {
@@ -238,9 +236,9 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
             actionTitle: "Open".tl,
             callback: () => LocalManager.openAllFilesAccessSettings(),
           ).toSliver(),
-        ListTile(
+        _KcSettingTile(
           title: Text("Cache Size".tl),
-          subtitle: Text(bytesToReadableString(CacheManager().currentSize)),
+          subtitle: bytesToReadableString(CacheManager().currentSize),
         ).toSliver(),
         _CallbackSetting(
           title: "Clear Cache".tl,
@@ -611,7 +609,9 @@ class _LogsPageState extends State<LogsPage> {
         ? Log.logs
         : Log.logs.where((log) => log.level.name == logLevelToShow).toList();
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      // 顶栏玻璃 tint 的基色是 scaffoldBackgroundColor，页面底色必须同源，
+      // 用 colorScheme.surface（浅色下 #FAF8FF）会在顶栏下缘留一条分层色带。
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: Appbar(
         title: Text("Logs".tl),
         actions: [
@@ -868,6 +868,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                       context: context,
                       builder: (_) => ContentDialog(
                         title: "Skip Setting Fields".tl,
+                        contentPadding: ContentDialog.hPadding,
                         content: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -909,7 +910,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
               leading: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
               title: Text("Auto Sync Data".tl),
               contentPadding: EdgeInsets.zero,
-              trailing: Switch(
+              trailing: KcSwitch(
                 value: autoSync,
                 onChanged: onAutoSyncChanged,
               ),
@@ -1046,6 +1047,7 @@ class _StorageConflictDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return ContentDialog(
       title: "Destination is not empty".tl,
+      contentPadding: ContentDialog.hPadding,
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

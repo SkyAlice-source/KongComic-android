@@ -6,11 +6,19 @@ class ReaderSettings extends StatefulWidget {
     this.onChanged,
     this.comicId,
     this.comicSource,
+    this.appbarColor,
   });
 
   final void Function(String key)? onChanged;
   final String? comicId;
   final String? comicSource;
+
+  /// 头部底色。留空时跟随页面底色（[ThemeData.scaffoldBackgroundColor]），
+  /// 头部与正文同色、无缝连成一块 —— 之前这里硬编码 surfaceContainerHigh，
+  /// 在设置页里就是一截浅灰顶栏压在纯白正文上，怎么看都是两层。
+  /// 放进 [showCenteredPanel] 的浮层卡片时才传 surfaceContainerHigh：
+  /// 那里卡片本身就是这个色，头部必须与卡片同色，否则又会浮出一块贴纸。
+  final Color? appbarColor;
 
   @override
   State<ReaderSettings> createState() => _ReaderSettingsState();
@@ -93,10 +101,11 @@ class _ReaderSettingsState extends State<ReaderSettings> {
       slivers: [
         SliverAppbar(
           title: Text("Reader Settings".tl),
-          // 浮层（DialogRoute）里退回实心头，避免毛玻璃把下面滚动内容透出来；
-          // 底色对齐卡片的 surfaceContainerHigh，固定头部才不会像一块贴纸。
+          // 实心头（不用毛玻璃，避免把下面滚动内容糊进标题栏），
+          // 底色默认跟随页面：设置页里与正文同色，不再出现一条浅灰色带；
+          // 浮层面板里由调用方传入卡片同色。
           style: AppbarStyle.shadow,
-          backgroundColor: context.colorScheme.surfaceContainerHigh,
+          backgroundColor: widget.appbarColor,
           leading: IconButton(
             icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
             onPressed: () => Navigator.maybePop(context),
@@ -105,11 +114,23 @@ class _ReaderSettingsState extends State<ReaderSettings> {
         if (comicId != null && sourceKey != null)
           SliverMainAxisGroup(
             slivers: [
-              // 用与下方 _SwitchSetting 完全相同的结构（InkWell + 16dp 内边距 +
-              // Row + 12dp 间隔 + Switch），不要用 SwitchListTile：它的 trailing
-              // 会多让出 8dp，导致这一个开关比下面所有开关靠左 24px（实测
-              // 开关中心 1181 vs 1205 @480dpi），整列开关参差不齐。
-              InkWell(
+              // 用与其它设置项相同的 _KcSettingTile 基座，保证这一行与下方所有
+              // 开关行的标题基线、开关位置完全对齐（旧实现手写 InkWell + Padding，
+              // 一旦基座改内缩就会错位）。
+              _KcSettingTile(
+                title: Text("Enable comic specific settings".tl),
+                trailing: KcSwitch(
+                  value: isEnabledSpecificSettings,
+                  onChanged: (b) {
+                    setState(() {
+                      appdata.settings.setEnabledComicSpecificSettings(
+                        comicId,
+                        sourceKey,
+                        b,
+                      );
+                    });
+                  },
+                ),
                 onTap: () {
                   setState(() {
                     appdata.settings.setEnabledComicSpecificSettings(
@@ -119,31 +140,6 @@ class _ReaderSettingsState extends State<ReaderSettings> {
                     );
                   });
                 },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text("Enable comic specific settings".tl),
-                      ),
-                      const SizedBox(width: 12),
-                      Switch(
-                        value: isEnabledSpecificSettings,
-                        onChanged: (b) {
-                          setState(() {
-                            appdata.settings.setEnabledComicSpecificSettings(
-                              comicId,
-                              sourceKey,
-                              b,
-                            );
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
               ).toSliver(),
               if (isEnabledSpecificSettings)
                 Center(
@@ -163,7 +159,17 @@ class _ReaderSettingsState extends State<ReaderSettings> {
         if (comicId == null)
           SliverMainAxisGroup(
             slivers: [
-              InkWell(
+              _KcSettingTile(
+                title: Text("Enable device specific settings".tl),
+                trailing: KcSwitch(
+                  value: useDeviceSpecificSettings,
+                  onChanged: (b) {
+                    setState(() {
+                      appdata.settings.setEnabledDeviceSpecificSettings(b);
+                    });
+                    appdata.saveData();
+                  },
+                ),
                 onTap: () {
                   final b = !useDeviceSpecificSettings;
                   setState(() {
@@ -171,27 +177,6 @@ class _ReaderSettingsState extends State<ReaderSettings> {
                   });
                   appdata.saveData();
                 },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text("Enable device specific settings".tl),
-                      ),
-                      const SizedBox(width: 12),
-                      Switch(
-                        value: useDeviceSpecificSettings,
-                        onChanged: (b) {
-                          setState(() {
-                            appdata.settings.setEnabledDeviceSpecificSettings(b);
-                          });
-                          appdata.saveData();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
               ).toSliver(),
               if (useDeviceSpecificSettings)
                 Center(

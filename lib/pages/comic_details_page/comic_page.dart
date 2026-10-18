@@ -407,15 +407,15 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SelectableText(comic.title, style: ts.s18),
+                SelectableText(comic.title, style: TextStyle(fontSize: kcSectionTitle)),
                 if (comic.subTitle != null)
                   SelectableText(
                     comic.subTitle!,
-                    style: ts.s14,
+                    style: TextStyle(fontSize: kcBody),
                   ).paddingVertical(4),
                 Text(
                   (ComicSource.find(comic.sourceKey)?.name) ?? '',
-                  style: ts.s12,
+                  style: TextStyle(fontSize: kcCaption),
                 ),
               ],
             ),
@@ -441,7 +441,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
                   text: 'Continue'.tl,
                   onPressed: continueRead,
-                  iconColor: kcBrandColor,
+                  iconColor: kcBrandAdaptive(context),
                 ),
               // 手机端主阅读入口已移到下方大按钮（继续/开始），这里只在桌面端放
               // Start chip；否则手机上会出现「Start」chip 与下方「Read/Continue」大按钮
@@ -451,7 +451,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedPlayCircle, size: 18),
                   text: 'Start'.tl,
                   onPressed: read,
-                  iconColor: kcBrandColor,
+                  iconColor: kcBrandAdaptive(context),
                 ),
               // 「下载」从主按钮行移到动作行：它是对章节的批量操作，和收藏 /
               // 评论 / 分享同属次级动作，不该和「继续阅读」平起平坐抢同一行宽度
@@ -471,7 +471,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   text: 'Download'.tl,
                   onPressed: download,
                   isLoading: _downloadTask != null,
-                  iconColor: kcBrandColor,
+                  iconColor: kcBrandAdaptive(context),
                 ),
               if (data!.isLiked != null)
                 _ActionButton(
@@ -485,11 +485,11 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                           .toString(),
                   isLoading: isLiking,
                   onPressed: likeOrUnlike,
-                  iconColor: kcBrandColor,
+                  iconColor: kcBrandAdaptive(context),
                 ),
               _ActionButton(
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
-                activeIcon: const Icon(Icons.favorite, size: 20, color: kcBrandColor),
+                activeIcon: Icon(Icons.favorite, size: 20, color: kcBrandAdaptive(context)),
                 isActive: isFavorite || isAddToLocalFav,
                 text: (isFavorite || isAddToLocalFav) ? 'Favorited'.tl : 'Favorite'.tl,
                 onPressed: openFavPanel,
@@ -501,7 +501,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
                   text: (comic.commentCount ?? 'Comments'.tl).toString(),
                   onPressed: showComments,
-                  iconColor: kcBrandColor,
+                  iconColor: kcBrandAdaptive(context),
                 ),
               _ActionButton(
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 18),
@@ -535,6 +535,13 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   ),
                   label: Text("Read".tl),
                   style: FilledButton.styleFrom(
+                    // 暗色（含 AMOLED 灰阶）统一用品牌红：否则主 CTA 会跟
+                    // 下面的章节描边一样褪成灰色，页面上再没有视觉落点。
+                    backgroundColor: kcAccentColor(context),
+                    foregroundColor: Colors.white,
+                    // AMOLED 主题给 FilledButton 强加了灰底 + 灰描边（main.dart），
+                    // 这里显式清掉描边，否则红底外还会套一圈灰线。
+                    side: BorderSide.none,
                     // 52dp：满宽 CTA 需要比次级按钮更有分量，仍远高于 48dp 触摸目标。
                     minimumSize: const Size(0, 52),
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -671,7 +678,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
           text,
           style: TextStyle(
             color: cs.onSurfaceVariant,
-            fontSize: kcFont13,
+            fontSize: kcBody,
             fontWeight: FontWeight.w600,
           ),
         ).padding(padding);
@@ -699,7 +706,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
       Widget textWidget = Text(
         text,
-        style: TextStyle(color: textColor, fontSize: kcFont13),
+        style: TextStyle(color: textColor, fontSize: kcBody),
       ).padding(padding);
 
       if (onTap != null) {
@@ -1125,7 +1132,7 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
                         const SizedBox(width: 4),
                         Text(
                           "Downloaded".tl,
-                          style: ts.s12.withColor(cs.outline),
+                          style: TextStyle(fontSize: kcCaption).withColor(cs.outline),
                         ),
                       ],
                     ),
@@ -1232,13 +1239,13 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
         children: [
           Text(
             "@n selected".tlParams({'n': "${selected.length}"}),
-            style: ts.s12.withColor(cs.onSurfaceVariant),
+            style: TextStyle(fontSize: kcCaption).withColor(cs.onSurfaceVariant),
           ),
           const Spacer(),
           if (downloaded > 0)
             Text(
               "@n downloaded".tlParams({'n': "$downloaded"}),
-              style: ts.s12.withColor(cs.outline),
+              style: TextStyle(fontSize: kcCaption).withColor(cs.outline),
             ),
         ],
       ),
@@ -1306,7 +1313,7 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (title != null)
-                      Text(title ?? "", style: ts.s18)
+                      Text(title ?? "", style: TextStyle(fontSize: kcSectionTitle))
                     else
                       buildContainer(200, 25),
                     const SizedBox(height: 8),
@@ -1406,16 +1413,16 @@ class _ContinueReadingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // 与「Read」实心按钮同色：这个圆钮就是阅读入口的主色实心块，
+    // 暗色下若跟着 AMOLED 的灰阶走，会掉成一颗灰点、失去主入口分量。
+    final accent = kcAccentColor(context);
     final pct = (page / maxPage).clamp(0.0, 1.0).toDouble();
     return ClipRRect(
       borderRadius: BorderRadius.circular(kcRadius16),
       child: Material(
-        // 品牌色轻染（7%）叠在低对比容器上：既有主入口的分量，又不会像整块
-        // primaryContainer 那样把下方所有内容压成背景。
-        color: Color.alphaBlend(
-          cs.primary.withValues(alpha: 0.07),
-          cs.surfaceContainerLow,
-        ),
+        // 强调色轻染叠在低对比容器上：亮色走品牌红、暗色走中性灰，既有主入口的
+        // 分量，又不会像整块 primaryContainer 那样把下方内容压成背景。
+        color: kcAccentSurface(context, alpha: 0.10),
         child: InkWell(
           onTap: onTap,
           child: Column(
@@ -1430,16 +1437,16 @@ class _ContinueReadingCard extends StatelessWidget {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: cs.primary,
+                        color: accent,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         // 实心三角（不是 strokeRoundedPlay 的空心描边三角）：
                         // 18dp 的空心三角在深色圆钮上只剩一圈细线，读不出「播放」。
-                        child: Icon(
+                        child: const Icon(
                           Icons.play_arrow_rounded,
                           size: 22,
-                          color: cs.onPrimary,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -1471,7 +1478,7 @@ class _ContinueReadingCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: kcFont13,
+                              fontSize: kcBody,
                               color: cs.onSurface,
                             ),
                           ),
@@ -1484,7 +1491,8 @@ class _ContinueReadingCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: kcFont11,
+                              // 进度/页码属「正文辅助层」，按阶梯取 12sp（原 11sp 偏小）。
+                              fontSize: kcCaption,
                               fontWeight: FontWeight.w500,
                               color: cs.onSurfaceVariant,
                               fontFeatures: const [FontFeature.tabularFigures()],
@@ -1521,7 +1529,7 @@ class _ContinueReadingCard extends StatelessWidget {
                           Container(
                             height: 3,
                             width: full * pct,
-                            color: cs.primary,
+                            color: accent,
                           ),
                         ],
                       );
@@ -1639,7 +1647,7 @@ class _DownloadStatusCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: kcFont13,
+                                  fontSize: kcBody,
                                   fontWeight: FontWeight.w600,
                                   color: cs.onSurface,
                                 ),
@@ -1650,7 +1658,7 @@ class _DownloadStatusCard extends StatelessWidget {
                             Text(
                               "${(pct * 100).toInt()}%",
                               style: TextStyle(
-                                fontSize: kcFont13,
+                                fontSize: kcBody,
                                 fontWeight: FontWeight.w600,
                                 color: cs.onSurfaceVariant,
                                 fontFeatures: const [
@@ -1666,7 +1674,7 @@ class _DownloadStatusCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: kcFont11,
+                            fontSize: kcCaption,
                             fontWeight: FontWeight.w500,
                             color: cs.onSurfaceVariant,
                             fontFeatures: const [
@@ -1793,6 +1801,8 @@ class _ReadProgressLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // 与手机端 [_ContinueReadingCard] 的进度线同色，跨尺寸不跳色。
+    final accent = kcAccentColor(context);
     final pct = (page / maxPage).clamp(0.0, 1.0).toDouble();
     return InkWell(
       onTap: onTap,
@@ -1825,7 +1835,7 @@ class _ReadProgressLine extends StatelessWidget {
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: kcFont13, color: cs.onSurface),
+                    style: TextStyle(fontSize: kcBody, color: cs.onSurface),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1833,7 +1843,7 @@ class _ReadProgressLine extends StatelessWidget {
                 Text(
                   '${(pct * 100).round()}% · P$page/$maxPage',
                   style: TextStyle(
-                    fontSize: kcFont11,
+                    fontSize: kcCaption,
                     fontWeight: FontWeight.w500,
                     color: cs.onSurfaceVariant,
                     fontFeatures: const [FontFeature.tabularFigures()],
@@ -1857,7 +1867,7 @@ class _ReadProgressLine extends StatelessWidget {
                       Container(
                         height: 3,
                         width: full * pct,
-                        color: cs.primary,
+                        color: accent,
                       ),
                     ],
                   );

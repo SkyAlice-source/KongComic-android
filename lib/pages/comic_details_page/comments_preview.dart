@@ -151,7 +151,7 @@ class _CommentWidget extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           if (comment.time != null)
-            Text(comment.time!, style: ts.s12).toAlign(Alignment.centerLeft),
+            Text(comment.time!, style: TextStyle(fontSize: kcCaption)).toAlign(Alignment.centerLeft),
         ],
       ),
     );

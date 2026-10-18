@@ -453,6 +453,7 @@ abstract mixin class _ComicPageActions {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setState) => ContentDialog(
           title: "Rating".tl,
+          contentPadding: ContentDialog.hPadding,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

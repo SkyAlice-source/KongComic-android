@@ -177,7 +177,7 @@ class _CommentsPageState extends State<CommentsPage> {
                               ),
                               child: Text(
                                 "Replies".tl,
-                                style: ts.s18,
+                                style: TextStyle(fontSize: kcSectionTitle),
                               ),
                             ),
                           ],
@@ -364,7 +364,7 @@ class _CommentTileState extends State<_CommentTile> {
                   style: ts.bold,
                 ),
                 if (widget.comment.time != null)
-                  Text(widget.comment.time!, style: ts.s12),
+                  Text(widget.comment.time!, style: TextStyle(fontSize: kcCaption)),
                 const SizedBox(height: 4),
                 _CommentContent(text: widget.comment.content),
                 buildActions(),

@@ -51,9 +51,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   double get topBarHeight {
     final scaler = MediaQuery.textScalerOf(context);
     final content = _currentEpName == null
-        ? scaler.scale(AppFontSizes.s18) * kcLineHeightFactor
-        : scaler.scale(AppFontSizes.s16) * kcLineHeightFactor +
-            scaler.scale(AppFontSizes.s12) * kcLineHeightFactor;
+        ? scaler.scale(kcSectionTitle) * kcLineHeightFactor
+        : scaler.scale(kcSubtitle) * kcLineHeightFactor +
+            scaler.scale(kcCaption) * kcLineHeightFactor;
     final estimated = content + 8;
     return estimated > kTopBarHeight ? estimated : kTopBarHeight;
   }
@@ -273,7 +273,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
               Expanded(
                 child: epName == null ? Text(
                   context.reader.widget.name,
-                  style: ts.s18,
+                  style: TextStyle(fontSize: kcSectionTitle),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ) : Column(
@@ -282,13 +282,13 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
                   children: [
                     Text(
                       context.reader.widget.name,
-                      style: ts.s16,
+                      style: TextStyle(fontSize: kcSubtitle),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       epName,
-                      style: ts.s12,
+                      style: TextStyle(fontSize: kcCaption),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -597,13 +597,15 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       Tooltip(
         message: isLiked() ? "Favorited".tl : "Collect the image".tl,
         child: IconButton(
+          // 已收藏用 Material 实心红心，与漫画详情页收藏按钮
+          // (comic_details_page/comic_page.dart 的 activeIcon) 保持一致的视觉语言。
           icon: isLiked()
-              ? HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 24, color: kcBrandColor)
+              ? Icon(Icons.favorite, size: 24, color: kcBrandAdaptive(context))
               : HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 24),
           onPressed: addImageFavorite,
           style: isLiked()
               ? IconButton.styleFrom(
-                  backgroundColor: kcBrandColor.withValues(alpha: 0.12),
+                  backgroundColor: kcBrandAdaptive(context).withValues(alpha: 0.12),
                 )
               : null,
         ),
@@ -911,13 +913,31 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
     if (result == null) {
       return;
     }
+    if (!mounted) {
+      return;
+    }
     var (imageIndex, data) = result;
-    var fileType = detectFileType(data);
-    // Save file name: ComicName_EP{chapter}_P{page}.{ext} to avoid conflict.
-    // The chapter index of different group is continuous, so we use chapter number is enough.
-    var filename =
-        "${context.reader.widget.name}_EP${context.reader.chapter}_P${imageIndex + 1}${fileType.ext}";
-    saveFile(data: data, filename: filename);
+    // 弹窗要显示「原格式」下的真实后缀，先嗅探一次（带上图片 URL 兜底：
+    // 极少数图片没有可识别头部，但 URL 上的扩展名可信）。
+    final hint = imageIndex >= 0 && imageIndex < (context.reader.images?.length ?? 0)
+        ? context.reader.images![imageIndex]
+        : null;
+    final originalExt = detectImageExt(data, nameHint: hint);
+    // 先让用户确认文件名（默认「漫画名_EP{话数}_P{页数}」）与输出格式再决定是否重新编码。
+    final choice = await showImageSaveDialog(
+      context,
+      initialName: buildImageSaveName(
+        comicTitle: context.reader.widget.name,
+        ep: context.reader.chapter,
+        page: imageIndex + 1,
+      ),
+      originalExt: originalExt,
+    );
+    if (choice == null) {
+      return;
+    }
+    final saved = await prepareImageForSave(data, choice.format);
+    saveFile(data: saved.data, filename: "${choice.name}${saved.type.ext}");
   }
 
   void share() async {
@@ -1089,6 +1109,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       ReaderSettings(
         comicId: context.reader.cid,
         comicSource: context.reader.type.sourceKey,
+        // 浮层面板卡片是 surfaceContainerHigh，头部必须同色才不会出现「贴纸」头。
+        appbarColor: Theme.of(context).colorScheme.surfaceContainerHigh,
         onChanged: (key) {
           if (key == "readerMode") {
             context.reader.mode = ReaderMode.fromKey(
@@ -1219,6 +1241,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
       context: context,
       builder: (dialogContext) => ContentDialog(
         title: "Select an image".tl,
+        contentPadding: ContentDialog.hPadding,
         content: SizedBox(
           width: double.maxFinite,
           height: 300,
@@ -1757,7 +1780,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
         // 显式给标题上色，保证在任何主题/背景下都可读（曾因全局 titleTextStyle
         // 缺 color 而在浅色背景上显示为白色）。
         titleTextStyle: TextStyle(
-          fontSize: kcTitleLarge,
+          fontSize: kcAppbarTitle,
           height: 1.35,
           fontWeight: FontWeight.w500,
           color: Theme.of(context).colorScheme.onSurface,
@@ -1940,7 +1963,8 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
             "Current".tl,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onPrimary,
-              fontSize: kcFont10,
+              // 徽标类下限 11sp：10sp 的中文在缩略图上几乎读不出来。
+              fontSize: kcFont11,
             ),
           ),
         ),

@@ -15,9 +15,8 @@ import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/image_favorites_page/type.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
 import 'package:kong_comic/utils/ext.dart';
-import 'package:kong_comic/utils/file_type.dart';
+import 'package:kong_comic/utils/image_save.dart';
 import 'package:kong_comic/utils/io.dart';
-import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 part "image_favorites_item.dart";

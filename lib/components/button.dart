@@ -177,7 +177,7 @@ class _ButtonState extends State<Button> {
         child: isLoading
             ? CircularProgressIndicator(
           color: widget.type == ButtonType.filled
-              ? context.colorScheme.inversePrimary
+              ? kcOnAccentColor
               : context.colorScheme.primary,
           strokeWidth: 1.8,
         ).fixWidth(16).fixHeight(16)
@@ -229,7 +229,16 @@ class _ButtonState extends State<Button> {
                         Theme.of(context).colorScheme.outlineVariant,
                     width: 0.6,
                   )
-                : null,
+                // AMOLED 实心按钮是「深灰底 + 白字」，若不描边就会和同色系的
+                // 弹窗底糊在一起（退出确认弹窗里几乎看不见按钮），补一道发丝线。
+                : (widget.type == ButtonType.filled &&
+                        widget.color == null &&
+                        kcIsAmoled()
+                    ? Border.all(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        width: 0.8,
+                      )
+                    : null),
           ),
           child: AnimatedSize(
             duration: const Duration(milliseconds: 160),
@@ -250,7 +259,14 @@ class _ButtonState extends State<Button> {
 
   Color get buttonColor {
     if (widget.type == ButtonType.filled) {
-      var color = widget.color ?? context.colorScheme.primary;
+      // 主按钮恒为「强调色」：浅色/深色是品牌红，AMOLED 是中性深灰。
+      // 不再退回 colorScheme.primary —— 浅色下 primary 是用户选的蓝/绿，
+      // 会在红主色设计里冒出与品牌无关的蓝按钮（分页「前进」、弹窗确认都踩过）。
+      // AMOLED 取 Highest 一档：弹窗底本身是 High 色，同级会糊成一片。
+      var color = widget.color ??
+          (kcIsAmoled()
+              ? context.colorScheme.surfaceContainerHighest
+              : kcAccentColor(context));
       if (isHover) {
         return color.withValues(alpha: 0.9);
       } else {
@@ -273,13 +289,21 @@ class _ButtonState extends State<Button> {
 
   Color get textColor {
     if (widget.type == ButtonType.outlined) {
-      return widget.color ?? context.colorScheme.primary;
+      return widget.color ?? context.colorScheme.onSurfaceVariant;
     }
-    return widget.type == ButtonType.filled
-        ? context.colorScheme.onPrimary
-        : (widget.type == ButtonType.text
-            ? widget.color ?? context.colorScheme.primary
-            : context.colorScheme.onSurface);
+    if (widget.type == ButtonType.filled) {
+      // 显式指定按钮色时按亮度取黑/白前景（如「未选择」的灰态确认键），
+      // 否则一律用强调色上的白字。
+      final custom = widget.color;
+      if (custom == null) return kcOnAccentColor;
+      return custom.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    }
+    if (widget.type == ButtonType.text) {
+      // 文字按钮是「次级动作」（取消、跳过…）：中性灰比主题色安静，
+      // 不会和右侧的红色主按钮抢注意力。
+      return widget.color ?? context.colorScheme.onSurfaceVariant;
+    }
+    return context.colorScheme.onSurface;
   }
 }
 

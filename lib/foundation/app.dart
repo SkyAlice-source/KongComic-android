@@ -35,7 +35,7 @@ class _App {
   final version = "1.6.4";
   // Populated from package_info_plus during [init] so the About page and the
   // update check always reflect the real build version (no manual bump needed).
-  String appVersion = "1.3.14";
+  String appVersion = "1.3.15";
 
   bool get isAndroid => Platform.isAndroid;
 
@@ -58,9 +58,19 @@ class _App {
 
   Locale get locale {
     Locale deviceLocale = PlatformDispatcher.instance.locale;
-    if (deviceLocale.languageCode == "zh" &&
-        deviceLocale.scriptCode == "Hant") {
-      deviceLocale = const Locale("zh", "TW");
+    // Normalize the device locale so translation keys ("zh_CN" / "zh_TW")
+    // match assets/translation.json. Many Android vendors report Simplified
+    // Chinese as a bare `zh` or `zh-Hans` without a country code, which would
+    // otherwise produce a `zh_` key and silently fall back to English.
+    if (deviceLocale.languageCode == "zh") {
+      final isTraditional =
+          deviceLocale.scriptCode == "Hant" ||
+          deviceLocale.countryCode == "TW" ||
+          deviceLocale.countryCode == "HK" ||
+          deviceLocale.countryCode == "MO";
+      deviceLocale = Locale("zh", isTraditional ? "TW" : "CN");
+    } else if (deviceLocale.languageCode == "en") {
+      deviceLocale = const Locale("en", "US");
     }
     if (appdata.settings['language'] != 'system') {
       return Locale(
