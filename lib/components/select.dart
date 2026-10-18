@@ -64,7 +64,7 @@ class Select extends StatelessWidget {
               constraints: BoxConstraints(
                 minWidth: minWidth != null ? (minWidth! - 32) : 0,
               ),
-              child: Text((current ?? ' ').tl, style: ts.s14),
+              child: Text((current ?? ' ').tl, style: TextStyle(fontSize: kcBody)),
             ),
             const SizedBox(width: 8),
             HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18, color: context.colorScheme.primary),

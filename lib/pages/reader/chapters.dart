@@ -109,10 +109,10 @@ class _ChaptersViewState extends State<_ChaptersView> {
                 ? TextField(
                     controller: _searchController,
                     autofocus: true,
-                    style: ts.s16,
+                    style: TextStyle(fontSize: kcSubtitle),
                     decoration: InputDecoration.collapsed(
                       hintText: "Search chapters".tl,
-                      hintStyle: ts.s16.withColor(cs.onSurfaceVariant),
+                      hintStyle: TextStyle(fontSize: kcSubtitle).withColor(cs.onSurfaceVariant),
                     ),
                     onChanged: _setQuery,
                   )
@@ -196,7 +196,7 @@ class _ChaptersViewState extends State<_ChaptersView> {
                 child: Center(
                   child: Text(
                     "No results".tl,
-                    style: ts.s14.withColor(cs.onSurfaceVariant),
+                    style: TextStyle(fontSize: kcBody).withColor(cs.onSurfaceVariant),
                   ),
                 ),
               ),
@@ -282,10 +282,10 @@ class _GroupedChaptersViewState extends State<_GroupedChaptersView>
               ? TextField(
                   controller: _searchController,
                   autofocus: true,
-                  style: ts.s16,
+                  style: TextStyle(fontSize: kcSubtitle),
                   decoration: InputDecoration.collapsed(
                     hintText: "Search chapters".tl,
-                    hintStyle: ts.s16.withColor(cs.onSurfaceVariant),
+                    hintStyle: TextStyle(fontSize: kcSubtitle).withColor(cs.onSurfaceVariant),
                   ),
                   onChanged: (v) => setState(() => _query = v),
                 )
@@ -374,7 +374,7 @@ class _GroupedChaptersViewState extends State<_GroupedChaptersView>
               child: Center(
                 child: Text(
                   "No results".tl,
-                  style: ts.s14.withColor(cs.onSurfaceVariant),
+                  style: TextStyle(fontSize: kcBody).withColor(cs.onSurfaceVariant),
                 ),
               ),
             ),
@@ -488,8 +488,9 @@ class _ChapterListTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: isActive
-                        ? ts.withColor(cs.primary).bold.s16
-                        : ts.s16,
+                        ? TextStyle(fontSize: kcSubtitle, color: cs.primary)
+                            .bold
+                        : TextStyle(fontSize: kcSubtitle),
                   ),
                 ),
                 if (isDownloaded)

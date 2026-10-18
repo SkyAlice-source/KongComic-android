@@ -1,5 +1,4 @@
 import 'package:flutter/widgets.dart';
-import 'package:kong_comic/foundation/text_styles.dart';
 
 extension WidgetExtension on Widget{
   Widget padding(EdgeInsetsGeometry padding){
@@ -87,30 +86,11 @@ extension StyledText on TextStyle {
 
   TextStyle get overline => copyWith(decoration: TextDecoration.overline);
 
-  TextStyle get s8 => copyWith(fontSize: AppFontSizes.s8);
-
-  TextStyle get s10 => copyWith(fontSize: AppFontSizes.s10);
-
-  TextStyle get s12 => copyWith(fontSize: AppFontSizes.s12);
-
-  TextStyle get s14 => copyWith(fontSize: AppFontSizes.s14);
-
-  TextStyle get s16 => copyWith(fontSize: AppFontSizes.s16);
-
-  TextStyle get s18 => copyWith(fontSize: AppFontSizes.s18);
-
-  TextStyle get s20 => copyWith(fontSize: AppFontSizes.s20);
-
-  TextStyle get s24 => copyWith(fontSize: AppFontSizes.s24);
-
-  TextStyle get s28 => copyWith(fontSize: AppFontSizes.s28);
-
-  TextStyle get s32 => copyWith(fontSize: AppFontSizes.s32);
-
-  TextStyle get s36 => copyWith(fontSize: AppFontSizes.s36);
-
-  TextStyle get s40 => copyWith(fontSize: AppFontSizes.s40);
-
   TextStyle withColor(Color? color) => copyWith(color: color);
+
+  // 原 `s8`~`s40` 字号简写已全部迁移到 design_tokens.dart 的 kc* 阶梯
+  // （2026-10-18）。字号一律用语义令牌：kcTitleMain / kcAppbarTitle /
+  // kcTitleLarge / kcSectionTitle / kcSubtitle / kcBody / kcCaption，
+  // 这里不再提供数字档位，避免两套字号表并存。
 }
 

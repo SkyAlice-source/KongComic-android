@@ -570,7 +570,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: kcFont13,
+                    fontSize: kcBody,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -579,7 +579,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
               Text(
                 '$done/$total',
                 style: TextStyle(
-                  fontSize: kcFont13,
+                  fontSize: kcBody,
                   color: scheme.onSurfaceVariant,
                 ),
               ),
@@ -653,7 +653,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: kcFont13,
+                    fontSize: kcBody,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -718,7 +718,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
             Text(
               "Add a repository to browse and install comic source scripts.".tl,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: kcFont13, color: scheme.onSurfaceVariant),
+              style: TextStyle(fontSize: kcBody, color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: kcSpaceLg),
             FilledButton.tonal(
@@ -818,7 +818,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: kcFont13, color: scheme.onSurfaceVariant),
+          style: TextStyle(fontSize: kcBody, color: scheme.onSurfaceVariant),
         ),
       ),
     );
@@ -841,7 +841,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
               selectedColor: kcBrandColor,
               labelStyle: TextStyle(
                 color: selected ? Colors.white : scheme.onSurface,
-                fontSize: kcFont13,
+                fontSize: kcBody,
               ),
               visualDensity: VisualDensity.compact,
             ),
@@ -905,7 +905,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
           children: [
             Text(
               "Selected @n".tlParams({'n': _selected.length.toString()}),
-              style: const TextStyle(fontSize: kcFont13),
+              style: const TextStyle(fontSize: kcBody),
             ),
             const Spacer(),
             if (_busy)
@@ -1156,7 +1156,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
             Text(
               _error!,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: kcFont13, color: scheme.error),
+              style: TextStyle(fontSize: kcBody, color: scheme.error),
             ),
             const SizedBox(height: kcSpaceLg),
             FilledButton.tonal(
@@ -1207,7 +1207,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: kcFont13,
+                        fontSize: kcBody,
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
@@ -1315,7 +1315,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: kcFont13,
+                      fontSize: kcBody,
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
@@ -1325,7 +1325,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                   Text(
                     "Installed @v".tlParams({'v': installed.version}),
                     style: TextStyle(
-                      fontSize: kcFont13,
+                      fontSize: kcBody,
                       color: scheme.onSurfaceVariant,
                     ),
                   ),

@@ -78,8 +78,17 @@ class _AppbarState extends State<Appbar> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 与 SliverAppbar 对齐：侧栏面板内玻璃态会把面板内容糊进标题栏、并在左缘透出
+    // 一道灰白色带，统一退回实心头（底色由 kcAppbarOpaqueColor 解析为面板同色）。
+    final effectiveStyle = ModalRoute.of(context) is SideBarRoute
+        ? AppbarStyle.shadow
+        : widget.style;
+    // 玻璃 tint 必须与页面底色同源：半透明的白/黑叠在页面底色上会被「提亮 / 压暗」，
+    // 静止时就在顶栏下缘留下一条明显色带（浅色白 0.66 叠在 surface#FAF8FF 上偏亮）。
+    // 用 scaffoldBackgroundColor 做基色，合成结果正好等于页面底色，滚动时仍可透出内容。
+    final base = Theme.of(context).scaffoldBackgroundColor;
     final barTint = widget.backgroundColor ??
-        (isDark ? Colors.black.withValues(alpha: 0.54) : Colors.white.withValues(alpha: 0.66));
+        base.withValues(alpha: isDark ? 0.54 : 0.66);
     // 背景完全透明时不套模糊：模糊会把弹窗背后的页面内容糊进标题栏，
     // 在对话框上表现为一块与内容区色差明显的灰白色块（ContentDialog 即如此）。
     final transparentBackground = barTint.a == 0;
@@ -102,7 +111,10 @@ class _AppbarState extends State<Appbar> {
           ),
           Expanded(
             child: DefaultTextStyle(
-              style: DefaultTextStyle.of(context).style.copyWith(fontSize: kcTitleLarge),
+              style: DefaultTextStyle.of(context).style.copyWith(
+                    fontSize: kcAppbarTitle,
+                    fontWeight: FontWeight.w600,
+                  ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               child: widget.title,
@@ -115,9 +127,11 @@ class _AppbarState extends State<Appbar> {
         ],
       ).paddingTop(context.padding.top),
     );
-    if (widget.style == AppbarStyle.shadow || transparentBackground) {
+    if (effectiveStyle == AppbarStyle.shadow || transparentBackground) {
       return Material(
-        color: barTint,
+        // 半透明 tint 只用于玻璃态；实心/透明态一律用解析出的不透明底色，
+        // 避免半透明白叠在面板底色上被提亮成一条色带。
+        color: kcAppbarOpaqueColor(context, widget.backgroundColor),
         elevation: _scrolledUnder ? 2 : 0,
         child: content,
       );
@@ -144,6 +158,20 @@ class _AppbarState extends State<Appbar> {
 enum AppbarStyle {
   blur,
   shadow,
+}
+
+/// 顶栏「不透明底色」的解析规则。
+///
+/// - 侧栏面板（[SideBarRoute]）的面板底色是 `colorScheme.surface`，顶栏必须同色，
+///   否则会像一块浅色贴纸浮在面板上。此前一律用 `scaffoldBackgroundColor`（浅色纯白），
+///   与 surface（浅色下约 #FAF8FF）差 3~5 个色阶，肉眼就是一条分层色带。
+/// - 其余场景沿用页面底色 `scaffoldBackgroundColor`，与内容区无缝。
+Color kcAppbarOpaqueColor(BuildContext context, [Color? background]) {
+  if (background != null) return background;
+  if (ModalRoute.of(context) is SideBarRoute) {
+    return Theme.of(context).colorScheme.surface;
+  }
+  return Theme.of(context).scaffoldBackgroundColor;
 }
 
 class SliverAppbar extends StatelessWidget {
@@ -243,7 +271,10 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
         ),
         Expanded(
           child: DefaultTextStyle(
-            style: DefaultTextStyle.of(context).style.copyWith(fontSize: kcTitleLarge),
+            style: DefaultTextStyle.of(context).style.copyWith(
+                  fontSize: kcAppbarTitle,
+                  fontWeight: FontWeight.w600,
+                ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             child: title,
@@ -258,19 +289,16 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
     if (style == AppbarStyle.blur) {
       final isDark = Theme.of(context).brightness == Brightness.dark;
-      final tint = isDark
-          ? Colors.black.withValues(alpha: 0.54)
-          : Colors.white.withValues(alpha: 0.66);
+      // 同 Appbar：tint 以页面底色为基色，否则会与内容区形成一条色带分层。
+      final base = Theme.of(context).scaffoldBackgroundColor;
+      final tint = base.withValues(alpha: isDark ? 0.54 : 0.66);
       return SizedBox.expand(
         child: ValueListenableBuilder<bool>(
           valueListenable: KcGlassActivity.scrolling,
           builder: (context, scrolling, _) {
             // 滚动中把 tint 加厚并去掉模糊：可读性反而更好，且省掉每帧高斯模糊。
-            final effectiveTint = scrolling
-                ? (isDark
-                    ? Colors.black.withValues(alpha: 0.74)
-                    : Colors.white.withValues(alpha: 0.88))
-                : tint;
+            final effectiveTint =
+                scrolling ? base.withValues(alpha: isDark ? 0.74 : 0.88) : tint;
             Widget bar = Material(
               color: effectiveTint,
               elevation: 0,
@@ -290,7 +318,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     } else {
       return SizedBox.expand(
         child: Material(
-          color: backgroundColor ?? Theme.of(context).scaffoldBackgroundColor,
+          color: kcAppbarOpaqueColor(context, backgroundColor),
           elevation: shrinkOffset == 0 ? 0 : 2,
           borderRadius: BorderRadius.circular(radius),
           child: body,
@@ -399,11 +427,14 @@ class _AppTabBarState extends State<AppTabBar> {
 
   void initPainter() {
     var old = painter;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     painter = _IndicatorPainter(
       controller: _controller,
-      // 跟随当前主题主色（含 Android 动态取色），保证与主页/全局强调色统一；
-      // 选中文字同步使用 onPrimary，在暗色（主色偏浅）下仍清晰可读。
-      color: Theme.of(context).colorScheme.primary,
+      // 选中胶囊走品牌红：AMOLED 的灰阶 primary 会把它做成一颗近白色药丸，
+      // 纯黑底上又亮又平；红色既是全站唯一强调色，也能和阅读 CTA / 开关同源。
+      color: kcAccentColor(context),
+      // 红底上必须配白字：AMOLED 的 onPrimary 是黑，红底黑字既脏又只有 4.3:1。
+      glow: isDark,
       padding: tabPadding,
       radius: tabRadius,
     );
@@ -520,7 +551,7 @@ class _AppTabBarState extends State<AppTabBar> {
           child: DefaultTextStyle(
                 style: DefaultTextStyle.of(context).style.copyWith(
                   color: i == _controller.animation?.value.round()
-                      ? context.colorScheme.onPrimary
+                      ? kcOnAccentColor
                       : context.colorScheme.onSurface,
                   fontWeight: FontWeight.w500,
                 ),
@@ -597,12 +628,17 @@ class _IndicatorPainter extends CustomPainter {
     required this.color,
     required this.padding,
     this.radius = 4.0,
+    this.glow = false,
   }) : super(repaint: controller.animation);
 
   final TabController controller;
   final Color color;
   final EdgeInsets padding;
   final double radius;
+
+  /// 暗色下在胶囊外叠一圈极淡红晕：纯黑背景里，纯色块会显得「贴」在底上，
+  /// 一点点光晕就能把选中态抬起来（亮色背景不需要，会显脏）。
+  final bool glow;
 
   List<double>? offsets;
   double? itemHeight;
@@ -652,11 +688,26 @@ class _IndicatorPainter extends CustomPainter {
     final Rect fromRect = indicatorRect(size, from);
     final Rect toRect = indicatorRect(size, to);
     _currentRect = Rect.lerp(fromRect, toRect, (value - from).abs());
-    final Paint paint = Paint()..color = color;
     final RRect rrect = RRect.fromRectAndRadius(
       _currentRect!,
       Radius.circular(_currentRect!.height / 2),
     );
+    if (glow) {
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: 0.32)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      canvas.drawRRect(rrect, glowPaint);
+    }
+    // 上亮下暗的微渐变：胶囊有了一点「受光」的体积，不再是一块死平的色块。
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color.lerp(color, Colors.white, 0.08)!,
+          Color.lerp(color, Colors.black, 0.06)!,
+        ],
+      ).createShader(_currentRect!);
     canvas.drawRRect(rrect, paint);
   }
 
@@ -1014,6 +1065,9 @@ class TabActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 次级动作：选中胶囊已经是整行的唯一红色焦点，右侧「+」再上红会抢戏，
+    // 这里降为高对比的中性灰（不是禁用态那种发虚的灰）。
+    final fg = context.colorScheme.onSurfaceVariant.withValues(alpha: 0.85);
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(kcRadius8),
@@ -1021,12 +1075,12 @@ class TabActionButton extends StatelessWidget {
         height: _kTabHeight,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: IconTheme(
-          data: IconThemeData(size: 20, color: context.colorScheme.primary),
+          data: IconThemeData(size: 20, color: fg),
           child: Row(
             children: [
               icon,
               const SizedBox(width: 8),
-              Text(text, style: ts.withColor(context.colorScheme.primary)),
+              Text(text, style: ts.withColor(fg)),
             ],
           ),
         ),

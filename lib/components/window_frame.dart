@@ -131,8 +131,10 @@ class _WindowFrameState extends State<WindowFrame> {
                         Expanded(
                           child: DragToMoveArea(
                             child: Text(
-                              'KongComic',
+                              // 桌面端标题栏：跟随语言（中文环境下显示「空漫」）。
+                              "KongComic".tl,
                               style: TextStyle(
+                                // 例外：桌面端固定高度标题栏，按令牌规则保留 kcFont13。
                                 fontSize: kcFont13,
                                 color: (useDarkTheme ||
                                         context.brightness == Brightness.dark)

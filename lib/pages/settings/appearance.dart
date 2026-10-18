@@ -16,11 +16,13 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         SelectSetting(
           title: "Appearance".tl,
           settingKey: "theme_mode",
+          // 顺序即展示顺序：跟随系统 → 浅色 → 深色 → AMOLED。
+          // 「跟随系统」只在浅色 / 深色之间切换，不会落到 AMOLED 纯黑。
           optionTranslation: {
-            "system": "System",
+            "system": "Follow system",
             "light": "Light",
-            "amoled": "AMOLED",
             "dark": "Dark",
+            "amoled": "AMOLED",
           },
           onChanged: () async {
             App.forceRebuild();
@@ -30,7 +32,8 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           title: "Theme Color".tl,
           settingKey: "color",
           optionTranslation: {
-            "system": "Auto",
+            // 「默认」= 品牌红（不再取系统壁纸色，避免按钮忽然变蓝）。
+            "system": "Default",
             "red": "Red",
             "pink": "Pink",
             "purple": "Purple",

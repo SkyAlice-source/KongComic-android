@@ -430,6 +430,7 @@ class _HistoryPageState extends State<HistoryPage> {
       context: context,
       builder: (dialogContext) => ContentDialog(
         title: 'Clear History'.tl,
+        contentPadding: ContentDialog.hPadding,
         content: Text('Are you sure you want to clear your history?'.tl),
         actions: [
           TextButton(

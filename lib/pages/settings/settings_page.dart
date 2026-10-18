@@ -107,8 +107,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 底色统一用 scaffoldBackgroundColor（浅色纯白），与玻璃顶栏的 tint 基色一致；
+    // 之前用 colorScheme.surface（浅色下略带紫的 #FAF8FF），被顶栏的 66% 白叠加后
+    // 提亮成 #FDFDFF，两者在交界处形成一条肉眼可见的分层色带。
     return Material(
-      color: Theme.of(context).colorScheme.surface,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: buildBody(),
     );
   }
@@ -175,7 +178,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget buildLeft() {
     return Material(
-      color: Theme.of(context).colorScheme.surface,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
           SizedBox(
@@ -199,7 +202,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               Text(
                 "Settings".tl,
-                style: ts.s20,
+                style: TextStyle(fontSize: kcTitleMain),
               ),
             ]),
           ),
@@ -329,7 +332,7 @@ class _SettingsDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Theme.of(context).colorScheme.surface,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: _buildPage(),
     );
   }

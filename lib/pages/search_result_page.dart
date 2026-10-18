@@ -340,7 +340,7 @@ class _SuggestionsState extends State<_Suggestions> {
         subtitle: (showMethod && showTranslation) ? Text(subTitle) : null,
         trailing: Text(
           value.right.name,
-          style: const TextStyle(fontSize: kcFont13),
+          style: const TextStyle(fontSize: kcBody),
         ),
         onTap: () => onSelected(value.left, value.right),
       );
@@ -480,15 +480,22 @@ class _SearchSettingsDialogState extends State<_SearchSettingsDialog> {
             }).toList(),
           ).fixWidth(double.infinity).paddingHorizontal(16),
           buildSearchOptions(),
-          const SizedBox(height: 24),
-          FilledButton(
-            child: Text("Confirm".tl),
-            onPressed: () {
-              context.pop();
-            },
-          ),
         ],
       ).fixWidth(double.infinity),
+      // 确认按钮原来浮在正文底部、居中，和所有其它弹窗「右下角动作区」的
+      // 约定不一致。移到 actions 里右对齐，并补一个 Cancel 文案按钮，
+      // 与退出确认等弹窗的按钮排布保持一致。
+      actions: [
+        Button.text(
+          onPressed: () => context.pop(),
+          child: Text("Cancel".tl),
+        ),
+        const SizedBox(width: 8),
+        Button.filled(
+          onPressed: () => context.pop(),
+          child: Text("Confirm".tl),
+        ),
+      ],
     );
   }
 

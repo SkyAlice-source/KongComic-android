@@ -375,11 +375,17 @@ Widget _buildChapterTile(
   required VoidCallback onTap,
 }) {
   final cs = context.colorScheme;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  // 强调色跟着外观走：浅色 / 深色是品牌红，AMOLED 退化为中性灰。若深色仍用
+  // 主题 primary，同一颗「当前章节」的描边会和阅读按钮分成两套颜色。
+  final accent = kcAccentColor(context);
   return Padding(
     padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
     child: Material(
       color: isCurrent
-          ? cs.primaryContainer.withValues(alpha: 0.5)
+          // 极淡红染而不是整块 primaryContainer：既点出「当前」，又不会在
+          // 深色页面上糊成一块更亮的砖；亮色下用 7% 保持同样的轻量感。
+          ? kcAccentSurface(context, alpha: isDark ? 0.12 : 0.07)
           : cs.surfaceContainerLow,
       borderRadius: BorderRadius.circular(kcCardRadius),
       child: InkWell(
@@ -392,7 +398,7 @@ Widget _buildChapterTile(
                 borderRadius: BorderRadius.circular(kcCardRadius),
                 border: Border.all(
                   color: isCurrent
-                      ? cs.primary
+                      ? accent
                       : visited
                           ? cs.tertiary.withValues(alpha: 0.5)
                           : cs.outline.withValues(alpha: 0.3),
@@ -408,8 +414,10 @@ Widget _buildChapterTile(
                     textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
+                      // 当前章节文字保持高对比（暗色下是白字）：红字在纯黑底上
+                      // 只有 4.1:1，13sp 小字读不清；「当前」交给红边+红底表达。
                       color: isCurrent
-                          ? cs.primary
+                          ? cs.onSurface
                           : visited
                               ? cs.onSurfaceVariant
                               : cs.onSurface,

@@ -74,7 +74,7 @@ class _DownloadingPageState extends State<DownloadingPage> {
                   const SizedBox(height: 12),
                   Text(
                     "No active downloads".tl,
-                    style: ts.s16,
+                    style: TextStyle(fontSize: kcSubtitle),
                   ),
                 ],
               ),
@@ -101,36 +101,39 @@ class _DownloadingPageState extends State<DownloadingPage> {
       speed = LocalManager().downloadingTasks.first.speed;
     }
     var first = LocalManager().downloadingTasks.firstOrNull;
+    final cs = Theme.of(context).colorScheme;
+    // 顶部速度 / 暂停区收成一张胶囊卡：之前是「裸行 + 一条 0.6 发丝底线」，
+    // 细到几乎看不见，列表看起来仍然是一整块。现在每张卡独立成面，
+    // 靠卡与卡之间的间隙 + 发丝描边分隔，比压线明显得多。
     return Container(
-      height: 48,
+      height: 52,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: context.colorScheme.outlineVariant,
-            width: 0.6,
-          ),
-        ),
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kcRadius16),
+        border: Border.all(color: cs.outlineVariant, width: 0.6),
       ),
       child: Row(
         children: [
           if (first?.isError == true)
             Text(
               "Error".tl,
-              style: ts.s18.bold,
+              style: TextStyle(fontSize: kcSectionTitle).bold,
             )
           else if (first?.isPaused == true)
             Text(
               "Paused".tl,
-              style: ts.s18.bold,
+              style: TextStyle(fontSize: kcSectionTitle).bold,
             )
           else
             Text(
               "${bytesToReadableString(speed)}/s",
-              style: ts.s18.bold,
+              style: TextStyle(fontSize: kcSectionTitle).bold,
             ),
           const Spacer(),
           if (first?.isPaused == true || first?.isError == true)
-            OutlinedButton(
+            Button.outlined(
               child: Row(
                 children: [
                   HugeIcon(icon: HugeIcons.strokeRoundedPlay, size: 18),
@@ -143,7 +146,7 @@ class _DownloadingPageState extends State<DownloadingPage> {
               },
             )
           else if (first != null)
-            OutlinedButton(
+            Button.outlined(
               child: Row(
                 children: [
                   HugeIcon(icon: HugeIcons.strokeRoundedPause, size: 18),
@@ -156,7 +159,7 @@ class _DownloadingPageState extends State<DownloadingPage> {
               },
             ),
         ],
-      ).paddingHorizontal(16),
+      ),
     );
   }
 }
@@ -206,7 +209,15 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 136,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        // 每个任务一张独立胶囊卡：填充面 + 0.6 发丝描边 + 大圆角，
+        // 卡间留 8dp 间隙。比原来那条几乎看不见的底线明显，也和主页胶囊同语言。
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kcRadius16),
+        border: Border.all(color: cs.outlineVariant, width: 0.6),
+      ),
       child: Row(
         children: [
           Container(
@@ -285,7 +296,7 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
                 if (!widget.task.isPaused || widget.task.isError)
                   Text(
                     widget.task.message,
-                    style: ts.s12,
+                    style: TextStyle(fontSize: kcCaption),
                     maxLines: 3,
                   ),
                 const SizedBox(height: 4),

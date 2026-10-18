@@ -228,7 +228,15 @@ class _FavoritesPageState extends State<FavoritesPage> {
               onTap: context.width < _kTwoPanelChangeWidth
                   ? showFolderSelector
                   : null,
-              child: Text("Unselected".tl),
+              child: Text(
+                "Unselected".tl,
+                // 与 local_favorites_page 的文件夹选择器保持一致：
+                // 二级标题不能用 Appbar 默认的 kcAppbarTitle(20)，否则与主标题同级。
+                style: const TextStyle(
+                  fontSize: kcSectionTitle,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
         ],

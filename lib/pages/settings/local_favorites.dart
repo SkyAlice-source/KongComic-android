@@ -69,6 +69,7 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
                 message: "Deleted @a favorite items".tlParams({'a': count}));
           },
           actionTitle: 'Delete'.tl,
+          destructive: true,
         ).toSliver(),
         SelectSetting(
           title: "Click favorite item".tl,
@@ -98,19 +99,12 @@ class _HomeBannerFoldersSettingState extends State<_HomeBannerFoldersSetting> {
         ? "All".tl
         : selected.where((f) => folders.contains(f)).join(", ");
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return _KcSettingTile(
       title: Text("Home banner folders".tl),
-      subtitle: Text(
-        subtitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: HugeIcon(
-        icon: HugeIcons.strokeRoundedArrowDown01,
-        size: 18,
-      ),
+      subtitle: subtitle,
+      trailing: const _KcChevron(down: true),
       onTap: () => _showFolderPicker(folders, selected),
+      showDivider: false,
     );
   }
 

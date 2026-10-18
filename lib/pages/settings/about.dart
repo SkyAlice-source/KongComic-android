@@ -48,14 +48,18 @@ class _AboutSettingsState extends State<AboutSettings> {
             SizedBox(height: 4),
           ],
         ).toSliver(),
-        ListTile(
+        _KcSettingTile(
           title: Text("Source Code".tl),
-          trailing: HugeIcon(icon: HugeIcons.strokeRoundedLinkSquare01, size: 18),
+          trailing: HugeIcon(
+            icon: HugeIcons.strokeRoundedLinkSquare01,
+            size: 18,
+            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+          ),
           onTap: _openGitHubRepo,
         ).toSliver(),
-        ListTile(
+        _KcSettingTile(
           title: Text("Check for Updates".tl),
-          subtitle: Text("Download directly from GitHub".tl),
+          subtitle: "Download directly from GitHub".tl,
           trailing: Button.filled(
             isLoading: isCheckingUpdate,
             child: Text("Check".tl),
@@ -73,19 +77,19 @@ class _AboutSettingsState extends State<AboutSettings> {
         ).toSliver(),
         _MirrorSetting(onChanged: () => setState(() {})).toSliver(),
         if (UpdateMirrorPreference.mode == 'custom')
-          ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          _KcSettingTile(
             title: Text("Mirror template".tl),
-            subtitle: Text(
-              UpdateMirrorPreference.template.isNotEmpty
-                  ? UpdateMirrorPreference.template
-                  : kDefaultMirrorTemplate,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            subtitle: UpdateMirrorPreference.template.isNotEmpty
+                ? UpdateMirrorPreference.template
+                : kDefaultMirrorTemplate,
+            subtitleMaxLines: 1,
             trailing: HugeIcon(
               icon: HugeIcons.strokeRoundedPencilEdit02,
               size: 18,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurfaceVariant
+                  .withValues(alpha: 0.55),
             ),
             onTap: () async {
               await showInputDialog(
@@ -146,39 +150,21 @@ class _MirrorSettingState extends State<_MirrorSetting> {
   @override
   Widget build(BuildContext context) {
     final mode = UpdateMirrorPreference.mode;
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    return _KcSettingTile(
       title: Row(
         children: [
-          Expanded(child: Text("Download mirror".tl)),
-          Button.icon(
-            size: 18,
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) {
-                  return ContentDialog(
-                    title: "Download mirror".tl,
-                    content: Text("Updates are normally downloaded straight from GitHub. When that connection is blocked or very slow, KongComic can fetch the same file through a mirror instead. Every download is verified against the SHA-256 published with the release, so a mirror cannot tamper with your update — it can only succeed or fail."
-                            .tl)
-                        .paddingHorizontal(16)
-                        .fixWidth(double.infinity),
-                    actions: [
-                      Button.filled(
-                        onPressed: context.pop,
-                        child: Text("OK".tl),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
+          Flexible(
+            child: Text("Download mirror".tl, overflow: TextOverflow.ellipsis),
+          ),
+          const SizedBox(width: 4),
+          _KcHelpButton(
+            "Updates are normally downloaded straight from GitHub. When that connection is blocked or very slow, KongComic can fetch the same file through a mirror instead. Every download is verified against the SHA-256 published with the release, so a mirror cannot tamper with your update — it can only succeed or fail."
+                .tl,
           ),
         ],
       ),
-      subtitle: Text(_options[mode]?.tl ?? mode),
-      trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
+      value: _options[mode]?.tl ?? mode,
+      trailing: const _KcChevron(down: true),
       onTap: () {
         var renderBox = context.findRenderObject() as RenderBox;
         var offset = renderBox.localToGlobal(Offset.zero);
@@ -284,10 +270,9 @@ class _MirrorTestTileState extends State<_MirrorTestTile> {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    return _KcSettingTile(
       title: Text("Test download sources".tl),
-      subtitle: Text("Check which mirror works on this network".tl),
+      subtitle: "Check which mirror works on this network".tl,
       trailing: Button.normal(
         isLoading: _running,
         onPressed: _run,

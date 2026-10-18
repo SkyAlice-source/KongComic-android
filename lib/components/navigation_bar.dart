@@ -816,7 +816,9 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
                 widget.entry.label,
                 maxLines: 1,
                 style: TextStyle(
-                  fontSize: kcFont11,
+                  // 底栏标签跟 M3 规范对齐到 12sp（原本 11sp 偏小，与正文辅助层
+                  // kcCaption 一致）；外层有 FittedBox(scaleDown)，窄屏也不会溢出。
+                  fontSize: kcCaption,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                   color: isActive ? activeClr : inactiveClr,
                 ),
@@ -1006,39 +1008,56 @@ class _ExitConfirmDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var dontAsk = false;
+    final cs = Theme.of(context).colorScheme;
     return ContentDialog(
+      // 标题已经说明意图，正文不再重复「确定要退出吗？」——否则两句话说的是
+      // 同一件事，弹窗只剩噪音。正文只留一个可点的勾选行。
       title: "Confirm Exit".tl,
+      contentPadding: ContentDialog.hPadding,
       content: StatefulBuilder(
-        builder: (ctx, setSB) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Exit?".tl),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: () => setSB(() => dontAsk = !dontAsk),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Checkbox(
-                      value: dontAsk,
-                      onChanged: (v) => setSB(() => dontAsk = v ?? false),
+        builder: (ctx, setSB) {
+          void toggle() => setSB(() => dontAsk = !dontAsk);
+          // 不再用「白底圆角小卡」再包一层：弹窗本身已是 surfaceContainerHigh，
+          // 里面再叠一块 surfaceContainerLow 会在浅灰面上浮出一个白盒，看起来
+          // 像两张卡片叠在一起、不像同一个弹窗。这里回归单层表面 —— 只保留一行
+          // 可点的勾选项，由 InkWell 提供点击反馈，整块对话框是一个整体。
+          return InkWell(
+            borderRadius: BorderRadius.circular(kcRadius10),
+            onTap: toggle,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 2, 8, 2),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: dontAsk,
+                    // 收缩点击热区：整行已由外层 InkWell 接管，默认 48dp 的
+                    // 命中区会额外撑出左缩进，让复选框与上方正文对不齐。
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                    onChanged: (v) => setSB(() => dontAsk = v ?? false),
+                  ).paddingRight(6),
+                  Expanded(
+                    child: Text(
+                      "Don't ask again".tl,
+                      style: TextStyle(
+                        fontSize: kcBody,
+                        color: cs.onSurface,
+                      ),
                     ),
-                    Text("Don't ask again".tl),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
       actions: [
-        TextButton(
+        Button.text(
           onPressed: () => Navigator.of(context).pop(false),
           child: Text("Cancel".tl),
         ),
-        FilledButton(
+        const SizedBox(width: kcSpaceSm),
+        Button.filled(
           onPressed: () {
             if (dontAsk) {
               appdata.settings['exitConfirm'] = false;

@@ -239,7 +239,9 @@ class ComicTile extends StatelessWidget {
                   text,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: kcFont10,
+                    // 10sp 中文在 3x 屏上只有约 3mm 高，进度数字几乎糊成一条；
+                    // 提到 11sp（徽标类下限），16dp 的条高仍放得下（11 * 1.2 = 13.2）。
+                    fontSize: kcFont11,
                     fontWeight: FontWeight.w600,
                     height: 1.2,
                     shadows: [
@@ -320,10 +322,10 @@ class ComicTile extends StatelessWidget {
           ),
         ],
       ),
-      child: const Icon(
+      child: Icon(
         Icons.favorite,
         size: 10,
-        color: kcBrandColor,
+        color: kcBrandAdaptive(context),
       ),
     );
   }
@@ -347,11 +349,13 @@ class ComicTile extends StatelessWidget {
         .where((e) => e.isNotEmpty)
         .join(' · ');
 
+    // Floor the size at 11pt so the cover caption stays legible even on the
+    // narrowest cards — the old 8pt floor was effectively unreadable.
     final fontSize = constraints.maxWidth < 80
-        ? 8.0
+        ? 11.0
         : constraints.maxWidth < 150
-            ? 10.0
-            : 12.0;
+            ? 12.0
+            : 13.0;
 
     if (text == null || text.isEmpty) {
       return const SizedBox();
@@ -686,7 +690,8 @@ class ComicTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.clip,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
+                    fontSize: kcFont15,
                   ),
                 ),
               ),
@@ -860,7 +865,7 @@ class _ComicDescription extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(
-                fontSize: kcFont10,
+                fontSize: kcCaption,
                 color: context.colorScheme.onSurface.withValues(alpha: 0.7)),
             maxLines: 1,
             softWrap: true,
@@ -1478,9 +1483,40 @@ class ComicListState extends State<ComicList> {
   }
 
   Widget _buildPageSelector() {
+    final cs = Theme.of(context).colorScheme;
+    // 前进是主动作（品牌红；AMOLED 自动退化中性深灰），后退是次级动作（中性
+    // 容器底 + 正文色）。两颗都做成实心红会分不清主次，页面也过重。
+    Widget pagerButton({
+      required String label,
+      required VoidCallback? onPressed,
+      required bool primary,
+    }) {
+      return FilledButton(
+        onPressed: onPressed,
+        style: primary
+            ? null
+            : ButtonStyle(
+                backgroundColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.disabled)
+                      ? cs.onSurface.withValues(alpha: 0.06)
+                      : cs.surfaceContainerHighest,
+                ),
+                foregroundColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.disabled)
+                      ? cs.onSurface.withValues(alpha: 0.30)
+                      : cs.onSurface,
+                ),
+                elevation: const WidgetStatePropertyAll(0),
+              ),
+        child: Text(label),
+      ).fixWidth(84);
+    }
+
     return Row(
       children: [
-        FilledButton(
+        pagerButton(
+          label: "Back".tl,
+          primary: false,
           onPressed: _page > 1
               ? () {
                   setState(() {
@@ -1489,8 +1525,7 @@ class ComicListState extends State<ComicList> {
                   });
                 }
               : null,
-          child: Text("Back".tl),
-        ).fixWidth(84),
+        ),
         Expanded(
           child: Center(
             child: Material(
@@ -1553,7 +1588,9 @@ class ComicListState extends State<ComicList> {
             ),
           ),
         ),
-        FilledButton(
+        pagerButton(
+          label: "Next".tl,
+          primary: true,
           onPressed: _page < (_maxPage ?? (_page + 1))
               ? () {
                   setState(() {
@@ -1562,8 +1599,7 @@ class ComicListState extends State<ComicList> {
                   });
                 }
               : null,
-          child: Text("Next".tl),
-        ).fixWidth(84),
+        ),
       ],
     ).paddingVertical(8).paddingHorizontal(16);
   }
@@ -2235,7 +2271,25 @@ class PaginatedSliverGridComicsState
   @override
   void initState() {
     super.initState();
+    // Watch favorites/history so a change made elsewhere — e.g. favoriting a
+    // comic from its detail page and popping back — reloads this paginated grid
+    // and refreshes the status badges. Previously the grid relied solely on its
+    // parent page's listener, which could silently skip the refresh when the
+    // grid's GlobalKey state was null (not yet mounted / just rebuilt).
+    HistoryManager().addListener(_onFavoritesChanged);
+    LocalFavoritesManager().addListener(_onFavoritesChanged);
     _loadNextPage();
+  }
+
+  @override
+  void dispose() {
+    HistoryManager().removeListener(_onFavoritesChanged);
+    LocalFavoritesManager().removeListener(_onFavoritesChanged);
+    super.dispose();
+  }
+
+  void _onFavoritesChanged() {
+    if (mounted) refresh();
   }
 
   Future<void> _loadNextPage() async {

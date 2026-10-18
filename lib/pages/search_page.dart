@@ -128,6 +128,7 @@ class _SearchPageState extends State<SearchPage> {
                 child: Text(
                   id,
                   style: TextStyle(
+                    // 例外：monospace 展示 ID，等宽下 14 明显更占宽度，按令牌规则保留 kcFont13。
                     fontSize: kcFont13,
                     fontFamily: 'monospace',
                     color: cs.onSurfaceVariant,
@@ -451,7 +452,7 @@ class _SearchPageState extends State<SearchPage> {
                         Text(
                           "ALL".tl,
                           style: TextStyle(
-                            fontSize: kcFont13,
+                            fontSize: kcBody,
                             fontWeight: FontWeight.w500,
                             color: _selectedSources.length == searchSources.length
                                 ? cs.onPrimaryContainer
@@ -503,7 +504,7 @@ class _SearchPageState extends State<SearchPage> {
                         Text(
                           source.name,
                           style: TextStyle(
-                            fontSize: kcFont13,
+                            fontSize: kcBody,
                             fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
                             color: isSelected ? cs.onPrimaryContainer : cs.onSurface,
                           ),
@@ -900,7 +901,7 @@ class SearchOptionWidget extends StatelessWidget {
             child: Text(
               option.label.ts(sourceKey),
               style: TextStyle(
-                fontSize: kcFont13,
+                fontSize: kcBody,
                 fontWeight: FontWeight.w500,
                 color: cs.onSurfaceVariant,
               ),
@@ -943,7 +944,7 @@ class SearchOptionWidget extends StatelessWidget {
                     child: Text(
                       e.value.ts(sourceKey),
                       style: TextStyle(
-                        fontSize: kcFont13,
+                        fontSize: kcBody,
                         color: isSelected ? cs.onPrimaryContainer : cs.onSurface,
                         fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
                       ),
@@ -1003,7 +1004,7 @@ class _SearchHistory extends StatelessWidget {
                     child: Text(
                       "Clear".tl,
                       style: TextStyle(
-                        fontSize: kcFont13,
+                        fontSize: kcBody,
                         color: cs.primary,
                       ),
                     ),
@@ -1034,7 +1035,7 @@ class _SearchHistory extends StatelessWidget {
                         Flexible(
                           child: Text(
                             item,
-                            style: TextStyle(fontSize: kcFont13, color: cs.onSurface),
+                            style: TextStyle(fontSize: kcBody, color: cs.onSurface),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),

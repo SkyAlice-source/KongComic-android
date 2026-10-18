@@ -355,7 +355,7 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
           child: Text(
             "${deduped!.length} $works · $_totalHits $hitsAcross ${widget.sources.length} $sourcesLabel",
             style: TextStyle(
-              fontSize: kcFont13,
+              fontSize: kcBody,
               color: context.colorScheme.outline,
             ),
           ),

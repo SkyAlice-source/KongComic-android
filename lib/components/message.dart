@@ -205,14 +205,14 @@ class _UpdateBannerOverlay extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: ts.s16,
+                            style: TextStyle(fontSize: kcSubtitle),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
                             subtitle,
-                            style: ts.s14.copyWith(
+                            style: TextStyle(fontSize: kcBody).copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
                             maxLines: 1,
@@ -287,7 +287,7 @@ void showDialogMessage(BuildContext context, String title, String message) {
       title: title,
       content: Text(message).paddingHorizontal(16),
       actions: [
-        FilledButton(
+        Button.filled(
           onPressed: context.pop,
           child: Text("OK".tl),
         )
@@ -310,14 +310,12 @@ Future<void> showConfirmDialog({
       title: title,
       content: Text(content).paddingHorizontal(16).paddingVertical(8),
       actions: [
-        FilledButton(
+        Button.filled(
+          color: btnColor,
           onPressed: () {
             context.pop();
             onConfirm();
           },
-          style: FilledButton.styleFrom(
-            backgroundColor: btnColor,
-          ),
           child: Text(confirmText.tl),
         ),
       ],
@@ -428,7 +426,7 @@ LoadingDialogController showLoadingDialog(
               children: [
                 Text(
                   controller._message ?? 'Loading'.tl,
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: kcBody),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 14),
@@ -464,7 +462,7 @@ LoadingDialogController showLoadingDialog(
                           progress == null
                               ? ''
                               : '${(progress.clamp(0.0, 1.0) * 100).round()}%',
-                          style: const TextStyle(fontSize: 13),
+                          style: const TextStyle(fontSize: kcFont13),
                           textAlign: TextAlign.right,
                         ),
                       ),
@@ -474,7 +472,7 @@ LoadingDialogController showLoadingDialog(
                 if (allowCancel)
                   Align(
                     alignment: Alignment.centerRight,
-                    child: TextButton(
+                    child: Button.text(
                       onPressed: () {
                         controller.close();
                         onCancel?.call();
@@ -509,6 +507,7 @@ class ContentDialog extends StatelessWidget {
     this.dismissible = true,
     this.actions = const [],
     this.showClose = true,
+    this.contentPadding,
   });
 
   final String? title;
@@ -523,6 +522,20 @@ class ContentDialog extends StatelessWidget {
   /// false 避免两个关闭入口重复。
   final bool showClose;
 
+  /// 对话框正文的水平内边距。
+  ///
+  /// 默认 `null`——正文由调用方自己负责内边距（历史行为，保持兼容）。
+  /// 但裸 `Text` / `Column` 之类**不自带内边距**的内容如果不加，文字会直接顶到
+  /// 对话框左边缘，与带 `leading` 的标题栏形成"标题有留白、正文贴边"的错位观感。
+  /// 这类正文请传 [hPadding]。
+  ///
+  /// 反之，`ListTile` / `CheckboxListTile` / `RadioListTile` / `TabBar` 等自带
+  /// 16dp 左右内边距的控件请保持 `null`，否则会变成 32dp 的双层缩进。
+  final EdgeInsetsGeometry? contentPadding;
+
+  /// 对话框正文推荐的水平内边距（与 `ListTile` 默认的一致，16dp）。
+  static const EdgeInsets hPadding = EdgeInsets.symmetric(horizontal: 16);
+
   @override
   Widget build(BuildContext context) {
     var content = SingleChildScrollView(
@@ -530,25 +543,57 @@ class ContentDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          title != null
-              ? Appbar(
-            leading: showClose
-                ? IconButton(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-              onPressed: dismissible ? context.pop : null,
-            )
-                : null,
-            title: Text(title!),
-            backgroundColor: Colors.transparent,
-          )
-              : const SizedBox.shrink(),
-          this.content,
-          const SizedBox(height: 16),
+          if (title != null) ...[
+            Padding(
+              // 关闭键左内边距收到 8：图标自带的点击热区已经是一圈留白，
+              // 再叠 16 会让标题被推得离边缘太远，正文与标题的左缘也错开。
+              padding: const EdgeInsets.fromLTRB(8, 10, 16, 0),
+              child: Row(
+                children: [
+                  if (showClose)
+                    Button.icon(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedCancel01,
+                        size: 18,
+                      ),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withValues(alpha: 0.85),
+                      // 不可关闭时给一个空回调：按钮保留但点击无效，
+                      // 既暗示有关闭入口，又不破坏「非 dismissible」语义。
+                      onPressed: dismissible ? context.pop : () {},
+                    ),
+                  Expanded(
+                    child: Text(
+                      title!,
+                      style: TextStyle(
+                        fontSize: kcTitleLarge,
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface,
+                        height: 1.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 标题与正文之间留一口气：贴在一起时两段文字会挤成一坨。
+            const SizedBox(height: 8),
+          ],
+          contentPadding == null
+              ? this.content
+              : Padding(padding: contentPadding!, child: this.content),
+          const SizedBox(height: 14),
+          // 动作区收一点左右内边距（12），让最后一颗按钮的右缘与标题右缘近似
+          // 对齐；否则按钮会比正文更靠里，弹窗右下角显得塌陷。
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: actions,
-          ).paddingRight(12),
-          const SizedBox(height: 16),
+          ).paddingHorizontal(12),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -728,15 +773,26 @@ Future<int?> showSelectDialog({
               ),
             ),
             actions: [
-              TextButton(
+              Button.text(
                 onPressed: () {
                   current = null;
                   context.pop();
                 },
                 child: Text('Cancel'.tl),
               ),
-              FilledButton(
-                onPressed: current == null ? null : context.pop,
+              const SizedBox(width: kcSpaceSm),
+              Button.filled(
+                // 未选时置灰 + 空操作，保留「必须先选再确认」的语义；
+                // 选中后恢复品牌色并真正关闭。
+                color: current == null
+                    ? Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.4)
+                    : null,
+                onPressed: () {
+                  if (current != null) context.pop();
+                },
                 child: Text('Confirm'.tl),
               ),
             ],
@@ -747,4 +803,256 @@ Future<int?> showSelectDialog({
   );
 
   return current;
+}
+
+/// 「保存图片」对话框的返回结果：文件名（不含扩展名）+ 输出格式。
+class ImageSaveChoice {
+  const ImageSaveChoice({required this.name, required this.format});
+
+  /// 不含扩展名的文件名，例如 `海贼王_EP3_P12`。
+  final String name;
+
+  final ImageSaveFormat format;
+}
+
+/// 去掉用户手输文件名末尾的图片扩展名，避免存成 `封面.jpg.jpg`。
+///
+/// 对话框会按所选格式自动补后缀，输入框里只需要名字本身。
+String _stripImageExtension(String name) => name.replaceFirst(
+      RegExp(r'\.(png|jpe?g|webp|gif|bmp|avif|heic|heif)$', caseSensitive: false),
+      '',
+    );
+
+/// 弹出「保存图片」对话框：上半部分是文件名（可改），下半部分是格式三选一。
+///
+/// 返回 `null` 表示用户取消（不保存）。
+///
+/// - [initialName] 预填的文件名（不含扩展名），一般来自 [buildImageSaveName]。
+/// - [originalExt] 原图扩展名（形如 `.webp`），用于「原格式」选项下实时显示
+///   最终文件名后缀；PNG / JPG 的后缀由所选格式决定。
+/// - [initialFormat] 默认选中的格式，默认「原格式」——不重新编码、画质零损失。
+Future<ImageSaveChoice?> showImageSaveDialog(
+  BuildContext context, {
+  required String initialName,
+  String originalExt = '',
+  ImageSaveFormat initialFormat = ImageSaveFormat.original,
+}) async {
+  final controller = TextEditingController(text: initialName);
+  var format = initialFormat;
+
+  return showDialog<ImageSaveChoice>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setState) {
+        final scheme = context.colorScheme;
+        // 最终文件名（含扩展名）—— 输入框放不下长标题时，这行预览保证
+        // 用户仍能看全后缀，而不是被输入框裁成 `..._EP1_`。
+        final inputName =
+            controller.text.trim().isEmpty ? initialName : controller.text.trim();
+        final finalExt =
+            format == ImageSaveFormat.original ? originalExt : format.ext;
+        final finalName =
+            '${_stripImageExtension(safeShareFileName(inputName))}$finalExt';
+        return ContentDialog(
+          title: "Save Image".tl,
+          contentPadding: ContentDialog.hPadding,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller,
+                // 允许折行：漫画名 + 话数 + 页数很容易超出单行宽度，
+                // 多行后至少能一眼看全自己起的名字。
+                maxLines: 2,
+                minLines: 1,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: "File name".tl,
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: kcSpaceXxs),
+              Text(
+                "Will be saved as @name".tlParams({'name': finalName}),
+                style: TextStyle(
+                  fontSize: kcCaption,
+                  color: scheme.onSurfaceVariant,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: kcSpaceMd),
+              Text(
+                "Format".tl,
+                style: TextStyle(
+                  fontSize: kcBody,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: kcSpaceSm),
+              for (final f in ImageSaveFormat.values)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: kcSpaceSm),
+                  child: _ImageSaveFormatTile(
+                    format: f,
+                    selected: f == format,
+                    onTap: () => setState(() => format = f),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            Button.text(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text("Cancel".tl),
+            ),
+            const SizedBox(width: kcSpaceSm),
+            Button.filled(
+              onPressed: () {
+                final input = controller.text.trim();
+                Navigator.of(context).pop(
+                  ImageSaveChoice(
+                    name: _stripImageExtension(safeShareFileName(
+                        input.isEmpty ? initialName : input)),
+                    format: format,
+                  ),
+                );
+              },
+              child: Text("Save".tl),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+/// 「保存图片」对话框里的单个格式选项：图标 + 名称 + 说明 + 右侧选中圆点。
+///
+/// 用卡片式选中态（primaryContainer 底 + primary 描边）替代 M3 默认 ListTile
+/// 波纹，跟 App 里其它设置卡片的观感一致。
+class _ImageSaveFormatTile extends StatelessWidget {
+  const _ImageSaveFormatTile({
+    required this.format,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ImageSaveFormat format;
+
+  final bool selected;
+
+  final VoidCallback onTap;
+
+  // HugeIcons 的图标常量类型是 `List<List<dynamic>>`（与 HugeIcon.icon 一致）。
+  List<List<dynamic>> get _icon => switch (format) {
+        ImageSaveFormat.original => HugeIcons.strokeRoundedImage01,
+        ImageSaveFormat.png => HugeIcons.strokeRoundedImage02,
+        ImageSaveFormat.jpg => HugeIcons.strokeRoundedImage03,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = context.colorScheme;
+    final borderRadius = BorderRadius.circular(kcCardRadius);
+    return Material(
+      // 未选中不再垫一块比弹窗更浅的底色：surfaceContainerLow 在浅色下接近
+      // 纯白，叠在 surfaceContainerHigh 的弹窗面上会浮出「盒中盒」，看起来不
+      // 像同一个弹窗。改为透明底 + 发丝描边，与源仓库卡片的扁平语言一致；
+      // 选中态仍用 primaryContainer 点出焦点。
+      color: selected ? scheme.primaryContainer : Colors.transparent,
+      borderRadius: borderRadius,
+      child: InkWell(
+        borderRadius: borderRadius,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: kcSpaceMd,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: borderRadius,
+            border: Border.all(
+              color: selected ? scheme.primary : scheme.outlineVariant,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              HugeIcon(
+                icon: _icon,
+                size: 20,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: kcSpaceMd),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      // PNG / JPG 是通用格式名，不翻译；「Original」有译文。
+                      format.label.tl,
+                      style: const TextStyle(
+                        fontSize: kcBody,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      format.description.tl,
+                      style: TextStyle(
+                        fontSize: kcCaption,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: kcSpaceSm),
+              _RadioDot(selected: selected),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 选中态圆点：外圈描边 + 内部实心圆，比 M3 默认 Radio 更紧凑、更贴 App 风格。
+class _RadioDot extends StatelessWidget {
+  const _RadioDot({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = context.colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: selected ? scheme.primary : scheme.outlineVariant,
+          width: 2,
+        ),
+      ),
+      child: selected
+          ? Center(
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: scheme.primary,
+                ),
+              ),
+            )
+          : null,
+    );
+  }
 }

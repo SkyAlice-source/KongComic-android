@@ -87,7 +87,7 @@ Widget _folderChip(BuildContext context, String title, VoidCallback? onTap) {
             ),
             child: Text(
               title,
-              style: const TextStyle(fontSize: kcFont13, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: kcBody, fontWeight: FontWeight.w500),
               overflow: TextOverflow.ellipsis,
             ),
           ),

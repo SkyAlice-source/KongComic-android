@@ -64,7 +64,7 @@ class _FollowUpdatesWidgetState
                 child: Row(
                   children: [
                     Center(
-                      child: Text('Follow Updates'.tl, style: ts.s18),
+                      child: Text('Follow Updates'.tl, style: TextStyle(fontSize: kcSectionTitle)),
                     ),
                     const Spacer(),
                     HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18, color: Theme.of(context).colorScheme.primary),
@@ -84,7 +84,7 @@ class _FollowUpdatesWidgetState
                     '@c updates'.tlParams({
                       'c': _count,
                     }),
-                    style: ts.s16,
+                    style: TextStyle(fontSize: kcSubtitle),
                   ),
                 ),
             ],
@@ -182,11 +182,12 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           border: Border.all(
             color: Theme.of(context).colorScheme.outlineVariant,
             width: 0.6,
           ),
-          borderRadius: BorderRadius.circular(kcRadius8),
+          borderRadius: BorderRadius.circular(kcCardRadius),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,7 +198,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             ),
             Text(
               "Choose folders to follow updates.".tl,
-              style: ts.s16,
+              style: TextStyle(fontSize: kcSubtitle),
             ).paddingHorizontal(16),
             const SizedBox(height: 8),
             FilledButton.tonal(
@@ -226,11 +227,12 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           border: Border.all(
             color: Theme.of(context).colorScheme.outlineVariant,
             width: 0.6,
           ),
-          borderRadius: BorderRadius.circular(kcRadius8),
+          borderRadius: BorderRadius.circular(kcCardRadius),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,14 +247,14 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             ),
             Text(
               "Automatic update checking enabled.".tl,
-              style: ts.s14,
+              style: TextStyle(fontSize: kcBody),
             ).paddingHorizontal(16),
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               title: Text("Check update interval".tl),
               subtitle: Text(
                 "Checks each comic at most once per interval".tl,
-                style: ts.s12,
+                style: TextStyle(fontSize: kcCaption),
               ),
               trailing: Select(
                 minWidth: 96,
@@ -275,7 +277,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
+                Button.text(
                   onPressed: showSelector,
                   child: Text("Change Folders".tl),
                 ),
@@ -319,7 +321,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
               color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: 6),
-            Text(source, style: ts.s16),
+            Text(source, style: TextStyle(fontSize: kcSubtitle)),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -329,7 +331,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
               ),
               child: Text(
                 '@c'.tlParams({'c': count}),
-                style: ts.s14,
+                style: TextStyle(fontSize: kcBody),
               ),
             ),
             const Spacer(),
@@ -352,7 +354,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
               color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: 6),
-            Text(folder, style: ts.s16),
+            Text(folder, style: TextStyle(fontSize: kcSubtitle)),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -360,7 +362,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
                 color: Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(kcRadius8),
               ),
-              child: Text('@total'.tlParams({'total': total}), style: ts.s14),
+              child: Text('@total'.tlParams({'total': total}), style: TextStyle(fontSize: kcBody)),
             ),
             if (updated > 0) ...[
               const SizedBox(width: 6),
@@ -368,11 +370,16 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.errorContainer,
+                  // 用品牌强调浅染而非 errorContainer：
+                  // 1) 语义上「有更新」不是错误；2) AMOLED 下 errorContainer 被
+                  //    灰阶化会丢失强调，改用 kcAccentSurface 在纯黑下退化为
+                  //    中性灰浅染 + kcBrandAdaptive 文字，信号不丢。
+                  color: kcAccentSurface(context),
                   borderRadius: BorderRadius.circular(kcRadius8),
                 ),
                 child: Text('@updated updated'.tlParams({'updated': updated}),
-                    style: ts.s14),
+                    style: TextStyle(
+                        fontSize: kcBody, color: kcBrandAdaptive(context))),
               ),
             ],
             const Spacer(),
@@ -412,16 +419,20 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
         ),
         child: Row(
           children: [
-            HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedRefresh,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 8),
             Text(
               "Updates".tl,
-              style: ts.s18,
+              style: TextStyle(fontSize: kcSectionTitle),
             ),
             const Spacer(),
             if (updatedComics.isNotEmpty)
               IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedTick01, size: 18),
                 onPressed: () {
                   showConfirmDialog(
                     context: App.rootContext,
@@ -466,7 +477,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
                   children: [
                     Text(
                       "No updates found".tl,
-                      style: ts.s16,
+                      style: TextStyle(fontSize: kcSubtitle),
                     ),
                   ],
                 ),
@@ -510,11 +521,15 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
         ),
         child: Row(
           children: [
-            HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedMenu02,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 8),
             Text(
               "All Comics".tl,
-              style: ts.s18,
+              style: TextStyle(fontSize: kcSectionTitle),
             ),
             const Spacer(),
             TextButton(
@@ -603,21 +618,21 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             ),
             actions: [
               if (getEffectiveFollowFolders().isNotEmpty)
-                TextButton(
+                Button.text(
                   onPressed: () {
                     disable();
                     context.pop();
                   },
                   child: Text("Disable".tl),
                 ),
-              FilledButton(
+              Button.filled(
                 onPressed: (allToggle || selected.isNotEmpty)
                     ? () {
                         context.pop();
                         final list = allToggle ? ['*'] : selected.toList();
                         setFolders(list);
                       }
-                    : null,
+                    : () {},
                 child: Text("Confirm".tl),
               ),
             ],

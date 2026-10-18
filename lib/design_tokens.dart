@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
+import 'foundation/appdata.dart';
+
 /// KongComic 设计令牌 —— 统一卡片圆角 / 描边 / 阴影 / 字号阶梯，消灭魔法数字。
 ///
 /// 配套文档：design/kongcomic-design/kongcomic-ui-improvement-proposal.md
@@ -10,6 +12,63 @@ import 'package:flutter/physics.dart';
 /// 品牌主色 Kong Coral，用于收藏红心、收藏角标等强调色。
 const Color kcBrandColor = Color(0xFFD4381B);
 
+/// 当前是否为 **AMOLED 纯黑外观**。
+///
+/// 只有 `theme_mode == 'amoled'` 才算；「深色」与「跟随系统（系统为暗色）」都走
+/// 带品牌红的深色方案。AMOLED 是唯一「零彩色、只用灰阶」的外观。
+bool kcIsAmoled() => appdata.isAmoledMode;
+
+/// 「主 CTA / 当前项 / 开关 ON」的强调色。
+///
+/// - **浅色 / 深色**：品牌红 [kcBrandColor]，与收藏红心同源，是全站唯一强调色。
+///   深色下红压在暖近黑底上更「沉」，不需要另一套色值。
+/// - **AMOLED**：退化为中性灰 [ColorScheme.surfaceContainerHigh]。纯黑外观要求
+///   「零彩色」——纯灰底上不能冒出一颗红，用「深灰浮起 + 白字」表达选中 / 激活。
+///
+/// ⚠️ 只用于**面与线**（实心按钮底、选中项描边、开关轨道、进度填充）。
+///   图标 / 文字类品牌标记（收藏心、选中勾、动作栏图标）请用 [kcBrandAdaptive]，
+///   AMOLED 下会同步走中性灰而不破坏「零彩色」。
+Color kcAccentColor(BuildContext context) {
+  if (kcIsAmoled()) return Theme.of(context).colorScheme.surfaceContainerHigh;
+  return kcBrandColor;
+}
+
+/// 品牌色标记（收藏心、选中勾、动作栏图标这类图标 / 小色块）。
+///
+/// 浅色与深色恒为品牌红；AMOLED 下取主题 `primary`（亮灰），让标记在纯灰底上
+/// 以「高亮灰」呈现，而不是冒出一颗红。面与线请走 [kcAccentColor]。
+Color kcBrandAdaptive(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return kcIsAmoled() ? cs.primary : kcBrandColor;
+}
+
+/// 品牌红之上的前景色（按钮文字 / 图标 / 选中态文字）。
+///
+/// 不能复用 `cs.onPrimary`：AMOLED 下 `primary` 是浅灰、`onPrimary` 是黑，
+/// 配红底只有 4.3:1 且观感发脏。红底上的白字对比度 4.8:1，是唯一正确解。
+const Color kcOnAccentColor = Colors.white;
+
+/// 暗底上的品牌色**前景**（小字号文字 / 小图标）。
+///
+/// 比 [kcBrandColor] 提亮一档（#E4553A），纯黑底上对比度 5.3:1，过 AA；
+/// 直接拿 #D4381B 写 12–13sp 小字在 AMOLED 下会发闷。
+const Color kcBrandColorOnDark = Color(0xFFE4553A);
+
+/// 强调色的「柔光底」：极低透明度叠在低对比容器上，用于「当前章节 / 上次阅读」
+/// 这类需要点出焦点、又不能整块高饱和的卡片。
+///
+/// - 浅色 / 深色：品牌红薄染（深色底更暗，同透明度就够用）。
+/// - AMOLED：中性灰（[ColorScheme.onSurface]）薄染，保持零彩色。
+Color kcAccentSurface(BuildContext context, {double alpha = 0.10}) {
+  final cs = Theme.of(context).colorScheme;
+  final gray = kcIsAmoled();
+  final tint = gray ? cs.onSurface : kcBrandColor;
+  return Color.alphaBlend(
+    tint.withValues(alpha: gray ? alpha * 0.5 : alpha),
+    cs.surfaceContainerLow,
+  );
+}
+
 // ── 圆角 ───────────────────────────────────────────────
 const double kcCardRadius = 12; // 漫画卡 / 英雄卡 外圆角
 const double kcCardInnerRadius = 10; // 卡内裁剪圆角
@@ -18,10 +77,38 @@ const double kcChipRadius = 10; // 文件夹 chip / 标签
 
 // ── 字号阶梯（对齐用户习惯，杜绝 18/20 混用）─────────────
 const double kcTitleMain = 20; // 全局根页主标题（粗体）
-const double kcTitleLarge = 22; // 页面级标题（如内部栏）
+/// 顶栏标题（自绘 Appbar / SliverAppbar / 阅读器里的系统 AppBar）。
+///
+/// 与根页主标题同为 20：内页顶栏若沿用 [kcTitleLarge](22)，进二级页时标题
+/// 反而比根页「收藏 / 历史」更大，层级倒挂。两者取同一档，进出页面只变位置
+/// 不变字号，视觉更稳。
+const double kcAppbarTitle = 20;
+const double kcTitleLarge = 22; // 内容区大标题（分区标题、详情页漫画名等）
+/// 二级 / 分组标题（收藏页的文件夹选择器「全部」、分组名等）。
+///
+/// 必须显式指定：`Appbar`/`SliverAppbar` 会把 title 包进
+/// `fontSize: kcAppbarTitle(20)` 的 DefaultTextStyle，二级标题若不覆盖就会
+/// 与根页主标题（kcTitleMain 20）同大甚至更大，层级倒挂。
+const double kcSectionTitle = 17;
 const double kcSubtitle = 16;
 const double kcBody = 14;
 const double kcCaption = 12;
+
+/// 排版令牌补充说明（**旧字号表已冻结，见下**）：
+/// - 项目里另有 `AppFontSizes.sNN`（foundation/text_styles.dart）与 `ts.sNN` 简写，
+///   是更早的一套字号表，值与上面阶梯大量重叠（s14=kcBody、s12=kcCaption、
+///   s22=kcTitleLarge …）。
+/// - **冻结规则（2026-10-18 起执行）**：新增或修改样式只能用上面的 kc* 语义阶梯；
+///   `ts.sNN` / `AppFontSizes.sNN` / 裸数字 `fontSize:` 只减不增。
+///   门禁脚本：`python3 tools/check_font_sizes.py`（超基线即失败，发版前跑一遍）。
+///   迁移顺序：comic.dart → reader → settings，一页一改、改完截图回归；
+///   调用点归零后再删 `widget_utils.dart` 里的 `ts` 简写表。
+/// - `kcFont13`(13) 是历史遗留的「正文紧凑档」，夹在 kcBody(14) 与 kcCaption(12)
+///   之间。**除下列固定高度 / 等宽容器外不得再使用**：
+///   · 等宽文本（代码行号、monospace 展示的 ID）—— 14 会让等宽行宽溢出；
+///   · 紧凑徽章 `AppBadge`（padding vertical: 2，14 会把徽章撑高）；
+///   · 桌面端固定高度标题栏（window_frame）。
+///   上述例外处已在代码内就地注明原因。新样式一律用 kcBody(14) / kcCaption(12)。
 
 // ── 行高估算 ───────────────────────────────────────────
 /// 未显式指定 `TextStyle.height` 时，中文字体（Noto Sans CJK）的实际行高倍率。
@@ -94,6 +181,11 @@ const double kcRadius24 = 24;
 const double kcRadius32 = 32;
 
 // ── 字号（精确值令牌，覆盖散落字面量，零视觉改动）──────
+// 排版阶梯见上方 kcTitleMain / kcTitleLarge / kcSectionTitle / kcSubtitle /
+// kcBody / kcCaption；这里是阶梯之外的历史精确值，新增样式请优先用阶梯。
+// 可读性下限：正文 / 辅助信息 ≥ kcCaption(12)；图片上的徽标 ≥ kcFont11(11)。
+// kcFont10(10) 已全面停用（中文在 3x 屏上仅约 3mm 高，读不清），仅保留常量防误引。
+// kcFont13(13) 仅限「固定高度 / 等宽容器」例外（规则见上方排版令牌说明）。
 const double kcFont10 = 10;
 const double kcFont11 = 11;
 const double kcFont13 = 13;
@@ -168,29 +260,6 @@ Color kcTagColor(int index, Brightness brightness, {bool amoled = false}) {
   return palette[index % palette.length];
 }
 
-/// 把任意颜色柔化成暗色主题用的低饱和版本。
-///
-/// 用于默认暗色模式下降低主题色亮度/饱和度，使其不那么刺眼。
-Color kcSoftenColorForDark(Color color, {double saturationFactor = 0.85, double lightnessFactor = 0.96}) {
-  final hsl = HSLColor.fromColor(color);
-  return hsl
-      .withSaturation((hsl.saturation * saturationFactor).clamp(0.0, 1.0))
-      .withLightness((hsl.lightness * lightnessFactor).clamp(0.0, 1.0))
-      .toColor();
-}
-
-/// 把任意颜色转为「暗彩」风格：大幅提高饱和度、明显压低亮度，
-/// 让暗色模式下的主题色比浅色更深、更艳，避免发灰发浅。
-/// 按钮/标签等 accent 在深色底上保持足够对比，但不再像浅色那样泛白。
-Color kcDarkColorful(Color color,
-    {double saturationFactor = 1.45, double lightnessFactor = 0.62}) {
-  final hsl = HSLColor.fromColor(color);
-  return hsl
-      .withSaturation((hsl.saturation * saturationFactor).clamp(0.0, 1.0))
-      .withLightness((hsl.lightness * lightnessFactor).clamp(0.0, 1.0))
-      .toColor();
-}
-
 /// 根据 chip 背景亮度自动选黑/白文字，保证 WCAG 对比度。
 ///
 /// 注意：Color.computeLuminance 会忽略 alpha，而 AMOLED 下 kcTagAmoledGray
@@ -206,40 +275,6 @@ Color kcTagTextColor(Color background) {
 /// 根据背景亮度返回可读的文字色（不透明），用于按钮等实心组件。
 Color kcOnColor(Color background) {
   return background.computeLuminance() > 0.5 ? Colors.black : Colors.white;
-}
-
-/// 基于「浅色 vivid 配色」生成「暗彩」配色。
-///
-/// 这是修正暗彩饱和度问题的核心：FlexTones.vivid 在暗色下会把 primary 映射到
-/// tone 80（浅色），导致暗彩 accent 与浅色饱和度几乎一致、且偏浅（截图里按钮
-/// 仍是浅蓝）。这里先拿到同一套种子在浅色下的 vivid 结果，再把它逐个 accent
-/// 经 [kcDarkColorful] 加深、加饱和后覆盖到暗色彩色方案上，从而确保暗彩明显比
-/// 浅色更深、更艳，而文字色按亮度自动取黑/白，对比可读。
-///
-/// [light] 为同一套种子在浅色下的 vivid ColorScheme；[darkBase] 为暗色 vivid
-/// ColorScheme（仅取它的表面/中性色与容器色，accent 被覆盖）。
-ColorScheme kcDarkColorfulFromLight(
-  ColorScheme light,
-  ColorScheme darkBase, {
-  double saturationFactor = 1.25,
-  double lightnessFactor = 0.8,
-}) {
-  Color dc(Color c) => kcDarkColorful(
-        c,
-        saturationFactor: saturationFactor,
-        lightnessFactor: lightnessFactor,
-      );
-  final p = dc(light.primary);
-  final s = dc(light.secondary);
-  final t = dc(light.tertiary);
-  return darkBase.copyWith(
-    primary: p,
-    onPrimary: kcOnColor(p),
-    secondary: s,
-    onSecondary: kcOnColor(s),
-    tertiary: t,
-    onTertiary: kcOnColor(t),
-  );
 }
 
 // ── 弹性动效（Material 3 Expressive）─────────────────────

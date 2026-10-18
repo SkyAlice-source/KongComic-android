@@ -16,19 +16,14 @@ class Appdata with Init {
 
   /// 当前实际是否处于纯黑（AMOLED）外观。
   ///
-  /// - 用户显式选择 theme_mode='amoled' 时返回 true；
-  /// - theme_mode='system' 且系统当前为暗色时也返回 true，
-  ///   使系统跟随暗色使用纯黑主题；
-  /// - theme_mode='light' 或系统为亮色时返回 false（此时若 theme_mode='dark'
-  ///   则走独立的暗彩模式）。
+  /// 只有用户显式选择 `theme_mode == 'amoled'` 时为 true。
+  ///
+  /// 「深色」是独立的**带品牌红**的深色方案，「跟随系统」在系统暗色时也走这套
+  /// 深色方案——两者都不再借用 AMOLED 的纯黑灰阶，因此这里不能把 system+暗色
+  /// 当成 AMOLED。
   bool get isAmoledMode {
     final mode = settings['theme_mode'] as String? ?? 'system';
-    if (mode == 'amoled') return true;
-    if (mode == 'system') {
-      return PlatformDispatcher.instance.platformBrightness ==
-          Brightness.dark;
-    }
-    return false;
+    return mode == 'amoled';
   }
 
   var searchHistory = <String>[];

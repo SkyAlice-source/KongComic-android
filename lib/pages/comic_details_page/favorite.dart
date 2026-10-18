@@ -322,7 +322,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
             "Network Favorites".tl,
-            style: ts.s14.copyWith(
+            style: TextStyle(fontSize: kcBody).copyWith(
               fontWeight: FontWeight.w600,
               color: context.colorScheme.primary,
             ),
@@ -390,7 +390,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
             "Network Favorites".tl,
-            style: ts.s14.copyWith(
+            style: TextStyle(fontSize: kcBody).copyWith(
               fontWeight: FontWeight.w600,
               color: context.colorScheme.primary,
             ),
@@ -435,7 +435,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
           child: Text(
             "Network Favorites".tl,
-            style: ts.s14.copyWith(
+            style: TextStyle(fontSize: kcBody).copyWith(
               fontWeight: FontWeight.w600,
               color: context.colorScheme.primary,
             ),
@@ -484,7 +484,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
           child: Text(
             "Network Favorites".tl,
-            style: ts.s14.copyWith(
+            style: TextStyle(fontSize: kcBody).copyWith(
               fontWeight: FontWeight.w600,
               color: context.colorScheme.primary,
             ),
@@ -596,7 +596,7 @@ class _LocalSectionState extends State<_LocalSection> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
           child: Text(
             "Local Favorites".tl,
-            style: ts.s14.copyWith(
+            style: TextStyle(fontSize: kcBody).copyWith(
               fontWeight: FontWeight.w600,
               color: context.colorScheme.primary,
             ),
@@ -705,7 +705,7 @@ class _FavoriteStatePill extends StatelessWidget {
             )
           : Text(
               isFavorite ? "Remove".tl : "Add".tl,
-              style: ts.s12.copyWith(
+              style: TextStyle(fontSize: kcCaption).copyWith(
                 color: enabled
                     ? context.colorScheme.onPrimary
                     : context.colorScheme.onSurfaceVariant,
@@ -728,7 +728,7 @@ Widget _addedChip(BuildContext context, bool added) {
               color: context.colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(kcCardRadius),
             ),
-            child: Text("Added".tl, style: ts.s12),
+            child: Text("Added".tl, style: TextStyle(fontSize: kcCaption)),
           )
         : const SizedBox.shrink(key: ValueKey(false)),
   );

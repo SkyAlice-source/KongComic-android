@@ -343,29 +343,73 @@ class _ComicInfoSection extends StatelessWidget {
                 child: Text(
                   comic.author.isNotEmpty ? comic.author : comic.tags.first,
                   maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: kcFont13, color: cs.onSurfaceVariant))),
+                  style: TextStyle(fontSize: kcBody, color: cs.onSurfaceVariant))),
             if (progress != null)
               Padding(padding: const EdgeInsets.only(bottom: 4),
-                child: Text(progress, style: TextStyle(fontSize: kcFont13, color: cs.onSurface))),
+                child: Text(progress, style: TextStyle(fontSize: kcBody, color: cs.onSurface))),
             Text("Total @count chapters".tlParams({'count': "${history?.maxPage ?? '?'}"}), style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant)),
             if (updatedTime != null)
               Padding(padding: const EdgeInsets.only(top: 4),
                 child: Text("Updated @time".tlParams({'time': updatedTime}), style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant))),
             const SizedBox(height: 12),
-            SizedBox(width: double.infinity, height: 44,
-              child: ElevatedButton(
-                onPressed: () => context.to(() => ComicPage(id: comic.id, sourceKey: comic.type.comicSource?.key ?? '', cover: comic.coverPath, title: comic.name)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: appdata.isAmoledMode
-                      ? kcBrandColor
-                      : Theme.of(context).colorScheme.primary,
-                  foregroundColor: appdata.isAmoledMode
-                      ? Colors.white
-                      : Theme.of(context).colorScheme.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kcRadius22)),
-                  elevation: 0,
+            SizedBox(
+              width: double.infinity,
+              // 浅色与深色都用「上亮下饱和」的红色渐变 + 柔和大半径红晕包裹，
+              // 主 CTA 才有体积与质感；AMOLED 零彩色，退化为实心灰底、无光晕。
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(kcRadius22),
+                  gradient: kcIsAmoled()
+                      ? null
+                      : const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFFE4553A), kcBrandColor],
+                        ),
+                  boxShadow: kcIsAmoled()
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: kcBrandColor.withValues(alpha: 0.30),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                 ),
-                child: Text("Read Now".tl, style: TextStyle(fontSize: kcSubtitle, fontWeight: FontWeight.w600)),
+                child: ElevatedButton.icon(
+                  onPressed: () => context.to(() => ComicPage(
+                    id: comic.id,
+                    sourceKey: comic.type.comicSource?.key ?? '',
+                    cover: comic.coverPath,
+                    title: comic.name,
+                  )),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedPlayCircle,
+                    size: 20,
+                  ),
+                  label: Text(
+                    "Read Now".tl,
+                    style: TextStyle(fontSize: kcSubtitle, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    // 渐变由外层 Container 提供，按钮本身透明只承载文字/涟漪；
+                    // AMOLED 则退回中性灰实心（与灰阶按钮同源）。
+                    backgroundColor:
+                        kcIsAmoled() ? kcAccentColor(context) : Colors.transparent,
+                    foregroundColor: kcOnAccentColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(kcRadius22),
+                    ),
+                    // 显式清掉边线：深色主题给 ElevatedButton 强加了灰描边，
+                    // 会在这个灰底 CTA 外再套一圈灰环。
+                    side: BorderSide.none,
+                    elevation: 0,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  ),
+                ),
               ),
             ),
           ]),
@@ -546,6 +590,8 @@ class _HintCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(kcRadius18),
+        // 柔光微投影：让提示卡从纯白页面上轻轻「浮」起，增加质感而不抢眼。
+        boxShadow: kcContourGlow(context),
       ),
       child: Row(
         children: [

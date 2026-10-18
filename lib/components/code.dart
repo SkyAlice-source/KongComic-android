@@ -66,6 +66,7 @@ class _CodeEditorState extends State<CodeEditor> {
                   i.toString(),
                   style: TextStyle(
                     color: context.colorScheme.outline,
+                    // 例外：等宽行号，14 会把固定行高的行号列撑宽，按令牌规则保留 kcFont13。
                     fontSize: kcFont13,
                     height: 1.0,
                     fontFamily: 'Consolas',

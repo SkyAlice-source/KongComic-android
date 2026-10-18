@@ -103,10 +103,12 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
     if (!isAllFolder && !manager.existsFolder(widget.folder)) {
       return;
     }
-    // In pagination mode, just refresh the grid.
-    if (_usePagination && _gridKey.currentState != null) {
-      _gridKey.currentState!.refresh();
-      comics = [];
+    // In pagination mode the grid (PaginatedSliverGridComics) now listens to
+    // LocalFavoritesManager itself and reloads on changes, so we must NOT call
+    // refresh() here: that would race with the grid's own listener and trigger
+    // a redundant async reload. It also previously silently skipped the refresh
+    // whenever `_gridKey.currentState` was null.
+    if (_usePagination) {
       return;
     }
     if (isAllFolder) {
@@ -462,27 +464,39 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                         children: [
                           HugeIcon(
                             icon: HugeIcons.strokeRoundedFolder02,
-                            size: 20,
+                            size: 18,
                             color: context.colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: kcSpaceSm),
                           Flexible(
                             child: Text(
                               title,
+                              // 二级标题：低于根页「收藏」的 kcTitleMain(20)/bold。
+                              // 不覆盖的话会继承 Appbar 的 kcAppbarTitle(20)/w600，与主标题同级。
+                              style: const TextStyle(
+                                fontSize: kcSectionTitle,
+                                fontWeight: FontWeight.w600,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 2),
                           HugeIcon(
                             icon: HugeIcons.strokeRoundedArrowDown01,
-                            size: 16,
+                            size: 14,
                             color: context.colorScheme.onSurfaceVariant,
                           ),
                         ],
                       ),
                     ),
                   )
-                : Text(title),
+                : Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: kcSectionTitle,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
             actions: [
               if (networkSource != null && !isAllFolder)
                 Tooltip(
