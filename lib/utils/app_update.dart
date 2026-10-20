@@ -204,19 +204,59 @@ class AppUpdate {
   /// shows the one matching the device locale.
   static final _langMarker = RegExp(r'<!--\s*lang:(\w+)\s*-->');
 
+  /// Map a `<details>` `<summary>` label to a language code. The shipped
+  /// changelog format uses localized summary text, not the `lang:` markers.
+  static String? _summaryToLang(String summary) {
+    final s = summary.trim();
+    final lower = s.toLowerCase();
+    if (lower == 'english' || lower == 'en') return 'en';
+    if (s == '简体中文') return 'zh';
+    if (s == '繁體中文' || s == '繁体中文') return 'zh-Hant';
+    if (s == '日本語') return 'ja';
+    return null;
+  }
+
   /// Split a changelog body into per-language blocks keyed by language code.
-  /// Returns an empty map when the body has no language markers (legacy notes),
-  /// in which case the caller should display the whole body.
+  ///
+  /// Supports both formats emitted by `changelogs/<version>.md`:
+  ///  * `<!-- lang:xx -->` markers (the changelog template), and
+  ///  * `<details><summary>Language</summary>…</details>` folding blocks (what
+  ///    the GitHub release page shows, and what ships in the release body).
+  ///
+  /// Text before the first marker / details block is treated as the English
+  /// (default) section, so English readers get English rather than a fallback.
+  /// Returns an empty map only for legacy notes that use neither format, in
+  /// which case the caller displays the whole body.
   static Map<String, String> _extractLangBlocks(String body) {
-    final matches = _langMarker.allMatches(body).toList();
-    if (matches.isEmpty) return const {};
     final blocks = <String, String>{};
-    for (var i = 0; i < matches.length; i++) {
-      final m = matches[i];
-      final lang = m.group(1)!;
-      final start = m.end;
-      final end = i + 1 < matches.length ? matches[i + 1].start : body.length;
-      blocks[lang] = _stripDetailsTags(body.substring(start, end));
+
+    // 1) `<!-- lang:xx -->` markers take precedence when present.
+    final markerMatches = _langMarker.allMatches(body).toList();
+    if (markerMatches.isNotEmpty) {
+      final leadingEnd = markerMatches.first.start;
+      final leading = body.substring(0, leadingEnd).trim();
+      if (leading.isNotEmpty) blocks['en'] = _stripDetailsTags(leading);
+      for (var i = 0; i < markerMatches.length; i++) {
+        final m = markerMatches[i];
+        final lang = m.group(1)!;
+        final start = m.end;
+        final end =
+            i + 1 < markerMatches.length ? markerMatches[i + 1].start : body.length;
+        blocks[lang] = _stripDetailsTags(body.substring(start, end));
+      }
+      return blocks;
+    }
+
+    // 2) `<details><summary>…</summary>…</details>` folding blocks (shipped).
+    final detailsRe = RegExp(
+      r'<details[^>]*>\s*<summary[^>]*>(.*?)</summary>([\s\S]*?)</details>',
+    );
+    final leadingEnd = detailsRe.firstMatch(body)?.start ?? body.length;
+    final leading = body.substring(0, leadingEnd).trim();
+    if (leading.isNotEmpty) blocks['en'] = _stripDetailsTags(leading);
+    for (final m in detailsRe.allMatches(body)) {
+      final lang = _summaryToLang(m.group(1)!);
+      if (lang != null) blocks[lang] = _stripDetailsTags(m.group(2)!);
     }
     return blocks;
   }
