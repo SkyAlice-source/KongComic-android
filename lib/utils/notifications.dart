@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
@@ -158,6 +160,15 @@ class AppNotifications {
     );
     await _migrateDownloadChannel();
     _initialized = true;
+    // 本进程刚刚初始化，不可能有检查在跑：如果通知栏里还留着一条
+    // 「Checking comic updates」，那是上次进程被杀时留下的僵尸 —— ongoing
+    // 通知不会随进程消失，而且用户划不掉，只能靠这里清。只按 id 撤，不动
+    // 会话状态（调用方可能紧接着就要 show 一条新的）。
+    try {
+      await _plugin.cancel(id: _comicUpdateNotificationId);
+    } catch (e) {
+      Log.warning("Notification", "Failed to clear stale comic update: $e");
+    }
   }
 
   /// Whether the download channel has already been rebuilt once (see
@@ -348,8 +359,55 @@ class AppNotifications {
     await _plugin.cancel(id: _appUpdateNotificationId);
   }
 
+  /// 「检查漫画更新」通知的会话号。
+  ///
+  /// 定时检查、手动检查、改追更文件夹各跑一条流程，它们共用同一个通知 id。
+  /// 一旦两条流程重叠，旧流程迟到的回调会无条件 `show`，把已经结束的
+  /// 「Checking comic updates」重新贴回通知栏 —— 表现出来就是一条怎么都
+  /// 消不掉的检查通知。会话号让旧流程的进度/完成/取消全部作废。
+  static int _comicCheckSession = 0;
+
+  static bool _comicCheckActive = false;
+
+  /// 当前是否有检查正在进行。页面据此判断能否安全清掉完成通知。
+  static bool get comicUpdateCheckActive => _comicCheckActive;
+
+  /// ongoing 通知用户划不掉：检查流程若卡死（源站挂住）或异常退出，
+  /// 这条通知就会永久驻留。这里做个兜底，超时仍未收尾就主动撤销。
+  static const _comicCheckWatchdog = Duration(minutes: 20);
+  static Timer? _comicCheckWatchdogTimer;
+
+  /// 有更新时完成通知的存活时间。
+  ///
+  /// 以前这里是「不设时限，等用户点开或手动划掉」，结果通知栏常驻一条更新
+  /// 提示（用户反馈的现象）。给足阅读时间后由系统撤销；「别错过更新」由
+  /// 应用内横幅 + 追更页红点兜底。
+  static const _comicUpdateCompleteTimeout = Duration(seconds: 10);
+
+  /// 无更新时这条只是「检查已结束」的瞬时确认，更短即可。
+  static const _comicUpdateIdleTimeout = Duration(seconds: 5);
+
+  static bool _isComicCheckSession(int session) =>
+      _comicCheckActive && session == _comicCheckSession;
+
   /// Notify the user that a comic-update check is running across folders.
-  static Future<void> showComicUpdateCheck() async {
+  ///
+  /// Returns the session id that must be passed to
+  /// [showComicUpdateProgress] / [showComicUpdateComplete] /
+  /// [cancelComicUpdate] for this check.
+  static Future<int> showComicUpdateCheck() async {
+    final session = ++_comicCheckSession;
+    _comicCheckActive = true;
+    _comicCheckWatchdogTimer?.cancel();
+    _comicCheckWatchdogTimer = Timer(_comicCheckWatchdog, () {
+      if (!_isComicCheckSession(session)) return;
+      Log.warning(
+        "Notification",
+        "Comic update check still running after "
+            "${_comicCheckWatchdog.inMinutes}min, cancelling notification",
+      );
+      cancelComicUpdate(session: session);
+    });
     await init();
     await _plugin.show(
       id: _comicUpdateNotificationId,
@@ -363,14 +421,19 @@ class AppNotifications {
         ),
       ),
     );
+    return session;
   }
 
   static Future<void> showComicUpdateProgress({
+    required int session,
     required int current,
     required int total,
     int updated = 0,
     int errors = 0,
   }) async {
+    // 会话已收尾（完成/取消/watchdog）：迟到的进度回调不能把「检查中」
+    // 通知重新贴回来。
+    if (!_isComicCheckSession(session)) return;
     await init();
     final percent = total > 0 ? (current * 100 ~/ total) : 0;
     final body = "@current / @total  (@percent%)".tlParams({
@@ -394,9 +457,15 @@ class AppNotifications {
   }
 
   static Future<void> showComicUpdateComplete({
+    required int session,
     int updated = 0,
     int errors = 0,
   }) async {
+    // 旧会话的收尾不再贴通知（新会话已经接手同一个通知 id）。
+    if (!_isComicCheckSession(session)) return;
+    _comicCheckActive = false;
+    _comicCheckWatchdogTimer?.cancel();
+    _comicCheckWatchdogTimer = null;
     await init();
     String body;
     if (errors > 0) {
@@ -419,17 +488,29 @@ class AppNotifications {
           body: body,
           ongoing: false,
           autoCancel: true,
-          // 没有新章节时这条只是「检查已结束」的瞬时确认，用户没有任何可操作
-          // 内容，却会一直留在通知栏。给 5 秒后由系统自动撤销；有新更新时保留
-          // （可点击跳转追更页查看），避免错过。
-          timeoutAfter: updated > 0 ? null : 5000,
+          // 两种结果都要能自己消失：`autoCancel` 只在用户点击时生效，
+          // 不设 timeoutAfter 的通知会一直挂在通知栏。有更新时给 10 秒
+          // （够读完摘要且能点开），无更新时 5 秒。
+          timeoutAfter: (updated > 0
+                  ? _comicUpdateCompleteTimeout
+                  : _comicUpdateIdleTimeout)
+              .inMilliseconds,
         ),
       ),
       payload: 'comic_update',
     );
   }
 
-  static Future<void> cancelComicUpdate() async {
+  /// 撤掉检查通知。
+  ///
+  /// [session] 为空时无条件撤销（用于「用户已看到结果」的清理）；带上会话号
+  /// 时只有当前会话才能撤销，避免旧流程把新流程刚贴出的进度通知撤掉。
+  static Future<void> cancelComicUpdate({int? session}) async {
+    if (session != null && !_isComicCheckSession(session)) return;
+    _comicCheckActive = false;
+    _comicCheckWatchdogTimer?.cancel();
+    _comicCheckWatchdogTimer = null;
+    await init();
     await _plugin.cancel(id: _comicUpdateNotificationId);
   }
 

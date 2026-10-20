@@ -656,7 +656,6 @@
     "Image display scale": "显示百分比",
     "Keep screen on": "保持屏幕常亮",
     "Screen orientation": "屏幕方向",
-    "Follow system": "跟随系统",
     "Portrait": "竖屏",
     "Landscape": "横屏",
     "Auto Scroll": "自动滚动",
@@ -934,7 +933,10 @@
     "Import archives in a folder": "导入文件夹中的压缩包",
     "Batch import .cbz/.zip/.7z/.cb7 files from a folder": "从文件夹批量导入 .cbz/.zip/.7z/.cb7 文件",
     "Each subfolder with images becomes a comic": "每个含图片的子文件夹会成为一本漫画",
-    "Chapter not found": "未找到该章节"
+    "Chapter not found": "未找到该章节",
+    "This folder is empty": "这个文件夹是空的",
+    "Add comics from the Discover page": "从发现页添加漫画",
+    "Notification permission is off. The check still runs, but its progress won't be shown.": "通知权限未开启：检查仍会继续，但通知栏不会显示进度。"
   },
   "zh_TW": {
     "Auto-update comic sources": "自動更新漫畫源",
@@ -1593,7 +1595,6 @@
     "Image display scale": "顯示百分比",
     "Keep screen on": "保持屏幕常亮",
     "Screen orientation": "屏幕方向",
-    "Follow system": "跟隨系統",
     "Portrait": "豎屏",
     "Landscape": "橫屏",
     "Auto Scroll": "自動滾動",
@@ -1871,7 +1872,10 @@
     "Import archives in a folder": "匯入資料夾中的壓縮檔",
     "Batch import .cbz/.zip/.7z/.cb7 files from a folder": "從資料夾批次匯入 .cbz/.zip/.7z/.cb7 檔案",
     "Each subfolder with images becomes a comic": "每個含圖片的子資料夾會成為一本漫畫",
-    "Chapter not found": "找不到該章節"
+    "Chapter not found": "找不到該章節",
+    "This folder is empty": "這個文件夾是空的",
+    "Add comics from the Discover page": "從發現頁添加漫畫",
+    "Notification permission is off. The check still runs, but its progress won't be shown.": "通知權限未開啟：檢查仍會繼續，但通知列不會顯示進度。"
   },
   "ja_JP": {
     "Hide navigation while reading": "閲覧時にナビゲーションを隠す",
@@ -2524,7 +2528,6 @@
     "Image display scale": "画像表示スケール",
     "Keep screen on": "画面を点灯し続ける",
     "Screen orientation": "画面の向き",
-    "Follow system": "システムに従う",
     "Portrait": "縦向き",
     "Landscape": "横向き",
     "Auto Scroll": "自動スクロール",
@@ -2802,6 +2805,9 @@
     "Import archives in a folder": "フォルダー内のアーカイブを読み込む",
     "Batch import .cbz/.zip/.7z/.cb7 files from a folder": "フォルダーから .cbz/.zip/.7z/.cb7 ファイルを一括読み込み",
     "Each subfolder with images becomes a comic": "画像を含む各サブフォルダーが 1 つの漫画になります",
-    "Chapter not found": "章が見つかりません"
+    "Chapter not found": "章が見つかりません",
+    "This folder is empty": "このフォルダは空です",
+    "Add comics from the Discover page": "発見ページから漫画を追加",
+    "Notification permission is off. The check still runs, but its progress won't be shown.": "通知が許可されていません。確認は続行しますが、進捗は表示されません。"
   }
 }

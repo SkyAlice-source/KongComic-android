@@ -29,6 +29,12 @@ ImageProvider? _findImageProvider(Comic comic) {
   return image;
 }
 
+/// 公开封装的封面取图入口，供需要「自绘封面缩略图」的页面使用
+/// （例如追更页的紧凑行，它不能用 [ComicTile] 作 SliverList 子项）。
+///
+/// 解析顺序与 [ComicTile] 完全一致：自定义封面 > 本地漫画 > 历史 > 网络缓存。
+ImageProvider? comicCoverImageProvider(Comic comic) => _findImageProvider(comic);
+
 class ComicTile extends StatelessWidget {
   const ComicTile({
     super.key,
@@ -302,11 +308,11 @@ class ComicTile extends StatelessWidget {
 
   /// 折角尺寸随封面宽度线性缩放。
   ///
-  /// 夹在 16–26 之间：小于 16 时白心在 3x 屏上糊成一个点；大于 26 时
+  /// 夹在 18–36 之间：小于 18 时白心在 3x 屏上糊成一个点；大于 36 时
   /// 折角会越过封面中部，开始吃封面信息。列表模式封面只有 60 上下，
   /// 走同一个公式就不会出现「小封面上顶着一颗大折角」。
   double _favoriteBadgeSize(double coverWidth) =>
-      (coverWidth * 0.19).clamp(16.0, 28.0);
+      (coverWidth * 0.20).clamp(18.0, 36.0);
 
   /// 收藏角标：封面右上角的「书角」三角折角。
   ///
@@ -319,10 +325,11 @@ class ComicTile extends StatelessWidget {
   /// 折角面用三档渐变 + 折痕高光 + 投影做出「翻起的纸角」体积感；白心带
   /// 一点投影，红底白字在任意封面亮度下都读得清。
   Widget _buildFavoriteCornerBadge(BuildContext context, double size) {
-    // 心形落在三角内切圆心：直角边长为 size 的等腰直角三角形，
-    // 内切圆半径 = size * (2-√2)/2 ≈ 0.293 * size，圆心距右边/上边各 0.293 * size。
-    final iconSize = size * 0.46;
-    final inset = size * 0.2929 - iconSize / 2;
+    // 封面右上角的「丝带包角」：一段品牌色缎带三角包住书角（两直边贴封面
+    // 的顶边与右边、斜边即折痕），表面带缎面反光条纹与缝边，像缎带包住了
+    // 书角；白心落在三角内。
+    final iconSize = size * 0.42;
+    final inset = size * 0.27 - iconSize / 2;
     return SizedBox(
       width: size,
       height: size,
@@ -867,66 +874,95 @@ class ComicTile extends StatelessWidget {
   }
 }
 
-/// 画右上角的三角折角：直角边贴封面上边与右边，斜边即「折线」。
-///
-/// 用渐变而不是纯色，是为了让折角有一点纸的厚度感；再沿斜边内侧压一道
-/// 浅色细线，三角形才会被读成「翻起的纸角」而不是一块随便糊上去的色块。
-class _CornerFoldPainter extends CustomPainter {
-  const _CornerFoldPainter({required this.color});
+  /// 画右上角的「丝带包角」：一段品牌色缎带三角包住书角——两直边贴封面顶边
+  /// 与右边、斜边（对角线）即折痕。表面叠缎面反光条纹 + 三档渐变 + 沿边缝边，
+  /// 让三角读成「翻卷的缎带」而非硬折的纸角；折痕高光是缎带的反光棱。
+  class _CornerFoldPainter extends CustomPainter {
+    const _CornerFoldPainter({required this.color});
 
-  final Color color;
+    final Color color;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
+    @override
+    void paint(Canvas canvas, Size size) {
+      final w = size.width;
+      final h = size.height;
+      final flap = Path()
+        ..moveTo(w, 0)
+        ..lineTo(0, 0)
+        ..lineTo(w, h)
+        ..close();
 
-    // 折角三角：两条直角边贴封面顶/右边，斜边 (0,0)->(w,h) 即折痕。
-    final flap = Path()
-      ..moveTo(w, 0)
-      ..lineTo(0, 0)
-      ..lineTo(w, h)
-      ..close();
+      // 1) 折角在封面侧的投影：沿折痕 (0,0)->(w,h) 往封面内（右下）偏移，
+      //    像缎带从封面「掀起」。
+      canvas.drawLine(
+        const Offset(1.8, 1.8),
+        Offset(w + 1.8, h + 1.8),
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.20)
+          ..strokeWidth = 4.0
+          ..strokeCap = StrokeCap.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0),
+      );
 
-    // 1) 折角在封面侧的投影：沿折痕往封面方向偏移，让折角像从封面「掀起」。
-    canvas.drawLine(
-      const Offset(1.8, 1.8),
-      Offset(w + 1.8, h + 1.8),
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.20)
-        ..strokeWidth = 4.0
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0),
-    );
+      // 2) 缎面渐变：右上受光更亮 → 品牌红 → 左下垂影，折角体积感。
+      final light = Color.lerp(color, Colors.white, 0.30)!;
+      final deep = Color.lerp(color, Colors.black, 0.22)!;
+      canvas.drawPath(
+        flap,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [light, color, deep],
+            stops: const [0.0, 0.5, 1.0],
+          ).createShader(Rect.fromLTWH(0, 0, w, h)),
+      );
 
-    // 2) 折角面：三档渐变（顶角受光更亮 → 品牌红 → 折痕侧更深），折纸体积感。
-    final light = Color.lerp(color, Colors.white, 0.26)!;
-    final deep = Color.lerp(color, Colors.black, 0.24)!;
-    canvas.drawPath(
-      flap,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [light, color, deep],
-          stops: const [0.0, 0.5, 1.0],
-        ).createShader(Rect.fromLTWH(0, 0, w, h)),
-    );
+      // 3) 缎面反光条纹：裁到三角内，沿「垂直折痕」方向叠一条亮带与一条暗带，
+      //    模拟缎子横向反光的质感（这是纸折角没有、缎带才有的特征）。
+      canvas.save();
+      canvas.clipPath(flap);
+      canvas.drawLine(
+        Offset(w * 0.10, h * 0.62),
+        Offset(w * 0.62, h * 0.10),
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.22)
+          ..strokeWidth = 3.0
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawLine(
+        Offset(w * 0.20, h * 0.74),
+        Offset(w * 0.74, h * 0.20),
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.12)
+          ..strokeWidth = 3.0
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.restore();
 
-    // 3) 折痕高光：贴着斜边的一道亮棱，是翻起纸边的受光面。
-    canvas.drawLine(
-      const Offset(1.0, 1.0),
-      Offset(w - 1.0, h - 1.0),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.58)
-        ..strokeWidth = 1.1
-        ..strokeCap = StrokeCap.round,
-    );
+      // 4) 缝边：沿三条边描一道浅色细线，是缎带包边的车缝线。
+      canvas.drawPath(
+        flap,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.5)
+          ..strokeWidth = 1.0
+          ..style = PaintingStyle.stroke,
+      );
+
+      // 5) 折痕高光：沿对角线的一道亮棱，缎带反光的硬边。
+      canvas.drawLine(
+        const Offset(1.0, 1.0),
+        Offset(w - 1.0, h - 1.0),
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.5)
+          ..strokeWidth = 1.2
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
+    @override
+    bool shouldRepaint(_CornerFoldPainter oldDelegate) => oldDelegate.color != color;
   }
-
-  @override
-  bool shouldRepaint(_CornerFoldPainter oldDelegate) => oldDelegate.color != color;
-}
 
 class _ComicDescription extends StatelessWidget {
   const _ComicDescription({

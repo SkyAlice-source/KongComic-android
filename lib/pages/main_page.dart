@@ -166,9 +166,10 @@ class _MainPageState extends State<MainPage> {
       // 收藏页(1)与历史页(4)均自带完整顶栏（标题 + 工具胶囊条），故隐藏共享顶栏
       // 避免「两排工具栏」；历史页在下面 topBarHiddenPages 单独声明。
       topBarTitleHiddenPages: const [],
-      // 历史页自绘 SliverAppbar（标题 + 胶囊工具条），共享顶栏整体让位，
-      // 这样它和收藏页一样只有一条工具栏（同一套 ToolsPill 外观）。
-      topBarHiddenPages: const [4],
+      // 收藏页(1)与历史页(4)均自绘完整 SliverAppbar（标题 + 胶囊工具条），
+      // 共享顶栏整体让位，避免「两排工具栏」的层叠观感（Favorites 此前漏加，
+      // 导致收藏页顶部同时出现共享栏 + 自绘栏两道杠）。
+      topBarHiddenPages: const [1, 4],
     );
   }
 }

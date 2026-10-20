@@ -166,27 +166,64 @@ class _MirrorSettingState extends State<_MirrorSetting> {
       value: _options[mode]?.tl ?? mode,
       trailing: const _KcChevron(down: true),
       onTap: () {
-        var renderBox = context.findRenderObject() as RenderBox;
-        var offset = renderBox.localToGlobal(Offset.zero);
-        var rect = offset & renderBox.size;
+        // 与 SelectSetting._showMenu 一致：锚定在行右端，菜单从「值的下方」
+        // 右对齐展开，而不是像旧实现那样传整行 rect 导致菜单从屏幕左边弹出。
+        final renderBox = context.findRenderObject() as RenderBox;
+        final offset = renderBox.localToGlobal(Offset.zero);
+        final rect = offset & renderBox.size;
+        final accentText = kcBrandAdaptive(context);
+        final anchor = Rect.fromLTWH(
+          rect.right - 1,
+          rect.bottom + 6,
+          1,
+          rect.height,
+        );
         showMenu(
+          context: context,
           elevation: 3,
           color: context.colorScheme.surfaceContainer,
-          context: context,
           position: RelativeRect.fromRect(
-            rect,
+            anchor,
             Offset.zero & MediaQuery.of(context).size,
           ),
-          items: _options.keys
-              .map(
-                (key) => PopupMenuItem<String>(
-                  value: key,
-                  height: App.isMobile ? 46 : 40,
-                  child: Text(_options[key]!.tl),
-                ),
-              )
-              .toList(),
-        )        .then((value) {
+          constraints: const BoxConstraints(minWidth: 200, maxWidth: 280),
+          items: _options.keys.map((key) {
+            final selected = key == mode;
+            return PopupMenuItem<String>(
+              value: key,
+              height: App.isMobile ? 44 : 38,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  // 选中项前放一枚主色对勾，菜单里也能一眼看出当前值。
+                  SizedBox(
+                    width: 24,
+                    child: selected
+                        ? HugeIcon(
+                            icon: HugeIcons.strokeRoundedTick02,
+                            size: 18,
+                            color: accentText,
+                          )
+                        : null,
+                  ),
+                  Expanded(
+                    child: Text(
+                      _options[key]!.tl,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: selected
+                          ? TextStyle(
+                              color: accentText,
+                              fontWeight: FontWeight.w600,
+                            )
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ).then((value) {
           if (value != null) {
             UpdateMirrorPreference.mode = value;
             setState(() {});

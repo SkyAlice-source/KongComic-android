@@ -1115,6 +1115,13 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
             );
           },
         ),
+      // 收藏页自绘顶栏后，全局共享顶栏的「设置」入口随之让位；
+      // 设置是全局功能，不该在收藏页彻底消失，收进「更多」兜底。
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
+        text: "Settings".tl,
+        onClick: () => context.to(() => const SettingsPage()),
+      ),
     ];
   }
 

@@ -17,6 +17,7 @@ import 'components/components.dart';
 import 'components/window_frame.dart';
 import 'foundation/app.dart';
 import 'foundation/appdata.dart';
+import 'foundation/favorites.dart';
 import 'headless.dart';
 import 'init.dart';
 import 'pages/follow_updates_page.dart';
@@ -72,7 +73,7 @@ void main(List<String> args) {
     runZonedGuarded(
       () async {
         WidgetsFlutterBinding.ensureInitialized();
-        await Workmanager().initialize(backupCallbackDispatcher);
+        await Workmanager().initialize(appBackgroundDispatcher);
         await _initSentry();
         await init();
         runApp(const MyApp());
@@ -140,6 +141,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // 后台 WorkManager 检查跑在另一个 isolate 里，它改的是磁盘上的收藏库；
+      // 回到前台必须重新读一次计数并广播，否则首页追更数字、追更页列表
+      // 还停在后台检查之前的状态。
+      LocalFavoritesManager().initCounts();
+      updateFollowUpdatesUI();
+    }
     if (!App.isMobile || !appdata.settings['authorizationRequired']) {
       return;
     }

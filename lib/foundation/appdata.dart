@@ -261,6 +261,9 @@ class Settings with ChangeNotifier {
         <
           String
         >[], // selected folders for follow-updates; contains '*' to mean all folders
+    // 追更检查间隔（天）：1 / 3 / 7。必须进默认值表 —— doInit 只覆盖磁盘里
+    // 已存在的 key，老用户的 appdata.json 没这个键，缺省值只能靠这里。
+    'followUpdateInterval': 1,
     'initialPage': '0',
     'comicListDisplayMode': 'paging', // paging, continuous
     'showPageNumberInReader': true,

@@ -5,6 +5,7 @@ import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/utils/io.dart';
+import 'package:kong_comic/utils/follow_update_worker.dart';
 import 'package:workmanager/workmanager.dart';
 
 const String autoBackupTaskKey = "kongcomic_auto_backup";
@@ -12,15 +13,20 @@ const String autoBackupTaskName = "kongcomic_auto_backup_task";
 const int autoBackupKeepCount = 10;
 
 /// WorkManager 回调入口。运行在独立 isolate 中，必须标记为顶级函数。
+///
+/// 所有后台任务的**唯一**入口：按任务名分发（自动备份 / 后台追更检查）。
 @pragma('vm:entry-point')
-void backupCallbackDispatcher() {
+void appBackgroundDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    if (task == autoBackupTaskName) {
-      try {
-        await performAutoBackup();
-      } catch (e, s) {
-        Log.error("AutoBackup", "Background backup failed: $e\n$s");
+    try {
+      switch (task) {
+        case autoBackupTaskName:
+          await performAutoBackup();
+        case followUpdateTaskName:
+          await runBackgroundFollowUpdateCheck();
       }
+    } catch (e, s) {
+      Log.error("BackgroundTask", "Task $task failed: $e\n$s");
     }
     return Future.value(true);
   });

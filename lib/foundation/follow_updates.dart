@@ -97,6 +97,11 @@ class _UpdateTask {
 /// Iterates over [items], applying the once-a-day check-time rule unless
 /// [ignoreCheckTime] is set, then runs the producer/consumer pipeline with a
 /// global monotonic progress counter.
+///
+/// 取消语义：订阅方（`await for` 提前 return）取消订阅时，会通过
+/// [StreamController.onCancel] 把 [canceled] 置位并关掉 channel，生产/消费
+/// 循环随即收尾。以前没有这一步 —— 「取消」只让 UI 停下，engine 仍会在后台
+/// 把剩下的漫画一本本请求完（最多每本 45s 超时），既费流量又费电。
 void _updateItemsBase(
   List<_UpdateTask> items,
   StreamController<UpdateProgress> stream,
@@ -107,10 +112,24 @@ void _updateItemsBase(
   int errors = 0;
   int updated = 0;
 
-  /// 追更检查的最小间隔天数（与 v1.2.36 行为一致：每天至多检查一次）。
-  const intervalDays = 1;
+  /// 追更检查的最小间隔天数（跟随设置项 followUpdateInterval：1/3/7 天）。
+  ///
+  /// 之前这里是 `const intervalDays = 1`，而追更页顶部的「每天 / 每 3 天 /
+  /// 每周」只是写进 appdata 后无人读取 —— 设置形同虚设。
+  final intervalDays = followUpdateIntervalDays;
 
-  stream.add(UpdateProgress(total, current, errors, updated));
+  /// 订阅方中止。
+  ///
+  /// 注意不能用 `channel.isClosed` 代替：正常结束时 producer 也会 close，
+  /// 而那时队列里还有漫画要消费，误判会把剩下的检查全部跳过。
+  var canceled = false;
+
+  void addProgress(UpdateProgress p) {
+    if (canceled) return;
+    stream.add(p);
+  }
+
+  addProgress(UpdateProgress(total, current, errors, updated));
 
   var toUpdate = <_UpdateTask>[];
 
@@ -120,7 +139,7 @@ void _updateItemsBase(
       if (lastCheckTime != null &&
           DateTime.now().difference(lastCheckTime).inDays < intervalDays) {
         current++;
-        stream.add(UpdateProgress(total, current, errors, updated));
+        addProgress(UpdateProgress(total, current, errors, updated));
         continue;
       }
     }
@@ -129,14 +148,25 @@ void _updateItemsBase(
 
   total = toUpdate.length;
   current = 0;
-  stream.add(UpdateProgress(total, current, errors, updated));
+  addProgress(UpdateProgress(total, current, errors, updated));
 
   var channel = Channel<_UpdateTask>(10);
+
+  // 订阅方中途取消（`await for` 里提前 return）→ 置位并关 channel，
+  // 让正阻塞在 push/pop 上的生产/消费协程立刻解开。
+  stream.onCancel = () {
+    canceled = true;
+    channel.close();
+  };
 
   // Producer
   () async {
     var c = 0;
     for (var t in toUpdate) {
+      if (canceled) {
+        channel.close();
+        return;
+      }
       await channel.push(t);
       c++;
       // Throttle
@@ -161,6 +191,7 @@ void _updateItemsBase(
   for (var i = 0; i < 5; i++) {
     var f = () async {
       while (true) {
+        if (canceled) break;
         var t = await channel.pop();
         if (t == null) {
           break;
@@ -171,8 +202,10 @@ void _updateItemsBase(
         // 该源已达并发上限：持有任务等待空位。不能把任务 push 回 channel——
         // Channel 在 close 后 push 会静默丢弃任务，导致进度永远走不满。
         while ((inFlightPerSource[sourceKey] ?? 0) >= maxInFlightPerSource) {
+          if (canceled) break;
           await Future<void>.delayed(const Duration(milliseconds: 100));
         }
+        if (canceled) break;
         inFlightPerSource[sourceKey] =
             (inFlightPerSource[sourceKey] ?? 0) + 1;
         ComicUpdateResult result;
@@ -191,6 +224,7 @@ void _updateItemsBase(
             inFlightPerSource[sourceKey] = left;
           }
         }
+        // 刚跑完的这一本仍然计入统计（请求已经发出去了），但不再继续下一本。
         current++;
         if (result.updated) {
           updated++;
@@ -198,7 +232,7 @@ void _updateItemsBase(
         if (result.errorMessage != null) {
           errors++;
         }
-        stream.add(UpdateProgress(
+        addProgress(UpdateProgress(
           total,
           current,
           errors,
@@ -206,6 +240,7 @@ void _updateItemsBase(
           t.comic,
           result.errorMessage,
         ));
+        if (canceled) break;
       }
     }();
     updateFutures.add(f);
@@ -244,6 +279,32 @@ Stream<UpdateProgress> updateFolders(
   var stream = StreamController<UpdateProgress>();
   _updateItemsBase(items, stream, ignoreCheckTime);
   return stream.stream;
+}
+
+/// 追更检查间隔（天），来自设置项 `followUpdateInterval`（1/3/7），缺省 1 天。
+int get followUpdateIntervalDays {
+  final raw = appdata.settings['followUpdateInterval'];
+  if (raw is num && raw >= 1) return raw.toInt();
+  return 1;
+}
+
+/// 统计当前「到期该检查」的漫画数量（纯本地判断，不发任何请求、不改数据）。
+///
+/// 定时检查拿它做前置判断：没有到期的漫画就完全静默退出，既不贴「正在检查」
+/// 通知也不建流 —— 否则每小时都会在通知栏抖一次「无更新」。
+int countDueUpdates(List<String> folders) {
+  final interval = followUpdateIntervalDays;
+  final now = DateTime.now();
+  var due = 0;
+  for (final folder in folders) {
+    for (final c in LocalFavoritesManager().getComicsWithUpdatesInfo(folder)) {
+      final last = c.lastCheckTime;
+      if (last == null || now.difference(last).inDays >= interval) {
+        due++;
+      }
+    }
+  }
+  return due;
 }
 
 /// Resolve the effective list of folders configured for follow-updates.

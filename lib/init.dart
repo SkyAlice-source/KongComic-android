@@ -22,6 +22,7 @@ import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'foundation/appdata.dart';
 import 'package:kong_comic/utils/auto_backup.dart';
+import 'package:kong_comic/utils/follow_update_worker.dart';
 import 'package:kong_comic/utils/notifications.dart';
 import 'package:kong_comic/utils/source_auto_update.dart';
 
@@ -73,6 +74,7 @@ Future<void> init() async {
   CacheManager().setLimitSize(appdata.settings['cacheSize']);
   await _checkOldConfigs();
   await initAutoBackup().wait();
+  await initFollowUpdateWorker().wait();
   await AppNotifications.init().wait();
   DownloadNotifier.start();
 

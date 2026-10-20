@@ -616,7 +616,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ListTile(title: Text("Description".tl)),
+          KcSectionHeader(title: "Description".tl),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SelectableText(
@@ -765,6 +765,16 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       return time;
     }
 
+    /// 有些漫画源把站点上的「更新：2026-07-14」整段抓成了标签值本身
+    /// （value 里带着开头的冒号，如 `": 2026-07-14"`、`"：2026-07-14"`）。
+    /// 直接渲染就会在彩色 chip 里多出一个游离冒号，看起来像「冒号和日期
+    /// 粘在一起」。这里只对显示文本剥掉开头的冒号（半角/全角）与空白，
+    /// 点按事件仍用原值，避免影响源自己的 handleClickTagEvent 匹配。
+    String stripTagPrefix(String v) {
+      final cleaned = v.replaceFirst(RegExp(r'^\s*[:：]\s*'), '').trim();
+      return cleaned.isEmpty ? v : cleaned;
+    }
+
   Widget buildWrap({required List<Widget> children}) {
     return Wrap(
       runSpacing: 10,
@@ -780,7 +790,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ListTile(title: Text("Information".tl)),
+          KcSectionHeader(title: "Information".tl),
           if (comic.stars != null)
             Row(
               children: [
@@ -798,10 +808,11 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   buildTag(
                     text: enableTranslation
                         ? TagsTranslation.translationTagWithNamespace(
-                            tag,
+                            stripTagPrefix(tag),
                             e.key.toLowerCase(),
                           )
-                        : tag,
+                        : stripTagPrefix(tag),
+                    // 点按传原值：源可能按原字符串匹配跳转目标。
                     onTap: () => onTapTag(tag, e.key),
                   ),
               ],
@@ -817,14 +828,14 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
             buildWrap(
               children: [
                 buildTag(text: 'Upload Time'.tl, isTitle: true),
-                buildTag(text: formatTime(comic.uploadTime!)),
+                buildTag(text: stripTagPrefix(formatTime(comic.uploadTime!))),
               ],
             ),
           if (comic.updateTime != null)
             buildWrap(
               children: [
                 buildTag(text: 'Update Time'.tl, isTitle: true),
-                buildTag(text: formatTime(comic.updateTime!)),
+                buildTag(text: stripTagPrefix(formatTime(comic.updateTime!))),
               ],
             ),
           if (comic.maxPage != null)
@@ -864,7 +875,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     }
     return SliverMainAxisGroup(
       slivers: [
-        SliverToBoxAdapter(child: ListTile(title: Text("Related".tl))),
+        SliverToBoxAdapter(child: KcSectionHeader(title: "Related".tl)),
         SliverGridComics(comics: comic.recommend!),
       ],
     );
@@ -1075,18 +1086,44 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
       // 居中浮层卡片已经铺了 surfaceContainerHigh，Scaffold 再刷默认底色会把
       // 卡片色调盖掉。
       backgroundColor: Colors.transparent,
-      appBar: Appbar(
-        title: Text("Download".tl),
-        // 透明头部 + 关闭（×）：与 ContentDialog 的对话框语义一致（旧版是 ←）。
-        backgroundColor: Colors.transparent,
-        leading: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-          onPressed: () => Navigator.maybePop(context),
-        ),
-      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 标题栏不再借用 Appbar：Appbar 的栏高是 `56 + context.padding.top`
+          // 并且还 paddingTop(context.padding.top)，在悬浮卡片上会凭空多出一段
+          // 状态栏高度的空白、把标题往下推。这里用与 ContentDialog 完全一致的
+          // 轻量标题栏（柔和圆形关闭 + 标题），零系统留白。
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 10, 16, 0),
+            child: Row(
+              children: [
+                Button.icon(
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedCancel01,
+                    size: 18,
+                  ),
+                  color: context.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.85,
+                  ),
+                  onPressed: () => Navigator.maybePop(context),
+                ),
+                Expanded(
+                  child: Text(
+                    "Download".tl,
+                    style: TextStyle(
+                      fontSize: kcTitleLarge,
+                      fontWeight: FontWeight.w700,
+                      color: context.colorScheme.onSurface,
+                      height: 1.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           _buildSummary(),
           Expanded(
             child: ListView.builder(
@@ -1204,7 +1241,9 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
               ],
             ),
           ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom),
+          // 卡片居中悬浮、四周本就有留白，不需要再让出系统导航栏高度；
+          // 原来这行会在底部凭空多出一段空白。
+          const SizedBox(height: 8),
         ],
       ),
     );

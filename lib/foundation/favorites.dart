@@ -251,6 +251,12 @@ class LocalFavoritesManager with ChangeNotifier {
   Future<void> init() async {
     counts = {};
     _db = sqlite3.open("${App.dataPath}/local_favorite.db");
+    // 后台追更检查跑在另一个 isolate 里，用的是同一个 .db 文件但另一条连接。
+    // SQLite 默认 busy timeout 为 0，两个连接同时写会直接抛 database is locked；
+    // 设 5 秒等待，让后到的写入排队而不是报错。
+    // 刻意不开 WAL：WAL 会把新数据暂存在 .db-wal 里，而用户的备份/导出只拷
+    // .db 单文件，那样备份会丢最近的改动。
+    _db.execute("PRAGMA busy_timeout = 5000;");
     try {
       _db.execute("""
         create table if not exists folder_order (
@@ -1056,6 +1062,8 @@ class LocalFavoritesManager with ChangeNotifier {
   void onRead(String id, ComicType type) async {
     if (appdata.settings['moveFavoriteAfterRead'] == "none") {
       markAsRead(id, type);
+      // 追更页开着时也要立即刷新列表（首页靠 markAsRead 的 notifyChanges 刷新）。
+      updateFollowUpdatesUI();
       return;
     }
     final followFolders = getEffectiveFollowFolders();
@@ -1348,7 +1356,9 @@ class LocalFavoritesManager with ChangeNotifier {
         .toList();
   }
 
-  void markAsRead(String id, ComicType type) {
+  /// [notify] 为 false 时不广播（批量标记已读时由调用方统一广播一次，
+  /// 否则 N 本漫画会触发 N 次首页重建）。
+  void markAsRead(String id, ComicType type, {bool notify = true}) {
     for (final f in folderNames) {
       if (!existsFolder(f)) continue;
       _db.execute("""
@@ -1357,6 +1367,9 @@ class LocalFavoritesManager with ChangeNotifier {
         where id == ? and type == ?;
       """, [id, type.value]);
     }
+    // 这里必须广播：首页「追更」盒子的未读数字只靠监听这个 ChangeNotifier
+    // 刷新，不 notify 就会出现「已经读过、DB 也标了已读，但红点数字还在」。
+    if (notify) notifyChanges();
   }
 
   void close() {
