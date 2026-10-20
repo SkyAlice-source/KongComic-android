@@ -67,7 +67,7 @@ class _FollowUpdatesWidgetState
                       child: Text('Follow Updates'.tl, style: TextStyle(fontSize: kcSectionTitle)),
                     ),
                     const Spacer(),
-                    HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18, color: Theme.of(context).colorScheme.primary),
+                    HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ],
                 ),
               ).paddingHorizontal(16),
@@ -78,13 +78,16 @@ class _FollowUpdatesWidgetState
                   margin: const EdgeInsets.only(bottom: 16, left: 16),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(kcRadius8),
-                    color: Theme.of(context).colorScheme.primaryContainer,
+                    color: kcAccentSurface(context),
                   ),
                   child: Text(
                     '@c updates'.tlParams({
                       'c': _count,
                     }),
-                    style: TextStyle(fontSize: kcSubtitle),
+                    style: TextStyle(
+                      fontSize: kcSubtitle,
+                      color: kcBrandAdaptive(context),
+                    ),
                   ),
                 ),
             ],
@@ -201,7 +204,8 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
               style: TextStyle(fontSize: kcSubtitle),
             ).paddingHorizontal(16),
             const SizedBox(height: 8),
-            FilledButton.tonal(
+            Button.filled(
+              height: 36,
               onPressed: showSelector,
               child: Text("Select Folders".tl),
             ).paddingHorizontal(16).toAlign(Alignment.centerRight),
@@ -223,72 +227,99 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
       };
 
   Widget buildConfigured(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final intervalDays =
+        (appdata.settings['followUpdateInterval'] as num?)?.toInt() ?? 1;
     return SliverToBoxAdapter(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerLow,
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            width: 0.6,
-          ),
+          color: scheme.surfaceContainerLow,
+          border: Border.all(color: scheme.outlineVariant, width: 0.6),
           borderRadius: BorderRadius.circular(kcCardRadius),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
-              leading: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 18),
-              title: Text("Following @c folders"
-                  .tlParams({'c': folders.length})),
-              subtitle: folders.contains('*')
-                  ? Text("All folders".tl)
-                  : null,
-            ),
-            Text(
-              "Automatic update checking enabled.".tl,
-              style: TextStyle(fontSize: kcBody),
-            ).paddingHorizontal(16),
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              title: Text("Check update interval".tl),
-              subtitle: Text(
-                "Checks each comic at most once per interval".tl,
-                style: TextStyle(fontSize: kcCaption),
-              ),
-              trailing: Select(
-                minWidth: 96,
-                current: _intervalLabel(
-                  (appdata.settings['followUpdateInterval'] as num?)
-                          ?.toInt() ??
-                      1,
-                ),
-                values: [for (var d in _intervalDaysList) _intervalLabel(d)],
-                onTap: (i) {
-                  setState(() {
-                    appdata.settings['followUpdateInterval'] =
-                        _intervalDaysList[i];
-                    appdata.saveData();
-                  });
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // 图标容器：浅红染圆角底 + 品牌红图标，比裸图标更有卡片质感，
+                // 也让「关注文件夹」在视觉上和普通列表行区分开。
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: kcAccentSurface(context, alpha: 0.12),
+                    borderRadius: BorderRadius.circular(kcRadius8),
+                  ),
+                  child: Center(
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedFolder01,
+                      size: 17,
+                      color: kcAccentColor(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "Following @c folders"
+                            .tlParams({'c': folders.length}),
+                        style: TextStyle(
+                          fontSize: kcSubtitle,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        folders.contains('*')
+                            ? "All folders · Auto-check on".tl
+                            : "Auto-check on".tl,
+                        style: TextStyle(
+                          fontSize: kcCaption,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Select(
+                  minWidth: 84,
+                  current: _intervalLabel(intervalDays),
+                  values: [for (var d in _intervalDaysList) _intervalLabel(d)],
+                  onTap: (i) {
+                    setState(() {
+                      appdata.settings['followUpdateInterval'] =
+                          _intervalDaysList[i];
+                      appdata.saveData();
+                    });
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // 次要动作（更改文件夹）靠左、主 CTA（立即检查）靠右：
+            // 原写法两个都堆在右侧，左侧留一大片空，视觉重心失衡。
+            Row(
               children: [
                 Button.text(
                   onPressed: showSelector,
                   child: Text("Change Folders".tl),
                 ),
-                FilledButton.tonal(
+                const Spacer(),
+                Button.filled(
+                  height: 36,
                   onPressed: checkNow,
                   child: Text("Check Now".tl),
                 ),
-                const SizedBox(width: 16),
               ],
             ),
-            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -318,7 +349,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             HugeIcon(
               icon: HugeIcons.strokeRoundedGlobe,
               size: 16,
-              color: Theme.of(context).colorScheme.primary,
+              color: kcBrandAdaptive(context),
             ),
             const SizedBox(width: 6),
             Text(source, style: TextStyle(fontSize: kcSubtitle)),
@@ -326,7 +357,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(kcRadius8),
               ),
               child: Text(
@@ -351,7 +382,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             HugeIcon(
               icon: HugeIcons.strokeRoundedFolder01,
               size: 16,
-              color: Theme.of(context).colorScheme.primary,
+              color: kcBrandAdaptive(context),
             ),
             const SizedBox(width: 6),
             Text(folder, style: TextStyle(fontSize: kcSubtitle)),
@@ -399,7 +430,19 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
     )];
     groups.forEach((source, items) {
       slivers.add(_sourceHeader(source, items.length));
-      slivers.add(SliverGridComics(comics: items));
+      // 紧凑小行：把大封面网格换成 ComicTile 列表，一屏看全更新，密度与顶部压扁配置卡一致。
+      slivers.add(
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, i) => ComicTile(
+              comic: items[i],
+              badge: items[i].hasNewUpdate ? 'NEW' : null,
+              badgeColor: kcBrandColor,
+            ),
+            childCount: items.length,
+          ),
+        ),
+      );
     });
     return slivers;
   }
@@ -422,7 +465,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             HugeIcon(
               icon: HugeIcons.strokeRoundedRefresh,
               size: 18,
-              color: Theme.of(context).colorScheme.primary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 8),
             Text(
@@ -458,31 +501,50 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
 
     final grouped = _comicsGroupedByFolder(true);
     if (grouped.isEmpty) {
+      final scheme = Theme.of(context).colorScheme;
       return [
         header,
+        // 空状态：原来是一个贴在左边的小灰胶囊，视觉上很孤立。
+        // 改成居中的「图标 + 主副文案」，让「没有更新」读起来是一个完整结论，
+        // 而不是一条漏掉的内容。
         SliverToBoxAdapter(
-          child: Row(
-            children: [
-              Container(
-                margin:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(kcRadius16),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      "No updates found".tl,
-                      style: TextStyle(fontSize: kcSubtitle),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 36),
+            child: Column(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerLow,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedTick01,
+                      size: 26,
+                      color: scheme.onSurfaceVariant,
                     ),
-                  ],
+                  ),
                 ),
-              )
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  "You're all caught up".tl,
+                  style: TextStyle(
+                    fontSize: kcSubtitle,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "No new updates in followed folders".tl,
+                  style: TextStyle(
+                    fontSize: kcCaption,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ];
@@ -524,7 +586,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             HugeIcon(
               icon: HugeIcons.strokeRoundedMenu02,
               size: 18,
-              color: Theme.of(context).colorScheme.primary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 8),
             Text(
@@ -532,7 +594,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
               style: TextStyle(fontSize: kcSectionTitle),
             ),
             const Spacer(),
-            TextButton(
+            Button.text(
               onPressed: () {
                 setState(() {
                   _showAll = false;
@@ -558,7 +620,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
   }
 
   void showSelector() {
-    var allFolders = LocalFavoritesManager().folderNames;
+    var allFolders = userFolderNames();
     if (allFolders.isEmpty) {
       context.showMessage(message: "No folders available".tl);
       return;
@@ -650,9 +712,8 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
 
   void setFolders(List<String> selected) async {
     FollowUpdatesService._cancelChecking?.call();
-    final resolved = selected.contains('*')
-        ? LocalFavoritesManager().folderNames
-        : selected;
+    final resolved =
+        selected.contains('*') ? userFolderNames() : selected;
 
     for (final f in resolved) {
       LocalFavoritesManager().prepareTableForFollowUpdates(f);
@@ -673,27 +734,30 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
 
       int updated = 0;
       int errors = 0;
-      await for (var progress in updateFolders(resolved, true)) {
+      try {
+        await for (var progress in updateFolders(resolved, true)) {
+          if (isCanceled) return;
+          updated = progress.updated;
+          errors = progress.errors;
+          await AppNotifications.showComicUpdateProgress(
+            current: progress.current,
+            total: progress.total,
+            updated: progress.updated,
+            errors: progress.errors,
+          );
+        }
+      } finally {
+        // 保证 ongoing 的「检查中」通知一定被收掉（取消 / 异常路径同理）。
+        FollowUpdatesService._cancelChecking = null;
         if (isCanceled) {
           await AppNotifications.cancelComicUpdate();
-          FollowUpdatesService._cancelChecking = null;
-          return;
+        } else {
+          await AppNotifications.showComicUpdateComplete(
+            updated: updated,
+            errors: errors,
+          );
         }
-        updated = progress.updated;
-        errors = progress.errors;
-        await AppNotifications.showComicUpdateProgress(
-          current: progress.current,
-          total: progress.total,
-          updated: progress.updated,
-          errors: progress.errors,
-        );
       }
-
-      FollowUpdatesService._cancelChecking = null;
-      await AppNotifications.showComicUpdateComplete(
-        updated: updated,
-        errors: errors,
-      );
     }
 
     if (!mounted) return;
@@ -721,27 +785,32 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
     int updated = 0;
     int errors = 0;
 
-    await for (var progress in updateFolders(folders, true)) {
+    try {
+      await for (var progress in updateFolders(folders, true)) {
+        if (isCanceled) return;
+        updated = progress.updated;
+        errors = progress.errors;
+        await AppNotifications.showComicUpdateProgress(
+          current: progress.current,
+          total: progress.total,
+          updated: progress.updated,
+          errors: progress.errors,
+        );
+      }
+    } finally {
+      // 无论正常结束、被取消还是 updateFolders 抛异常，都必须把这个 ongoing
+      // 的「检查中」通知收掉——ongoing 通知用户划不掉，异常路径漏掉就会一直挂在
+      // 通知栏。取消 → 直接撤销；其余 → 换成「检查完成」。
+      FollowUpdatesService._cancelChecking = null;
       if (isCanceled) {
         await AppNotifications.cancelComicUpdate();
-        FollowUpdatesService._cancelChecking = null;
-        return;
+      } else {
+        await AppNotifications.showComicUpdateComplete(
+          updated: updated,
+          errors: errors,
+        );
       }
-      updated = progress.updated;
-      errors = progress.errors;
-      await AppNotifications.showComicUpdateProgress(
-        current: progress.current,
-        total: progress.total,
-        updated: progress.updated,
-        errors: progress.errors,
-      );
     }
-
-    FollowUpdatesService._cancelChecking = null;
-    await AppNotifications.showComicUpdateComplete(
-      updated: updated,
-      errors: errors,
-    );
 
     if (updated > 0) {
       GlobalState.findOrNull<_FollowUpdatesWidgetState>()?.updateCount();
@@ -815,10 +884,7 @@ abstract class FollowUpdatesService {
     try {
       await AppNotifications.showComicUpdateCheck();
       await for (var progress in updateFolders(folders, false)) {
-        if (isCanceled) {
-          await AppNotifications.cancelComicUpdate();
-          return;
-        }
+        if (isCanceled) return;
         updated = progress.updated;
         errors = progress.errors;
         await AppNotifications.showComicUpdateProgress(
@@ -828,14 +894,20 @@ abstract class FollowUpdatesService {
           errors: progress.errors,
         );
       }
-      await AppNotifications.showComicUpdateComplete(
-        updated: updated,
-        errors: errors,
-      );
     } finally {
       _cancelChecking = null;
       _isChecking = false;
-      if (updated > 0) {
+      // 同 checkNow：保证 ongoing 的「检查中」通知一定被收掉，异常路径否则会
+      // 一直挂在通知栏。取消 → 撤销；其余 → 换成「检查完成」。
+      if (isCanceled) {
+        await AppNotifications.cancelComicUpdate();
+      } else {
+        await AppNotifications.showComicUpdateComplete(
+          updated: updated,
+          errors: errors,
+        );
+      }
+      if (updated > 0 && !isCanceled) {
         updateFollowUpdatesUI();
         final comics = <FavoriteItemWithUpdateInfo>[];
         for (final f in getEffectiveFollowFolders()) {

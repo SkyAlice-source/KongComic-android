@@ -108,7 +108,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                 HugeIcon(
                   icon: HugeIcons.strokeRoundedDownload04,
                   size: 20,
-                  color: cs.primary,
+                  color: kcBrandAdaptive(context),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -127,7 +127,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                         horizontal: 8, vertical: 2),
                     constraints: const BoxConstraints(minWidth: 22),
                     decoration: BoxDecoration(
-                      color: cs.primaryContainer,
+                      color: kcAccentSurface(context),
                       borderRadius: BorderRadius.circular(kcPillRadius),
                     ),
                     child: Center(
@@ -136,7 +136,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
                         style: TextStyle(
                           fontSize: kcFont11,
                           fontWeight: FontWeight.w600,
-                          color: cs.onPrimaryContainer,
+                          color: kcBrandAdaptive(context),
                         ),
                       ),
                     ),
@@ -355,6 +355,63 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
     });
   }
 
+  /// 「导入」选择弹窗。
+  ///
+  /// 空目录页/工具栏的「+」都走这里，返回 `cbz` / `multiCbz` / `folder`（取消为 null）。
+  ///
+  /// 版式要点（2026-10-20 重做）：
+  /// - 顶部改成「图标徽章 + 标题 + 说明」的富头部，不再放左上角 ×。纯选择弹窗里
+  ///   点遮罩、按返回键都能退，× 只是第三个关闭入口，却把标题挤在左边、右侧空一片；
+  ///   换成徽章后顶部有了视觉锚点，右侧由「取消」按钮收口。
+  /// - 三个选项从裸 `ListTile` 改成带描边的卡片（图标块 + 主副标题 + 右箭头），
+  ///   和「保存图片」「选择文件夹」等弹窗里的选项卡片语言一致，不再显得单薄。
+  Future<String?> _showImportChooser() {
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => ContentDialog(
+        title: "Import".tl,
+        subtitle: "Choose how to import".tl,
+        headerIcon: HugeIcons.strokeRoundedFolderImport,
+        showClose: false,
+        // 顶部 4：紧跟富头部的 8dp 间隙，避免第一张卡片被推得离标题太远。
+        contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ImportOptionTile(
+              icon: HugeIcons.strokeRoundedArchive,
+              title: "Import a CBZ / ZIP / 7Z file".tl,
+              subtitle: "Add a single comic archive".tl,
+              onTap: () => ctx.pop('cbz'),
+            ),
+            const SizedBox(height: kcSpaceSm),
+            _ImportOptionTile(
+              icon: HugeIcons.strokeRoundedFolderZip,
+              title: "Import archives in a folder".tl,
+              subtitle:
+                  "Batch import .cbz/.zip/.7z/.cb7 files from a folder".tl,
+              onTap: () => ctx.pop('multiCbz'),
+            ),
+            const SizedBox(height: kcSpaceSm),
+            _ImportOptionTile(
+              icon: HugeIcons.strokeRoundedFolder01,
+              title: "Import image folders".tl,
+              subtitle: "Each subfolder with images becomes a comic".tl,
+              onTap: () => ctx.pop('folder'),
+            ),
+          ],
+        ),
+        actions: [
+          Button.text(
+            onPressed: () => ctx.pop(null),
+            child: Text("Cancel".tl),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     List<Widget> selectActions = [
@@ -406,80 +463,16 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
         child: IconButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
           onPressed: () async {
-            var result = await showModalBottomSheet(
-              context: context,
-              showDragHandle: true,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(kcSurfaceRadius)),
-              ),
-              builder: (ctx) => SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 16, 4),
-                      child: Text(
-                        "Import".tl,
-                        style: Theme.of(ctx)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    ListTile(
-                      leading: HugeIcon(
-                        icon: HugeIcons.strokeRoundedArchive,
-                        size: 20,
-                        color: context.colorScheme.onSurfaceVariant,
-                      ),
-                      title: Text("Import a CBZ / ZIP / 7Z file".tl),
-                      subtitle: Text("Add a single comic archive".tl),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      onTap: () => Navigator.pop(ctx, 'cbz'),
-                    ),
-                    ListTile(
-                      leading: HugeIcon(
-                        icon: HugeIcons.strokeRoundedFolderZip,
-                        size: 20,
-                        color: context.colorScheme.onSurfaceVariant,
-                      ),
-                      title: Text("Import archives in a folder".tl),
-                      subtitle: Text(
-                          "Batch import .cbz/.zip/.7z/.cb7 files from a folder".tl),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      onTap: () => Navigator.pop(ctx, 'multiCbz'),
-                    ),
-                    ListTile(
-                      leading: HugeIcon(
-                        icon: HugeIcons.strokeRoundedFolder01,
-                        size: 20,
-                        color: context.colorScheme.onSurfaceVariant,
-                      ),
-                      title: Text("Import image folders".tl),
-                      subtitle:
-                          Text("Each subfolder with images becomes a comic".tl),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      onTap: () => Navigator.pop(ctx, 'folder'),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              ),
-            );
+            final result = await _showImportChooser();
+            if (result == null) return;
             if (result == 'cbz') {
               await const ImportComic().cbz();
-              setState(() {});
             } else if (result == 'multiCbz') {
               await const ImportComic().multipleCbz();
-              setState(() {});
             } else if (result == 'folder') {
               await const ImportComic().directory(false);
-              setState(() {});
             }
+            setState(() {});
           },
         ),
       ),
@@ -1081,4 +1074,105 @@ void showDeleteChaptersPopWindow(BuildContext context, LocalComic comic) {
       );
     },
   );
+}
+
+/// 「导入」弹窗里的单个卡片式选项：图标块 + 主标题 + 说明 + 右箭头。
+///
+/// 透明底 + `outlineVariant` 发丝描边，而不是填充色：填充底叠在弹窗面
+/// （surfaceContainerHigh）上会浮出「盒中盒」，描边只勾边界，观感更平，
+/// 与「保存图片」弹窗里的格式卡片是同一套语言。
+class _ImportOptionTile extends StatelessWidget {
+  const _ImportOptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final List<List<dynamic>> icon;
+
+  final String title;
+
+  final String subtitle;
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = context.colorScheme;
+    final radius = BorderRadius.circular(kcRadius16);
+    return Material(
+      color: Colors.transparent,
+      borderRadius: radius,
+      child: InkWell(
+        borderRadius: radius,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: kcSpaceMd,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: scheme.outlineVariant, width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(kcRadius10),
+                ),
+                child: HugeIcon(
+                  icon: icon,
+                  size: 20,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: kcSpaceMd),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: kcBody,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                        color: scheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: kcCaption,
+                        height: 1.35,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: kcSpaceSm),
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowRight01,
+                size: 16,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -8,7 +8,7 @@ import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:kong_comic/utils/translations.dart';
-import 'package:kong_comic/design_tokens.dart';
+import 'package:kong_comic/components/components.dart';
 
 const _kTitleBarHeight = 36.0;
 
@@ -147,7 +147,7 @@ class _WindowFrameState extends State<WindowFrame> {
                           ),
                         ),
                         if (kDebugMode)
-                          TextButton(
+                          Button.text(
                             onPressed: debug,
                             child: Text('Debug'.tl),
                           ),

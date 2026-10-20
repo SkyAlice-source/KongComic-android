@@ -485,7 +485,7 @@ Iterable<Widget> _buildExplorePagePart(
               ),
               const Spacer(),
               if (part.viewMore != null)
-                TextButton(
+                Button.text(
                   onPressed: () {
                     var context = App.mainNavigatorKey!.currentContext!;
                     part.viewMore!.jump(context);
@@ -615,7 +615,7 @@ class _MultiPartExplorePageState extends State<_MultiPartExplorePage> {
             });
           },
           withAppbar: false,
-          action: FilledButton(
+          action: Button.filled(
             onPressed: () async {
               await navigateToSourceLogin(context, source);
               if (mounted) {

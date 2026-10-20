@@ -432,12 +432,12 @@ class _SearchPageState extends State<SearchPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: _selectedSources.length == searchSources.length
-                          ? cs.primaryContainer
+                          ? kcAccentSurface(context)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(kcRadius8),
                       border: Border.all(
                         color: _selectedSources.length == searchSources.length
-                            ? cs.primary.withValues(alpha: 0.3)
+                            ? kcAccentColor(context).withValues(alpha: 0.35)
                             : cs.outlineVariant,
                         width: 1,
                       ),
@@ -446,7 +446,7 @@ class _SearchPageState extends State<SearchPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         HugeIcon(icon: HugeIcons.strokeRoundedArrowLeftRight, size: 14, color: _selectedSources.length == searchSources.length
-                              ? cs.primary
+                              ? kcBrandAdaptive(context)
                               : cs.onSurfaceVariant),
                         const SizedBox(width: 4),
                         Text(
@@ -455,7 +455,7 @@ class _SearchPageState extends State<SearchPage> {
                             fontSize: kcBody,
                             fontWeight: FontWeight.w500,
                             color: _selectedSources.length == searchSources.length
-                                ? cs.onPrimaryContainer
+                                ? kcBrandAdaptive(context)
                                 : cs.onSurface,
                           ),
                         ),
@@ -483,11 +483,11 @@ class _SearchPageState extends State<SearchPage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: isSelected ? cs.primaryContainer : Colors.transparent,
+                      color: isSelected ? kcAccentSurface(context, alpha: 0.16) : Colors.transparent,
                       borderRadius: BorderRadius.circular(kcRadius8),
                       border: Border.all(
                         color: isSelected
-                            ? cs.primary.withValues(alpha: 0.3)
+                            ? kcAccentColor(context).withValues(alpha: 0.35)
                             : cs.outlineVariant,
                         width: 1,
                       ),
@@ -498,7 +498,7 @@ class _SearchPageState extends State<SearchPage> {
                         HugeIcon(icon: 
                           isSelected ? HugeIcons.strokeRoundedCheckmarkCircle01 : HugeIcons.strokeRoundedRadioButton,
                           size: 14,
-                          color: isSelected ? cs.primary : cs.onSurfaceVariant,
+                          color: isSelected ? kcBrandAdaptive(context) : cs.onSurfaceVariant,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -506,7 +506,7 @@ class _SearchPageState extends State<SearchPage> {
                           style: TextStyle(
                             fontSize: kcBody,
                             fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-                            color: isSelected ? cs.onPrimaryContainer : cs.onSurface,
+                            color: isSelected ? kcBrandAdaptive(context) : cs.onSurface,
                           ),
                         ),
                       ],
@@ -858,9 +858,9 @@ class _SearchPageState extends State<SearchPage> {
               height: 40,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(kcRadius20),
-                color: cs.primary,
+                color: kcAccentColor(context),
               ),
-              child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18, color: cs.onPrimary),
+              child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18, color: kcOnAccentColor),
             ),
           ),
         ],
@@ -932,11 +932,11 @@ class SearchOptionWidget extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: isSelected ? cs.primaryContainer : Colors.transparent,
+                      color: isSelected ? kcAccentSurface(context, alpha: 0.16) : Colors.transparent,
                       borderRadius: BorderRadius.circular(kcRadius8),
                       border: Border.all(
                         color: isSelected
-                            ? cs.primary.withValues(alpha: 0.3)
+                            ? kcAccentColor(context).withValues(alpha: 0.35)
                             : cs.outlineVariant,
                         width: 1,
                       ),
@@ -945,7 +945,7 @@ class SearchOptionWidget extends StatelessWidget {
                       e.value.ts(sourceKey),
                       style: TextStyle(
                         fontSize: kcBody,
-                        color: isSelected ? cs.onPrimaryContainer : cs.onSurface,
+                        color: isSelected ? kcBrandAdaptive(context) : cs.onSurface,
                         fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
                       ),
                     ),
@@ -1005,7 +1005,7 @@ class _SearchHistory extends StatelessWidget {
                       "Clear".tl,
                       style: TextStyle(
                         fontSize: kcBody,
-                        color: cs.primary,
+                        color: kcBrandAdaptive(context),
                       ),
                     ),
                   ),

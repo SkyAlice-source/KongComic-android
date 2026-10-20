@@ -2,7 +2,7 @@ name: kong_comic
 description: "A comic app."
 publish_to: 'none'
 
-version: 1.4.0+177
+version: 1.5.0+178
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
@@ -68,6 +68,7 @@ dependencies:
   enough_convert: ^1.6.0
   flutter_staggered_grid_view: ^0.7.0
   workmanager: ^0.10.7
+  connectivity_plus: ^6.1.0
   flutter_local_notifications: ^22.3.0
   sentry_flutter: ^8.14.2
   flutter_markdown_plus: ^1.0.12

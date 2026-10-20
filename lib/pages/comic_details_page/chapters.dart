@@ -141,14 +141,20 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
               SliverToBoxAdapter(
                 child: Align(
                   alignment: Alignment.center,
-                  child: TextButton.icon(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
+                  child: Button.text(
                     onPressed: () {
                       setState(() {
                         showAll = true;
                       });
                     },
-                    label: Text("${"Show all".tl} (${chapters.length})"),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
+                        const SizedBox(width: 6),
+                        Text("${"Show all".tl} (${chapters.length})"),
+                      ],
+                    ),
                   ).paddingTop(12),
                 ),
               ),
@@ -342,14 +348,20 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
               SliverToBoxAdapter(
                 child: Align(
                   alignment: Alignment.center,
-                  child: TextButton.icon(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
+                  child: Button.text(
                     onPressed: () {
                       setState(() {
                         showAll = true;
                       });
                     },
-                    label: Text("${"Show all".tl} (${group.length})"),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
+                        const SizedBox(width: 6),
+                        Text("${"Show all".tl} (${group.length})"),
+                      ],
+                    ),
                   ).paddingTop(12),
                 ),
               ),
@@ -435,14 +447,14 @@ Widget _buildChapterTile(
                   width: 16,
                   height: 16,
                   decoration: BoxDecoration(
-                    color: cs.primaryContainer,
+                    color: kcAccentSurface(context),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: HugeIcon(
                       icon: HugeIcons.strokeRoundedTick01,
                       size: 11,
-                      color: cs.onPrimaryContainer,
+                      color: kcBrandAdaptive(context),
                     ),
                   ),
                 ),

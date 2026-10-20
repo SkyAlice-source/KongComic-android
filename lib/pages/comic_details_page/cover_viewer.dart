@@ -68,45 +68,16 @@ class _CoverViewerState extends State<_CoverViewer> {
   }
 
   Widget _buildAppBar() {
-    return Material(
-      color: context.colorScheme.surface.withValues(alpha: 0.62),
-      child: BlurEffect(
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: context.colorScheme.outlineVariant,
-                width: 0.5,
-              ),
-            ),
-          ),
-          height: 52,
-          child: Row(
-            children: [
-              const SizedBox(width: 8),
-              IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  widget.title,
-                  style: const TextStyle(fontSize: kcTitleMain),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
-                onPressed: _saveCover,
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-        ).paddingTop(context.padding.top),
-      ),
+    // 复用标准 Appbar：返回键 ArrowLeft01(←)、标题 kcAppbarTitle、玻璃模糊，
+    // 与全站顶栏一致；默认 leading 即返回箭头，无需手写。
+    return Appbar(
+      title: Text(widget.title),
+      actions: [
+        Button.icon(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
+          onPressed: _saveCover,
+        ),
+      ],
     );
   }
 

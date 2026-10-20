@@ -1292,7 +1292,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
           ),
         ),
         actions: [
-          TextButton(
+          Button.text(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text("Cancel".tl),
           ),
@@ -1567,7 +1567,9 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
 
   /// Multi-select mode (only used when [widget.allowSelectAll] is true).
   final Set<int> _selected = {};
-  final ScrollController _scrollController = ScrollController();
+  /// 在 [didChangeDependencies] 里用 initialScrollOffset 创建（需要 MediaQuery
+  /// 的宽度来估算格子高度），因此这里先留空，build 时已必然初始化完毕。
+  ScrollController? _scrollController;
 
   /// Images already held in memory: from cache preload OR on-demand download.
   final Map<int, Uint8List> _loadedImages = {};
@@ -1577,32 +1579,35 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
   final Set<int> _loading = {};
 
   @override
-  void initState() {
-    super.initState();
-    // Jump straight to the current page so users don't have to manually
-    // scroll through hundreds of pages. Cell height is fixed by
-    // childAspectRatio, so the offset can be estimated deterministically.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final width = MediaQuery.of(context).size.width;
-      const padding = 6.0, spacing = 6.0, crossAxisCount = 3;
-      final cellW =
-          (width - padding * 2 - spacing * (crossAxisCount - 1)) / crossAxisCount;
-      final cellH = cellW / 0.72;
-      final rowH = cellH + spacing;
-      final row = widget.currentPage ~/ crossAxisCount;
-      final max = _scrollController.hasClients
-          ? _scrollController.position.maxScrollExtent
-          : 0.0;
-      if (max > 0) {
-        _scrollController.jumpTo((row * rowH - padding).clamp(0.0, max));
-      }
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 首帧就用 initialScrollOffset 定位到当前页，而不是「先渲染第 1 行、再
+    // post-frame jumpTo 跳过去」：后者会先解码一批马上被丢弃的缩略图，长章节
+    // 打开时解码量直接翻倍（体感就是顿一下）。格子高度由 childAspectRatio 固定，
+    // 偏移可以确定性估算。
+    _scrollController ??= ScrollController(
+      initialScrollOffset: _initialScrollOffset(
+        MediaQuery.of(context).size.width,
+      ),
+    );
+  }
+
+  /// 估算「当前页所在行」的滚动偏移。几何必须与 [build] 里的 GridView 一致：
+  /// padding 左右各 6、crossAxisSpacing / mainAxisSpacing 均为 8、
+  /// crossAxisCount 3、childAspectRatio 0.72。
+  double _initialScrollOffset(double width) {
+    const padding = 6.0, spacing = 8.0, crossAxisCount = 3;
+    final cellW =
+        (width - padding * 2 - spacing * (crossAxisCount - 1)) / crossAxisCount;
+    final cellH = cellW / 0.72;
+    final rowH = cellH + spacing;
+    final row = widget.currentPage ~/ crossAxisCount;
+    return (row * rowH - padding).clamp(0.0, double.infinity);
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _scrollController?.dispose();
     super.dispose();
   }
 
@@ -1774,22 +1779,10 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      // 复用标准 Appbar：返回键 ArrowLeft01(←)、玻璃模糊，与全站一致；
+      // 默认 leading 即返回箭头（原 CloseButton × 改为 ←）。
+      appBar: Appbar(
         title: Text(widget.title.tl),
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        // 显式给标题上色，保证在任何主题/背景下都可读（曾因全局 titleTextStyle
-        // 缺 color 而在浅色背景上显示为白色）。
-        titleTextStyle: TextStyle(
-          fontSize: kcAppbarTitle,
-          height: 1.35,
-          fontWeight: FontWeight.w500,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        leading: const CloseButton(),
-        actions: null,
       ),
       body: Stack(
         children: [
@@ -1851,23 +1844,26 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     final content = shown && data != null
         ? _imageTile(index, data, selected)
         : _placeholderTile(index, selected, loading);
-    return GestureDetector(
-      onTap: () {
-        if (shown) {
-          if (widget.allowSelectAll) {
-            setState(() {
-              _selected.contains(index)
-                  ? _selected.remove(index)
-                  : _selected.add(index);
-            });
+    // 每个格子独立重绘边界：勾选/滚动时只重绘变化的格子，避免整片网格重绘。
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: () {
+          if (shown) {
+            if (widget.allowSelectAll) {
+              setState(() {
+                _selected.contains(index)
+                    ? _selected.remove(index)
+                    : _selected.add(index);
+              });
+            } else {
+              _selectImage(index);
+            }
           } else {
-            _selectImage(index);
+            _loadOnDemand(index);
           }
-        } else {
-          _loadOnDemand(index);
-        }
-      },
-      child: content,
+        },
+        child: content,
+      ),
     );
   }
 
@@ -1879,7 +1875,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
           decoration: selected
               ? BoxDecoration(
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.primary,
+                    color: kcAccentColor(context),
                     width: 2.5,
                   ),
                   borderRadius: BorderRadius.circular(kcRadius6),
@@ -1887,7 +1883,19 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
               : null,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(kcRadius6),
-            child: Image.memory(data, fit: BoxFit.cover),
+            child: Image.memory(
+              data,
+              fit: BoxFit.cover,
+              // 缩略图按「格子物理宽度」解码，而不是按原图分辨率解码。
+              // 漫画页常见 1000~1500px 宽：6 张全尺寸位图一次解码就是几十 MB，
+              // 打开分享页的瞬间会明显掉帧。按格子宽解码可把位图内存降一个数量级
+              // （宽度缩到 1/4 ≈ 像素量 1/16），观感在缩略图尺寸下几乎无差别。
+              cacheWidth: _thumbDecodeWidth(context),
+              // 缩略图不需要高质量重采样，low 更快且足够；gaplessPlayback 避免
+              // 勾选重绘时短暂闪成空白。
+              filterQuality: FilterQuality.low,
+              gaplessPlayback: true,
+            ),
           ),
         ),
         _pageNumberBadge(index + 1),
@@ -1895,6 +1903,18 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
         if (selected) _selectedTick(),
       ],
     );
+  }
+
+  /// 缩略图解码宽度（物理像素）= 格子宽 × 设备像素比，夹在 160~540px。
+  ///
+  /// 上限 540 是为了避免 3x/4x 高分屏把宽度算得过大、又把内存吃掉；
+  /// 下限 160 防止极窄屏/折叠屏算出过小的尺寸导致缩略图糊成一片。
+  /// 网格几何必须与 [build] 里的 GridView/SliverGridDelegate 保持一致
+  /// （padding 左右各 6、crossAxisCount 3、crossAxisSpacing 8）。
+  int _thumbDecodeWidth(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final cellW = (mq.size.width - 6.0 * 2 - 8.0 * 2) / 3;
+    return (cellW * mq.devicePixelRatio).round().clamp(160, 540);
   }
 
   Widget _placeholderTile(int index, bool selected, bool loading) {
@@ -1906,7 +1926,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             border: selected
                 ? Border.all(
-                    color: Theme.of(context).colorScheme.primary,
+                    color: kcAccentColor(context),
                     width: 2.5,
                   )
                 : null,
@@ -1956,13 +1976,13 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary,
+            color: kcAccentColor(context),
             borderRadius: BorderRadius.circular(kcRadius4),
           ),
           child: Text(
             "Current".tl,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onPrimary,
+              color: kcOnAccentColor,
               // 徽标类下限 11sp：10sp 的中文在缩略图上几乎读不出来。
               fontSize: kcFont11,
             ),
@@ -1975,14 +1995,14 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
         right: 4,
         child: Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary,
+            color: kcAccentColor(context),
             shape: BoxShape.circle,
           ),
           padding: const EdgeInsets.all(3),
           child: HugeIcon(
             icon: HugeIcons.strokeRoundedCheckmarkCircle01,
             size: 14,
-            color: Theme.of(context).colorScheme.onPrimary,
+            color: kcOnAccentColor,
           ),
         ),
       );
@@ -2016,21 +2036,23 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
               if (count == 1)
                 SizedBox(
                   height: 32,
-                  child: FilledButton.tonalIcon(
+                  child: Button.filled(
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                     onPressed: () => _setCoverSelected(),
-                    icon: HugeIcon(
-                      icon: HugeIcons.strokeRoundedImage02,
-                      size: 14,
-                    ),
-                    label: Text(
-                      "Set as Cover".tl,
-                      style: const TextStyle(fontSize: kcCaption),
-                    ),
-                    style: FilledButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedImage02,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "Set as Cover".tl,
+                          style: const TextStyle(fontSize: kcCaption),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -2038,7 +2060,9 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
               // Select All / Clear button
               SizedBox(
                 height: 32,
-                child: FilledButton.tonal(
+                child: Button.filled(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   onPressed: () => setState(() {
                     if (allSelected) {
                       _selected.clear();
@@ -2046,12 +2070,6 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
                       _selected.addAll(List.generate(total, (i) => i));
                     }
                   }),
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
                   child: Text(
                     allSelected ? "Clear".tl : "Select All".tl,
                     style: const TextStyle(fontSize: kcCaption),
@@ -2062,21 +2080,29 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
               // Share button
               SizedBox(
                 height: 32,
-                child: FilledButton.tonalIcon(
-                  onPressed: count == 0 ? null : _shareSelected,
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedShare01,
-                    size: 14,
-                  ),
-                  label: Text(
-                    "Share (@count)".tlParams({"count": count}),
-                    style: const TextStyle(fontSize: kcCaption),
-                  ),
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                child: Button.filled(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  color: count == 0
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                      : null,
+                  onPressed: () {
+                    if (count == 0) return;
+                    _shareSelected();
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedShare01,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Share (@count)".tlParams({"count": count}),
+                        style: const TextStyle(fontSize: kcCaption),
+                      ),
+                    ],
                   ),
                 ),
               ),

@@ -253,11 +253,13 @@ List<String> getEffectiveFollowFolders() {
   final raw = appdata.settings['followUpdatesFolders'];
   if (raw is! List || raw.isEmpty) return [];
   if (raw.contains('*')) {
-    return LocalFavoritesManager().folderNames;
+    return userFolderNames();
   }
   return raw
       .whereType<String>()
-      .where((f) => LocalFavoritesManager().folderNames.contains(f))
+      .where((f) =>
+          f != kReadLaterFolder &&
+          LocalFavoritesManager().folderNames.contains(f))
       .toList();
 }
 

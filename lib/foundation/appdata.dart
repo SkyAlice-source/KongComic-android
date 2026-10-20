@@ -42,7 +42,8 @@ class Appdata with Init {
       var file = File(FilePath.join(App.dataPath, 'appdata.json'));
       futures.add(file.writeAsString(data));
 
-      var disableSyncFields = json["settings"]["disableSyncFields"] as String? ?? "";
+      var disableSyncFields =
+          json["settings"]["disableSyncFields"] as String? ?? "";
       if (disableSyncFields.isNotEmpty) {
         var json4sync = jsonDecode(data);
         List<String> customDisableSync = splitField(disableSyncFields);
@@ -256,7 +257,10 @@ class Settings with ChangeNotifier {
     // higher importance once (v1.3.4 shipped it as IMPORTANCE_LOW).
     'downloadChannelReset': false,
     'preloadImageCount': 4,
-    'followUpdatesFolders': <String>[], // selected folders for follow-updates; contains '*' to mean all folders
+    'followUpdatesFolders':
+        <
+          String
+        >[], // selected folders for follow-updates; contains '*' to mean all folders
     'initialPage': '0',
     'comicListDisplayMode': 'paging', // paging, continuous
     'showPageNumberInReader': true,
@@ -281,6 +285,9 @@ class Settings with ChangeNotifier {
     'exitConfirm': true, // 根页面侧滑/系统返回时确认退出（仅 Android 生效）
     'autoBackupEnabled': false, // 自动备份总开关
     'autoBackupInterval': 7, // 自动备份间隔（天），默认 7 天
+    'autoBackupRetentionDays': 30, // 备份保留天数，超期自动删除
+    // 启动时静默更新已安装的漫画源（仅 WiFi / 有线，每日最多一次）
+    'autoUpdateSourcesEnabled': false,
     // 更新下载走哪条线路：'auto' 自动轮换 / 'direct' 仅 GitHub / 具体镜像 id /
     // 'custom' 使用 updateMirrorTemplate
     'updateMirror': 'auto',

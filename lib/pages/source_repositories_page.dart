@@ -191,7 +191,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
           ],
         ),
         actions: [
-          TextButton(
+          Button.text(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text("Cancel".tl),
           ),
@@ -243,7 +243,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
           ),
         ),
         actions: [
-          TextButton(
+          Button.text(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text("Cancel".tl),
           ),
@@ -332,7 +332,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
           child: Text("Reinstall confirm".tlParams({'name': entry.name})),
         ),
         actions: [
-          TextButton(
+          Button.text(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text("Cancel".tl),
           ),
@@ -361,7 +361,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
           child: Text("Uninstall confirm".tlParams({'name': entry.name})),
         ),
         actions: [
-          TextButton(
+          Button.text(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text("Cancel".tl),
           ),
@@ -487,16 +487,15 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
 
   /// 圆角方底的图标徽章，与源卡片同一套视觉。
   Widget _iconBadge(List<List<dynamic>> icon) {
-    final scheme = context.colorScheme;
     return Container(
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: scheme.primary.withValues(alpha: 0.12),
+        color: kcAccentSurface(context, alpha: 0.12),
         borderRadius: BorderRadius.circular(kcRadius10),
       ),
       child: Center(
-        child: HugeIcon(icon: icon, size: 18, color: scheme.primary),
+        child: HugeIcon(icon: icon, size: 18, color: kcBrandAdaptive(context)),
       ),
     );
   }
@@ -593,8 +592,8 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
               minHeight: 4,
               color: scheme.brightness == Brightness.dark
                   ? Color.alphaBlend(
-                      scheme.primary.withValues(alpha: 0.34), scheme.surface)
-                  : scheme.primary,
+                      kcAccentColor(context).withValues(alpha: 0.34), scheme.surface)
+                  : kcAccentColor(context),
               backgroundColor: scheme.surfaceContainerHighest,
             ),
           ),
@@ -675,7 +674,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                 : HugeIcon(
                     icon: HugeIcons.strokeRoundedRefresh,
                     size: 18,
-                    color: hasUpdate ? scheme.primary : null,
+                    color: hasUpdate ? kcBrandAdaptive(context) : null,
                   ),
           ),
           IconButton(
@@ -721,7 +720,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
               style: TextStyle(fontSize: kcBody, color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: kcSpaceLg),
-            FilledButton.tonal(
+            Button.filled(
               onPressed: () => _edit(),
               child: Text("Add repository".tl),
             ),
@@ -915,13 +914,31 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             else ...[
-              TextButton(
-                onPressed: anyInstall ? _batchInstall : null,
+              Button.text(
+                onPressed: () {
+                  if (!anyInstall) return;
+                  _batchInstall();
+                },
+                color: anyInstall
+                    ? null
+                    : Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.38),
                 child: Text("Batch install".tl),
               ),
               const SizedBox(width: kcSpaceXs),
-              TextButton(
-                onPressed: anyUpdate ? _batchUpdate : null,
+              Button.text(
+                onPressed: () {
+                  if (!anyUpdate) return;
+                  _batchUpdate();
+                },
+                color: anyUpdate
+                    ? null
+                    : Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.38),
                 child: Text("Batch update".tl),
               ),
             ],
@@ -1159,7 +1176,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
               style: TextStyle(fontSize: kcBody, color: scheme.error),
             ),
             const SizedBox(height: kcSpaceLg),
-            FilledButton.tonal(
+            Button.filled(
               onPressed: _load,
               child: Text("Retry".tl),
             ),
@@ -1230,7 +1247,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
             const SizedBox(width: kcSpaceSm),
             Icon(
               selected ? Icons.check : Icons.circle_outlined,
-              color: selected ? scheme.primary : scheme.outline,
+              color: selected ? kcAccentColor(context) : scheme.outline,
               size: 22,
             ),
           ],
@@ -1240,7 +1257,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
 
     final Widget primaryAction;
     if (installed == null) {
-      primaryAction = FilledButton.tonal(
+      primaryAction = Button.filled(
         onPressed: () => _install(entry),
         child: Text("Add".tl),
       );
@@ -1251,19 +1268,12 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
       final realUpdate =
           compareSemVer(entry.version, installed.version) && !outOfSync;
       final updating = _updating.contains(entry.key);
-      primaryAction = FilledButton.tonal(
-        onPressed: updating
-            ? null
-            : (realUpdate
-                ? () => _updateEntry(entry, installed)
-                : () => _confirmReinstall(entry, installed)),
-        child: updating
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Text(realUpdate ? "Update".tl : "Reinstall".tl),
+      primaryAction = Button.filled(
+        isLoading: updating,
+        onPressed: realUpdate
+            ? () => _updateEntry(entry, installed)
+            : () => _confirmReinstall(entry, installed),
+        child: Text(realUpdate ? "Update".tl : "Reinstall".tl),
       );
     }
 

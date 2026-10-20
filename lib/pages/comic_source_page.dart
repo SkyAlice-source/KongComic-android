@@ -365,7 +365,7 @@ class _BodyState extends State<_Body> {
           style: AppbarStyle.shadow,
           actions: [
             if (_selecting) ...[
-              TextButton(
+              Button.text(
                 onPressed: () {
                   setState(() {
                     _selected.addAll(sources.map((s) => s.key));
@@ -373,7 +373,7 @@ class _BodyState extends State<_Body> {
                 },
                 child: Text("Select all".tl),
               ),
-              TextButton(
+              Button.text(
                 onPressed: _exitSelection,
                 child: Text("Cancel selection".tl),
               ),
@@ -393,21 +393,17 @@ class _BodyState extends State<_Body> {
               ),
               // 带文字的「全部更新」：原来只有一个刷新图标挂在工具栏里，
               // 不看 tooltip 根本认不出是干什么的。
-              TextButton.icon(
-                onPressed: _updatingAll ? null : _updateAll,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: const Size(0, 36),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              Button.text(
+                isLoading: _updatingAll,
+                onPressed: _updateAll,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+                    const SizedBox(width: 6),
+                    Text("Update all".tl),
+                  ],
                 ),
-                icon: _updatingAll
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-                label: Text("Update all".tl),
               ),
               Tooltip(
                 message: "Select".tl,
@@ -654,11 +650,11 @@ class _BodyState extends State<_Body> {
             title: "Reload Configs".tl,
             content: const SizedBox.shrink(),
             actions: [
-              TextButton(
+              Button.text(
                 onPressed: () => context.pop(),
                 child: Text("Cancel".tl),
               ),
-              TextButton(
+              Button.text(
                 onPressed: () async {
                   await ComicSourceManager().reload();
                   App.forceRebuild();
@@ -707,10 +703,7 @@ class _BodyState extends State<_Body> {
   }
 
   Widget _buildBatchBar(BuildContext context) {
-    final compact = FilledButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      textStyle: const TextStyle(fontSize: kcBody),
-    );
+    final disabledColor = context.colorScheme.onSurfaceVariant;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 12,
@@ -718,42 +711,87 @@ class _BodyState extends State<_Body> {
       ).add(EdgeInsets.only(bottom: context.padding.bottom)),
       child: Row(
         children: [
-          FilledButton.icon(
-            onPressed: _selected.isEmpty ? null : () => batchSetDisabled(false),
-            icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-              size: 18,
+          Button.filled(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            color: _selected.isEmpty ? disabledColor : null,
+            onPressed: () {
+              if (_selected.isEmpty) return;
+              batchSetDisabled(false);
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Text("Batch enable".tl),
+              ],
             ),
-            label: Text("Batch enable".tl),
-            style: compact,
           ),
           const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: _selected.isEmpty ? null : () => batchSetDisabled(true),
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
-            label: Text("Batch disable".tl),
-            style: compact,
+          Button.filled(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            color: _selected.isEmpty ? disabledColor : null,
+            onPressed: () {
+              if (_selected.isEmpty) return;
+              batchSetDisabled(true);
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HugeIcon(
+                  icon: HugeIcons.strokeRoundedCancelCircle,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Text("Batch disable".tl),
+              ],
+            ),
           ),
           const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: _selected.isEmpty ? null : batchUpdate,
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-            label: Text("Batch update".tl),
-            style: compact,
+          Button.filled(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            color: _selected.isEmpty ? disabledColor : null,
+            onPressed: () {
+              if (_selected.isEmpty) return;
+              batchUpdate();
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+                const SizedBox(width: 6),
+                Text("Batch update".tl),
+              ],
+            ),
           ),
           const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: _selected.isEmpty ? null : batchDelete,
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-            label: Text("Batch delete".tl),
-            style: FilledButton.styleFrom(
-              backgroundColor: context.colorScheme.error,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              textStyle: const TextStyle(fontSize: kcBody),
+          Button.filled(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            color: _selected.isEmpty
+                ? disabledColor
+                : context.colorScheme.error,
+            onPressed: () {
+              if (_selected.isEmpty) return;
+              batchDelete();
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+                const SizedBox(width: 6),
+                Text("Batch delete".tl),
+              ],
             ),
           ),
           const Spacer(),
-          TextButton(
+          Button.text(
             onPressed: _exitSelection,
             child: Text("Cancel selection".tl),
           ),
@@ -1358,14 +1396,14 @@ class _BodyState extends State<_Body> {
               }),
         ),
         actions: [
-          TextButton(
+          Button.text(
             onPressed: () {
               ctx.pop();
               completer.complete(false);
             },
             child: Text("Cancel".tl),
           ),
-          FilledButton(
+          Button.filled(
             onPressed: () {
               ctx.pop();
               completer.complete(true);
@@ -1921,7 +1959,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                 decoration: BoxDecoration(
                   border: Border(
                     left: BorderSide(
-                      color: context.colorScheme.primary.withValues(alpha: 0.4),
+                      color: kcAccentColor(context).withValues(alpha: 0.4),
                       width: 3,
                     ),
                     top: BorderSide(
@@ -2254,15 +2292,10 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             ),
           ),
           const Spacer(),
-          TextButton(
+          Button.text(
             onPressed: () => _setGroupEnabled(settingKey, [
               for (final e in entries) e.value,
             ], !allOn),
-            style: TextButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: Size.zero,
-            ),
             child: Text(
               (allOn ? "Disable all" : "Enable all").tl,
               style: const TextStyle(fontSize: kcBody),
@@ -2602,7 +2635,7 @@ class _LoginPageState extends State<_LoginPage> {
                   ),
                 const SizedBox(height: 24),
                 if (widget.config.loginWebsite != null)
-                  TextButton(
+                  Button.text(
                     onPressed: () {
                       if (App.isLinux) {
                         loginWithWebview2();
@@ -2614,7 +2647,7 @@ class _LoginPageState extends State<_LoginPage> {
                   ),
                 const SizedBox(height: 8),
                 if (widget.config.registerWebsite != null)
-                  TextButton(
+                  Button.text(
                     onPressed: () =>
                         launchUrlString(widget.config.registerWebsite!),
                     child: Row(

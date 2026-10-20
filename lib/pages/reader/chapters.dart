@@ -126,14 +126,20 @@ class _ChaptersViewState extends State<_ChaptersView> {
                 ),
               Tooltip(
                 message: "Click to change the order".tl,
-                child: TextButton.icon(
-                  icon: !desc ? HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18) : HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
-                  label: Text(!desc ? "Ascending".tl : "Descending".tl),
+                child: Button.text(
                   onPressed: () {
                     setState(() {
                       desc = !desc;
                     });
                   },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      !desc ? HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18) : HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
+                      const SizedBox(width: 6),
+                      Text(!desc ? "Ascending".tl : "Descending".tl),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -148,21 +154,21 @@ class _ChaptersViewState extends State<_ChaptersView> {
                   children: [
                     ChoiceChip(
                       label: Text("All".tl),
-                      selectedColor: cs.primaryContainer,
+                      selectedColor: kcAccentSurface(context),
                       showCheckmark: false,
                       selected: _dlFilter == _ChapterDlFilter.all,
                       onSelected: (_) => _setDlFilter(_ChapterDlFilter.all),
                     ),
                     ChoiceChip(
                       label: Text("Downloaded".tl),
-                      selectedColor: cs.primaryContainer,
+                      selectedColor: kcAccentSurface(context),
                       showCheckmark: false,
                       selected: _dlFilter == _ChapterDlFilter.downloaded,
                       onSelected: (_) => _setDlFilter(_ChapterDlFilter.downloaded),
                     ),
                     ChoiceChip(
                       label: Text("Not downloaded".tl),
-                      selectedColor: cs.primaryContainer,
+                      selectedColor: kcAccentSurface(context),
                       showCheckmark: false,
                       selected: _dlFilter == _ChapterDlFilter.notDownloaded,
                       onSelected: (_) => _setDlFilter(_ChapterDlFilter.notDownloaded),
@@ -458,7 +464,7 @@ class _ChapterListTile extends StatelessWidget {
         color: isActive
             // 深色/AMOLED 下 primary 贴近白色，同一透明度在纯黑底上的对比更弱，
             // 所以深色模式给得比浅色多一点。
-            ? cs.primary.withValues(alpha: context.isDarkMode ? 0.14 : 0.08)
+            ? kcAccentColor(context).withValues(alpha: context.isDarkMode ? 0.14 : 0.08)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(kcRadius8),
         child: InkWell(
@@ -477,7 +483,7 @@ class _ChapterListTile extends StatelessWidget {
                   width: 3,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: isActive ? cs.primary : Colors.transparent,
+                    color: isActive ? kcAccentColor(context) : Colors.transparent,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -488,7 +494,7 @@ class _ChapterListTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: isActive
-                        ? TextStyle(fontSize: kcSubtitle, color: cs.primary)
+                        ? TextStyle(fontSize: kcSubtitle, color: kcBrandAdaptive(context))
                             .bold
                         : TextStyle(fontSize: kcSubtitle),
                   ),

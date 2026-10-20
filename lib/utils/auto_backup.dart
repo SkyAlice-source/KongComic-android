@@ -69,6 +69,17 @@ int _readInterval() {
   return 7;
 }
 
+/// 备份保留天数：超过该时长的旧备份在每次备份后被清理。
+///
+/// 与 [autoBackupKeepCount] 的数量上限叠加——时间维度让「保留多久」可预期，
+/// 数量维度做兜底，避免极端情况下（如长期未打开 App）备份无限堆积。
+int _readRetentionDays() {
+  final v = appdata.settings['autoBackupRetentionDays'];
+  if (v is int) return v.clamp(1, 3650);
+  if (v is String) return int.tryParse(v) ?? 30;
+  return 30;
+}
+
 const _suffixChars = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 String _randomSuffix() {
@@ -148,17 +159,40 @@ Future<void> performAutoBackup() async {
   await outFile.writeAsBytes(zipBytes);
   Log.info("AutoBackup", "Backup written to ${outFile.path}");
 
-  // 仅保留最近 autoBackupKeepCount 份，避免无限增长。
+  // 双维度清理，避免备份无限堆积：
+  // 1) 时间维度 —— 删除早于保留天数的旧备份，让「保留多久」可预期；
+  // 2) 数量维度 —— 剩余文件按修改时间排序，超出 [autoBackupKeepCount] 上限的
+  //    删最旧的，作为兜底（例如长期没打开 App、周期性任务没机会跑时）。
   try {
-    final files = Directory(backupDirPath)
+    final dir = Directory(backupDirPath);
+    if (!dir.existsSync()) return;
+    final files = dir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.name.endsWith('.kongcomic'))
+        .toList();
+    // 1) 时间维度
+    final retentionDays = _readRetentionDays();
+    final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
+    for (final f in files) {
+      try {
+        if (f.lastModifiedSync().isBefore(cutoff)) f.deleteSync();
+      } catch (_) {
+        // 单文件删除失败不应中断整批清理。
+      }
+    }
+    // 2) 数量维度（兜底）
+    final remaining = dir
         .listSync()
         .whereType<File>()
         .where((f) => f.name.endsWith('.kongcomic'))
         .toList()
       ..sort((a, b) => a.lastModifiedSync().compareTo(b.lastModifiedSync()));
-    while (files.length > autoBackupKeepCount) {
-      files.first.deleteSync();
-      files.removeAt(0);
+    while (remaining.length > autoBackupKeepCount) {
+      try {
+        remaining.first.deleteSync();
+      } catch (_) {}
+      remaining.removeAt(0);
     }
   } catch (e) {
     Log.warning("AutoBackup", "Cleanup old backups failed: $e");

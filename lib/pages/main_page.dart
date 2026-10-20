@@ -60,26 +60,18 @@ class _MainPageState extends State<MainPage> {
   }
 
   final _pages = [
-    const CategoriesPage(
-      key: PageStorageKey('categories'),
-    ),
-    const FavoritesPage(
-      key: PageStorageKey('favorites'),
-    ),
+    const CategoriesPage(key: PageStorageKey('categories')),
+    const FavoritesPage(key: PageStorageKey('favorites')),
     const HomePage(),
-    const ExplorePage(
-      key: PageStorageKey('explore'),
-    ),
-    const HistoryPage(
-      key: PageStorageKey('history'),
-    ),
+    const ExplorePage(key: PageStorageKey('explore')),
+    const HistoryPage(key: PageStorageKey('history')),
   ];
 
   var index = 2; // Home tab (index 2)
 
   /// 列表/网格切换按钮仅在「收藏(1)/发现(3)/历史(4)」显示，
   /// 这三个页面都用 comicDisplayMode 渲染漫画。
-  bool get _showLayoutToggle => index == 1 || index == 3 || index == 4;
+  bool get _showLayoutToggle => index == 3 || index == 4;
 
   /// 当前是否为详细列表模式（detailed）。否则为简洁网格（brief）。
   bool get _isDetailedLayout => appdata.settings['comicDisplayMode'] != 'brief';
@@ -93,13 +85,22 @@ class _MainPageState extends State<MainPage> {
       paneItems: [
         PaneItemEntry(
           label: 'Categories'.tl,
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedDashboardCircle, size: 22),
-          activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedDashboardCircle, size: 22),
+          icon: HugeIcon(
+            icon: HugeIcons.strokeRoundedDashboardCircle,
+            size: 22,
+          ),
+          activeIcon: HugeIcon(
+            icon: HugeIcons.strokeRoundedDashboardCircle,
+            size: 22,
+          ),
         ),
         PaneItemEntry(
           label: 'Favorites'.tl,
           icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 22),
-          activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 22),
+          activeIcon: HugeIcon(
+            icon: HugeIcons.strokeRoundedFavourite,
+            size: 22,
+          ),
         ),
         PaneItemEntry(
           label: 'Home'.tl,
@@ -109,7 +110,10 @@ class _MainPageState extends State<MainPage> {
         PaneItemEntry(
           label: 'Explore'.tl,
           icon: HugeIcon(icon: HugeIcons.strokeRoundedCompass01, size: 22),
-          activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedCompass01, size: 22),
+          activeIcon: HugeIcon(
+            icon: HugeIcons.strokeRoundedCompass01,
+            size: 22,
+          ),
         ),
         PaneItemEntry(
           label: 'History'.tl,
@@ -135,8 +139,9 @@ class _MainPageState extends State<MainPage> {
                 ? "Switch to grid view".tl
                 : "Switch to list view".tl,
             onTap: () {
-              appdata.settings['comicDisplayMode'] =
-                  _isDetailedLayout ? 'brief' : 'detailed';
+              appdata.settings['comicDisplayMode'] = _isDetailedLayout
+                  ? 'brief'
+                  : 'detailed';
               appdata.saveData();
             },
           ),
@@ -153,14 +158,17 @@ class _MainPageState extends State<MainPage> {
           onTap: () {
             to(() => const SettingsPage(), preventDuplicate: true);
           },
-        )
+        ),
       ],
       pageBuilder: (index) {
         return _pages[index];
       },
-      // 收藏页(1)与历史页(4)均显示全局粗体标题（"收藏"/"历史"），
-      // 操作按钮各自承载在页面内部 SliverAppbar，故无需隐藏任何全局标题。
+      // 收藏页(1)与历史页(4)均自带完整顶栏（标题 + 工具胶囊条），故隐藏共享顶栏
+      // 避免「两排工具栏」；历史页在下面 topBarHiddenPages 单独声明。
       topBarTitleHiddenPages: const [],
+      // 历史页自绘 SliverAppbar（标题 + 胶囊工具条），共享顶栏整体让位，
+      // 这样它和收藏页一样只有一条工具栏（同一套 ToolsPill 外观）。
+      topBarHiddenPages: const [4],
     );
   }
 }

@@ -225,7 +225,7 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
             height: double.infinity,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(kcRadius8),
-              color: context.colorScheme.primaryContainer,
+              color: context.colorScheme.surfaceContainerLow,
             ),
             clipBehavior: Clip.antiAlias,
             child: widget.task.cover == null
@@ -233,7 +233,7 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
                     child: HugeIcon(
                       icon: HugeIcons.strokeRoundedImage01,
                       size: 28,
-                      color: cs.onPrimaryContainer,
+                      color: cs.onSurfaceVariant,
                     ),
                   )
                 : Image(
@@ -307,10 +307,10 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile> {
                   borderRadius: BorderRadius.circular(kcPillRadius),
                   color: isDark
                       ? Color.alphaBlend(
-                          cs.primary.withValues(alpha: 0.34),
+                          kcAccentColor(context).withValues(alpha: 0.34),
                           cs.surface,
                         )
-                      : cs.primary,
+                      : kcAccentColor(context),
                   backgroundColor: isDark
                       ? Color.alphaBlend(
                           cs.onSurface.withValues(alpha: 0.08),

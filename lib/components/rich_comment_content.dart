@@ -41,7 +41,7 @@ class _Tag {
       'i' => style.italic,
       'u' => style.underline,
       's' => style.lineThrough,
-      'a' => style.withColor(context.colorScheme.primary),
+      'a' => style.withColor(kcBrandAdaptive(context)),
       'strong' => style.bold,
       'span' => () {
         if (attributes.containsKey('style')) {
@@ -261,7 +261,7 @@ class _RichCommentContentState extends State<RichCommentContent> {
           textSpan.add(
             TextSpan(
               text: url,
-              style: ts.withColor(context.colorScheme.primary),
+              style: ts.withColor(kcBrandAdaptive(context)),
               recognizer: TapGestureRecognizer()
                 ..onTap = () {
                   _Tag.handleLink(url);

@@ -383,7 +383,10 @@ class _SwitchSetting extends StatefulWidget {
 class _SwitchSettingState extends State<_SwitchSetting> {
   @override
   Widget build(BuildContext context) {
-    bool value = widget.comicId != null
+    // 先取 dynamic 再 `== true` 归一化：老版本 appdata.json 里可能根本没有这个
+    // key（新增设置项若漏写进 Settings 的默认值表），直接 `bool v = ...` 会在
+    // 运行时抛 `type 'Null' is not a subtype of type 'bool'`，整行渲染成红色报错。
+    final dynamic rawValue = widget.comicId != null
         ? appdata.settings.getReaderSetting(
             widget.comicId!,
             widget.comicSource!,
@@ -392,6 +395,7 @@ class _SwitchSettingState extends State<_SwitchSetting> {
         : widget.useDeviceSettings
         ? appdata.settings.getDeviceReaderSetting(widget.settingKey)
         : appdata.settings[widget.settingKey];
+    final bool value = rawValue == true;
 
     void toggle(bool v) {
       HapticFeedback.selectionClick();
@@ -513,10 +517,7 @@ class _SelectSettingState extends State<SelectSetting> {
     final rect = offset & renderBox.size;
     final keys = widget.optionTranslation.keys.toList();
     // 选中态用品牌强调色；暗色零彩色，改用中性灰（主题 primary），菜单里不再冒红。
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accentText = isDark
-        ? Theme.of(context).colorScheme.primary
-        : kcBrandColor;
+    final accentText = kcBrandAdaptive(context);
     // 锚点必须落在行的右端，否则菜单会从屏幕左边弹出来：
     // showMenu 按「position.left < position.right 就向右展开」定位，
     // 传入整行（左 0 / 右 = 屏宽）时永远得到 left = 0。这里只传行右端
@@ -831,10 +832,16 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
       title: widget.title,
       tailing: [
         if (keys.length < widget.pages.length)
-          TextButton.icon(
-            label: Text("Add".tl),
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
+          Button.text(
             onPressed: showAddDialog,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
+                const SizedBox(width: 6),
+                Text("Add".tl),
+              ],
+            ),
           ),
       ],
       body: view,
@@ -920,7 +927,7 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
               ),
               actions: [
                 if (selected.length < canAdd.length)
-                  TextButton(
+                  Button.text(
                     child: Text("Select All".tl),
                     onPressed: () {
                       setState(() {
@@ -929,7 +936,7 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
                     },
                   )
                 else
-                  TextButton(
+                  Button.text(
                     child: Text("Deselect All".tl),
                     onPressed: () {
                       setState(() {
@@ -938,15 +945,17 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
                     },
                   ),
                 const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: selected.isNotEmpty
-                      ? () {
-                          this.setState(() {
-                            keys.addAll(selected);
-                          });
-                          Navigator.pop(context);
-                        }
+                Button.filled(
+                  color: selected.isEmpty
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
                       : null,
+                  onPressed: () {
+                    if (selected.isEmpty) return;
+                    this.setState(() {
+                      keys.addAll(selected);
+                    });
+                    Navigator.pop(context);
+                  },
                   child: Text("Add".tl),
                 ),
               ],

@@ -23,6 +23,7 @@ import 'package:kong_comic/utils/translations.dart';
 import 'foundation/appdata.dart';
 import 'package:kong_comic/utils/auto_backup.dart';
 import 'package:kong_comic/utils/notifications.dart';
+import 'package:kong_comic/utils/source_auto_update.dart';
 
 Timer? _heartbeatTimer;
 
@@ -92,6 +93,9 @@ void _scheduleDeferredInit() {
       } catch (e, s) {
         Log.error("deferred init", "$e\n$s");
       }
+
+      // 漫画源自动更新：UI 已挂载，根 context 可用；开关关闭时内部直接返回。
+      initAutoSourceUpdate().wait();
 
       if (App.isAndroid) {
         handleLinks();

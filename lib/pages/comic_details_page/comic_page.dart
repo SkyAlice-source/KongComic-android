@@ -139,7 +139,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     );
     Widget? action;
     if (isDownloaded) {
-      action = FilledButton.tonal(
+      action = Button.filled(
         child: Text("Read".tl),
         onPressed: () {
           final localComic = LocalManager().find(
@@ -377,7 +377,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               tag: "cover${widget.heroID}",
               child: Container(
                 decoration: BoxDecoration(
-                  color: context.colorScheme.primaryContainer,
+                  color: context.colorScheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(kcCardRadius),
                   boxShadow: [
                     BoxShadow(
@@ -527,31 +527,19 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
               child: SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
+                child: Button.filled(
                   onPressed: read,
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedPlayCircle,
-                    size: 20,
-                  ),
-                  label: Text("Read".tl),
-                  style: FilledButton.styleFrom(
-                    // 暗色（含 AMOLED 灰阶）统一用品牌红：否则主 CTA 会跟
-                    // 下面的章节描边一样褪成灰色，页面上再没有视觉落点。
-                    backgroundColor: kcAccentColor(context),
-                    foregroundColor: Colors.white,
-                    // AMOLED 主题给 FilledButton 强加了灰底 + 灰描边（main.dart），
-                    // 这里显式清掉描边，否则红底外还会套一圈灰线。
-                    side: BorderSide.none,
-                    // 52dp：满宽 CTA 需要比次级按钮更有分量，仍远高于 48dp 触摸目标。
-                    minimumSize: const Size(0, 52),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    textStyle: const TextStyle(
-                      fontSize: kcFont15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(kcPillRadius),
-                    ),
+                  height: 52,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedPlayCircle,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text("Read".tl),
+                    ],
                   ),
                 ),
               ),
@@ -640,7 +628,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
           if (needFold)
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(
+              child: Button.text(
                 onPressed: () => setState(() => _descExpanded = !_descExpanded),
                 child: Text(
                   _descExpanded ? "Collapse".tl : "Show more".tl,
@@ -1141,7 +1129,7 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
                 return ColoredBox(
                   // 勾选行给一层极浅的主色底，长列表里一眼能看出自己勾了哪几行。
                   color: isSelected
-                      ? cs.primary.withValues(alpha: 0.06)
+                      ? kcAccentColor(context).withValues(alpha: 0.10)
                       : Colors.transparent,
                   child: CheckboxListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1176,7 +1164,7 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
               children: [
                 const SizedBox(width: 16),
                 Expanded(
-                  child: TextButton(
+                  child: Button.text(
                     onPressed: () {
                       var res = <int>[];
                       for (int i = 0; i < widget.eps.length; i++) {
@@ -1196,19 +1184,21 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: FilledButton(
-                    onPressed: selected.isEmpty
-                        ? null
-                        : () {
-                            widget.finishSelect(selected);
-                            context.pop();
-                          },
-                    child: Text(
-                      "${"Download Selected".tl} (${selected.length})",
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  child: Button.filled(
+                  onPressed: () {
+                    if (selected.isEmpty) return;
+                    widget.finishSelect(selected);
+                    context.pop();
+                  },
+                  color: selected.isEmpty
+                      ? context.colorScheme.surfaceContainerHighest
+                      : null,
+                  child: Text(
+                    "${"Download Selected".tl} (${selected.length})",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
                 ),
                 const SizedBox(width: 16),
               ],
@@ -1574,8 +1564,8 @@ class _DownloadStatusCard extends StatelessWidget {
     final barColor = failed
         ? cs.error
         : paused
-        ? cs.primary.withValues(alpha: 0.45)
-        : cs.primary;
+                  ? kcAccentColor(context).withValues(alpha: 0.45)
+                  : kcAccentColor(context);
 
     final title = failed ? 'Download failed'.tl : 'Downloading'.tl;
 
@@ -1616,7 +1606,7 @@ class _DownloadStatusCard extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: failed ? cs.errorContainer : cs.primaryContainer,
+                      color: failed ? cs.errorContainer : cs.surfaceContainerLow,
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -1629,7 +1619,7 @@ class _DownloadStatusCard extends StatelessWidget {
                         size: 21,
                         color: failed
                             ? cs.onErrorContainer
-                            : cs.onPrimaryContainer,
+                            : kcBrandAdaptive(context),
                       ),
                     ),
                   ),

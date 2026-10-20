@@ -224,7 +224,7 @@ class _UpdateBannerOverlay extends StatelessWidget {
                     HugeIcon(
                       icon: HugeIcons.strokeRoundedArrowRight01,
                       size: 18,
-                      color: colorScheme.primary,
+                      color: kcBrandAdaptive(context),
                     ).paddingLeft(8),
                   ],
                 ),
@@ -445,10 +445,10 @@ LoadingDialogController showLoadingDialog(
                           minHeight: 8,
                           color: context.colorScheme.brightness == Brightness.dark
                               ? Color.alphaBlend(
-                                  context.colorScheme.primary.withValues(alpha: 0.34),
+                                  kcAccentColor(context).withValues(alpha: 0.34),
                                   context.colorScheme.surface,
                                 )
-                              : context.colorScheme.primary,
+                              : kcAccentColor(context),
                           backgroundColor:
                               context.colorScheme.surfaceContainerHighest,
                         ),
@@ -503,6 +503,8 @@ class ContentDialog extends StatelessWidget {
   const ContentDialog({
     super.key,
     this.title, // 如果不传 title 将不会展示
+    this.subtitle,
+    this.headerIcon,
     required this.content,
     this.dismissible = true,
     this.actions = const [],
@@ -511,6 +513,19 @@ class ContentDialog extends StatelessWidget {
   });
 
   final String? title;
+
+  /// 可选：标题下方的一行说明（如「选择导入方式」）。
+  ///
+  /// 传了它或 [headerIcon] 之后，标题栏会从「×+标题」切换成
+  /// 「图标徽章 + 标题 + 说明」的富头部：纯选择类弹窗里左上角的 × 只是
+  /// 第三个关闭入口（点遮罩、返回键都能退），却把标题挤到一边、顶部左重右空。
+  /// 换成徽章后顶部有了视觉锚点，这类弹窗建议同时传 `showClose: false`。
+  final String? subtitle;
+
+  /// 可选：标题栏左侧的图标徽章（品牌红薄染底 + 品牌色图标）。
+  ///
+  /// 传了它（或 [subtitle]）即启用富头部样式。
+  final List<List<dynamic>>? headerIcon;
 
   final Widget content;
 
@@ -536,6 +551,72 @@ class ContentDialog extends StatelessWidget {
   /// 对话框正文推荐的水平内边距（与 `ListTile` 默认的一致，16dp）。
   static const EdgeInsets hPadding = EdgeInsets.symmetric(horizontal: 16);
 
+  /// 富头部：图标徽章 + 标题 + 说明（见 [subtitle] / [headerIcon]）。
+  ///
+  /// 徽章用品牌色低透明度叠在弹窗面上（AMOLED 下随 [kcBrandAdaptive] 退成
+  /// 中性灰），不做实心红块——弹窗里最重要的是标题文字，徽章只负责定位视线。
+  Widget _buildRichHeader(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = kcBrandAdaptive(context);
+    return Padding(
+      // 左右收到 16：与正文（contentPadding: hPadding）左缘对齐。
+      padding: const EdgeInsets.fromLTRB(16, 16, 12, 0),
+      child: Row(
+        children: [
+          if (headerIcon != null)
+            Container(
+              width: 42,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(kcCardRadius),
+              ),
+              child: HugeIcon(icon: headerIcon!, size: 22, color: accent),
+            ).paddingRight(kcSpaceMd),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title!,
+                  style: TextStyle(
+                    fontSize: kcTitleLarge,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                    height: 1.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(
+                      fontSize: kcCaption,
+                      height: 1.3,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (showClose)
+            Button.icon(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
+              onPressed: dismissible ? context.pop : () {},
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var content = SingleChildScrollView(
@@ -544,42 +625,45 @@ class ContentDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null) ...[
-            Padding(
-              // 关闭键左内边距收到 8：图标自带的点击热区已经是一圈留白，
-              // 再叠 16 会让标题被推得离边缘太远，正文与标题的左缘也错开。
-              padding: const EdgeInsets.fromLTRB(8, 10, 16, 0),
-              child: Row(
-                children: [
-                  if (showClose)
-                    Button.icon(
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedCancel01,
-                        size: 18,
+            if (subtitle != null || headerIcon != null)
+              _buildRichHeader(context)
+            else
+              Padding(
+                // 关闭键左内边距收到 8：图标自带的点击热区已经是一圈留白，
+                // 再叠 16 会让标题被推得离边缘太远，正文与标题的左缘也错开。
+                padding: const EdgeInsets.fromLTRB(8, 10, 16, 0),
+                child: Row(
+                  children: [
+                    if (showClose)
+                      Button.icon(
+                        icon: HugeIcon(
+                          icon: HugeIcons.strokeRoundedCancel01,
+                          size: 18,
+                        ),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant
+                            .withValues(alpha: 0.85),
+                        // 不可关闭时给一个空回调：按钮保留但点击无效，
+                        // 既暗示有关闭入口，又不破坏「非 dismissible」语义。
+                        onPressed: dismissible ? context.pop : () {},
                       ),
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurfaceVariant
-                          .withValues(alpha: 0.85),
-                      // 不可关闭时给一个空回调：按钮保留但点击无效，
-                      // 既暗示有关闭入口，又不破坏「非 dismissible」语义。
-                      onPressed: dismissible ? context.pop : () {},
-                    ),
-                  Expanded(
-                    child: Text(
-                      title!,
-                      style: TextStyle(
-                        fontSize: kcTitleLarge,
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurface,
-                        height: 1.3,
+                    Expanded(
+                      child: Text(
+                        title!,
+                        style: TextStyle(
+                          fontSize: kcTitleLarge,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          height: 1.3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             // 标题与正文之间留一口气：贴在一起时两段文字会挤成一坨。
             const SizedBox(height: 8),
           ],
@@ -976,7 +1060,7 @@ class _ImageSaveFormatTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: borderRadius,
             border: Border.all(
-              color: selected ? scheme.primary : scheme.outlineVariant,
+              color: selected ? kcAccentColor(context) : scheme.outlineVariant,
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -985,7 +1069,7 @@ class _ImageSaveFormatTile extends StatelessWidget {
               HugeIcon(
                 icon: _icon,
                 size: 20,
-                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                color: selected ? kcBrandAdaptive(context) : scheme.onSurfaceVariant,
               ),
               const SizedBox(width: kcSpaceMd),
               Expanded(
@@ -1037,7 +1121,7 @@ class _RadioDot extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: selected ? scheme.primary : scheme.outlineVariant,
+          color: selected ? kcAccentColor(context) : scheme.outlineVariant,
           width: 2,
         ),
       ),
@@ -1048,7 +1132,7 @@ class _RadioDot extends StatelessWidget {
                 height: 9,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: scheme.primary,
+                  color: kcAccentColor(context),
                 ),
               ),
             )

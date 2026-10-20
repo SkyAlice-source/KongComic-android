@@ -228,10 +228,7 @@ class ComicTile extends StatelessWidget {
                   widthFactor: progress,
                   alignment: Alignment.centerLeft,
                   child: Container(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.70),
+                    color: kcAccentColor(context).withValues(alpha: 0.70),
                   ),
                 ),
               Center(
@@ -303,29 +300,58 @@ class ComicTile extends StatelessWidget {
     );
   }
 
-  Widget _buildFavoriteBadge(BuildContext context) {
-    return Container(
-      width: 18,
-      height: 18,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.25),
-          width: 0.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+  /// 折角尺寸随封面宽度线性缩放。
+  ///
+  /// 夹在 16–26 之间：小于 16 时白心在 3x 屏上糊成一个点；大于 26 时
+  /// 折角会越过封面中部，开始吃封面信息。列表模式封面只有 60 上下，
+  /// 走同一个公式就不会出现「小封面上顶着一颗大折角」。
+  double _favoriteBadgeSize(double coverWidth) =>
+      (coverWidth * 0.19).clamp(16.0, 28.0);
+
+  /// 收藏角标：封面右上角的「书角」三角折角。
+  ///
+  /// 旧实现是白色圆形 + 红心，悬浮在圆角封面上——四个角里只有它不是圆角，
+  /// 圆形的直角边和卡片圆角互相打架，看着像贴了张创可贴，还压住了封面内容。
+  /// 三角折角的两条直角边直接与封面两条边重合，斜边天生就是「折线」；
+  /// 外层再按封面圆角裁一刀（见调用处），尖角被吃掉，角标就真正长在
+  /// 封面上了，而不是浮在上面。面积也只有旧圆点的约一半，不抢封面。
+  ///
+  /// 折角面用三档渐变 + 折痕高光 + 投影做出「翻起的纸角」体积感；白心带
+  /// 一点投影，红底白字在任意封面亮度下都读得清。
+  Widget _buildFavoriteCornerBadge(BuildContext context, double size) {
+    // 心形落在三角内切圆心：直角边长为 size 的等腰直角三角形，
+    // 内切圆半径 = size * (2-√2)/2 ≈ 0.293 * size，圆心距右边/上边各 0.293 * size。
+    final iconSize = size * 0.46;
+    final inset = size * 0.2929 - iconSize / 2;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _CornerFoldPainter(
+                color: kcAccentColor(context),
+              ),
+            ),
+          ),
+          Positioned(
+            top: inset,
+            right: inset,
+            child: Icon(
+              Icons.favorite,
+              size: iconSize,
+              color: kcOnAccentColor,
+              shadows: const [
+                Shadow(
+                  color: Color(0x40000000),
+                  blurRadius: 1.5,
+                  offset: Offset(0, 0.5),
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-      child: Icon(
-        Icons.favorite,
-        size: 10,
-        color: kcBrandAdaptive(context),
       ),
     );
   }
@@ -398,11 +424,20 @@ class ComicTile extends StatelessWidget {
     return LayoutBuilder(builder: (context, constrains) {
       final height = constrains.maxHeight - 16;
 
+      // 列表模式封面宽度 = 行高 * 0.68，角标按它取档，与网格模式同一套比例。
+      final coverWidth = height * 0.68;
+      final badgeSize = _favoriteBadgeSize(coverWidth);
       final favBadge = isFavorite
-          ? Positioned(
-              right: 4,
-              top: 4,
-              child: _buildFavoriteBadge(context),
+          ? Positioned.fill(
+              child: IgnorePointer(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(kcCardInnerRadius),
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: _buildFavoriteCornerBadge(context, badgeSize),
+                  ),
+                ),
+              ),
             )
           : null;
 
@@ -492,11 +527,23 @@ class ComicTile extends StatelessWidget {
   Widget _buildBriefMode(BuildContext context, Widget? histBadge, bool isFavorite) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        // 折角随封面宽度缩放（网格卡座的 padding 左右各 6，实际封面更窄，
+        // 但同一档位下的比例关系不变，没必要在这里再减）。
+        final badgeSize = _favoriteBadgeSize(constraints.maxWidth);
         final favBadge = isFavorite
-            ? Positioned(
-                right: 0,
-                top: 0,
-                child: _buildFavoriteBadge(context),
+            ? Positioned.fill(
+                // 角标要「长在」封面上：按封面同款圆角裁一刀，折角的尖
+                // 因此被吃掉一点，看起来是沿着圆角包过去的，而不是贴在
+                // 直角边上。整层铺满封面但只画右上角那一块。
+                child: IgnorePointer(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(kcCardInnerRadius),
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: _buildFavoriteCornerBadge(context, badgeSize),
+                    ),
+                  ),
+                ),
               )
             : null;
 
@@ -633,7 +680,11 @@ class ComicTile extends StatelessWidget {
                         }
 
                         return Padding(
-                          padding: EdgeInsets.only(top: isFavorite ? 28 : 0),
+                          // 让位高度跟折角尺寸走：折角占 badgeSize 见方，
+                          // 再留 2px 呼吸，右上角的信息条不会被斜边切到。
+                          padding: EdgeInsets.only(
+                            top: isFavorite ? badgeSize + 2 : 0,
+                          ),
                           child: Container(
                             margin: const EdgeInsets.fromLTRB(2, 0, 2, 2),
                             padding: constraints.maxWidth < 80
@@ -814,6 +865,67 @@ class ComicTile extends StatelessWidget {
       },
     );
   }
+}
+
+/// 画右上角的三角折角：直角边贴封面上边与右边，斜边即「折线」。
+///
+/// 用渐变而不是纯色，是为了让折角有一点纸的厚度感；再沿斜边内侧压一道
+/// 浅色细线，三角形才会被读成「翻起的纸角」而不是一块随便糊上去的色块。
+class _CornerFoldPainter extends CustomPainter {
+  const _CornerFoldPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // 折角三角：两条直角边贴封面顶/右边，斜边 (0,0)->(w,h) 即折痕。
+    final flap = Path()
+      ..moveTo(w, 0)
+      ..lineTo(0, 0)
+      ..lineTo(w, h)
+      ..close();
+
+    // 1) 折角在封面侧的投影：沿折痕往封面方向偏移，让折角像从封面「掀起」。
+    canvas.drawLine(
+      const Offset(1.8, 1.8),
+      Offset(w + 1.8, h + 1.8),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.20)
+        ..strokeWidth = 4.0
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0),
+    );
+
+    // 2) 折角面：三档渐变（顶角受光更亮 → 品牌红 → 折痕侧更深），折纸体积感。
+    final light = Color.lerp(color, Colors.white, 0.26)!;
+    final deep = Color.lerp(color, Colors.black, 0.24)!;
+    canvas.drawPath(
+      flap,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [light, color, deep],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(Rect.fromLTWH(0, 0, w, h)),
+    );
+
+    // 3) 折痕高光：贴着斜边的一道亮棱，是翻起纸边的受光面。
+    canvas.drawLine(
+      const Offset(1.0, 1.0),
+      Offset(w - 1.0, h - 1.0),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.58)
+        ..strokeWidth = 1.1
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CornerFoldPainter oldDelegate) => oldDelegate.color != color;
 }
 
 class _ComicDescription extends StatelessWidget {
@@ -1491,23 +1603,11 @@ class ComicListState extends State<ComicList> {
       required VoidCallback? onPressed,
       required bool primary,
     }) {
-      return FilledButton(
-        onPressed: onPressed,
-        style: primary
-            ? null
-            : ButtonStyle(
-                backgroundColor: WidgetStateProperty.resolveWith(
-                  (states) => states.contains(WidgetState.disabled)
-                      ? cs.onSurface.withValues(alpha: 0.06)
-                      : cs.surfaceContainerHighest,
-                ),
-                foregroundColor: WidgetStateProperty.resolveWith(
-                  (states) => states.contains(WidgetState.disabled)
-                      ? cs.onSurface.withValues(alpha: 0.30)
-                      : cs.onSurface,
-                ),
-                elevation: const WidgetStatePropertyAll(0),
-              ),
+      final disabled = onPressed == null;
+      return Button(
+        type: primary ? ButtonType.filled : ButtonType.normal,
+        color: disabled ? cs.surfaceContainerHighest : null,
+        onPressed: onPressed ?? () {},
         child: Text(label),
       ).fixWidth(84);
     }
@@ -1795,7 +1895,7 @@ class ComicListState extends State<ComicList> {
                 ),
                 const SizedBox(height: 8),
                 Center(
-                  child: OutlinedButton(
+                  child: Button.outlined(
                     onPressed: () {
                       setState(() {
                         _error = null;
@@ -2439,7 +2539,7 @@ class PaginatedSliverGridComicsState
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: kcSpaceSm),
-                      TextButton(
+                      Button.text(
                         onPressed: retry,
                         child: Text("Retry".tl),
                       ),

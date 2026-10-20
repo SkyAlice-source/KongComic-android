@@ -363,6 +363,14 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
             },
           ).toSliver(),
         if (App.isAndroid)
+          _SwitchSetting(
+            title: "Auto-update comic sources".tl,
+            settingKey: 'autoUpdateSourcesEnabled',
+            subtitle:
+                "Automatically update installed sources on WiFi. Overrides local source edits.".tl,
+            onChanged: () => setState(() {}),
+          ).toSliver(),
+        if (App.isAndroid)
           _CallbackSetting(
             title: "Backup Interval".tl,
             subtitle:
@@ -383,6 +391,33 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
                     int.parse(options[result]);
                 await appdata.saveData();
                 await initAutoBackup();
+                setState(() {});
+              }
+            },
+            actionTitle: 'Set'.tl,
+          ).toSliver(),
+        if (App.isAndroid)
+          _CallbackSetting(
+            title: "Backup Retention".tl,
+            subtitle:
+                "@count days".tlParams({'count': appdata.settings['autoBackupRetentionDays'] ?? 30}),
+            callback: () async {
+              final options = ["7", "30", "90", "180", "365"];
+              final current =
+                  (appdata.settings['autoBackupRetentionDays'] as int? ?? 30);
+              var index = options.indexOf(current.toString());
+              if (index < 0) index = 1;
+              final result = await showSelectDialog(
+                title: "Backup Retention".tl,
+                options: options
+                    .map((e) => "@count days".tlParams({'count': e}))
+                    .toList(),
+                initialIndex: index,
+              );
+              if (result != null) {
+                appdata.settings['autoBackupRetentionDays'] =
+                    int.parse(options[result]);
+                await appdata.saveData();
                 setState(() {});
               }
             },
@@ -709,7 +744,7 @@ class _LogsPageState extends State<LogsPage> {
                           color: [
                             Theme.of(context).colorScheme.error,
                             Theme.of(context).colorScheme.errorContainer,
-                            Theme.of(context).colorScheme.primaryContainer
+                            kcAccentSurface(context)
                           ][logToShow[index].level.index],
                           borderRadius:
                               const BorderRadius.all(Radius.circular(kcRadius16)),
@@ -722,9 +757,7 @@ class _LogsPageState extends State<LogsPage> {
                                 color: [
                               Theme.of(context).colorScheme.onError,
                               Theme.of(context).colorScheme.onErrorContainer,
-                              Theme.of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer
+                              kcBrandAdaptive(context)
                             ][logToShow[index].level.index]),
                           ),
                         ),
@@ -735,7 +768,7 @@ class _LogsPageState extends State<LogsPage> {
                   Text(logToShow[index].time
                       .toString()
                       .replaceAll(RegExp(r"\.\w+"), "")),
-                  TextButton(
+                  Button.text(
                     onPressed: () {
                       Clipboard.setData(
                           ClipboardData(text: logToShow[index].content));
@@ -944,7 +977,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                   ? Container(
                       padding: const EdgeInsets.all(kcSpaceSm),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
+                        color: kcAccentSurface(context),
                         borderRadius: BorderRadius.circular(kcRadius8),
                       ),
                       child: Row(

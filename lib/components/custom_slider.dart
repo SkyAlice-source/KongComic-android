@@ -73,10 +73,10 @@ class _CustomSliderState extends State<CustomSlider> {
     final barSurface = colorScheme.surface;
     final fillColor = isDark
         ? Color.alphaBlend(
-            colorScheme.primary.withValues(alpha: 0.34),
+            kcAccentColor(context).withValues(alpha: 0.34),
             barSurface,
           )
-        : colorScheme.primary;
+        : kcAccentColor(context);
     final onFillColor = isDark ? colorScheme.onSurface : colorScheme.onPrimary;
     final trackColor = isDark
         ? Color.alphaBlend(

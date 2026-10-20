@@ -357,7 +357,7 @@ class _ComicImageState extends State<ComicImage> with WidgetsBindingObserver {
                         child: Text(
                           "Retry".tl,
                           style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary),
+                              color: kcBrandAdaptive(context)),
                         ),
                       ),
                     ),

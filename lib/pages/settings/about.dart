@@ -239,7 +239,7 @@ class _MirrorTestTileState extends State<_MirrorTestTile> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: results.map((r) {
               final color = r.ok
-                  ? Theme.of(context).colorScheme.primary
+                  ? kcBrandAdaptive(context)
                   : Theme.of(context).colorScheme.error;
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
@@ -333,7 +333,7 @@ MarkdownStyleSheet _mdStyleSheet(BuildContext context) {
     p: base,
     listBullet: base,
     a: base.copyWith(
-      color: theme.colorScheme.primary,
+      color: kcBrandAdaptive(context),
       decoration: TextDecoration.underline,
     ),
     code: base.copyWith(
@@ -775,12 +775,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
       children: [
         LinearProgressIndicator(
           value: _progress,
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Color.alphaBlend(
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.34),
-                  Theme.of(context).colorScheme.surface,
-                )
-              : Theme.of(context).colorScheme.primary,
+          color: kcAccentColor(context),
           backgroundColor: Theme.of(context).brightness == Brightness.dark
               ? Color.alphaBlend(
                   Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),

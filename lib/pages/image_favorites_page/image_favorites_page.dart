@@ -127,23 +127,6 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
     super.dispose();
   }
 
-  Widget buildMultiSelectMenu() {
-    return MenuButton(entries: [
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-        text: "Delete".tl,
-        onClick: () {
-          ImageFavoriteManager()
-              .deleteImageFavorite(selectedImageFavorites.keys);
-          setState(() {
-            multiSelectMode = false;
-            selectedImageFavorites.clear();
-          });
-        },
-      )
-    ]);
-  }
-
   var scrollController = ScrollController();
 
   void selectAll() {
@@ -178,15 +161,32 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
   @override
   Widget build(BuildContext context) {
     List<Widget> selectActions = [
-      IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
+      ToolsPill(children: [
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
           tooltip: "Select All".tl,
-          onPressed: selectAll),
-      IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+          onPressed: selectAll,
+        ),
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedCancel01,
           tooltip: "Deselect".tl,
-          onPressed: deSelect),
-      buildMultiSelectMenu(),
+          onPressed: deSelect,
+        ),
+        ToolsPillMoreButton(entries: [
+          MenuEntry(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+            text: "Delete".tl,
+            onClick: () {
+              ImageFavoriteManager()
+                  .deleteImageFavorite(selectedImageFavorites.keys);
+              setState(() {
+                multiSelectMode = false;
+                selectedImageFavorites.clear();
+              });
+            },
+          ),
+        ]),
+      ]),
     ];
 
     var scrollWidget = SmoothCustomScrollView(
@@ -196,39 +196,35 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
           SliverAppbar(
             title: Text("Image Favorites".tl),
             actions: [
-              Tooltip(
-                message: "Search".tl,
-                child: IconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18),
+              ToolsPill(children: [
+                ToolsPillButton(
+                  icon: HugeIcons.strokeRoundedSearch02,
+                  tooltip: "Search".tl,
                   onPressed: () {
                     setState(() {
                       searchMode = true;
                     });
                   },
                 ),
-              ),
-              Tooltip(
-                message: "Sort".tl,
-                child: IconButton(
-                  isSelected: timeFilterSelect != TimeRange.all ||
+                ToolsPillButton(
+                  icon: HugeIcons.strokeRoundedSortDescending,
+                  active: timeFilterSelect != TimeRange.all ||
                       numFilterSelect != numFilterList[0],
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSortDescending, size: 18),
+                  tooltip: "Sort".tl,
                   onPressed: sort,
                 ),
-              ),
-              Tooltip(
-                message: multiSelectMode
-                    ? "Exit Multi-Select".tl
-                    : "Multi-Select".tl,
-                child: IconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
+                ToolsPillButton(
+                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                  tooltip: multiSelectMode
+                      ? "Exit Multi-Select".tl
+                      : "Multi-Select".tl,
                   onPressed: () {
                     setState(() {
                       multiSelectMode = !multiSelectMode;
                     });
                   },
                 ),
-              ),
+              ]),
             ],
           )
         else if (multiSelectMode)
@@ -455,7 +451,7 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
                       children: [
                         ListTile(
                           title: Text("Start Time".tl),
-                          trailing: TextButton(
+                          trailing: Button.text(
                             onPressed: () async {
                               final date = await showDatePicker(
                                 context: context,
@@ -476,7 +472,7 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
                         ),
                         ListTile(
                           title: Text("End Time".tl),
-                          trailing: TextButton(
+                          trailing: Button.text(
                             onPressed: () async {
                               final date = await showDatePicker(
                                 context: context,
@@ -517,7 +513,7 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
         ),
       ),
       actions: [
-        FilledButton(
+        Button.filled(
           onPressed: () {
             // In custom mode neither date is pre-filled, and picking only one
             // (or none) would make `end!`/`start!` below throw — the dialog

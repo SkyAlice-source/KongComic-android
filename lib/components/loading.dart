@@ -242,9 +242,9 @@ class NetworkError extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 24),
-            if (retry != null)
+              if (retry != null)
               if (cfe != null)
-                FilledButton(
+                Button.filled(
                   onPressed: () => passCloudflare(
                     CloudflareException.fromString(message)!,
                     retry!,
@@ -257,14 +257,14 @@ class NetworkError extends StatelessWidget {
                   children: [
                     if (action != null)
                       action!.paddingRight(8),
-                    FilledButton.tonal(
-                      onPressed: retry,
+                    Button.filled(
+                      onPressed: () => retry?.call(),
                       child: Text(buttonText ?? 'Retry'.tl),
                     ),
                   ],
                 ),
             const SizedBox(height: 8),
-            TextButton(
+            Button.text(
               onPressed: () {
                 saveFile(
                   data: utf8.encode(Log().toString()),

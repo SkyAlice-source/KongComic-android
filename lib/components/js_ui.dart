@@ -81,7 +81,7 @@ mixin class JsUiApi {
       ));
     }
     if (actions.isEmpty) {
-      actions.add(TextButton(
+      actions.add(Button.text(
         onPressed: () {
           dialogContext?.pop();
         },
@@ -227,32 +227,21 @@ class _JSCallbackButtonState extends State<_JSCallbackButton> {
   @override
   Widget build(BuildContext context) {
     return switch (widget.style) {
-      "filled" => FilledButton(
+      "filled" => Button.filled(
           onPressed: onClick,
-          child: isLoading
-              ? CircularProgressIndicator(strokeWidth: 1.4)
-                  .fixWidth(18)
-                  .fixHeight(18)
-              : Text(widget.text),
+          isLoading: isLoading,
+          child: Text(widget.text),
         ),
-      "danger" => FilledButton(
+      "danger" => Button.filled(
+          color: context.colorScheme.error,
           onPressed: onClick,
-          style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.all(context.colorScheme.error),
-          ),
-          child: isLoading
-              ? CircularProgressIndicator(strokeWidth: 1.4)
-                  .fixWidth(18)
-                  .fixHeight(18)
-              : Text(widget.text),
+          isLoading: isLoading,
+          child: Text(widget.text),
         ),
-      _ => TextButton(
+      _ => Button.text(
           onPressed: onClick,
-          child: isLoading
-              ? CircularProgressIndicator(strokeWidth: 1.4)
-                  .fixWidth(18)
-                  .fixHeight(18)
-              : Text(widget.text),
+          isLoading: isLoading,
+          child: Text(widget.text),
         ),
     };
   }

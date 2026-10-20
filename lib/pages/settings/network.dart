@@ -186,10 +186,16 @@ class _NetworkSettingsState extends State<NetworkSettings> {
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: FilledButton.icon(
+                  child: Button.filled(
                     onPressed: () { _saveProxy(); context.showMessage(message: "Saved".tl); },
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedSave, size: 18),
-                    label: Text("Save".tl),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HugeIcon(icon: HugeIcons.strokeRoundedSave, size: 18),
+                        const SizedBox(width: 6),
+                        Text("Save".tl),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -214,12 +220,18 @@ class _NetworkSettingsState extends State<NetworkSettings> {
             color: context.colorScheme.outlineVariant,
           ).toSliver(),
         for (var i = 0; i < _dnsOverrides.length; i++) _buildDnsRow(i).toSliver(),
-        TextButton.icon(
+        Button.text(
           onPressed: () {
             setState(() => _dnsOverrides.add((TextEditingController(), TextEditingController())));
           },
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
-          label: Text("Add".tl),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
+              const SizedBox(width: 6),
+              Text("Add".tl),
+            ],
+          ),
         ).paddingHorizontal(16).toSliver(),
       ],
     );

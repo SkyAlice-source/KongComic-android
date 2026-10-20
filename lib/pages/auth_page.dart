@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:local_auth_android/local_auth_android.dart';
 import 'package:local_auth_darwin/local_auth_darwin.dart';
 import 'package:kong_comic/utils/translations.dart';
+import 'package:kong_comic/components/components.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key, this.onSuccessfulAuth});
@@ -46,7 +46,7 @@ class _AuthPageState extends State<AuthPage> {
               const SizedBox(height: 16),
               Text("Authentication Required".tl),
               const SizedBox(height: 16),
-              FilledButton(
+              Button.filled(
                 onPressed: auth,
                 child: Text("Continue".tl),
               ),

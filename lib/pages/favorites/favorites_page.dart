@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
+import 'package:sliver_tools/sliver_tools.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/components/scroll_top_fab.dart';
 import 'package:kong_comic/foundation/app.dart';
@@ -76,9 +77,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
       folder = data['name'];
       isNetwork = data['isNetwork'] ?? false;
     }
-    if (folder != null
-        && !isNetwork
-        && !LocalFavoritesManager().existsFolder(folder!)) {
+    if (folder != null &&
+        !isNetwork &&
+        !LocalFavoritesManager().existsFolder(folder!)) {
       folder = null;
     }
     // 默认显示"全部"文件夹
@@ -95,57 +96,58 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return IconTheme(
-      data: IconThemeData(color: Theme.of(context).colorScheme.primary),
-      child: Stack(
-        children: [
-          AnimatedPositioned(
-            left: context.width <= _kTwoPanelChangeWidth ? -_kLeftBarWidth : 0,
-            top: 0,
-            bottom: 0,
-            duration: const Duration(milliseconds: 200),
-            child: Container(
-              width: _kLeftBarWidth,
-              color: Theme.of(context).colorScheme.surface,
-              child: const _LeftBar(),
+    return Stack(
+      children: [
+        AnimatedPositioned(
+          left: context.width <= _kTwoPanelChangeWidth ? -_kLeftBarWidth : 0,
+          top: 0,
+          bottom: 0,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            width: _kLeftBarWidth,
+            color: Theme.of(context).colorScheme.surface,
+            child: const _LeftBar(),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          left: context.width <= _kTwoPanelChangeWidth ? 0 : _kLeftBarWidth,
+          right: 0,
+          bottom: 0,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _onScroll,
+            child: buildBody(),
+          ),
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _showFab,
+            builder: (context, visible, _) => AnimatedSwitcher(
+              duration: kcReduceMotion(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 150),
+              reverseDuration: kcReduceMotion(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 150),
+              child: (visible && folder != null)
+                  ? _buildScrollTopFab()
+                  : const SizedBox(),
+              transitionBuilder: (widget, animation) {
+                final tween = Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: const Offset(0, 0),
+                );
+                return SlideTransition(
+                  position: tween.animate(animation),
+                  child: widget,
+                );
+              },
             ),
           ),
-          Positioned(
-            top: 0,
-            left: context.width <= _kTwoPanelChangeWidth ? 0 : _kLeftBarWidth,
-            right: 0,
-            bottom: 0,
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _onScroll,
-              child: buildBody(),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: ValueListenableBuilder<bool>(
-              valueListenable: _showFab,
-              builder: (context, visible, _) => AnimatedSwitcher(
-                duration: kcReduceMotion(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 150),
-                reverseDuration: kcReduceMotion(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 150),
-                child: (visible && folder != null)
-                    ? _buildScrollTopFab()
-                    : const SizedBox(),
-                transitionBuilder: (widget, animation) {
-                  final tween = Tween<Offset>(
-                      begin: const Offset(0, 1), end: const Offset(0, 0));
-                  return SlideTransition(
-                      position: tween.animate(animation), child: widget);
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -188,9 +190,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
       barrierDismissible: true,
       barrierLabel: 'Folders'.tl,
       barrierColor: Colors.black.withValues(alpha: 0.42),
-      transitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
-      pageBuilder: (dialogContext, _, __) => _FolderSelectorDialog(favPage: this),
+      transitionDuration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, _, __) =>
+          _FolderSelectorDialog(favPage: this),
       transitionBuilder: (context, animation, _, child) {
         if (reduceMotion) return child;
         final curved = CurvedAnimation(
@@ -209,8 +213,127 @@ class _FavoritesPageState extends State<FavoritesPage> {
     );
   }
 
+  /// 计算本地 / 网络 两组的漫画数量，用于未选中落地态的概览卡。
+  Map<String, int> _favoritesGroupCounts() {
+    final net = _computeNetworkFolders();
+    var local = 0;
+    var network = 0;
+    for (final f in LocalFavoritesManager().folderNames) {
+      if (f == kReadLaterFolder) continue;
+      final c = LocalFavoritesManager().count(f);
+      if (net.contains(f)) {
+        network += c;
+      } else {
+        local += c;
+      }
+    }
+    return {'local': local, 'network': network};
+  }
+
+  /// 复刻 _LeftBarState.findNetworkFolders：从已启用源的 favoriteData 键与
+  /// settings['favorites'] 求交集，得到网络分组文件夹列表。
+  List<String> _computeNetworkFolders() {
+    final all = ComicSource.enabled()
+        .where((e) => e.favoriteData != null)
+        .map((e) => e.favoriteData!.key)
+        .toList();
+    final settings = appdata.settings['favorites'];
+    final net = <String>[];
+    if (settings is List) {
+      for (var p in settings) {
+        if (p is String && all.contains(p) && !net.contains(p)) {
+          net.add(p);
+        }
+      }
+    }
+    return net;
+  }
+
+  /// 未选中落地态的分组概览卡：图标 + 标签 + 数量 + 箭头，点进去进对应列表。
+  Widget _overviewCard(
+    Widget icon,
+    String label,
+    int count,
+    VoidCallback? onTap,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final enabled = onTap != null;
+    return Material(
+      color: cs.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(kcCardRadius),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(kcCardRadius),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              icon,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: kcSubtitle,
+                    fontWeight: FontWeight.w600,
+                    color: enabled ? cs.onSurface : cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: kcSubtitle,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 8),
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowRight01,
+                size: 16,
+                color: cs.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 收藏页右上角工具胶囊条 —— 唯一实现见 `components/tools_pill.dart`
+  /// 的 [ToolsPill]（历史页等列表页共用同一套外观，别再复制一份）。
+  Widget _favToolsPill(BuildContext context, List<Widget> children) {
+    return ToolsPill(children: children);
+  }
+
+  /// 工具胶囊条内的单个图标按钮 —— 见 [ToolsPillButton]。
+  Widget _toolIconButton(
+    BuildContext context, {
+    required dynamic icon,
+    bool active = false,
+    required VoidCallback onPressed,
+    String? tooltip,
+  }) {
+    return ToolsPillButton(
+      icon: icon,
+      active: active,
+      onPressed: onPressed,
+      tooltip: tooltip,
+    );
+  }
+
+  /// 工具胶囊条内的「更多」按钮 —— 见 [ToolsPillMoreButton]。
+  ///
+  /// 定位坑已收进组件内部：必须用按钮自身 context 取 RenderBox，
+  /// 否则菜单会弹到屏幕左上角（点右边弹左边）。
+  Widget _toolMoreButton(BuildContext context, List<MenuEntry> entries) {
+    return ToolsPillMoreButton(entries: entries);
+  }
+
   Widget buildBody() {
     if (folder == null) {
+      final counts = _favoritesGroupCounts();
+      final net = _computeNetworkFolders();
       return CustomScrollView(
         slivers: [
           SliverAppbar(
@@ -218,8 +341,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
               message: "Folders".tl,
               child: context.width <= _kTwoPanelChangeWidth
                   ? IconButton(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                      color: context.colorScheme.primary,
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedMenu02,
+                        size: 18,
+                      ),
+                      color: kcBrandAdaptive(context),
                       onPressed: showFolderSelector,
                     )
                   : null,
@@ -229,13 +355,44 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   ? showFolderSelector
                   : null,
               child: Text(
-                "Unselected".tl,
-                // 与 local_favorites_page 的文件夹选择器保持一致：
-                // 二级标题不能用 Appbar 默认的 kcAppbarTitle(20)，否则与主标题同级。
+                "Favorites".tl,
                 style: const TextStyle(
                   fontSize: kcSectionTitle,
                   fontWeight: FontWeight.w600,
                 ),
+              ),
+            ),
+          ),
+          // 未选中落地态：用三张分组概览卡替代空标题，带数量、点进去进对应列表。
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(kcSpaceLg),
+              child: Column(
+                children: [
+                  _overviewCard(
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedFolder01,
+                      size: 22,
+                      color: kcAccentColor(context),
+                    ),
+                    "Local".tl,
+                    counts['local']!,
+                    () => setFolder(false, _localAllFolderLabel),
+                  ),
+                  const SizedBox(height: kcSpaceSm),
+                  _overviewCard(
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedGlobe02,
+                      size: 22,
+                      color: net.isEmpty
+                          ? Theme.of(context).colorScheme.onSurfaceVariant
+                          : kcAccentColor(context),
+                    ),
+                    "Network".tl,
+                    counts['network']!,
+                    net.isEmpty ? null : () => setFolder(true, net.first),
+                  ),
+                ],
               ),
             ),
           ),

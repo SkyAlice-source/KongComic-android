@@ -45,7 +45,7 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
               "Long press on the favorite button to quickly add to this folder"
                   .tl,
           optionTranslation: {
-            for (var e in LocalFavoritesManager().folderNames) e: e
+            for (var e in userFolderNames()) e: e
           },
         ).toSliver(),
         _CallbackSetting(
@@ -93,7 +93,7 @@ class _HomeBannerFoldersSetting extends StatefulWidget {
 class _HomeBannerFoldersSettingState extends State<_HomeBannerFoldersSetting> {
   @override
   Widget build(BuildContext context) {
-    final folders = LocalFavoritesManager().folderNames;
+    final folders = userFolderNames();
     final selected = (appdata.settings['homeBannerFolders'] as List).cast<String>();
     final subtitle = selected.isEmpty
         ? "All".tl
@@ -154,7 +154,7 @@ class _HomeBannerFoldersSettingState extends State<_HomeBannerFoldersSetting> {
             ),
             ),
             actions: [
-              TextButton(
+              Button.text(
                 onPressed: () => context.pop(),
                 child: Text("Cancel".tl),
               ),

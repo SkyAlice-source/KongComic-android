@@ -143,7 +143,7 @@ class _ReaderSettingsState extends State<ReaderSettings> {
               ).toSliver(),
               if (isEnabledSpecificSettings)
                 Center(
-                  child: TextButton(
+                  child: Button.text(
                     onPressed: () {
                       setState(() {
                         appdata.settings.resetComicReaderSettings(key);
@@ -180,7 +180,7 @@ class _ReaderSettingsState extends State<ReaderSettings> {
               ).toSliver(),
               if (useDeviceSpecificSettings)
                 Center(
-                  child: TextButton(
+                  child: Button.text(
                     onPressed: () {
                       setState(() {
                         appdata.settings.resetDeviceReaderSettings();
@@ -620,7 +620,7 @@ class __CustomImageProcessingState extends State<_CustomImageProcessing> {
       appBar: Appbar(
         title: Text("Custom Image Processing".tl),
         actions: [
-          TextButton(
+          Button.text(
             onPressed: () {
               current = defaultCustomImageProcessing;
               appdata.settings['customImageProcessing'] = current;

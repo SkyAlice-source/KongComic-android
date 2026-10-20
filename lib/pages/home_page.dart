@@ -116,7 +116,7 @@ class _BannerState extends State<_Banner> {
   bool _pauseAutoPlay = false;
   List<FavoriteItem> _comics = [];
   void _loadComics() {
-    final allFolderNames = LocalFavoritesManager().folderNames;
+    final allFolderNames = userFolderNames();
     final selectedFolders = appdata.settings['homeBannerFolders'] as List;
     final folders = selectedFolders.isEmpty
         ? allFolderNames
@@ -485,27 +485,16 @@ class _FlatBox extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
                 decoration: BoxDecoration(
-                  color: alert ? cs.errorContainer : cs.primaryContainer,
+                  // 未读强调走品牌红（设计系统：强调一律 accent 红），不再用 errorContainer。
+                  color: alert ? kcAccentColor(context) : kcAccentSurface(context),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: Text(value!, style: TextStyle(fontSize: kcFont11, fontWeight: FontWeight.w600, color: alert ? cs.onErrorContainer : cs.onPrimaryContainer)),
+                  child: Text(value!, style: TextStyle(fontSize: kcFont11, fontWeight: FontWeight.w600, color: alert ? kcOnAccentColor : kcBrandAdaptive(context))),
                 ),
               ),
           ]),
         ),
-        if (alert && value != null)
-          Positioned(
-            top: 4, right: 6,
-            child: Container(
-              width: 10, height: 10,
-              decoration: BoxDecoration(
-                color: cs.error,
-                shape: BoxShape.circle,
-                border: Border.all(color: cs.surfaceContainerLow, width: 1.5),
-              ),
-            ),
-          ),
       ]),
     );
   }
@@ -595,7 +584,7 @@ class _HintCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          HugeIcon(icon: HugeIcons.strokeRoundedBulb, size: 20, color: cs.primary.withValues(alpha: 0.8)),
+          HugeIcon(icon: HugeIcons.strokeRoundedBulb, size: 20, color: kcBrandAdaptive(context).withValues(alpha: 0.8)),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

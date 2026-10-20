@@ -2,9 +2,12 @@ part of 'favorites_page.dart';
 
 const _localAllFolderLabel = '^_^[%local_all%]^_^';
 
-
 class _LocalFavoritesPage extends StatefulWidget {
-  const _LocalFavoritesPage({required this.folder, required this.controller, super.key});
+  const _LocalFavoritesPage({
+    required this.folder,
+    required this.controller,
+    super.key,
+  });
 
   final String folder;
 
@@ -72,10 +75,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
   /// In pagination mode, this is the loaded comics.
   /// In search mode, this is the search results.
   /// Otherwise, this is the filtered comics list.
-  List<FavoriteItem> get _activeComics =>
-      _usePagination
-          ? _loadedComics
-          : (searchMode ? searchResults : filterComics(comics));
+  List<FavoriteItem> get _activeComics => _usePagination
+      ? _loadedComics
+      : (searchMode ? searchResults : filterComics(comics));
 
   void updateSearchResult() {
     setState(() {
@@ -147,8 +149,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
           return comic is FavoriteItemWithUpdateInfo && comic.hasNewUpdate;
         case "NotDownloaded":
           // 本地未下载
-          return !LocalManager()
-              .isDownloaded(comic.id, ComicType(comic.sourceKey.hashCode));
+          return !LocalManager().isDownloaded(
+            comic.id,
+            ComicType(comic.sourceKey.hashCode),
+          );
       }
       return true;
     }).toList();
@@ -160,12 +164,14 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
       if (k.isEmpty) continue;
       if (checkKeyWordMatch(k, comic.title, false)) {
         continue;
-      } else if (comic.subtitle != null && checkKeyWordMatch(k, comic.subtitle!, false)) {
+      } else if (comic.subtitle != null &&
+          checkKeyWordMatch(k, comic.subtitle!, false)) {
         continue;
       } else if (comic.tags.any((tag) {
         if (checkKeyWordMatch(k, tag, true)) {
           return true;
-        } else if (tag.contains(':') && checkKeyWordMatch(k, tag.split(':')[1], true)) {
+        } else if (tag.contains(':') &&
+            checkKeyWordMatch(k, tag.split(':')[1], true)) {
           return true;
         } else if (App.locale.languageCode == 'zh' &&
             checkKeyWordMatch(k, tag.translateTagsToCN, true)) {
@@ -189,10 +195,11 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
       temp = temp.toLowerCase();
     }
     if (needEqual) {
-      return  keyword == temp;
+      return keyword == temp;
     }
     return temp.contains(keyword);
   }
+
   // Convert keyword to traditional Chinese to match comics
   bool matchKeywordT(String keyword, FavoriteItem comic) {
     if (!OpenCC.hasChineseSimplified(keyword)) {
@@ -210,9 +217,11 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
     keyword = OpenCC.traditionalToSimplified(keyword);
     return matchKeyword(keyword, comic);
   }
+
   @override
   void initState() {
-    readFilterSelect = appdata.implicitData["local_favorites_read_filter"] ??
+    readFilterSelect =
+        appdata.implicitData["local_favorites_read_filter"] ??
         readFilterList[0];
     favPage = context.findAncestorStateOfType<_FavoritesPageState>()!;
     if (!isAllFolder) {
@@ -242,8 +251,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
       } else if (_usePagination) {
         // Load all comics from the folder for selection (one-time).
         final allComics = manager.getFolderComics(widget.folder);
-        selectedComics =
-            allComics.asMap().map((k, v) => MapEntry(v, true));
+        selectedComics = allComics.asMap().map((k, v) => MapEntry(v, true));
       } else {
         selectedComics = comics.asMap().map((k, v) => MapEntry(v, true));
       }
@@ -283,18 +291,13 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
   bool downloadComic(FavoriteItem c) {
     var source = c.type.comicSource;
     if (source != null) {
-      bool isDownloaded = LocalManager().isDownloaded(
-        c.id,
-        (c).type,
-      );
+      bool isDownloaded = LocalManager().isDownloaded(c.id, (c).type);
       if (isDownloaded) {
         return false;
       }
-      LocalManager().addTask(ImagesDownloadTask(
-        source: source,
-        comicId: c.id,
-        comicTitle: c.title,
-      ));
+      LocalManager().addTask(
+        ImagesDownloadTask(source: source, comicId: c.id, comicTitle: c.title),
+      );
       return true;
     }
     return false;
@@ -330,7 +333,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
           },
         ),
       MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
+        icon: HugeIcon(
+          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+          size: 18,
+        ),
         text: "Select".tl,
         onClick: () {
           setState(() {
@@ -352,9 +358,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
         text: "Download".tl,
         onClick: () {
           downloadComic(c as FavoriteItem);
-          context.showMessage(
-            message: "Download started".tl,
-          );
+          context.showMessage(message: "Download started".tl);
         },
       ),
       if (appdata.settings["onClickFavorite"] == "viewDetail")
@@ -363,10 +367,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
           text: "Read".tl,
           onClick: () {
             App.mainNavigatorKey?.currentContext?.to(
-              () => ReaderWithLoading(
-                id: c.id,
-                sourceKey: c.sourceKey,
-              )
+              () => ReaderWithLoading(id: c.id, sourceKey: c.sourceKey),
             );
           },
         ),
@@ -393,7 +394,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
           cover: c.cover,
           title: c.title,
           heroID: heroID,
-        )
+        ),
       );
     } else {
       App.mainNavigatorKey?.currentContext?.to(
@@ -448,107 +449,121 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
     Widget body = SmoothCustomScrollView(
       controller: widget.controller,
       slivers: [
-        if (!searchMode && !multiSelectMode)
+        if (!searchMode && !multiSelectMode) ...[
           SliverAppbar(
             style: context.width < changePoint
                 ? AppbarStyle.shadow
                 : AppbarStyle.shadow,
-            leading: const SizedBox(),
-            title: context.width <= _kTwoPanelChangeWidth
+            leading: context.width <= _kTwoPanelChangeWidth
                 ? Tooltip(
                     message: "Folders".tl,
-                    child: GestureDetector(
-                      onTap: favPage.showFolderSelector,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          HugeIcon(
-                            icon: HugeIcons.strokeRoundedFolder02,
-                            size: 18,
-                            color: context.colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: kcSpaceSm),
-                          Flexible(
-                            child: Text(
-                              title,
-                              // 二级标题：低于根页「收藏」的 kcTitleMain(20)/bold。
-                              // 不覆盖的话会继承 Appbar 的 kcAppbarTitle(20)/w600，与主标题同级。
-                              style: const TextStyle(
-                                fontSize: kcSectionTitle,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          HugeIcon(
-                            icon: HugeIcons.strokeRoundedArrowDown01,
-                            size: 14,
-                            color: context.colorScheme.onSurfaceVariant,
-                          ),
-                        ],
+                    child: IconButton(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedMenu02,
+                        size: 18,
                       ),
+                      onPressed: favPage.showFolderSelector,
                     ),
                   )
-                : Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: kcSectionTitle,
-                      fontWeight: FontWeight.w600,
+                : const SizedBox(),
+            title: Text(
+              title,
+              // 二级标题：低于根页「收藏」的 kcTitleMain(20)/bold。
+              // 分组切换已交给正文顶部的 _GroupPills，这里只显示当前文件夹名。
+              style: const TextStyle(
+                fontSize: kcSectionTitle,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+            actions: [
+              favPage._favToolsPill(context, [
+                // 布局切换双态分段：左「网格(简明)」/ 右「列表(详细)」，当前态高亮
+                // accent 红。与历史页同一套写法，翻的是全局 comicDisplayMode，
+                // 下方 PaginatedSliverGridComics/SliverGridComics 经 AnimatedBuilder
+                // 自动重建，无需手动刷新。
+                ToolsPillSegment(
+                  icons: const [
+                    HugeIcons.strokeRoundedGridView,
+                    HugeIcons.strokeRoundedListView,
+                  ],
+                  tooltips: [
+                    "Switch to grid view".tl,
+                    "Switch to list view".tl,
+                  ],
+                  selectedIndex:
+                      appdata.settings['comicDisplayMode'] != 'brief' ? 1 : 0,
+                  onSelected: (_) {
+                    appdata.settings['comicDisplayMode'] =
+                        appdata.settings['comicDisplayMode'] != 'brief'
+                            ? 'brief'
+                            : 'detailed';
+                    appdata.saveData();
+                    setState(() {});
+                  },
+                ),
+                if (networkSource != null && !isAllFolder)
+                  Tooltip(
+                    message: "Sync".tl,
+                    child: Flyout(
+                      flyoutBuilder: (context) {
+                        var updatePageWidget = _SelectUpdatePageNum(
+                          networkSource: networkSource!,
+                          networkFolder: networkFolder,
+                          key: _selectUpdatePageNumKey,
+                        );
+                        return FlyoutContent(
+                          title: "Sync".tl,
+                          content: updatePageWidget,
+                          actions: [
+                            Button.filled(
+                              child: Text("Update".tl),
+                              onPressed: () {
+                                context.pop();
+                                importNetworkFolder(
+                                  networkSource!,
+                                  _selectUpdatePageNumKey
+                                      .currentState!
+                                      .updatePageNum,
+                                  widget.folder,
+                                  networkFolder!,
+                                ).then((value) {
+                                  updateComics();
+                                });
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                      child: Builder(
+                        builder: (context) {
+                          return IconButton(
+                            icon: HugeIcon(
+                              icon: HugeIcons.strokeRoundedRefresh,
+                              size: 18,
+                            ),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                            constraints: const BoxConstraints(
+                              minWidth: 36,
+                              minHeight: 36,
+                            ),
+                            padding: EdgeInsets.zero,
+                            splashRadius: 20,
+                            onPressed: () {
+                              Flyout.of(context).show();
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ),
-            actions: [
-              if (networkSource != null && !isAllFolder)
-                Tooltip(
-                  message: "Sync".tl,
-                  child: Flyout(
-                    flyoutBuilder: (context) {
-                      var updatePageWidget = _SelectUpdatePageNum(
-                        networkSource: networkSource!,
-                        networkFolder: networkFolder,
-                        key: _selectUpdatePageNumKey,
-                      );
-                      return FlyoutContent(
-                        title: "Sync".tl,
-                        content: updatePageWidget,
-                        actions: [
-                          Button.filled(
-                            child: Text("Update".tl),
-                            onPressed: () {
-                              context.pop();
-                              importNetworkFolder(
-                                networkSource!,
-                                _selectUpdatePageNumKey
-                                    .currentState!.updatePageNum,
-                                widget.folder,
-                                networkFolder!,
-                              ).then(
-                                (value) {
-                                  updateComics();
-                                },
-                              );
-                            },
-                          ),
-                        ],
-                      );
-                    },
-                    child: Builder(builder: (context) {
-                      return IconButton(
-                        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-                        onPressed: () {
-                          Flyout.of(context).show();
-                        },
-                      );
-                    }),
-                  ),
-                ),
-              Tooltip(
-                message: "Filter".tl,
-                child: IconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSortDescending, size: 18),
-                  color: readFilterSelect != readFilterList[0]
-                      ? context.colorScheme.primaryContainer
-                      : null,
+                favPage._toolIconButton(
+                  context,
+                  icon: HugeIcons.strokeRoundedSortDescending,
+                  active: readFilterSelect != readFilterList[0],
+                  tooltip: "Filter".tl,
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -566,11 +581,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                     );
                   },
                 ),
-              ),
-              Tooltip(
-                message: "Search".tl,
-                child: IconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18),
+                favPage._toolIconButton(
+                  context,
+                  icon: HugeIcons.strokeRoundedSearch02,
+                  tooltip: "Search".tl,
                   onPressed: () {
                     setState(() {
                       keyword = "";
@@ -579,111 +593,14 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                     });
                   },
                 ),
-              ),
-              if (!isAllFolder)
-                MenuButton(
-                  entries: [
-                    MenuEntry(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
-                      text: "Rename".tl,
-                      onClick: () {
-                        showInputDialog(
-                          context: App.rootContext,
-                          title: "Rename".tl,
-                          hintText: "New Name".tl,
-                          onConfirm: (value) {
-                            var err = validateFolderName(value.toString());
-                            if (err != null) {
-                              return err;
-                            }
-                            LocalFavoritesManager().rename(
-                              widget.folder,
-                              value.toString(),
-                            );
-                            BookshelfLayout.onFolderRenamed(
-                              widget.folder,
-                              value.toString(),
-                            );
-                            favPage.folderList?.updateFolders();
-                            favPage.setFolder(false, value.toString());
-                            return null;
-                          },
-                        );
-                      },
-                    ),
-                    MenuEntry(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
-                      text: "Reorder".tl,
-                      onClick: () {
-                        context.to(
-                          () {
-                            return _ReorderComicsPage(
-                              widget.folder,
-                              (comics) {
-                                this.comics = comics;
-                              },
-                            );
-                          },
-                        ).then(
-                          (value) {
-                            if (mounted) {
-                              setState(() {});
-                            }
-                          },
-                        );
-                      },
-                    ),
-                    MenuEntry(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 18),
-                      text: "Export".tl,
-                      onClick: () {
-                        var json = LocalFavoritesManager().folderToJson(
-                          widget.folder,
-                        );
-                        saveFile(
-                          data: utf8.encode(json),
-                          filename: "${widget.folder}.json",
-                        );
-                      },
-                    ),
-                    MenuEntry(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-                      text: "Update Comics Info".tl,
-                      onClick: () {
-                        updateComicsInfo(widget.folder).then((newComics) {
-                          if (mounted) {
-                            setState(() {
-                              comics = newComics;
-                            });
-                          }
-                        });
-                      },
-                    ),
-                    MenuEntry(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-                      text: "Delete Folder".tl,
-                      color: context.colorScheme.error,
-                      onClick: () {
-                        showConfirmDialog(
-                          context: App.rootContext,
-                          title: "Delete".tl,
-                          content: "Delete folder '@f' ?".tlParams({
-                            "f": widget.folder,
-                          }),
-                          btnColor: context.colorScheme.error,
-                          onConfirm: () {
-                            favPage.setFolder(false, null);
-                            LocalFavoritesManager().deleteFolder(widget.folder);
-                            favPage.folderList?.updateFolders();
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                if (!isAllFolder)
+                  favPage._toolMoreButton(context, _buildMoreEntries()),
+              ]),
             ],
-          )
-        else if (multiSelectMode)
+          ),
+          // 分组切换胶囊：常驻正文顶部，单栏窄屏也能直接切分组。
+          SliverToBoxAdapter(child: _GroupPills(favPage: favPage)),
+        ] else if (multiSelectMode)
           SliverAppbar(
             style: context.width < changePoint
                 ? AppbarStyle.shadow
@@ -701,33 +618,52 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
               ),
             ),
             title: Text(
-                "Selected @c comics".tlParams({"c": selectedComics.length})),
+              "Selected @c comics".tlParams({"c": selectedComics.length}),
+            ),
             actions: [
-              MenuButton(entries: [
-                if (!isAllFolder)
-                  MenuEntry(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMove01, size: 18),
+              ToolsPill(children: [
+                ToolsPillButton(
+                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                  tooltip: "Select All".tl,
+                  onPressed: selectAll,
+                ),
+                ToolsPillButton(
+                  icon: HugeIcons.strokeRoundedCancel01,
+                  tooltip: "Deselect".tl,
+                  onPressed: _cancel,
+                ),
+                ToolsPillMoreButton(entries: [
+                  if (!isAllFolder)
+                    MenuEntry(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedMove01,
+                        size: 18,
+                      ),
                       text: "Move to folder".tl,
-                      onClick: () => favoriteOption('move')),
-                if (!isAllFolder)
-                  MenuEntry(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+                      onClick: () => favoriteOption('move'),
+                    ),
+                  if (!isAllFolder)
+                    MenuEntry(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedCopy01,
+                        size: 18,
+                      ),
                       text: "Copy to folder".tl,
-                      onClick: () => favoriteOption('add')),
-                MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
-                    text: "Select All".tl,
-                    onClick: selectAll),
-                MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-                    text: "Deselect".tl,
-                    onClick: _cancel),
-                MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedFlipHorizontal, size: 18),
+                      onClick: () => favoriteOption('add'),
+                    ),
+                  MenuEntry(
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedFlipHorizontal,
+                      size: 18,
+                    ),
                     text: "Invert Selection".tl,
-                    onClick: invertSelection),
-                MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
+                    onClick: invertSelection,
+                  ),
+                  MenuEntry(
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedFavourite,
+                      size: 18,
+                    ),
                     text: "Remove from favorites".tl,
                     onClick: () {
                       for (var c in selectedComics.keys) {
@@ -735,86 +671,113 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                         if (isAllFolder) {
                           // In All view, find which folder the comic belongs to
                           for (var f in LocalFavoritesManager().folderNames) {
-                            var folderComics = LocalFavoritesManager().getFolderComics(f);
-                            if (folderComics.any((fc) => fc.id == fav.id && fc.type.value == fav.type.value)) {
-                              LocalFavoritesManager().deleteComicWithId(f, fav.id, fav.type);
+                            var folderComics = LocalFavoritesManager()
+                                .getFolderComics(f);
+                            if (folderComics.any(
+                              (fc) =>
+                                  fc.id == fav.id &&
+                                  fc.type.value == fav.type.value,
+                            )) {
+                              LocalFavoritesManager().deleteComicWithId(
+                                f,
+                                fav.id,
+                                fav.type,
+                              );
                               break;
                             }
                           }
                         } else {
-                          LocalFavoritesManager().deleteComicWithId(widget.folder, fav.id, fav.type);
+                          LocalFavoritesManager().deleteComicWithId(
+                            widget.folder,
+                            fav.id,
+                            fav.type,
+                          );
                         }
                       }
                       setState(() {
                         multiSelectMode = false;
                         selectedComics.clear();
                       });
-                    }),
-                if (!isAllFolder)
-                  MenuEntry(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+                    },
+                  ),
+                  if (!isAllFolder)
+                    MenuEntry(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedDelete01,
+                        size: 18,
+                      ),
                       text: "Delete Comic".tl,
                       color: context.colorScheme.error,
                       onClick: () {
                         showConfirmDialog(
                           context: context,
                           title: "Delete".tl,
-                          content: "Delete @c comics?"
-                              .tlParams({"c": selectedComics.length}),
+                          content: "Delete @c comics?".tlParams({
+                            "c": selectedComics.length,
+                          }),
                           btnColor: context.colorScheme.error,
                           onConfirm: () {
                             _deleteComicWithId();
                           },
                         );
-                      }),
-                MenuEntry(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
-                  text: "Download".tl,
-                  onClick: downloadSelected,
-                ),
-                if (selectedComics.length == 1)
+                      },
+                    ),
                   MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
-                    text: "Copy Title".tl,
-                    onClick: () {
-                      Clipboard.setData(
-                        ClipboardData(
-                          text: selectedComics.keys.first.title,
-                        ),
-                      );
-                      context.showMessage(
-                        message: "Copied".tl,
-                      );
-                    },
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedDownload04,
+                      size: 18,
+                    ),
+                    text: "Download".tl,
+                    onClick: downloadSelected,
                   ),
-                if (selectedComics.length == 1)
-                  MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
-                    text: "Read".tl,
-                    onClick: () {
-                      final c = selectedComics.keys.first as FavoriteItem;
-                      // Push onto the main navigator so back returns to the
-                      // local favorites page instead of the home page.
-                      App.mainNavigatorKey?.currentContext?.to(() => ReaderWithLoading(
+                  if (selectedComics.length == 1)
+                    MenuEntry(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedCopy01,
+                        size: 18,
+                      ),
+                      text: "Copy Title".tl,
+                      onClick: () {
+                        Clipboard.setData(
+                          ClipboardData(text: selectedComics.keys.first.title),
+                        );
+                        context.showMessage(message: "Copied".tl);
+                      },
+                    ),
+                  if (selectedComics.length == 1)
+                    MenuEntry(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedBook01,
+                        size: 18,
+                      ),
+                      text: "Read".tl,
+                      onClick: () {
+                        final c = selectedComics.keys.first as FavoriteItem;
+                        // Push onto the main navigator so back returns to the
+                        // local favorites page instead of the home page.
+                        App.mainNavigatorKey?.currentContext?.to(
+                          () => ReaderWithLoading(
                             id: c.id,
                             sourceKey: c.sourceKey,
-                          )
-                      );
-                    },
-                  ),
-                if (selectedComics.length == 1)
-                  MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
-                    text: "Jump to Detail".tl,
-                    onClick: () {
-                      final c = selectedComics.keys.first as FavoriteItem;
-                      App.mainNavigatorKey?.currentContext?.to(() => ComicPage(
-                            id: c.id,
-                            sourceKey: c.sourceKey,
-                          )
-                      );
-                    },
-                  ),
+                          ),
+                        );
+                      },
+                    ),
+                  if (selectedComics.length == 1)
+                    MenuEntry(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowRight01,
+                        size: 18,
+                      ),
+                      text: "Jump to Detail".tl,
+                      onClick: () {
+                        final c = selectedComics.keys.first as FavoriteItem;
+                        App.mainNavigatorKey?.currentContext?.to(
+                          () => ComicPage(id: c.id, sourceKey: c.sourceKey),
+                        );
+                      },
+                    ),
+                ]),
               ]),
             ],
           )
@@ -863,6 +826,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
             onTap: (c, heroID) => _handleTap(c, heroID),
             onLongPressed: (c, heroID) => _handleLongPress(c, heroID),
           )
+        else if (!searchMode &&
+            !multiSelectMode &&
+            filterComics(comics).isEmpty)
+          SliverFillRemaining(child: _buildEmptyState())
         else
           SliverGridComics(
             comics: searchMode ? searchResults : filterComics(comics),
@@ -906,8 +873,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
   }
 
   void favoriteOption(String option) {
-    var targetFolders = LocalFavoritesManager()
-        .folderNames
+    var targetFolders = userFolderNames()
         .where((folder) => folder != favPage.folder)
         .toList();
 
@@ -920,8 +886,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
             body: Padding(
               padding: EdgeInsets.only(bottom: context.padding.bottom + 16),
               child: Container(
-                constraints:
-                    const BoxConstraints(maxHeight: 700, maxWidth: 500),
+                constraints: const BoxConstraints(
+                  maxHeight: 700,
+                  maxWidth: 500,
+                ),
                 child: Column(
                   children: [
                     Expanded(
@@ -932,14 +900,15 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                             return SizedBox(
                               height: 36,
                               child: Center(
-                                child: TextButton(
+                                child: Button.text(
                                   onPressed: () {
                                     newFolder().then((v) {
                                       setState(() {
-                                        targetFolders = LocalFavoritesManager()
-                                            .folderNames
-                                            .where((folder) =>
-                                                folder != favPage.folder)
+                                        targetFolders = userFolderNames()
+                                            .where(
+                                              (folder) =>
+                                                  folder != favPage.folder,
+                                            )
                                             .toList();
                                       });
                                     });
@@ -947,7 +916,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 20),
+                                      HugeIcon(
+                                        icon: HugeIcons.strokeRoundedAddCircle,
+                                        size: 20,
+                                      ),
                                       const SizedBox(width: 4),
                                       Text("New Folder".tl),
                                     ],
@@ -991,7 +963,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
                       ),
                     ),
                     Center(
-                      child: FilledButton(
+                      child: Button.filled(
                         onPressed: () {
                           if (selectedLocalFolders.isEmpty) {
                             return;
@@ -1052,9 +1024,136 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
   }
 
   void _deleteComicWithId() {
-    var toBeDeleted = selectedComics.keys.map((e) => e as FavoriteItem).toList();
+    var toBeDeleted = selectedComics.keys
+        .map((e) => e as FavoriteItem)
+        .toList();
     LocalFavoritesManager().batchDeleteComics(widget.folder, toBeDeleted);
     _cancel();
+  }
+
+  /// 「更多」菜单项：从原 MenuButton 的 entries 抽出，供工具胶囊条的更多按钮复用。
+  List<MenuEntry> _buildMoreEntries() {
+    return [
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
+        text: "Rename".tl,
+          onClick: () {
+            showInputDialog(
+              context: App.rootContext,
+              title: "Rename".tl,
+              hintText: "New Name".tl,
+              onConfirm: (value) {
+                var err = validateFolderName(value.toString());
+                if (err != null) {
+                  return err;
+                }
+                LocalFavoritesManager().rename(widget.folder, value.toString());
+                BookshelfLayout.onFolderRenamed(
+                  widget.folder,
+                  value.toString(),
+                );
+                favPage.folderList?.updateFolders();
+                favPage.setFolder(false, value.toString());
+                return null;
+              },
+            );
+          },
+        ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
+        text: "Reorder".tl,
+        onClick: () {
+          context
+              .to(
+                () => _ReorderComicsPage(widget.folder, (comics) {
+                  this.comics = comics;
+                }),
+              )
+              .then((value) {
+                if (mounted) {
+                  setState(() {});
+                }
+              });
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 18),
+        text: "Export".tl,
+        onClick: () {
+          var json = LocalFavoritesManager().folderToJson(widget.folder);
+          saveFile(data: utf8.encode(json), filename: "${widget.folder}.json");
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+        text: "Update Comics Info".tl,
+        onClick: () {
+          updateComicsInfo(widget.folder).then((newComics) {
+            if (mounted) {
+              setState(() {
+                comics = newComics;
+              });
+            }
+          });
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+        text: "Delete Folder".tl,
+          color: context.colorScheme.error,
+          onClick: () {
+            showConfirmDialog(
+              context: App.rootContext,
+              title: "Delete".tl,
+              content: "Delete folder '@f' ?".tlParams({"f": widget.folder}),
+              btnColor: context.colorScheme.error,
+              onConfirm: () {
+                favPage.setFolder(false, null);
+                LocalFavoritesManager().deleteFolder(widget.folder);
+                favPage.folderList?.updateFolders();
+              },
+            );
+          },
+        ),
+    ];
+  }
+
+  /// 空状态：当前文件夹没有收藏时，用文件夹插画 + 引导文案取代空白。
+  Widget _buildEmptyState() {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedFolder01,
+              size: 72,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "This folder is empty".tl,
+              style: TextStyle(
+                fontSize: kcSubtitle,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "Add comics from the Discover page".tl,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: kcCaption,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1081,8 +1180,8 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
   }
 
   Color lightenColor(Color color, double lightenValue) {
-    int red =
-        (_floatToInt8(color.r) + ((255 - color.r) * lightenValue)).round();
+    int red = (_floatToInt8(color.r) + ((255 - color.r) * lightenValue))
+        .round();
     int green = (_floatToInt8(color.g) + ((255 - color.g) * lightenValue))
         .round();
     int blue = (_floatToInt8(color.b) + ((255 - color.b) * lightenValue))
@@ -1106,29 +1205,26 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
   @override
   Widget build(BuildContext context) {
     var type = appdata.settings['comicDisplayMode'];
-    var tiles = comics.map(
-      (e) {
-        var comicSource = e.type.comicSource;
-        return ComicTile(
-          key: Key(e.hashCode.toString()),
-          enableLongPressed: false,
-          comic: Comic(
-            e.name,
-            e.coverPath,
-            e.id,
-            e.author,
-            e.tags,
-            type == 'detailed'
-                ? "${e.time} | ${comicSource?.name ?? "Unknown"}"
-                : "${e.type.comicSource?.name ?? "Unknown"} | ${e.time}",
-            comicSource?.key ??
-                (e.type == ComicType.local ? "local" : "Unknown"),
-            null,
-            null,
-          ),
-        );
-      },
-    ).toList();
+    var tiles = comics.map((e) {
+      var comicSource = e.type.comicSource;
+      return ComicTile(
+        key: Key(e.hashCode.toString()),
+        enableLongPressed: false,
+        comic: Comic(
+          e.name,
+          e.coverPath,
+          e.id,
+          e.author,
+          e.tags,
+          type == 'detailed'
+              ? "${e.time} | ${comicSource?.name ?? "Unknown"}"
+              : "${e.type.comicSource?.name ?? "Unknown"} | ${e.time}",
+          comicSource?.key ?? (e.type == ComicType.local ? "local" : "Unknown"),
+          null,
+          null,
+        ),
+      );
+    }).toList();
     return Scaffold(
       appBar: Appbar(
         title: Text("Reorder".tl),
@@ -1136,7 +1232,10 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
           Tooltip(
             message: "Information".tl,
             child: IconButton(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 18),
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedInformationCircle,
+                size: 18,
+              ),
               onPressed: () {
                 showInfoDialog(
                   context: context,
@@ -1157,7 +1256,7 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
                 });
               },
             ),
-          )
+          ),
         ],
       ),
       body: ReorderableBuilder<FavoriteItem>(
@@ -1216,8 +1315,18 @@ class _SelectUpdatePageNumState extends State<_SelectUpdatePageNum> {
 
   String get _allPageText => 'All'.tl;
 
-  List<String> get pageNumList =>
-      ['1', '2', '3', '5', '10', '20', '50', '100', '200', _allPageText];
+  List<String> get pageNumList => [
+    '1',
+    '2',
+    '3',
+    '5',
+    '10',
+    '20',
+    '50',
+    '100',
+    '200',
+    _allPageText,
+  ];
 
   @override
   void initState() {
@@ -1239,9 +1348,7 @@ class _SelectUpdatePageNumState extends State<_SelectUpdatePageNum> {
 
     return Column(
       children: [
-        Row(
-          children: [Text(text)],
-        ),
+        Row(children: [Text(text)]),
         Row(
           children: [
             Text("Update the page number by the latest collection".tl),
@@ -1254,15 +1361,17 @@ class _SelectUpdatePageNumState extends State<_SelectUpdatePageNum> {
               minWidth: 48,
               onTap: (index) {
                 setState(() {
-                  updatePageNum = int.parse(pageNumList[index] == _allPageText
-                      ? '9999999'
-                      : pageNumList[index]);
+                  updatePageNum = int.parse(
+                    pageNumList[index] == _allPageText
+                        ? '9999999'
+                        : pageNumList[index],
+                  );
                   appdata.implicitData["local_favorites_update_page_num"] =
                       updatePageNum;
                   appdata.writeImplicitData();
                 });
               },
-            )
+            ),
           ],
         ),
       ],
@@ -1290,7 +1399,7 @@ const readFilterList = [
   'UnCompleted',
   'Completed',
   'RecentlyUpdated',
-  'NotDownloaded'
+  'NotDownloaded',
 ];
 
 class _LocalFavoritesFilterDialogState

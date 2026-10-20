@@ -178,7 +178,7 @@ class _ButtonState extends State<Button> {
             ? CircularProgressIndicator(
           color: widget.type == ButtonType.filled
               ? kcOnAccentColor
-              : context.colorScheme.primary,
+              : kcBrandAdaptive(context),
           strokeWidth: 1.8,
         ).fixWidth(16).fixHeight(16)
             : widget.child,
@@ -346,7 +346,7 @@ class _IconButtonState extends State<_IconButton> {
     Widget icon = IconTheme(
       data: IconThemeData(
         size: iconSize,
-        color: widget.color ?? context.colorScheme.primary,
+        color: widget.color ?? kcBrandAdaptive(context),
       ),
       child: widget.icon,
     );
@@ -391,9 +391,13 @@ class _IconButtonState extends State<_IconButton> {
 }
 
 class MenuButton extends StatefulWidget {
-  const MenuButton({super.key, required this.entries});
+  const MenuButton({super.key, required this.entries, this.color});
 
   final List<MenuEntry> entries;
+
+  /// 图标颜色。默认沿用 `Button.icon` 的 primary（品牌红）。
+  /// 文件夹列表里传中性色，避免每行都挂一个红「⋯」抢走选中态的强调。
+  final Color? color;
 
   @override
   State<MenuButton> createState() => _MenuButtonState();
@@ -406,6 +410,7 @@ class _MenuButtonState extends State<MenuButton> {
       message: 'more'.tl,
       child: Button.icon(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 18),
+        color: widget.color,
         onPressed: () {
           var renderBox = context.findRenderObject() as RenderBox;
           var offset = renderBox.localToGlobal(Offset.zero);

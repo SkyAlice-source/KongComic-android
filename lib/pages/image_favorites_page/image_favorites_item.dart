@@ -299,13 +299,13 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                 child: Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    color: cs.primary,
+                    color: kcBrandAdaptive(context),
                     shape: BoxShape.circle,
                   ),
                   child: HugeIcon(
                     icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                     size: 12,
-                    color: cs.onPrimary,
+                    color: kcOnAccentColor,
                   ),
                 ),
               ),

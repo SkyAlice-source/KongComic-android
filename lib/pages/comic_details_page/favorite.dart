@@ -107,36 +107,21 @@ class _FavoriteDialog extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 顶部抓取条：精致 sheet 暗示
-                const SizedBox(height: kcSpaceXxs),
-                Center(
-                  child: Container(
-                    width: 32,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(kcPillRadius),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: kcSpaceXxs),
                 SizedBox(
                   height: 48,
                   child: Row(
                     children: [
-                      const SizedBox(width: kcSpaceSm),
+                      // 与下方 _sectionHeader 的 kcSpaceLg 左缩进对齐，标题不再比分区名凸出 4px。
+                      const SizedBox(width: kcSpaceLg),
                       Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: kcSpaceXs),
-                          child: Text(
-                            'Favorite'.tl,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
+                        child: Text(
+                          'Favorite'.tl,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
                       IconButton(
@@ -220,15 +205,15 @@ class _FavoriteListState extends State<_FavoriteList> {
           )
         : null;
 
-    final divider = widget.hasNetwork
-        ? Container(
-            height: 1,
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            color: context.colorScheme.outlineVariant.withValues(alpha: 0.3),
-          )
-        : null;
+    // 与本地分区内的分组线同一套（0.6 发丝 + 16 缩进），避免两处粗细/缩进不一。
+    final divider = widget.hasNetwork ? _sectionDivider(context) : null;
 
+    // shrinkWrap：内容少时让对话框贴着内容收口，不再在底部留一大片空白；
+    // 内容超过上限高度时仍然可滚（外层 Flexible 给的是有限约束）。
     return ListView(
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      physics: const ClampingScrollPhysics(),
       children: [
         if (localFavoritesFirst) ...[
           localSection,
@@ -318,20 +303,23 @@ class _NetworkSectionState extends State<_NetworkSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            "Network Favorites".tl,
-            style: TextStyle(fontSize: kcBody).copyWith(
-              fontWeight: FontWeight.w600,
-              color: context.colorScheme.primary,
-            ),
-          ),
-        ),
+        _sectionHeader(context, "Network".tl),
         Shimmer(
           child: Column(
             children: List.generate(3, (index) {
               return ListTile(
+                // 占位图标：真实行都有 leading，骨架若没有，加载完成后文字会横向跳一下。
+                leading: SizedBox(
+                  width: 24,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: context.colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(kcRadius4),
+                    ),
+                  ),
+                ),
                 title: Container(
                   height: 20,
                   width: double.infinity,
@@ -386,16 +374,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            "Network Favorites".tl,
-            style: TextStyle(fontSize: kcBody).copyWith(
-              fontWeight: FontWeight.w600,
-              color: context.colorScheme.primary,
-            ),
-          ),
-        ),
+        _sectionHeader(context, "Network".tl),
         Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -409,7 +388,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
                   textAlign: TextAlign.center,
                 ),
               ),
-              TextButton(
+              Button.text(
                 onPressed: () {
                   setState(() {
                     foldersError = null;
@@ -431,17 +410,9 @@ class _NetworkSectionState extends State<_NetworkSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-          child: Text(
-            "Network Favorites".tl,
-            style: TextStyle(fontSize: kcBody).copyWith(
-              fontWeight: FontWeight.w600,
-              color: context.colorScheme.primary,
-            ),
-          ),
-        ),
+        _sectionHeader(context, "Network".tl),
         ListTile(
+          dense: true,
           onTap: isLoading
               ? null
               : () async {
@@ -463,13 +434,8 @@ class _NetworkSectionState extends State<_NetworkSection> {
                   }
                   if (mounted) setState(() => isLoading = false);
                 },
-          title: Row(
-            children: [
-              Text("Network Favorites".tl),
-              const SizedBox(width: 8),
-              _addedChip(context, isFavorite),
-            ],
-          ),
+          leading: _rowIcon(context, HugeIcons.strokeRoundedCloud),
+          title: Text("Network Favorites".tl),
           trailing: _FavoriteStatePill(isFavorite: isFavorite, isLoading: isLoading),
         ),
       ],
@@ -480,16 +446,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-          child: Text(
-            "Network Favorites".tl,
-            style: TextStyle(fontSize: kcBody).copyWith(
-              fontWeight: FontWeight.w600,
-              color: context.colorScheme.primary,
-            ),
-          ),
-        ),
+        _sectionHeader(context, "Network".tl),
         ...folders!.entries.map((entry) {
           final name = entry.value;
           final id = entry.key;
@@ -500,6 +457,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
           final enabled = !(widget.comicSource.favoriteData!.singleFolderForSingleComic && addedFolders.isNotEmpty && !isAdded);
 
           return ListTile(
+            dense: true,
             onTap: enabled
                 ? () async {
                     setState(() => _itemLoading[id] = true);
@@ -532,13 +490,8 @@ class _NetworkSectionState extends State<_NetworkSection> {
                     if (mounted) setState(() => _itemLoading[id] = false);
                   }
                 : null,
-            title: Row(
-              children: [
-                Text(name),
-                const SizedBox(width: 8),
-                _addedChip(context, isAdded),
-              ],
-            ),
+            leading: _rowIcon(context, HugeIcons.strokeRoundedFolder01),
+            title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
             trailing: (_itemLoading[id] ?? false)
                 ? const SizedBox(
                     width: 20,
@@ -584,7 +537,7 @@ class _LocalSectionState extends State<_LocalSection> {
   void initState() {
     super.initState();
     localFolders = widget.localFolders;
-    localAdded = widget.added.toSet();
+    localAdded = widget.added.where((f) => f != kReadLaterFolder).toSet();
   }
 
   @override
@@ -592,20 +545,13 @@ class _LocalSectionState extends State<_LocalSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-          child: Text(
-            "Local Favorites".tl,
-            style: TextStyle(fontSize: kcBody).copyWith(
-              fontWeight: FontWeight.w600,
-              color: context.colorScheme.primary,
-            ),
-          ),
-        ),
-        ...localFolders.map((folder) {
+        _sectionHeader(context, "Local".tl),
+        _sectionDivider(context),
+        ...localFolders.where((f) => f != kReadLaterFolder).map((folder) {
           final isAdded = localAdded.contains(folder);
 
           return ListTile(
+            dense: true,
             onTap: () {
               if (isAdded) {
                 LocalFavoritesManager().deleteComicWithId(
@@ -632,25 +578,20 @@ class _LocalSectionState extends State<_LocalSection> {
                 context.pop();
               }
             },
-            title: Row(
-              children: [
-                Text(folder),
-                const SizedBox(width: 8),
-                _addedChip(context, isAdded),
-              ],
-            ),
+            // 每行都给 leading：没有图标时文字会贴在左边缘，与置顶行错位。
+            leading: _rowIcon(context, HugeIcons.strokeRoundedFolder01),
+            title: Text(folder, maxLines: 1, overflow: TextOverflow.ellipsis),
             trailing: _FavoriteStatePill(isFavorite: isAdded),
           );
         }),
-        // New folder button
+        // 与上方文件夹行拉开一点距离：这是「动作」，不是又一个文件夹。
+        const SizedBox(height: kcSpaceXs),
         ListTile(
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 20),
-              const SizedBox(width: 4),
-              Text("New Folder".tl),
-            ],
+          dense: true,
+          leading: _rowIcon(context, HugeIcons.strokeRoundedAddCircle),
+          title: Text(
+            "New Folder".tl,
+            style: TextStyle(color: context.colorScheme.onSurfaceVariant),
           ),
           onTap: () {
             newFolder().then((v) {
@@ -660,9 +601,11 @@ class _LocalSectionState extends State<_LocalSection> {
             });
           },
         ),
+        // 末尾不再加间距：dense 行自带的上下留白 + 对话框底部 4，已与顶部对称。
       ],
     );
   }
+
 }
 
 /// 收藏状态药丸（纯展示）：Add / Remove 两态，加载时显示转圈。
@@ -682,54 +625,96 @@ class _FavoriteStatePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final removeColor = context.colorScheme.error;
-    final addColor = context.colorScheme.primary;
-    final bg = isLoading
-        ? (isFavorite ? removeColor : addColor)
-        : (enabled ? (isFavorite ? removeColor : addColor) : context.colorScheme.surfaceContainerLow);
+    final scheme = context.colorScheme;
+    // 未添加 = 描边胶囊（安静，不跟已添加态抢眼）；已添加 = 浅染胶囊 + 勾。
+    // 旧实现两个状态都是实心高饱和色，一行行排下来像一排警告按钮。
+    final fg = !enabled
+        ? scheme.onSurfaceVariant
+        : (isFavorite ? scheme.onErrorContainer : kcBrandAdaptive(context));
+    final bg = !enabled
+        ? Colors.transparent
+        : (isFavorite ? scheme.errorContainer : Colors.transparent);
     return AnimatedContainer(
       duration: AppAnimations.duration(const Duration(milliseconds: 200)),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(kcCardRadius),
+        color: isLoading ? scheme.surfaceContainerHighest : bg,
+        borderRadius: BorderRadius.circular(kcPillRadius),
+        border: (isLoading || isFavorite)
+            ? null
+            : Border.all(
+                color: enabled
+                    ? scheme.outlineVariant
+                    : scheme.outlineVariant.withValues(alpha: 0.5),
+                width: 1,
+              ),
       ),
       child: isLoading
           ? SizedBox(
-              width: 16,
-              height: 16,
+              width: 14,
+              height: 14,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: context.colorScheme.onPrimary,
+                color: kcBrandAdaptive(context),
               ),
             )
           : Text(
               isFavorite ? "Remove".tl : "Add".tl,
-              style: TextStyle(fontSize: kcCaption).copyWith(
-                color: enabled
-                    ? context.colorScheme.onPrimary
-                    : context.colorScheme.onSurfaceVariant,
+              style: TextStyle(
+                fontSize: kcCaption,
+                fontWeight: FontWeight.w500,
+                // 中文默认行高比字形高，胶囊里视觉会偏下；锁 1.0 让文字真正居中。
+                height: 1.0,
+                color: fg,
               ),
             ),
     );
   }
 }
 
-/// 行内「已添加」标签，状态切换时带缩放过渡，比生硬出现更精致。
-Widget _addedChip(BuildContext context, bool added) {
-  return AnimatedSwitcher(
-    duration: const Duration(milliseconds: 180),
-    transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
-    child: added
-        ? Container(
-            key: const ValueKey(true),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: context.colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(kcCardRadius),
-            ),
-            child: Text("Added".tl, style: TextStyle(fontSize: kcCaption)),
-          )
-        : const SizedBox.shrink(key: ValueKey(false)),
+/// 分区标题：小号 caption + 次要色，替代原来「正文大小 + 品牌红」的写法。
+///
+/// 对话框里标题若用品牌红，会和右侧一排操作胶囊抢注意力；这里降级为
+/// 安静的分组标签，让「文件夹行」本身成为唯一的视觉主体。
+Widget _sectionHeader(BuildContext context, String title) {
+  final scheme = context.colorScheme;
+  return Padding(
+    // 底部不再留白：dense 行本身自带内边距，标题贴近所属分组才不会「悬空」。
+    padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceMd, kcSpaceLg, 0),
+    child: Text(
+      title,
+      style: TextStyle(
+        fontSize: kcCaption,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.3,
+        color: scheme.onSurfaceVariant,
+      ),
+    ),
+  );
+}
+
+/// 分组之间的发丝线（缩进对齐文字左边缘）。
+Widget _sectionDivider(BuildContext context) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
+    child: Divider(
+      height: kcSpaceMd,
+      thickness: 0.6,
+      // 不叠 alpha：0.6dp 的发丝线再降到 0.7 透明度，在白底上基本看不见，
+      // 分组就白做了。用 outlineVariant 原色，细而可辨。
+      color: context.colorScheme.outlineVariant,
+    ),
+  );
+}
+
+/// 行首图标：固定 24 宽，保证有图标 / 无图标行、本地行 / 网络行文字全部左对齐。
+Widget _rowIcon(BuildContext context, List<List<dynamic>> icon, {Color? color}) {
+  return SizedBox(
+    width: 24,
+    child: HugeIcon(
+      icon: icon,
+      size: 20,
+      color: color ?? context.colorScheme.onSurfaceVariant,
+    ),
   );
 }

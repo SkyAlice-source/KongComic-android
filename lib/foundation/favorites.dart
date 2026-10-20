@@ -29,6 +29,22 @@ String _safeIndexName(String folder, String suffix) {
   return 'idx_${folder.hashCode.abs()}_$suffix';
 }
 
+/// 历史保留名：旧版「稍后阅读」特殊文件夹（`__read_later__`）。
+///
+/// 该功能区已移除，但这里仍保留常量与下方 [userFolderNames] 的排除逻辑，
+/// 防止升级用户本地残留的 `__read_later__` 表被当成普通收藏夹泄露到 UI。
+/// 新装用户不会再创建此文件夹。
+const String kReadLaterFolder = '__read_later__';
+
+/// 用户可见的文件夹列表，排除历史保留名 [kReadLaterFolder]。
+///
+/// 用于所有向用户展示或选择文件夹的 UI：避免泄漏保留名，也避免把
+/// 「稍后阅读」误当作普通收藏夹 / 追更目标 / 首页轮播来源。
+List<String> userFolderNames() => LocalFavoritesManager()
+    .folderNames
+    .where((f) => f != kReadLaterFolder)
+    .toList();
+
 class FavoriteItem implements Comic {
   String name;
   String author;
@@ -318,6 +334,9 @@ class LocalFavoritesManager with ChangeNotifier {
   Map<int, int> _computeHashedIds(List<String> folders) {
     var hashedIds = <int, int>{};
     for (var folder in folders) {
+      // 历史「稍后阅读」表已废弃：跳过，避免旧队列里的漫画仍被判为「已收藏」，
+      // 却又在收藏面板里找不到可取消的文件夹（死锁态）。
+      if (folder == kReadLaterFolder) continue;
       final rows = _db.select('''
         select id, type from "$folder";
       ''');

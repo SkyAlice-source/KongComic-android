@@ -114,10 +114,16 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
     return PopUpWidgetScaffold(
       title: "Keyword blocking".tl,
       tailing: [
-        TextButton.icon(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
-          label: Text("Add".tl),
+        Button.text(
           onPressed: add,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
+              const SizedBox(width: 6),
+              Text("Add".tl),
+            ],
+          ),
         ),
       ],
       body: ListView.builder(
@@ -260,10 +266,16 @@ class _ManageBlockingCommentWordViewState extends State<_ManageBlockingCommentWo
     return PopUpWidgetScaffold(
       title: "Comment keyword blocking".tl,
       tailing: [
-        TextButton.icon(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
-          label: Text("Add".tl),
+        Button.text(
           onPressed: add,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
+              const SizedBox(width: 6),
+              Text("Add".tl),
+            ],
+          ),
         ),
       ],
       body: ListView.builder(

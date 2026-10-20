@@ -6,6 +6,8 @@ import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/history.dart';
+import 'package:kong_comic/pages/search_page.dart';
+import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -19,15 +21,32 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   void initState() {
     HistoryManager().addListener(onUpdate);
+    // 自绘顶栏后，布局切换按钮（列表/网格）在历史页内部，需要跟着设置变化刷新图标。
+    appdata.settings.addListener(_onSettingsChanged);
     super.initState();
   }
 
   @override
   void dispose() {
     HistoryManager().removeListener(onUpdate);
+    appdata.settings.removeListener(_onSettingsChanged);
     _scrollController.dispose();
     searchController.dispose();
     super.dispose();
+  }
+
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// 当前是否为详细列表模式（detailed）；否则为简洁网格（brief）。
+  bool get _isDetailedLayout => appdata.settings['comicDisplayMode'] != 'brief';
+
+  void _toggleLayout() {
+    appdata.settings['comicDisplayMode'] = _isDetailedLayout
+        ? 'brief'
+        : 'detailed';
+    appdata.saveData();
   }
 
   void onUpdate() {
@@ -56,12 +75,12 @@ class _HistoryPageState extends State<HistoryPage> {
   static const _timeFilterList = ['all', 'today', '7d', '30d', 'earlier'];
 
   String _timeFilterLabel(String f) => switch (f) {
-        'today' => "Today".tl,
-        '7d' => "Last 7 days".tl,
-        '30d' => "Last 30 days".tl,
-        'earlier' => "Earlier".tl,
-        _ => "All".tl,
-      };
+    'today' => "Today".tl,
+    '7d' => "Last 7 days".tl,
+    '30d' => "Last 30 days".tl,
+    'earlier' => "Earlier".tl,
+    _ => "All".tl,
+  };
 
   void _showTimeFilterDialog() {
     showDialog(
@@ -102,8 +121,11 @@ class _HistoryPageState extends State<HistoryPage> {
   /// Page loader for PaginatedSliverGridComics.
   Future<List<Comic>> _loadPage(int offset, int limit) async {
     if (searchMode && searchKeyword.trim().isNotEmpty) {
-      return HistoryManager()
-          .searchPaginated(searchKeyword.trim(), limit: limit, offset: offset);
+      return HistoryManager().searchPaginated(
+        searchKeyword.trim(),
+        limit: limit,
+        offset: offset,
+      );
     }
     return HistoryManager().getAllPaginated(
       limit: limit,
@@ -130,8 +152,7 @@ class _HistoryPageState extends State<HistoryPage> {
     // Load all history for selection (one-time operation).
     final allComics = HistoryManager().getAll();
     setState(() {
-      selectedComics =
-          allComics.asMap().map((k, v) => MapEntry(v, true));
+      selectedComics = allComics.asMap().map((k, v) => MapEntry(v, true));
     });
   }
 
@@ -157,18 +178,15 @@ class _HistoryPageState extends State<HistoryPage> {
     if (comic.sourceKey.startsWith("Unknown")) {
       HistoryManager().remove(
         comic.id,
-        ComicType(int.tryParse(comic.sourceKey.split(':').elementAtOrNull(1) ?? '') ?? 0),
+        ComicType(
+          int.tryParse(comic.sourceKey.split(':').elementAtOrNull(1) ?? '') ??
+              0,
+        ),
       );
     } else if (comic.sourceKey == 'local') {
-      HistoryManager().remove(
-        comic.id,
-        ComicType.local,
-      );
+      HistoryManager().remove(comic.id, ComicType.local);
     } else {
-      HistoryManager().remove(
-        comic.id,
-        ComicType(comic.sourceKey.hashCode),
-      );
+      HistoryManager().remove(comic.id, ComicType(comic.sourceKey.hashCode));
     }
   }
 
@@ -203,8 +221,7 @@ class _HistoryPageState extends State<HistoryPage> {
     int failed = 0;
     int skipped = 0;
 
-    await for (var progress
-        in HistoryManager().refreshAllHistoriesStream()) {
+    await for (var progress in HistoryManager().refreshAllHistoriesStream()) {
       if (isCanceled) {
         return;
       }
@@ -223,10 +240,10 @@ class _HistoryPageState extends State<HistoryPage> {
         message:
             "Refresh Completed: Success @success, Failed @failed, Skipped @skipped"
                 .tlParams({
-          'success': success,
-          'failed': failed,
-          'skipped': skipped,
-        }),
+                  'success': success,
+                  'failed': failed,
+                  'skipped': skipped,
+                }),
       );
     }
   }
@@ -249,14 +266,20 @@ class _HistoryPageState extends State<HistoryPage> {
         body: SmoothCustomScrollView(
           controller: _scrollController,
           slivers: [
-            // 历史页操作承载在自身内部 SliverAppbar（pinned），与收藏页风格一致。
-            // 正常模式标题交给全局顶栏（粗体"历史"），此处不再重复显示；
-            // 仅多选模式在内部条显示"已选 N 部"，避免与全局标题重复。
+            // 历史页顶栏（标题 + 工具胶囊条）由本页自绘，与收藏页同一套外观。
+            // 共享顶栏已通过 NaviPane.topBarHiddenPages 对历史页整条让位，
+            // 因此标题也在这里承担，避免出现「两排工具栏」。
             SliverAppbar(
               title: multiSelectMode
-                  ? Text("Selected @c comics".tlParams({"c": selectedComics.length}))
-                  : const SizedBox.shrink(),
-              actions: multiSelectMode ? _multiSelectActions() : _normalActions(),
+                  ? Text(
+                      "Selected @c comics".tlParams({
+                        "c": selectedComics.length,
+                      }),
+                    )
+                  : Text("History".tl),
+              actions: multiSelectMode
+                  ? _multiSelectActions()
+                  : _normalActions(),
             ),
             PaginatedSliverGridComics(
               key: _gridKey,
@@ -288,20 +311,29 @@ class _HistoryPageState extends State<HistoryPage> {
               badgeColorBuilder: (c) {
                 final brightness = Theme.of(context).brightness;
                 final amoled = appdata.isAmoledMode;
-                return kcTagColor(kcStableHash(c.sourceKey), brightness,
-                    amoled: amoled);
+                return kcTagColor(
+                  kcStableHash(c.sourceKey),
+                  brightness,
+                  amoled: amoled,
+                );
               },
               menuBuilder: (c) {
                 return [
                   MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedRefresh,
+                      size: 18,
+                    ),
                     text: 'Refresh Info'.tl,
                     onClick: () {
                       _refreshHistory(c as History);
                     },
                   ),
                   MenuEntry(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedCancel01,
+                      size: 18,
+                    ),
                     text: 'Remove'.tl,
                     color: context.colorScheme.error,
                     onClick: () {
@@ -318,65 +350,90 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  /// 正常模式操作：筛选 / 多选 / 清空 / 刷新全部。
+  /// 正常模式操作：布局 / 筛选 / 多选 / 更多（刷新全部·清空历史）。
+  /// 外观与收藏页完全一致（[ToolsPill]）：胶囊条 + 中性图标，红只用于「筛选已启用」。
+  /// 共享顶栏已对历史页让位，所以「列表/网格切换」由这里承担；
+  /// 清空/刷新是低频且危险/耗时的动作，收进「更多」菜单。
   List<Widget> _normalActions() => [
-        Tooltip(
-          message: "Filter".tl,
-          child: IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedSortDescending, size: 20),
-            color: _timeFilter != 'all'
-                ? Theme.of(context).colorScheme.primary
-                : null,
-            onPressed: _showTimeFilterDialog,
-          ),
+    const SizedBox(width: 12),
+    ToolsPill(
+      children: [
+        // 布局切换做成双态分段：左侧「网格(简明)」、右侧「列表(详细)」，
+        // 当前布局高亮 accent 红。比原来「单图标 + 图标随状态反转」直观得多。
+        ToolsPillSegment(
+          icons: const [
+            HugeIcons.strokeRoundedGridView,
+            HugeIcons.strokeRoundedListView,
+          ],
+          tooltips: ["Switch to grid view".tl, "Switch to list view".tl],
+          selectedIndex: _isDetailedLayout ? 1 : 0,
+          onSelected: (_) => _toggleLayout(),
         ),
-        Tooltip(
-          message: "Multi-Select".tl,
-          child: IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 20),
-            onPressed: () => setState(() => multiSelectMode = true),
-          ),
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedSortDescending,
+          tooltip: "Filter".tl,
+          active: _timeFilter != 'all',
+          onPressed: _showTimeFilterDialog,
         ),
-        Tooltip(
-          message: "Clear History".tl,
-          child: IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 20),
-            onPressed: _confirmClearHistory,
-          ),
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedCheckList,
+          tooltip: "Multi-Select".tl,
+          onPressed: () => setState(() => multiSelectMode = true),
         ),
-        Tooltip(
-          message: "Refresh All Histories".tl,
-          child: IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 20),
-            onPressed: _refreshAllHistories,
-          ),
+        ToolsPillMoreButton(
+          entries: [
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+              text: "Refresh All Histories".tl,
+              onClick: _refreshAllHistories,
+            ),
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+              text: "Clear History".tl,
+              color: context.colorScheme.error,
+              onClick: _confirmClearHistory,
+            ),
+            // 历史页自绘顶栏后，全局共享顶栏的「搜索 / 设置」入口随之让位；
+            // 这两个是全局功能，不该在历史页彻底消失，收进「更多」兜底。
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18),
+              text: "Search".tl,
+              onClick: () => context.to(() => const SearchPage()),
+            ),
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
+              text: "Settings".tl,
+              onClick: () => context.to(() => const SettingsPage()),
+            ),
+          ],
         ),
-      ];
+      ],
+    ),
+  ];
 
   /// 多选模式操作：全选 / 删除 / 更多(反选·取消) / 退出。
   List<Widget> _multiSelectActions() => [
-        Tooltip(
-          message: "Select All".tl,
-          child: IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 20),
-            onPressed: selectAll,
-          ),
+    const SizedBox(width: 12),
+    ToolsPill(
+      children: [
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedCheckList,
+          tooltip: "Select All".tl,
+          onPressed: selectAll,
         ),
-        Tooltip(
-          message: "Delete".tl,
-          child: IconButton(
-            icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedDelete01,
-              size: 20,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: _deleteSelected,
-          ),
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedDelete01,
+          tooltip: "Delete".tl,
+          color: context.colorScheme.error,
+          onPressed: _deleteSelected,
         ),
-        MenuButton(
+        ToolsPillMoreButton(
           entries: [
             MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedFlipHorizontal, size: 18),
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedFlipHorizontal,
+                size: 18,
+              ),
               text: "Invert Selection".tl,
               onClick: invertSelection,
             ),
@@ -387,17 +444,17 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           ],
         ),
-        Tooltip(
-          message: "Exit Multi-Select".tl,
-          child: IconButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 20),
-            onPressed: () => setState(() {
-              multiSelectMode = false;
-              selectedComics.clear();
-            }),
-          ),
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedCancel01,
+          tooltip: "Exit Multi-Select".tl,
+          onPressed: () => setState(() {
+            multiSelectMode = false;
+            selectedComics.clear();
+          }),
         ),
-      ];
+      ],
+    ),
+  ];
 
   /// Scroll-to-top FAB，样式与发现页完全一致（统一组件）。
   Widget _buildScrollTopFab() {
@@ -413,6 +470,7 @@ class _HistoryPageState extends State<HistoryPage> {
       },
     );
   }
+
   void _deleteSelected() {
     if (selectedComics.isEmpty) return;
     final comicsToDelete = List<History>.from(selectedComics.keys);
@@ -433,14 +491,14 @@ class _HistoryPageState extends State<HistoryPage> {
         contentPadding: ContentDialog.hPadding,
         content: Text('Are you sure you want to clear your history?'.tl),
         actions: [
-          TextButton(
+          Button.text(
             onPressed: () {
               HistoryManager().clearUnfavoritedHistory();
               Navigator.of(dialogContext).pop();
             },
             child: Text('Clear Unfavorited'.tl),
           ),
-          FilledButton(
+          Button.filled(
             onPressed: () {
               HistoryManager().clearHistory();
               Navigator.of(dialogContext).pop();
@@ -455,17 +513,13 @@ class _HistoryPageState extends State<HistoryPage> {
   String getDescription(History h) {
     var res = "";
     if (h.ep >= 1) {
-      res += "Chapter @ep".tlParams({
-        "ep": h.ep,
-      });
+      res += "Chapter @ep".tlParams({"ep": h.ep});
     }
     if (h.page >= 1) {
       if (h.ep >= 1) {
         res += " - ";
       }
-      res += "Page @page".tlParams({
-        "page": h.page,
-      });
+      res += "Page @page".tlParams({"page": h.page});
     }
     return res;
   }

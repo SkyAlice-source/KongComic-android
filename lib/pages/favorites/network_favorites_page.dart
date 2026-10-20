@@ -59,50 +59,6 @@ Future<bool> _deleteComic(
   return result;
 }
 
-/// 收藏页内部栏的“文件夹”上下文：降级为次级 chip（不再作为第二根标题栏）。
-/// 点击展开文件夹选择器，视觉权重明显低于全局主标题“收藏”。
-Widget _folderChip(BuildContext context, String title, VoidCallback? onTap) {
-  final cs = Theme.of(context).colorScheme;
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-    decoration: BoxDecoration(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(kcChipRadius),
-    ),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(kcChipRadius),
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedFolder01,
-            size: 16,
-            color: cs.primary,
-          ),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.38,
-            ),
-            child: Text(
-              title,
-              style: const TextStyle(fontSize: kcBody, fontWeight: FontWeight.w500),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 2),
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedArrowDown01,
-            size: 14,
-            color: cs.onSurfaceVariant,
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 class NetworkFavoritePage extends StatelessWidget {
   const NetworkFavoritePage(this.data, {this.controller, super.key});
 
@@ -140,71 +96,108 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
 
   @override
   Widget build(BuildContext context) {
+    final favPage =
+        context.findAncestorStateOfType<_FavoritesPageState>()!;
     return ComicList(
       key: comicListKey,
       controller: widget.controller,
       showSourceOnCover: false,
       showBottomSourceDate: true,
       openLocalIfAvailable: true,
-      leadingSliver: SliverAppbar(
-        style:
-            context.width < changePoint ? AppbarStyle.shadow : AppbarStyle.blur,
-        leading: Tooltip(
-          message: "Folders".tl,
-          child: context.width <= _kTwoPanelChangeWidth
-              ? IconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                  color: context.colorScheme.primary,
-                  onPressed: showFolders,
-                )
-              : null,
-        ),
-        title: _folderChip(
-          context,
-          widget.data.title,
-          context.width < _kTwoPanelChangeWidth ? showFolders : null,
-        ),
-        actions: [
-          Tooltip(
-            message: "Refresh".tl,
-            child: IconButton(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-              onPressed: () {
-                // Force refresh bypassing cache
-                NetworkCacheManager().clear();
-                comicListKey.currentState!.refresh();
-              },
+      leadingSliver: MultiSliver(
+        children: [
+          SliverAppbar(
+            style:
+                context.width < changePoint ? AppbarStyle.shadow : AppbarStyle.blur,
+            leading: Tooltip(
+              message: "Folders".tl,
+              child: context.width <= _kTwoPanelChangeWidth
+                  ? IconButton(
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
+                      color: context.colorScheme.onSurfaceVariant,
+                      onPressed: showFolders,
+                    )
+                  : null,
             ),
+            title: Text(widget.data.title),
+            actions: [
+              favPage._favToolsPill(context, [
+                // 布局切换双态分段：与「本地」收藏同一套写法，翻全局
+                // comicDisplayMode；ComicList 经 AnimatedBuilder 自动重建。
+                ToolsPillSegment(
+                  icons: const [
+                    HugeIcons.strokeRoundedGridView,
+                    HugeIcons.strokeRoundedListView,
+                  ],
+                  tooltips: [
+                    "Switch to grid view".tl,
+                    "Switch to list view".tl,
+                  ],
+                  selectedIndex:
+                      appdata.settings['comicDisplayMode'] != 'brief' ? 1 : 0,
+                  onSelected: (_) {
+                    appdata.settings['comicDisplayMode'] =
+                        appdata.settings['comicDisplayMode'] != 'brief'
+                            ? 'brief'
+                            : 'detailed';
+                    appdata.saveData();
+                    setState(() {});
+                  },
+                ),
+                favPage._toolIconButton(
+                  context,
+                  icon: HugeIcons.strokeRoundedRefresh,
+                  tooltip: "Refresh".tl,
+                  onPressed: () {
+                    // Force refresh bypassing cache
+                    NetworkCacheManager().clear();
+                    comicListKey.currentState!.refresh();
+                  },
+                ),
+                favPage._toolMoreButton(context, [
+                  MenuEntry(
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedRefresh,
+                      size: 18,
+                    ),
+                    text: "Convert to local".tl,
+                    onClick: () {
+                      importNetworkFolder(widget.data.key, 9999999, null, null);
+                    },
+                  ),
+                ]),
+              ]),
+            ],
           ),
-          MenuButton(entries: [
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-              text: "Convert to local".tl,
-              onClick: () {
-                importNetworkFolder(widget.data.key, 9999999, null, null);
-              },
-            )
-          ]),
+          // 分组切换胶囊常驻顶部（在 Appbar 下方，随列表一起滚动）。
+          SliverToBoxAdapter(child: _GroupPills(favPage: favPage)),
         ],
       ),
-      errorLeading: Appbar(
-        leading: Tooltip(
-          message: "Folders".tl,
-          child: context.width <= _kTwoPanelChangeWidth
-              ? IconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                  color: context.colorScheme.primary,
-                  onPressed: context
-                      .findAncestorStateOfType<_FavoritesPageState>()
-                      ?.showFolderSelector,
-                )
-              : null,
-        ),
-        title: _folderChip(
-          context,
-          widget.data.title,
-          context.width < _kTwoPanelChangeWidth ? showFolders : null,
-        ),
+      // 错误 / 未登录态不能用 leadingSliver，胶囊单独补在 Appbar 下方，
+      // 否则会卡在网络源错误页里没有分组切换入口。
+      errorLeading: Column(
+        mainAxisSize: MainAxisSize.min,
+        // stretch 让胶囊与正常态一样左对齐、占满整行，而不是被 Column 居中。
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Appbar(
+            leading: Tooltip(
+              message: "Folders".tl,
+              child: context.width <= _kTwoPanelChangeWidth
+                  ? IconButton(
+                      icon: HugeIcon(
+                          icon: HugeIcons.strokeRoundedMenu02, size: 18),
+                      color: context.colorScheme.onSurfaceVariant,
+                      onPressed: context
+                          .findAncestorStateOfType<_FavoritesPageState>()
+                          ?.showFolderSelector,
+                    )
+                  : null,
+            ),
+            title: Text(widget.data.title),
+          ),
+          _GroupPills(favPage: favPage),
+        ],
       ),
       loadPage: widget.data.loadComic == null
           ? null
@@ -218,9 +211,9 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
             icon: HugeIcon(
               icon: HugeIcons.strokeRoundedDownload04,
               size: 18,
-              color: context.colorScheme.primary,
+              color: context.colorScheme.onSurfaceVariant,
             ),
-            color: context.colorScheme.primary,
+            color: context.colorScheme.onSurfaceVariant,
             text: "Download".tl,
             onClick: () {
               var source = ComicSource.find(comic.sourceKey);
@@ -334,6 +327,8 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final favPage =
+        context.findAncestorStateOfType<_FavoritesPageState>()!;
     var sliverAppBar = SliverAppbar(
       style:
           context.width < changePoint ? AppbarStyle.shadow : AppbarStyle.blur,
@@ -342,7 +337,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         child: context.width <= _kTwoPanelChangeWidth
             ? IconButton(
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                color: context.colorScheme.primary,
+                color: context.colorScheme.onSurfaceVariant,
                 onPressed: showFolders,
               )
             : null,
@@ -359,7 +354,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         child: context.width <= _kTwoPanelChangeWidth
             ? IconButton(
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                color: context.colorScheme.primary,
+                color: context.colorScheme.onSurfaceVariant,
                 onPressed: showFolders,
               )
             : null,
@@ -372,8 +367,10 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
 
     if (_loading) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           appBar,
+          _GroupPills(favPage: favPage),
           const Expanded(
             child: Center(
               child: CircularProgressIndicator(),
@@ -383,8 +380,10 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
       );
     } else if (_errorMessage != null) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           appBar,
+          _GroupPills(favPage: favPage),
           Expanded(
             child: NetworkError(
               message: friendlyError(_errorMessage!),
@@ -403,6 +402,8 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         controller: widget.controller,
         slivers: [
           sliverAppBar,
+          // 分组切换胶囊常驻顶部（在 Appbar 下方，随列表一起滚动）。
+          SliverToBoxAdapter(child: _GroupPills(favPage: favPage)),
           SliverGridViewWithFixedItemHeight(
             delegate:
                 SliverChildBuilderDelegate(childCount: length, (context, i) {
@@ -443,7 +444,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                 height: 60,
                 width: double.infinity,
                 child: Center(
-                  child: TextButton(
+                  child: Button.text(
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -475,8 +476,10 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
       // Loaded successfully but the source returned no folder map. Reaching
       // this used to be impossible to distinguish from a crash on `folders!`.
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           appBar,
+          _GroupPills(favPage: favPage),
           Expanded(
             child: Center(child: Text("No folders".tl)),
           ),
@@ -705,9 +708,9 @@ class _FavoriteFolder extends StatelessWidget {
             icon: HugeIcon(
               icon: HugeIcons.strokeRoundedDownload04,
               size: 18,
-              color: context.colorScheme.primary,
+              color: context.colorScheme.onSurfaceVariant,
             ),
-            color: context.colorScheme.primary,
+            color: context.colorScheme.onSurfaceVariant,
             text: "Download".tl,
             onClick: () {
               var source = ComicSource.find(comic.sourceKey);

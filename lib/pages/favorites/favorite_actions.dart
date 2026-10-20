@@ -30,7 +30,7 @@ Future<void> newFolder() async {
               ],
             ).paddingHorizontal(16),
             actions: [
-              TextButton(
+              Button.text(
                 child: Text("Import from file".tl),
                 onPressed: () async {
                   var file = await selectFile(ext: ['json']);
@@ -45,7 +45,7 @@ Future<void> newFolder() async {
                   context.pop();
                 },
               ).paddingRight(4),
-              FilledButton(
+              Button.filled(
                 onPressed: () {
                   var e = validateFolderName(controller.text);
                   if (e != null) {
@@ -84,7 +84,7 @@ String? validateFolderName(String newFolderName) {
 }
 
 void addFavorite(List<Comic> comics) {
-  var folders = LocalFavoritesManager().folderNames;
+  var folders = userFolderNames();
 
   showDialog(
     context: App.rootContext,
@@ -108,7 +108,7 @@ void addFavorite(List<Comic> comics) {
             ),
           ),
           actions: [
-            FilledButton(
+            Button.filled(
               onPressed: () {
                 if (selectedFolder != null) {
                   for (var comic in comics) {
@@ -214,9 +214,7 @@ Future<List<FavoriteItem>> updateComicsInfo(String folder) async {
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
                   value: value / comics.length,
-                  color: isDark
-                      ? Color.alphaBlend(cs.primary.withValues(alpha: 0.34), cs.surface)
-                      : cs.primary,
+                  color: kcAccentColor(context),
                   backgroundColor: isDark
                       ? Color.alphaBlend(
                           cs.onSurface.withValues(alpha: 0.08), cs.surface)
@@ -229,11 +227,8 @@ Future<List<FavoriteItem>> updateComicsInfo(String folder) async {
               ],
             ).paddingHorizontal(16),
             actions: [
-              TextButton(
-                style: TextButton.styleFrom(
-                  foregroundColor:
-                      isFinished ? null : context.colorScheme.error,
-                ),
+              Button.text(
+                color: isFinished ? null : context.colorScheme.error,
                 onPressed: () {
                   isCanceled = true;
                   context.pop();
@@ -275,7 +270,7 @@ Future<List<FavoriteItem>> updateComicsInfo(String folder) async {
 }
 
 Future<void> sortFolders() async {
-  var folders = LocalFavoritesManager().folderNames;
+  var folders = userFolderNames();
 
   await showPopUpWidget(
     App.rootContext,
@@ -468,9 +463,7 @@ Future<void> importNetworkFolder(
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
                   value: isFinished ? 1 : null,
-                  color: isDark
-                      ? Color.alphaBlend(cs.primary.withValues(alpha: 0.34), cs.surface)
-                      : cs.primary,
+                  color: kcAccentColor(context),
                   backgroundColor: isDark
                       ? Color.alphaBlend(
                           cs.onSurface.withValues(alpha: 0.08), cs.surface)
@@ -488,12 +481,10 @@ Future<void> importNetworkFolder(
               ],
             ).paddingHorizontal(16),
             actions: [
-              TextButton(
-                style: TextButton.styleFrom(
-                  foregroundColor: (isFinished || isErrored())
-                      ? null
-                      : context.colorScheme.error,
-                ),
+              Button.text(
+                color: (isFinished || isErrored())
+                    ? null
+                    : context.colorScheme.error,
                 onPressed: () {
                   isCanceled = true;
                   context.pop();

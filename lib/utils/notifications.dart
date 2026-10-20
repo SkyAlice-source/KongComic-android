@@ -215,6 +215,10 @@ class AppNotifications {
     bool indeterminate = false,
     bool ongoing = true,
     bool autoCancel = false,
+    // 毫秒；由系统在到期后自动撤销，适合「检查完成」这类一次性确认通知。
+    // autoCancel 只在用户点击时生效，非 ongoing 的完成通知不点就会一直挂在
+    // 通知栏（用户反馈的现象），所以「无更新」时用 timeoutAfter 让它自己消失。
+    int? timeoutAfter,
     String channelId = _updateChannelId,
     String channelNameKey = _updateChannelNameKey,
     String channelDescKey = _updateChannelDescKey,
@@ -233,6 +237,7 @@ class AppNotifications {
       indeterminate: indeterminate,
       ongoing: ongoing,
       autoCancel: autoCancel,
+      timeoutAfter: timeoutAfter,
       onlyAlertOnce: true,
       channelShowBadge: false,
       // Progress notifications are refreshed every second; never play the
@@ -414,6 +419,10 @@ class AppNotifications {
           body: body,
           ongoing: false,
           autoCancel: true,
+          // 没有新章节时这条只是「检查已结束」的瞬时确认，用户没有任何可操作
+          // 内容，却会一直留在通知栏。给 5 秒后由系统自动撤销；有新更新时保留
+          // （可点击跳转追更页查看），避免错过。
+          timeoutAfter: updated > 0 ? null : 5000,
         ),
       ),
       payload: 'comic_update',

@@ -46,6 +46,7 @@ part 'image.dart';
 part 'appbar.dart';
 part 'button.dart';
 part 'consts.dart';
+part 'tools_pill.dart';
 part 'flyout.dart';
 part 'layout.dart';
 part 'loading.dart';
@@ -118,8 +119,8 @@ class EmptyState extends StatelessWidget {
             ],
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 24),
-              FilledButton.tonal(
-                onPressed: onAction,
+              Button.filled(
+                onPressed: () => onAction?.call(),
                 child: Text(actionLabel!),
               ),
             ],

@@ -67,7 +67,7 @@ class Select extends StatelessWidget {
               child: Text((current ?? ' ').tl, style: TextStyle(fontSize: kcBody)),
             ),
             const SizedBox(width: 8),
-            HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18, color: context.colorScheme.primary),
+            HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18, color: kcBrandAdaptive(context)),
           ],
         ).padding(const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
       ),
@@ -120,10 +120,10 @@ class _FilterChipFixedWidthState extends State<FilterChipFixedWidth> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = selected
-        ? (isDark ? cs.primary.withValues(alpha: 0.12) : cs.secondaryContainer)
+        ? kcAccentSurface(context, alpha: 0.12)
         : (isDark ? Colors.white.withValues(alpha: 0.10) : cs.surface);
     final borderColor = selected
-        ? (isDark ? cs.primary.withValues(alpha: 0.20) : cs.secondaryContainer)
+        ? kcAccentColor(context)
         : (isDark ? Colors.white.withValues(alpha: 0.14) : cs.outline);
     return Material(
       textStyle: Theme.of(context).textTheme.labelLarge,
@@ -204,7 +204,7 @@ class AnimatedCheckWidget extends AnimatedWidget {
             child: HugeIcon(icon: 
               HugeIcons.strokeRoundedCheckmarkCircle01,
               size: iconSize,
-              color: Theme.of(context).colorScheme.primary,
+              color: kcBrandAdaptive(context),
             ),
           ),
         ),
@@ -273,23 +273,18 @@ class OptionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = cs.primary;
     final bg = isSelected
-        ? (isDark
-            ? primary.withValues(alpha: 0.12)
-            : cs.secondaryContainer)
+        ? kcAccentSurface(context, alpha: 0.12)
         : (isDark
             ? Colors.white.withValues(alpha: 0.10)
             : cs.surface);
     final borderColor = isSelected
-        ? (isDark
-            ? primary.withValues(alpha: 0.20)
-            : cs.secondaryContainer)
+        ? kcAccentColor(context)
         : (isDark
             ? Colors.white.withValues(alpha: 0.14)
             : cs.outline);
     final textColor = isSelected
-        ? (isDark ? primary : cs.onSecondaryContainer)
+        ? kcBrandAdaptive(context)
         : (isDark
             ? Colors.white.withValues(alpha: 0.95)
             : cs.onSurface);

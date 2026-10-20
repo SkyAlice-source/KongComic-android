@@ -45,10 +45,16 @@ class NaviPane extends StatefulWidget {
     this.onPageChanged,
     required this.observer,
     required this.navigatorKey,
+
     /// Page indices whose root tab already renders its own title/AppBar.
     /// On mobile, the shared top bar will still show [paneActions] but hide
     /// the duplicated title label for these tabs.
     this.topBarTitleHiddenPages = const [],
+
+    /// 整条共享顶栏都不显示的页面（页面自绘顶栏）。
+    /// 与 [topBarTitleHiddenPages] 的区别：后者仍显示操作按钮、只隐藏标题；
+    /// 本参数连操作按钮一起让位给页面自己的 AppBar，避免出现「两排工具栏」。
+    this.topBarHiddenPages = const [],
     super.key,
   });
 
@@ -63,6 +69,10 @@ class NaviPane extends StatefulWidget {
   /// Page indices that render their own AppBar title and should not show the
   /// duplicated title in the shared top bar on mobile.
   final List<int> topBarTitleHiddenPages;
+
+  /// Page indices whose root tab renders a full self-contained AppBar
+  /// (title + actions). The shared top bar is hidden entirely for them.
+  final List<int> topBarHiddenPages;
 
   final int initialPage;
 
@@ -81,11 +91,12 @@ class NaviPane extends StatefulWidget {
 typedef NaviItemTapListener = void Function(int);
 
 class NaviPaneState extends State<NaviPane>
-    // 必须用复数版：本 State 现在有两个 AnimationController（宽度分档 controller
-    // + 收起导航 _chromeController）。SingleTickerProviderStateMixin 只允许一个
-    // Ticker，再建第二个时 debug 模式会直接抛
-    // "SingleTickerProviderStateMixin is already used as a TickerProvider"。
-    with TickerProviderStateMixin {
+        // 必须用复数版：本 State 现在有两个 AnimationController（宽度分档 controller
+        // + 收起导航 _chromeController）。SingleTickerProviderStateMixin 只允许一个
+        // Ticker，再建第二个时 debug 模式会直接抛
+        // "SingleTickerProviderStateMixin is already used as a TickerProvider"。
+        with
+        TickerProviderStateMixin {
   bool _canPop = true;
 
   /// 全屏页面（目前是阅读器）要求收起导航框架的**请求数**。
@@ -122,8 +133,15 @@ class NaviPaneState extends State<NaviPane>
   }
 
   /// Whether the current route is a root tab page (no inner page is shown).
-  /// When true, the shared mobile top bar should be rendered.
-  bool get showTopBarInMobile => _canPop;
+  bool get isRootTabPage => _canPop;
+
+  /// Whether the shared mobile top bar should be rendered.
+  ///
+  /// Pages that draw their own full AppBar ([NaviPane.topBarHiddenPages])
+  /// opt out entirely, otherwise the screen would show two toolbars.
+  /// 注意：底栏不受此影响（见 [isRootTabPage]），否则隐藏共享顶栏的页面会连底栏一起丢。
+  bool get showTopBarInMobile =>
+      isRootTabPage && !widget.topBarHiddenPages.contains(currentPage);
 
   late int _currentPage = widget.initialPage;
 
@@ -191,15 +209,17 @@ class NaviPaneState extends State<NaviPane>
   /// 底栏**实际遮挡**的高度：栏体 + 下方留白 + 系统手势区。
   /// 页面（列表底部 padding、悬浮按钮）靠它给内容让位。
   double get bottomBarHeight =>
-      bottomBarBodyHeight + _kBottomBarMarginV + MediaQuery.of(context).padding.bottom;
+      bottomBarBodyHeight +
+      _kBottomBarMarginV +
+      MediaQuery.of(context).padding.bottom;
 
   /// 底栏外边距。底部额外留出系统手势区，避免胶囊压在手势条上。
   EdgeInsets bottomBarMargin(BuildContext context) => EdgeInsets.fromLTRB(
-        _kBottomBarMarginH,
-        _kBottomBarMarginV,
-        _kBottomBarMarginH,
-        _kBottomBarMarginV + MediaQuery.of(context).padding.bottom,
-      );
+    _kBottomBarMarginH,
+    _kBottomBarMarginV,
+    _kBottomBarMarginH,
+    _kBottomBarMarginV + MediaQuery.of(context).padding.bottom,
+  );
 
   void onNavigatorStateChange() {
     onRebuild(context);
@@ -297,12 +317,14 @@ class NaviPaneState extends State<NaviPane>
               final value = controller.value;
               // hideProgress 0 → 1：左侧栏整条滑出屏幕，主视图补满全宽。
               final hideProgress = _chromeController.value;
-              final sideBarWidth = _kFoldedSideBarWidth +
+              final sideBarWidth =
+                  _kFoldedSideBarWidth +
                   (_kSideBarWidth - _kFoldedSideBarWidth) *
                       ((value - 2.0).clamp(0.0, 1.0));
               final sideBarVisibleLeft =
                   _kFoldedSideBarWidth * ((value - 2.0).clamp(-1.0, 0.0));
-              final sideBarLeft = sideBarVisibleLeft +
+              final sideBarLeft =
+                  sideBarVisibleLeft +
                   (-sideBarWidth - sideBarVisibleLeft) * hideProgress;
               final mainVisibleLeft =
                   _kFoldedSideBarWidth * ((value - 1).clamp(0, 1)) +
@@ -353,18 +375,12 @@ class NaviPaneState extends State<NaviPane>
                     // 原因，跟侧栏自身有没有补 Semantics 无关。
                     // 修复：给主视图套一个语义边界（container），把内部的
                     // BlockSemantics 关在边界内，不再向上泄漏到 Stack。
-                    child: Semantics(
-                      container: true,
-                      child: buildMainView(),
-                    ),
+                    child: Semantics(container: true, child: buildMainView()),
                   ),
                 ],
               );
               if (sideInsets != EdgeInsets.zero) {
-                content = Padding(
-                  padding: sideInsets,
-                  child: content,
-                );
+                content = Padding(padding: sideInsets, child: content);
               }
               return content;
             },
@@ -377,30 +393,30 @@ class NaviPaneState extends State<NaviPane>
   Widget buildMainView() {
     return HeroControllerScope(
       controller: MaterialApp.createMaterialHeroController(),
-      child:         PopScope(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, result) async {
-            if (didPop) {
-              return;
-            }
-            if (_canPop == false) {
-              // 存在子页面，正常返回上一级
-              widget.navigatorKey.currentState?.maybePop(result);
-              return;
-            }
-            // 已在根页面（无子页面），处理退出确认
-            if (appdata.settings['exitConfirm'] != true) {
-              SystemNavigator.pop();
-              return;
-            }
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (_) => const _ExitConfirmDialog(),
-            );
-            if (confirm == true) {
-              SystemNavigator.pop();
-            }
-          },
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) {
+            return;
+          }
+          if (_canPop == false) {
+            // 存在子页面，正常返回上一级
+            widget.navigatorKey.currentState?.maybePop(result);
+            return;
+          }
+          // 已在根页面（无子页面），处理退出确认
+          if (appdata.settings['exitConfirm'] != true) {
+            SystemNavigator.pop();
+            return;
+          }
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (_) => const _ExitConfirmDialog(),
+          );
+          if (confirm == true) {
+            SystemNavigator.pop();
+          }
+        },
         child: NotificationListener<Notification>(
           onNotification: (Notification notification) {
             // 滚动中把玻璃降级为实色（省掉每帧背景模糊），见 KcGlassActivity。
@@ -454,7 +470,10 @@ class NaviPaneState extends State<NaviPane>
               Expanded(
                 child: Text(
                   widget.paneItems[currentPage].label,
-                  style: TextStyle(fontSize: kcTitleMain, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: kcTitleMain,
+                    fontWeight: FontWeight.bold,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -472,10 +491,7 @@ class NaviPaneState extends State<NaviPane>
               else
                 Tooltip(
                   message: action.label,
-                  child: IconButton(
-                    icon: action.icon,
-                    onPressed: action.onTap,
-                  ),
+                  child: IconButton(icon: action.icon, onPressed: action.onTap),
                 ),
           ],
         ),
@@ -538,7 +554,7 @@ class NaviPaneState extends State<NaviPane>
             const SizedBox(height: 16),
             SizedBox(height: MediaQuery.of(context).padding.top),
             // 侧栏内容的总高度并不固定：main_page 会按当前页额外注入一个动作
-            // （收藏页的「切换列表/网格视图」，见 _showLayoutToggle），于是
+            // （发现/历史的「切换列表/网格视图」，见 _showLayoutToggle），于是
             // 动作区在 2 项和 3 项之间浮动，每项 46dp。
             // 横屏手机的高度只有 ~400dp：891x411dp 的折叠侧栏遇到 3 个动作时
             // 5 个入口 + 3 个动作 + 上下留白共需 ~432dp，实测抛
@@ -861,10 +877,7 @@ class _LiquidIndicator extends StatelessWidget {
       valueListenable: pageListenable,
       builder: (context, page, _) {
         return TweenAnimationBuilder<double>(
-          tween: Tween<double>(
-            begin: page.toDouble(),
-            end: page.toDouble(),
-          ),
+          tween: Tween<double>(begin: page.toDouble(), end: page.toDouble()),
           duration: const Duration(milliseconds: 420),
           curve: Curves.elasticOut,
           builder: (context, value, _) {
@@ -1039,10 +1052,7 @@ class _ExitConfirmDialog extends StatelessWidget {
                   Expanded(
                     child: Text(
                       "Don't ask again".tl,
-                      style: TextStyle(
-                        fontSize: kcBody,
-                        color: cs.onSurface,
-                      ),
+                      style: TextStyle(fontSize: kcBody, color: cs.onSurface),
                     ),
                   ),
                 ],
@@ -1133,7 +1143,11 @@ class _NaviMainViewState extends State<_NaviMainView> {
     // On mobile the shared top bar is visible only on root tab pages.
     // When a child page is shown it supplies its own AppBar, so we hide this
     // top bar to avoid double titles/actions.
-    var shouldShowAppBar = state.controller.value < 2 && state.showTopBarInMobile;
+    var shouldShowAppBar =
+        state.controller.value < 2 && state.showTopBarInMobile;
+    // 底栏只跟「是否根 tab 页」有关：自绘顶栏的页面（如历史）仍需要底部导航，
+    // 早前与顶栏共用同一个条件，导致隐藏共享顶栏时底栏一起消失。
+    var shouldShowBottomBar = state.controller.value < 2 && state.isRootTabPage;
 
     if (state.currentPage != _lastPage) {
       _lastPage = state.currentPage;
@@ -1150,7 +1164,9 @@ class _NaviMainViewState extends State<_NaviMainView> {
             children: [
               if (shouldShowAppBar)
                 AnimatedSize(
-                  duration: AppAnimations.duration(const Duration(milliseconds: 200)),
+                  duration: AppAnimations.duration(
+                    const Duration(milliseconds: 200),
+                  ),
                   curve: Curves.easeInOut,
                   alignment: Alignment.topCenter,
                   child: _showTopBar
@@ -1162,20 +1178,22 @@ class _NaviMainViewState extends State<_NaviMainView> {
                   context: context,
                   removeTop: shouldShowAppBar && _showTopBar,
                   removeBottom: true,
-                  child:                     NotificationListener<ScrollNotification>(
-                      onNotification: (notification) {
-                        if (notification is ScrollUpdateNotification) {
-                          // 仅响应纵向滚动。分类页用 TabBarView（横向 PageView）
-                          // 翻页时也会冒泡 ScrollUpdateNotification，且其 pixels 是
-                          // 横向页面位移，跨过阈值会让底部导航栏误隐藏/显示造成抖动。
-                          if (notification.metrics.axis == Axis.vertical) {
-                            onScroll(notification.metrics.pixels);
-                          }
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollUpdateNotification) {
+                        // 仅响应纵向滚动。分类页用 TabBarView（横向 PageView）
+                        // 翻页时也会冒泡 ScrollUpdateNotification，且其 pixels 是
+                        // 横向页面位移，跨过阈值会让底部导航栏误隐藏/显示造成抖动。
+                        if (notification.metrics.axis == Axis.vertical) {
+                          onScroll(notification.metrics.pixels);
                         }
-                        return false;
-                      },
+                      }
+                      return false;
+                    },
                     child: AnimatedSwitcher(
-                      duration: AppAnimations.duration(const Duration(milliseconds: 320)),
+                      duration: AppAnimations.duration(
+                        const Duration(milliseconds: 320),
+                      ),
                       switchInCurve: kcSpring,
                       switchOutCurve: kcSpring,
                       child: state.buildMainViewContent(),
@@ -1185,13 +1203,15 @@ class _NaviMainViewState extends State<_NaviMainView> {
               ),
             ],
           ),
-          if (shouldShowAppBar)
+          if (shouldShowBottomBar)
             Positioned(
               left: 0.0,
               right: 0.0,
               bottom: 0.0,
               child: AnimatedSize(
-                duration: AppAnimations.duration(const Duration(milliseconds: 200)),
+                duration: AppAnimations.duration(
+                  const Duration(milliseconds: 200),
+                ),
                 curve: Curves.easeInOut,
                 alignment: Alignment.bottomCenter,
                 child: _showBottomBar

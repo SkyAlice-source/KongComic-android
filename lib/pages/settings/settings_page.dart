@@ -238,13 +238,13 @@ class _SettingsPageState extends State<SettingsPage> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(kcCardRadius),
               border: Border.all(
-                color: selected ? cs.primary.withValues(alpha: 0.3) : Colors.transparent,
+                color: selected ? kcAccentColor(context).withValues(alpha: 0.3) : Colors.transparent,
                 width: 1,
               ),
             ),
             child: Row(
               children: [
-                HugeIcon(icon: (icons[id] as HugeIcon).icon, color: selected ? cs.primary : cs.onSurfaceVariant, size: 24),
+                HugeIcon(icon: (icons[id] as HugeIcon).icon, color: selected ? kcBrandAdaptive(context) : cs.onSurfaceVariant, size: 24),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -271,7 +271,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 HugeIcon(
                   icon: HugeIcons.strokeRoundedArrowRight01,
-                  color: selected ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  color: selected ? kcBrandAdaptive(context) : cs.onSurfaceVariant.withValues(alpha: 0.4),
                   size: 18,
                 ),
               ],

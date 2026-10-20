@@ -310,7 +310,7 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
           height: 240,
           child: Center(
             child: CircularProgressIndicator(
-              color: context.colorScheme.primary,
+              color: kcAccentColor(context),
             ),
           ),
         ),

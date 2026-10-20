@@ -181,44 +181,16 @@ class _ImageFavoritesPhotoViewState extends State<ImageFavoritesPhotoView> {
   }
 
   Widget buildAppBar() {
-    return Material(
-      color: context.colorScheme.surface.withValues(alpha: 0.62),
-      child: BlurEffect(
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: context.colorScheme.outlineVariant,
-                width: 0.5,
-              ),
-            ),
-          ),
-          height: 52,
-          child: Row(
-            children: [
-              const SizedBox(width: 8),
-              IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  widget.comic.title,
-                  style: TextStyle(fontSize: kcTitleMain),
-                ),
-              ),
-              IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreVertical, size: 18),
-                onPressed: showMenu,
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-        ).paddingTop(context.padding.top),
-      ),
+    // 复用标准 Appbar：返回键 ArrowLeft01(←)、标题 kcAppbarTitle、玻璃模糊，
+    // 与全站顶栏一致；默认 leading 即返回箭头。
+    return Appbar(
+      title: Text(widget.comic.title),
+      actions: [
+        Button.icon(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreVertical, size: 18),
+          onPressed: showMenu,
+        ),
+      ],
     );
   }
 
