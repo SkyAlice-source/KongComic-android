@@ -106,6 +106,24 @@ class NaviPaneState extends State<NaviPane>
         AutoListenMixin {
   bool _canPop = true;
 
+  /// 底栏是否被「滚动」收进屏幕底部（沉浸模式）。
+  ///
+  /// 必须放在 [NaviPaneState] 而不是 `_NaviMainViewState`：返回手势是在
+  /// [buildMainView] 的 `PopScope` 里处理的，需要读到它才能做
+  /// 「底栏收起时，第一次侧滑只把导航叫回来」。
+  bool _bottomBarCollapsed = false;
+
+  /// 底栏当前是否处于「滚动收起」状态。
+  bool get bottomBarCollapsed => _bottomBarCollapsed;
+
+  /// 收起 / 放下底栏。
+  ///
+  /// 只在滚动跨过阈值时被调用，一次收放一次 `setState`，不会每帧触发。
+  void setBottomBarCollapsed(bool collapsed) {
+    if (_bottomBarCollapsed == collapsed || !mounted) return;
+    setState(() => _bottomBarCollapsed = collapsed);
+  }
+
   /// 全屏页面（目前是阅读器）要求收起导航框架的**请求数**。
   ///
   /// 用计数而不是 bool：路由 replace 时新页面 init 早于旧页面 dispose，
@@ -244,6 +262,9 @@ class NaviPaneState extends State<NaviPane>
     }
     setState(() {
       currentPage = index;
+      // 换 tab 一定把底栏放回来：新页面从顶部开始，用户需要顶层入口，
+      // 也让「收起」这个状态不会跨页面残留。
+      _bottomBarCollapsed = false;
     });
     mainViewUpdateHandler?.call();
   }
@@ -304,6 +325,12 @@ class NaviPaneState extends State<NaviPane>
     onRebuild(context);
     return _NaviPopScope(
       action: () {
+        // 底栏被滚动收起时，宽屏侧滑先把导航叫回来，而不是直接退出/返回。
+        // 与 Android 系统返回按钮走同一套规则（见 buildMainView 的 PopScope）。
+        if (_bottomBarCollapsed) {
+          setBottomBarCollapsed(false);
+          return;
+        }
         if (App.mainNavigatorKey!.currentState!.canPop()) {
           App.mainNavigatorKey!.currentState!.maybePop();
         } else {
@@ -405,8 +432,26 @@ class NaviPaneState extends State<NaviPane>
             return;
           }
           if (_canPop == false) {
-            // 存在子页面，正常返回上一级
+            // 当前页面自己声明要处理返回（多选 / 搜索模式等），交给它。
             widget.navigatorKey.currentState?.maybePop(result);
+            return;
+          }
+          // 兜底：`_canPop` 由 NavigationNotification 驱动，子页刚 push 上来
+          // 就立刻返回时可能还慢一拍。直接问一下内层 Navigator，避免在子页上
+          // 误弹「确认退出」。已是根页时 canPop() 为 false，不改变原有语义。
+          final innerNav = widget.navigatorKey.currentState;
+          if (innerNav != null && innerNav.canPop()) {
+            innerNav.maybePop(result);
+            return;
+          }
+          // 已确认在根 tab 页。若底栏正被滚动收起，第一次返回先把导航叫回来。
+          //
+          // 底栏收起后页面与普通子页长得一模一样，用户侧滑的本意通常是
+          // 「回上一层」；此时直接弹「确认退出」会让人莫名其妙（弹窗本身没错，
+          // 错在出现的时机）。先放回底栏，既回答了「我在哪」，也把顶层切换
+          // 入口还回去；再滑一次才谈退出。这也是「保留沉浸感」的代价所在。
+          if (_bottomBarCollapsed) {
+            setBottomBarCollapsed(false);
             return;
           }
           // 已在根页面（无子页面），处理退出确认
@@ -432,6 +477,11 @@ class NaviPaneState extends State<NaviPane>
               if (nextCanPop != _canPop) {
                 setState(() {
                   _canPop = nextCanPop;
+                  // 回到根 tab 页：底栏必须回来。
+                  // 这里原来只翻转 _canPop，`_showBottomBar` 的收起状态会跨
+                  // 「进子页 → 返回」存活 —— 滚到深处点进详情、再返回，底栏
+                  // 不出现，得再往上滑 50px 才回来，像是导航丢了。
+                  if (nextCanPop) _bottomBarCollapsed = false;
                 });
               }
             }
@@ -1099,29 +1149,37 @@ class _NaviMainView extends StatefulWidget {
 class _NaviMainViewState extends State<_NaviMainView> {
   NaviPaneState get state => widget.state;
 
-  bool _showBottomBar = true;
-  bool _showTopBar = true;
   double _lastScrollOffset = 0;
   int _lastPage = 0;
 
   void onScroll(double offset) {
-    // 主页(2)保持底部导航常驻（默认首屏）。
-    // 其余页面滚动时【只隐藏底部导航】，顶部栏（标题+设置等 action）固定显示，
-    // 避免滚下去后想改设置还得滚回顶部。顶部栏很薄(48px)，隐藏它换来的空间
-    // 很少、却会丢失标题与操作入口，性价比低；主流 app 也普遍仅隐藏底部 tab。
-    if (state.currentPage == 2) return;
+    // 滚动只收起底栏，顶栏永远固定。
+    //
+    // 顶栏很薄（48px），收掉换来的空间很少，却会连标题和操作入口一起丢；
+    // 更重要的是：共享顶栏只出现在根 tab 页（子页自带 AppBar），所以
+    // 「顶栏还在」本身就是「我在根页」的标识 —— 这正是底栏可以放心
+    // 收起的前提，也是本方案能保住沉浸感又不至于让人迷路的关键。
+    //
+    // 三种情况不碰这个状态：
+    // · 主页（index 2）：默认首屏，底栏常驻。
+    // · 子页（isRootTabPage == false）：已有 AppBar + 返回箭头交代层级；
+    //   且子页的滚动通知会冒泡到这里的 NotificationListener，不挡住会被
+    //   误记成「根页也收起了」。
+    // · 宽屏（>= changePoint）：用左侧栏导航，根本没有底栏；iOS 宽屏侧滑
+    //   会把「收起的底栏」当作要恢复的对象，结果侧滑像没反应。
+    if (state.currentPage == 2 ||
+        !state.isRootTabPage ||
+        state.controller.value >= 2) {
+      return;
+    }
     final diff = offset - _lastScrollOffset;
-    // 50px 阈值：避免轻微滚动/惯性滑动误隐藏底部导航
-    // 触发隐藏/显示或超阈值后更新基准，防止 diff 累积失效
-    if (diff > 50 && _showBottomBar) {
-      setState(() {
-        _showBottomBar = false;
-      });
+    // 50px 阈值：避免轻微滚动/惯性滑动误隐藏底部导航。
+    // 状态存在 NaviPaneState 上：返回手势那边要读它、也能重置它。
+    if (diff > 50 && !state.bottomBarCollapsed) {
+      state.setBottomBarCollapsed(true);
       _lastScrollOffset = offset;
-    } else if (diff < -50 && !_showBottomBar) {
-      setState(() {
-        _showBottomBar = true;
-      });
+    } else if (diff < -50 && state.bottomBarCollapsed) {
+      state.setBottomBarCollapsed(false);
       _lastScrollOffset = offset;
     } else if (diff.abs() >= 50) {
       _lastScrollOffset = offset;
@@ -1156,8 +1214,7 @@ class _NaviMainViewState extends State<_NaviMainView> {
 
     if (state.currentPage != _lastPage) {
       _lastPage = state.currentPage;
-      _showBottomBar = true;
-      _showTopBar = true;
+      // 换页只重置滚动基准；底栏由 NaviPaneState.updatePage 统一放回。
       _lastScrollOffset = 0;
     }
 
@@ -1174,14 +1231,13 @@ class _NaviMainViewState extends State<_NaviMainView> {
                   ),
                   curve: Curves.easeInOut,
                   alignment: Alignment.topCenter,
-                  child: _showTopBar
-                      ? state.buildTop().paddingTop(context.padding.top)
-                      : const SizedBox.shrink(),
+                  // 顶栏在手机上就是「根 tab 页」的标志，永不收起。
+                  child: state.buildTop().paddingTop(context.padding.top),
                 ),
               Expanded(
                 child: MediaQuery.removePadding(
                   context: context,
-                  removeTop: shouldShowAppBar && _showTopBar,
+                  removeTop: shouldShowAppBar,
                   removeBottom: true,
                   child: NotificationListener<ScrollNotification>(
                     onNotification: (notification) {
@@ -1195,14 +1251,20 @@ class _NaviMainViewState extends State<_NaviMainView> {
                       }
                       return false;
                     },
-                    child: AnimatedSwitcher(
-                      duration: AppAnimations.duration(
-                        const Duration(milliseconds: 320),
-                      ),
-                      switchInCurve: kcSpring,
-                      switchOutCurve: kcSpring,
-                      child: state.buildMainViewContent(),
-                    ),
+                    // tab 切换不做任何转场动画，直接换页。
+                    //
+                    // 原来这里套了 AnimatedSwitcher：它默认用 Stack 把上一个
+                    // child 和新 child 叠在一起做 320ms 交叉淡入淡出。两个全屏
+                    // 页面同时半透明 → 旧页面内容会透出来：从分类切到收藏，能
+                    // 看到分类页的彩色胶囊和「需要登陆」文字压在收藏封面上，像
+                    // "没刷新干净"。把轮播改成只保留当前 child 后，虽然叠影没
+                    // 了，但整页仍要经历约 120ms 的半透明期（截图里封面发白发
+                    // 灰），切换依旧不够干脆。
+                    //
+                    // 底部 tab 切换在 Material 里本来就没有转场动画 —— 用户按下
+                    // 就已经看到目标页，任何淡入都会被感知成"慢一拍"。这里直接
+                    // 换 child，配合页面自己的骨架屏即可。
+                    child: state.buildMainViewContent(),
                   ),
                 ),
               ),
@@ -1219,7 +1281,7 @@ class _NaviMainViewState extends State<_NaviMainView> {
                 ),
                 curve: Curves.easeInOut,
                 alignment: Alignment.bottomCenter,
-                child: _showBottomBar
+                child: !state.bottomBarCollapsed
                     ? state.buildBottom(context)
                     : const SizedBox.shrink(),
               ),

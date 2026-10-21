@@ -548,3 +548,42 @@ String friendlyError(Object e) {
 - 模拟器端到端（`iptables DROP` 制造半死网络）：8s 截图骨架屏 + 底部胶囊「网络较慢，仍在加载…」；17s 截图已到「连接超时」错误页；断网时秒报「无法连接服务器」；502 显示「服务器端错误」；logcat `Unhandled Exception` / `Bad state` 计数 0。
 - 发版：`1.5.2+181`，`changelogs/v1.5.2.md`（英/简/繁/日），commit `7a54351`、tag `v1.5.2`，`main` 由 `a20dc30` fast-forward，CI run `39660037083`。
 - ⚠️ `.github/workflows/lint.yml` 未随本次发布提交：`gh` token 缺 `workflow` scope，GitHub 拒绝任何含 workflow 文件的 push。需要 `gh auth refresh -s workflow` 后单独补推。
+
+---
+
+## 十六、保留沉浸感：底栏收起与返回手势的配合（2026-10-22）
+
+### 16.1 问题定性
+
+底栏随滚动收起（`onScroll` 阈值 50px，仅主页除外）本身不是 bug，用户也明确要保留这份沉浸感。真正的冲突是：**底栏消失后，根 tab 页与子页在视觉上无法区分**，而根页的系统返回被 `PopScope(canPop:false)` 拦下并弹「确认退出」。用户侧滑的本意是「回上一层」，得到的却是「要退出应用吗」。
+
+附带一个真 bug：`_showBottomBar` 只在「滚动」和「切 tab」时复位，**进出子页不复位**。滚到列表深处点进详情、侧滑返回后，底栏不回来，得再向上滑 50px。
+
+M3 的底栏本应常驻，但既然要沉浸感，就靠下面四条把代价补回来。
+
+### 16.2 实施
+
+| 改动 | 位置 | 作用 |
+|---|---|---|
+| 状态上移 | `NaviPaneState._bottomBarCollapsed` + `bottomBarCollapsed` / `setBottomBarCollapsed()` | 返回手势在 `buildMainView` 的 `PopScope` 里，必须能读到 |
+| 首次返回只恢复底栏 | `PopScope.onPopInvokedWithResult`（Android）、`_NaviPopScope.action`（iOS 宽屏） | 收起状态下侧滑 → 底栏滑回来，不弹退出；再滑一次才谈退出 |
+| 子页返回复位 | `NavigationNotification` 处理里 `if (nextCanPop) _bottomBarCollapsed = false` | 修掉「进详情返回后底栏不回来」 |
+| 切 tab 复位 | `updatePage` 的 `setState` | 收起状态不跨页面残留 |
+| 兜底返回判断 | `innerNav.canPop()` | `_canPop` 由通知驱动，子页刚 push 就返回时可能慢一拍，避免误弹退出 |
+| 清理死变量 | 删 `_showTopBar`（全库只被赋 true） | 顶栏从此无条件渲染，它就是「这是根页」的标识 |
+| `onScroll` 早退 | 主页 / 子页 / 宽屏三种情况直接 return | 子页滚动通知会冒泡到根 Listener；宽屏用侧栏，没有底栏可收 |
+
+### 16.3 实测（`wm size 1080x1100` 压矮屏幕，让历史页 6 项可滚）
+
+| 场景 | 结果 |
+|---|---|
+| 向上滚 50px+ | 底栏收起，顶栏「历史」仍在（根页标识） |
+| 收起状态下侧滑 | **底栏滑回来，不弹退出，页面不动** |
+| 再侧滑一次 | 弹「确认退出」 |
+| 收起状态下点进详情 → 侧滑返回 | **底栏自动回来**（原 bug 场景） |
+| 向下滚 50px | 底栏恢复 |
+| 5 个 tab 来回切 | 底栏正常，logcat `Unhandled Exception` / `Bad state` / overflow 计数 0 |
+
+`flutter analyze` No issues；四门禁全绿（三语 939/939/939）；`flutter test` 3/3。
+
+⚠️ 测试坐标坑：底栏实际点击命中区比目测的高，`input swipe` 的终点一旦落进底栏就会切 tab，曾把「第二次侧滑」误判成「没弹退出」。
