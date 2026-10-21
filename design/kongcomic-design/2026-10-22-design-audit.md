@@ -514,3 +514,37 @@ String friendlyError(Object e) {
 
 - 慢网络时仍只有转圈，没有「网络较慢，仍在加载…」的提示（加提示要动 UI，另议）。
 - `ComicList` 的 `loadNext` 流式分支仍是 `while (_data[page] == null) await _fetchNext();` 的写法，失败靠 `Res.data` 抛出后由外层 catch 接住，语义上不如显式判 `res.error` 清晰（本轮未重构，行为已正确）。
+
+---
+
+## 十五、慢网络提示与 v1.5.2 发版（当日收尾）
+
+### 15.1 补上「网络较慢」提示（14.7 遗留项）
+
+| 组件 | 位置 | 行为 |
+|---|---|---|
+| `SlowLoadingHint` | `components/loading.dart` | 7 秒后淡入「网络较慢，仍在加载…」；未到点高度为 0 不占位（`AnimatedSize` 长出），计时器随组件销毁自动取消 |
+| `SlowLoadingOverlay` | 同上 | `Stack` + 底部 28px 浮一层胶囊提示，给骨架屏这类「铺满整块区域」的加载态用 |
+
+挂载点三处，覆盖所有首屏加载：`LoadingState.buildLoading`、`MultiPageLoadingState.buildLoading`（默认实现改为 `Center(Column(min, [转圈, 提示]))`）、`_ComicGridSkeleton`（分类/搜索列表骨架屏）。
+
+7 秒这个值是按 15s 总超时取的：正常网络下不会闪一下，慢网络下在超时前一半就给了解释。
+
+### 15.2 重试预算再收紧
+
+14.5 的「总预算 16s」在**一次 15s 连接超时**的场景下会误判（`elapsed≈15 < 16`），仍会再叠一轮 → 用户实际等 30s。新增判据：`attemptCost > 8s` 直接放弃重试。快速失败（5xx 几百毫秒）仍可重试 3 次。
+
+### 15.3 顺带修掉分享文件名退化成 UUID
+
+| 现象 | 根因 | 修法 |
+|---|---|---|
+| 分享出去的图片文件名是 `d82-11f1-95a8-....jpg` 这种乱码 | `cross_file` 的 **io 实现忽略 `XFile.fromData(name:)`**（源码注释写明 "name is ignored"），share_plus 12 于是退化成 `Uuid().v1().substring(10)` + 扩展名 | `shareImages` 收集 filename，随 `ShareParams(fileNameOverrides: names)` 一起传 |
+
+同时修好 `test/share_test.dart`：share_plus 12 会把「只有字节没有 path」的 XFile 落到 `path_provider` 的临时目录，host 测试缺插件实现会抛 `MissingPluginException`（该测试在 v1.5.1 发版时是红的）。补 mock `plugins.flutter.io/path_provider`，断言改为「交给 share channel 的 paths 指向真实存在的文件 + 字节内容一致 + 原文件名 + mimeTypes」。
+
+### 15.4 验证与发版
+
+- `flutter analyze` No issues；四门禁（翻译/组件/设置键/令牌）全绿；`flutter test` 3/3；日文补齐 3 键后三语 939/939/939。
+- 模拟器端到端（`iptables DROP` 制造半死网络）：8s 截图骨架屏 + 底部胶囊「网络较慢，仍在加载…」；17s 截图已到「连接超时」错误页；断网时秒报「无法连接服务器」；502 显示「服务器端错误」；logcat `Unhandled Exception` / `Bad state` 计数 0。
+- 发版：`1.5.2+181`，`changelogs/v1.5.2.md`（英/简/繁/日），commit `7a54351`、tag `v1.5.2`，`main` 由 `a20dc30` fast-forward，CI run `39660037083`。
+- ⚠️ `.github/workflows/lint.yml` 未随本次发布提交：`gh` token 缺 `workflow` scope，GitHub 拒绝任何含 workflow 文件的 push。需要 `gh auth refresh -s workflow` 后单独补推。
