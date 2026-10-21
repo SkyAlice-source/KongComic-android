@@ -936,7 +936,9 @@
     "Chapter not found": "未找到该章节",
     "This folder is empty": "这个文件夹是空的",
     "Add comics from the Discover page": "从发现页添加漫画",
-    "Notification permission is off. The check still runs, but its progress won't be shown.": "通知权限未开启：检查仍会继续，但通知栏不会显示进度。"
+    "Notification permission is off. The check still runs, but its progress won't be shown.": "通知权限未开启：检查仍会继续，但通知栏不会显示进度。",
+    "This source is misconfigured: loadPage and loadNext cannot both be null": "源配置有误：loadPage 与 loadNext 不能同时为空",
+    "Network is slow, still loading…": "网络较慢，仍在加载…"
   },
   "zh_TW": {
     "Auto-update comic sources": "自動更新漫畫源",
@@ -1875,9 +1877,14 @@
     "Chapter not found": "找不到該章節",
     "This folder is empty": "這個文件夾是空的",
     "Add comics from the Discover page": "從發現頁添加漫畫",
-    "Notification permission is off. The check still runs, but its progress won't be shown.": "通知權限未開啟：檢查仍會繼續，但通知列不會顯示進度。"
+    "Notification permission is off. The check still runs, but its progress won't be shown.": "通知權限未開啟：檢查仍會繼續，但通知列不會顯示進度。",
+    "This source is misconfigured: loadPage and loadNext cannot both be null": "源設定有誤：loadPage 與 loadNext 不能同時為空",
+    "Network is slow, still loading…": "網路較慢，仍在載入…"
   },
   "ja_JP": {
+    "Auto-update comic sources": "漫画ソースの自動更新",
+    "Automatically update installed sources on WiFi. Overrides local source edits.": "WiFi 接続時にインストール済みの漫画ソースを自動更新します。端末側での手動修正は上書きされます。",
+    "Backup Retention": "バックアップの保存期間",
     "Hide navigation while reading": "閲覧時にナビゲーションを隠す",
     "Hides the side/bottom navigation bar so the page fills the screen": "サイド/下部のナビゲーションを隠し、ページを全画面で表示します",
     "This update includes bug fixes and UX improvements.": "今回のアップデートでは、不具合の修正と使い勝手の改善を行いました。",
@@ -2808,6 +2815,11 @@
     "Chapter not found": "章が見つかりません",
     "This folder is empty": "このフォルダは空です",
     "Add comics from the Discover page": "発見ページから漫画を追加",
-    "Notification permission is off. The check still runs, but its progress won't be shown.": "通知が許可されていません。確認は続行しますが、進捗は表示されません。"
+    "Notification permission is off. The check still runs, but its progress won't be shown.": "通知が許可されていません。確認は続行しますが、進捗は表示されません。",
+    "This source is misconfigured: loadPage and loadNext cannot both be null": "ソース設定に誤りがあります：loadPage と loadNext は同時に空にできません",
+    "Network is slow, still loading…": "通信が遅いようです。読み込みを続けています…",
+    "Auto update sources result": "ソースの自動更新：@ok 件成功、@fail 件失敗",
+    "Automatically clear a comic from Read Later once you start reading it": "読み始めた漫画は「あとで読む」から自動で削除する",
+    "Read Later": "あとで読む"
   }
 }

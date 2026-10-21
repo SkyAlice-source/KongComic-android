@@ -16,10 +16,7 @@ class _ExploreSettingsState extends State<ExploreSettings> {
         SelectSetting(
           title: "Display mode of comic tile".tl,
           settingKey: "comicDisplayMode",
-          optionTranslation: {
-            "detailed": "Detailed".tl,
-            "brief": "Brief".tl,
-          },
+          optionTranslation: {"detailed": "Detailed".tl, "brief": "Brief".tl},
         ).toSliver(),
         _SliderSetting(
           title: "Size of comic tile".tl,
@@ -65,7 +62,7 @@ class _ExploreSettingsState extends State<ExploreSettings> {
           settingKey: "defaultSearchTarget",
           optionTranslation: {
             '_aggregated_': "Aggregated".tl,
-            ...((){
+            ...(() {
               var map = <String, String>{};
               for (var c in ComicSource.all()) {
                 map[c.key] = c.name;
@@ -129,7 +126,8 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
       body: ListView.builder(
         itemCount: appdata.settings["blockedWords"].length,
         itemBuilder: (context, index) {
-          return ListTile(
+          return KcListTile(
+            showDivider: index < appdata.settings["blockedWords"].length - 1,
             title: Text(appdata.settings["blockedWords"][index]),
             trailing: IconButton(
               icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
@@ -151,44 +149,47 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
       context: App.rootContext,
       builder: (context) {
         String? error;
-        return StatefulBuilder(builder: (context, setState) {
-          return ContentDialog(
-            title: "Add keyword".tl,
-            content: TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                label: Text("Keyword".tl),
-                errorText: error,
-              ),
-              onChanged: (s) {
-                if (error != null) {
-                  setState(() {
-                    error = null;
-                  });
-                }
-              },
-            ).paddingHorizontal(12),
-            actions: [
-              Button.filled(
-                onPressed: () {
-                  if (appdata.settings["blockedWords"]
-                      .contains(controller.text)) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return ContentDialog(
+              title: "Add keyword".tl,
+              content: TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  label: Text("Keyword".tl),
+                  errorText: error,
+                ),
+                onChanged: (s) {
+                  if (error != null) {
                     setState(() {
-                      error = "Keyword already exists".tl;
+                      error = null;
                     });
-                    return;
                   }
-                  appdata.settings["blockedWords"].add(controller.text);
-                  appdata.saveData();
-                  this.setState(() {});
-                  context.pop();
                 },
-                child: Text("Add".tl),
-              ),
-            ],
-          );
-        });
+              ).paddingHorizontal(12),
+              actions: [
+                Button.filled(
+                  onPressed: () {
+                    if (appdata.settings["blockedWords"].contains(
+                      controller.text,
+                    )) {
+                      setState(() {
+                        error = "Keyword already exists".tl;
+                      });
+                      return;
+                    }
+                    appdata.settings["blockedWords"].add(controller.text);
+                    appdata.saveData();
+                    this.setState(() {});
+                    context.pop();
+                  },
+                  child: Text("Add".tl),
+                ),
+              ],
+            );
+          },
+        );
       },
       // Covers every dismissal path: button, back gesture and barrier tap.
     ).then((_) => controller.dispose());
@@ -259,7 +260,8 @@ class _ManageBlockingCommentWordView extends StatefulWidget {
       _ManageBlockingCommentWordViewState();
 }
 
-class _ManageBlockingCommentWordViewState extends State<_ManageBlockingCommentWordView> {
+class _ManageBlockingCommentWordViewState
+    extends State<_ManageBlockingCommentWordView> {
   @override
   Widget build(BuildContext context) {
     assert(appdata.settings["blockedCommentWords"] is List);
@@ -281,7 +283,9 @@ class _ManageBlockingCommentWordViewState extends State<_ManageBlockingCommentWo
       body: ListView.builder(
         itemCount: appdata.settings["blockedCommentWords"].length,
         itemBuilder: (context, index) {
-          return ListTile(
+          return KcListTile(
+            showDivider:
+                index < appdata.settings["blockedCommentWords"].length - 1,
             title: Text(appdata.settings["blockedCommentWords"][index]),
             trailing: IconButton(
               icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
@@ -303,44 +307,49 @@ class _ManageBlockingCommentWordViewState extends State<_ManageBlockingCommentWo
       context: App.rootContext,
       builder: (context) {
         String? error;
-        return StatefulBuilder(builder: (context, setState) {
-          return ContentDialog(
-            title: "Add keyword".tl,
-            content: TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                label: Text("Keyword".tl),
-                errorText: error,
-              ),
-              onChanged: (s) {
-                if (error != null) {
-                  setState(() {
-                    error = null;
-                  });
-                }
-              },
-            ).paddingHorizontal(12),
-            actions: [
-              Button.filled(
-                onPressed: () {
-                  if (appdata.settings["blockedCommentWords"]
-                      .contains(controller.text)) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return ContentDialog(
+              title: "Add keyword".tl,
+              content: TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  label: Text("Keyword".tl),
+                  errorText: error,
+                ),
+                onChanged: (s) {
+                  if (error != null) {
                     setState(() {
-                      error = "Keyword already exists".tl;
+                      error = null;
                     });
-                    return;
                   }
-                  appdata.settings["blockedCommentWords"].add(controller.text);
-                  appdata.saveData();
-                  this.setState(() {});
-                  context.pop();
                 },
-                child: Text("Add".tl),
-              ),
-            ],
-          );
-        });
+              ).paddingHorizontal(12),
+              actions: [
+                Button.filled(
+                  onPressed: () {
+                    if (appdata.settings["blockedCommentWords"].contains(
+                      controller.text,
+                    )) {
+                      setState(() {
+                        error = "Keyword already exists".tl;
+                      });
+                      return;
+                    }
+                    appdata.settings["blockedCommentWords"].add(
+                      controller.text,
+                    );
+                    appdata.saveData();
+                    this.setState(() {});
+                    context.pop();
+                  },
+                  child: Text("Add".tl),
+                ),
+              ],
+            );
+          },
+        );
       },
       // Covers every dismissal path: button, back gesture and barrier tap.
     ).then((_) => controller.dispose());

@@ -315,7 +315,7 @@ class _SuggestionsState extends State<_Suggestions> {
     Widget buildItem(Pair<String, TranslationType> value) {
       var subTitle = TagsTranslation.translationTagWithNamespace(
           value.left, value.right.name);
-      return ListTile(
+      return KcListTile(
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -348,7 +348,7 @@ class _SuggestionsState extends State<_Suggestions> {
 
     return Column(
       children: [
-        ListTile(
+        KcListTile(
           leading: HugeIcon(icon: HugeIcons.strokeRoundedAiNetwork, size: 18),
           title: Text("Suggestions".tl),
           trailing: Tooltip(
@@ -453,8 +453,7 @@ class _SearchSettingsDialogState extends State<_SearchSettingsDialog> {
       title: "Settings".tl,
       content: Column(
         children: [
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          KcListTile(
             title: Text("Search in".tl),
           ),
           Wrap(

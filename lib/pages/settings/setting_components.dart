@@ -778,10 +778,13 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
 
   @override
   void dispose() {
+    // 延后到本帧的 dispose 完成后再写回：updateSetting() 会 saveData() →
+    // notifyListeners，在 dispose 期间同步触发会让其他监听者在这棵子树已失效时
+    // setState。
+    Future.microtask(updateSetting);
+    // 外部创建的 ScrollController 不会被 ScrollView 自动释放，必须自己关。
+    scrollController.dispose();
     super.dispose();
-    Future.microtask(() {
-      updateSetting();
-    });
   }
 
   var reorderWidgetKey = UniqueKey();

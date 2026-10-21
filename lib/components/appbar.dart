@@ -370,6 +370,12 @@ class AppTabBar extends StatefulWidget {
 class _AppTabBarState extends State<AppTabBar> {
   late TabController _controller;
 
+  /// `_controller` 是否已挂上 [onTabChanged]。
+  ///
+  /// `didChangeDependencies` 会被多次调用，而 `ChangeNotifier.addListener` 对同一
+  /// 回调**不去重**；无条件 add 会累积多份，dispose 又只能摘掉一份，等于泄漏。
+  bool _controllerBound = false;
+
   late List<GlobalKey> keys;
 
   static const _kTabHeight = 48.0;
@@ -394,15 +400,32 @@ class _AppTabBarState extends State<AppTabBar> {
 
   @override
   void dispose() {
+    // 先摘监听再 super.dispose()：onTabChanged 里会走 PageStorage.of(context)，
+    // widget 失效后再回调会抛「Looking up a deactivated widget's ancestor」。
+    if (_controllerBound) {
+      _controller.animation?.removeListener(onTabChanged);
+    }
     scrollController.dispose();
     super.dispose();
+  }
+
+  /// 绑定（或换绑）TabController 的动画监听，保证「同一 controller 不重复注册、
+  /// 换 controller 时先摘旧的」。
+  void _bindController(TabController next) {
+    if (_controllerBound && identical(next, _controller)) return;
+    if (_controllerBound) {
+      _controller.animation?.removeListener(onTabChanged);
+    }
+    _controller = next;
+    _controller.animation!.addListener(onTabChanged);
+    _controllerBound = true;
   }
 
   PageStorageBucket get bucket => PageStorage.of(context);
 
   @override
   void didChangeDependencies() {
-    _controller = widget.controller ?? DefaultTabController.of(context);
+    _bindController(widget.controller ?? DefaultTabController.of(context));
     initPainter();
     super.didChangeDependencies();
     var prevIndex = bucket.readState(context) as int?;
@@ -412,14 +435,12 @@ class _AppTabBarState extends State<AppTabBar> {
         prevIndex < widget.tabs.length) {
       _controller.index = prevIndex;
     }
-    _controller.animation!.addListener(onTabChanged);
   }
 
   @override
   void didUpdateWidget(covariant AppTabBar oldWidget) {
     if (widget.controller != oldWidget.controller) {
-      _controller = widget.controller ?? DefaultTabController.of(context);
-      _controller.animation!.addListener(onTabChanged);
+      _bindController(widget.controller ?? DefaultTabController.of(context));
       initPainter();
     }
     super.didUpdateWidget(oldWidget);
@@ -732,9 +753,13 @@ class TabViewBody extends StatefulWidget {
 class _TabViewBodyState extends State<TabViewBody> {
   late TabController _controller;
 
+  /// 同 `_AppTabBarState._controllerBound`：避免重复注册 / 漏摘旧 controller。
+  bool _controllerBound = false;
+
   int _currentIndex = 0;
 
   void updateIndex() {
+    if (!mounted) return;
     if (_controller.index != _currentIndex) {
       setState(() {
         _currentIndex = _controller.index;
@@ -742,18 +767,37 @@ class _TabViewBodyState extends State<TabViewBody> {
     }
   }
 
+  void _bindController(TabController next) {
+    if (_controllerBound && identical(next, _controller)) return;
+    if (_controllerBound) {
+      _controller.removeListener(updateIndex);
+    }
+    _controller = next;
+    _currentIndex = _controller.index;
+    _controller.addListener(updateIndex);
+    _controllerBound = true;
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller = widget.controller ?? DefaultTabController.of(context);
-    _currentIndex = _controller.index;
-    _controller.addListener(updateIndex);
+    _bindController(widget.controller ?? DefaultTabController.of(context));
+  }
+
+  @override
+  void didUpdateWidget(covariant TabViewBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) {
+      _bindController(widget.controller ?? DefaultTabController.of(context));
+    }
   }
 
   @override
   void dispose() {
+    if (_controllerBound) {
+      _controller.removeListener(updateIndex);
+    }
     super.dispose();
-    _controller.removeListener(updateIndex);
   }
 
   @override

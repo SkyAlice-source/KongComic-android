@@ -232,7 +232,7 @@ class AppScrollBar extends StatefulWidget {
   State<AppScrollBar> createState() => _AppScrollBarState();
 }
 
-class _AppScrollBarState extends State<AppScrollBar> {
+class _AppScrollBarState extends State<AppScrollBar> with AutoListenMixin {
   late final ScrollController _scrollController;
 
   double minExtent = 0;
@@ -253,7 +253,7 @@ class _AppScrollBarState extends State<AppScrollBar> {
   void initState() {
     super.initState();
     _scrollController = widget.controller;
-    _scrollController.addListener(onChanged);
+    listen(_scrollController, onChanged);
     Future.microtask(onChanged);
     _dragGestureRecognizer = VerticalDragGestureRecognizer()
       ..onUpdate = onUpdate
@@ -268,7 +268,6 @@ class _AppScrollBarState extends State<AppScrollBar> {
   @override
   void dispose() {
     _hideTimer?.cancel();
-    _scrollController.removeListener(onChanged);
     _dragGestureRecognizer.dispose();
     super.dispose();
   }

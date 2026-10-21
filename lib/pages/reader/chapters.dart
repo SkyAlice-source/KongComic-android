@@ -484,7 +484,7 @@ class _ChapterListTile extends StatelessWidget {
                   height: 20,
                   decoration: BoxDecoration(
                     color: isActive ? kcAccentColor(context) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: BorderRadius.circular(kcRadius3),
                   ),
                 ),
                 const SizedBox(width: 11),

@@ -469,7 +469,7 @@ class _CommentTileState extends State<_CommentTile> {
             isLiked = !isLiked;
             likes += isLiked ? 1 : -1;
           } else {
-            context.showMessage(message: res.errorMessage ?? "Error".tl);
+            context.showMessage(message: friendlyError(res.errorMessage ?? "Error".tl));
           }
           setState(() {
             isLiking = false;
@@ -534,7 +534,7 @@ class _CommentTileState extends State<_CommentTile> {
       widget.comment.voteStatus = voteStatus;
       widget.comment.score = res.data ?? widget.comment.score;
     } else {
-      context.showMessage(message: res.errorMessage ?? "Error".tl);
+      context.showMessage(message: friendlyError(res.errorMessage ?? "Error".tl));
     }
     setState(() {
       isVotingUp = false;

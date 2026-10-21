@@ -115,7 +115,7 @@ class KcValueChip extends StatelessWidget {
   }
 }
 
-/// 分区标题：替代把 `ListTile(title: Text(...))` 当分区标题用的错误写法。
+/// 分区标题：替代把原生 Material 列表行当分区标题用的错误写法。
 /// 小一号、灰色、带字距，与设置页 _SettingPartTitle 同一套语言；上边距比下边距大，
 /// 形成组的呼吸感。
 class KcSectionHeader extends StatelessWidget {
@@ -196,6 +196,7 @@ class KcListTile extends StatelessWidget {
     this.showDivider = true,
     this.chevron = false,
     this.enabled = true,
+    this.contentPadding,
   });
 
   final Widget? leading;
@@ -207,6 +208,12 @@ class KcListTile extends StatelessWidget {
   final bool showDivider;
   final bool chevron;
   final bool enabled;
+
+  /// 覆盖默认内缩（默认 `horizontal: kcRowInsetH, vertical: 12`）。
+  ///
+  /// 只给「已在父级做过内缩、行本身需要贴边」的场景用（如卡片内的一行），
+  /// 其余一律留空走默认值，避免又出现两套 inset。
+  final EdgeInsetsGeometry? contentPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -251,32 +258,40 @@ class KcListTile extends StatelessWidget {
         ),
         if (effectiveTrailing != null) ...[
           const SizedBox(width: 8),
-        effectiveTrailing,
-      ],
+          effectiveTrailing,
+        ],
       ],
     );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Material(
-          color: selected
-              ? (isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : cs.primary.withValues(alpha: 0.06))
-              : Colors.transparent,
-          child: InkWell(
-            onTap: enabled ? onTap : null,
-            splashFactory: NoSplash.splashFactory,
-            highlightColor: isDark
-                ? Colors.white.withValues(alpha: 0.035)
-                : Colors.black.withValues(alpha: 0.025),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: kcRowInsetH,
-                vertical: 12,
+        // 无障碍下限：默认内边距下整行只有 42.9dp（14×1.35 + 12×2），比 M3 要求的
+        // 48dp 点击区少 5dp，指腹落在两行交界处容易点进邻行。ConstrainedBox 把
+        // minHeight 一路传给 InkWell / Padding / Row，内容自然垂直居中，只多 5dp。
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: kcMinTapTarget),
+          child: Material(
+            color: selected
+                ? (isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : cs.primary.withValues(alpha: 0.06))
+                : Colors.transparent,
+            child: InkWell(
+              onTap: enabled ? onTap : null,
+              splashFactory: NoSplash.splashFactory,
+              highlightColor: isDark
+                  ? Colors.white.withValues(alpha: 0.035)
+                  : Colors.black.withValues(alpha: 0.025),
+              child: Padding(
+                padding:
+                    contentPadding ??
+                    const EdgeInsets.symmetric(
+                      horizontal: kcRowInsetH,
+                      vertical: 12,
+                    ),
+                child: row,
               ),
-              child: row,
             ),
           ),
         ),

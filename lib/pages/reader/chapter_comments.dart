@@ -104,7 +104,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
       return;
     }
     if (res.error) {
-      context.showMessage(message: res.errorMessage ?? "Unknown Error".tl);
+      context.showMessage(message: friendlyError(res.errorMessage ?? "Unknown Error".tl));
     } else {
       var filteredComments =
           res.data.where((c) => !_shouldBlockComment(c)).toList();
@@ -304,7 +304,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
                     // after initState, so the panel would spin forever.
                     firstLoad();
                   } else {
-                    context.showMessage(message: b.errorMessage ?? "Error".tl);
+                    context.showMessage(message: friendlyError(b.errorMessage ?? "Error".tl));
                     setState(() {
                       sending = false;
                     });
@@ -498,7 +498,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
             isLiked = !isLiked;
             likes += isLiked ? 1 : -1;
           } else {
-            context.showMessage(message: res.errorMessage ?? "Error".tl);
+            context.showMessage(message: friendlyError(res.errorMessage ?? "Error".tl));
           }
           setState(() {
             isLiking = false;
@@ -561,7 +561,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
       widget.comment.voteStatus = voteStatus;
       widget.comment.score = res.data ?? widget.comment.score;
     } else {
-      context.showMessage(message: res.errorMessage ?? "Error".tl);
+      context.showMessage(message: friendlyError(res.errorMessage ?? "Error".tl));
     }
     setState(() {
       isVotingUp = false;
@@ -725,7 +725,7 @@ class _EmbeddedChapterCommentsPageState
     );
     if (res.error) {
       if (mounted) {
-        context.showMessage(message: res.errorMessage ?? "Unknown Error".tl);
+        context.showMessage(message: friendlyError(res.errorMessage ?? "Unknown Error".tl));
       }
     } else if (mounted) {
       var filteredComments =
@@ -930,7 +930,7 @@ class _EmbeddedChapterCommentsPageState
                     firstLoad();
                   } else {
                     if (mounted) {
-                      context.showMessage(message: b.errorMessage ?? "Error".tl);
+                      context.showMessage(message: friendlyError(b.errorMessage ?? "Error".tl));
                     }
                     setState(() {
                       sending = false;

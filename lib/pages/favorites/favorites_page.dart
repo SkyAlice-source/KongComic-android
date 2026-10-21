@@ -15,6 +15,7 @@ import 'package:kong_comic/foundation/consts.dart';
 import 'package:kong_comic/foundation/bookshelf_layout.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/history.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/foundation/res.dart';
@@ -37,7 +38,9 @@ const _kLeftBarWidth = 256.0;
 
 const _kTwoPanelChangeWidth = 720.0;
 
-class FavoritesPage extends StatefulWidget {
+/// 收藏页：自绘整条顶栏（标题 + 工具胶囊条），故实现 [SelfTopBarPage]
+/// 请求共享顶栏整体让位，避免「两排工具栏」。
+class FavoritesPage extends StatefulWidget implements SelfTopBarPage {
   const FavoritesPage({super.key});
 
   @override

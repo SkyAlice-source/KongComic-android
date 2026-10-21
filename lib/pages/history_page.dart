@@ -6,30 +6,32 @@ import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/history.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/pages/search_page.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
-class HistoryPage extends StatefulWidget {
+/// 历史页：自绘整条顶栏（标题 + 工具胶囊条），故实现 [SelfTopBarPage]
+/// 请求共享顶栏整体让位。此前靠 `main_page` 里硬编码的 `[1, 4]` 索引，
+/// 底栏顺序一变就会指错页。
+class HistoryPage extends StatefulWidget implements SelfTopBarPage {
   const HistoryPage({super.key});
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends State<HistoryPage> {
+class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
   @override
   void initState() {
-    HistoryManager().addListener(onUpdate);
+    listen(HistoryManager(), onUpdate);
     // 自绘顶栏后，布局切换按钮（列表/网格）在历史页内部，需要跟着设置变化刷新图标。
-    appdata.settings.addListener(_onSettingsChanged);
+    listen(appdata.settings, _onSettingsChanged);
     super.initState();
   }
 
   @override
   void dispose() {
-    HistoryManager().removeListener(onUpdate);
-    appdata.settings.removeListener(_onSettingsChanged);
     _scrollController.dispose();
     searchController.dispose();
     super.dispose();
@@ -90,7 +92,8 @@ class _HistoryPageState extends State<HistoryPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
+            KcListTile(
+              showDivider: false,
               title: Text("Time Range".tl),
               trailing: Select(
                 minWidth: 120,

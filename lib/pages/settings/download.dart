@@ -7,18 +7,14 @@ class DownloadSettings extends StatefulWidget {
   State<DownloadSettings> createState() => _DownloadSettingsState();
 }
 
-class _DownloadSettingsState extends State<DownloadSettings> {
+class _DownloadSettingsState extends State<DownloadSettings>
+    with AutoListenMixin {
   @override
   void initState() {
     super.initState();
-    appdata.settings.addListener(_onSettingsChange);
+    listen(appdata.settings, _onSettingsChange);
   }
 
-  @override
-  void dispose() {
-    appdata.settings.removeListener(_onSettingsChange);
-    super.dispose();
-  }
 
   void _onSettingsChange() {
     if (mounted) setState(() {});

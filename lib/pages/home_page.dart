@@ -10,6 +10,7 @@ import 'package:kong_comic/foundation/consts.dart';
 import 'package:kong_comic/foundation/custom_cover.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/history.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/comic_source_page.dart';
@@ -109,7 +110,7 @@ class _Banner extends StatefulWidget {
   State<_Banner> createState() => _BannerState();
 }
 
-class _BannerState extends State<_Banner> {
+class _BannerState extends State<_Banner> with AutoListenMixin {
   int _currentIndex = 0;
   Timer? _timer;
   /// 手动滑动切换后暂停自动轮播
@@ -141,7 +142,7 @@ class _BannerState extends State<_Banner> {
   void initState() {
     super.initState();
     // No PageController needed
-    _loadComics(); LocalFavoritesManager().addListener(_loadComics); appdata.settings.addListener(_loadComics); _startTimer();
+    _loadComics(); listen(LocalFavoritesManager(), _loadComics); listen(appdata.settings, _loadComics); _startTimer();
   }
   void _startTimer() {
     _timer?.cancel();
@@ -152,7 +153,7 @@ class _BannerState extends State<_Banner> {
       setState(() { _currentIndex = (_currentIndex + 1) % _comics.length; widget.currentComicNotifier.value = _comics[_currentIndex]; });
     });
   }
-  @override void dispose() { _timer?.cancel(); LocalFavoritesManager().removeListener(_loadComics); appdata.settings.removeListener(_loadComics); super.dispose(); }
+  @override void dispose() { _timer?.cancel(); super.dispose(); }
   void _navigateToComic(FavoriteItem c) { context.to(() => ComicPage(id: c.id, sourceKey: c.type.comicSource?.key ?? '', cover: c.coverPath, title: c.name)); }
 
   @override
@@ -423,7 +424,7 @@ class _HomeCapsules extends StatefulWidget {
   const _HomeCapsules();
   @override State<_HomeCapsules> createState() => _HomeCapsulesState();
 }
-class _HomeCapsulesState extends State<_HomeCapsules> {
+class _HomeCapsulesState extends State<_HomeCapsules> with AutoListenMixin {
   int _updateCount = 0;
   List<String> get folders => getEffectiveFollowFolders();
   void _refresh() {
@@ -433,8 +434,7 @@ class _HomeCapsulesState extends State<_HomeCapsules> {
           0, (sum, f) => sum + LocalFavoritesManager().countUpdates(f));
     });
   }
-  @override void initState() { super.initState(); _refresh(); LocalFavoritesManager().addListener(_refresh); LocalManager().addListener(_refresh); }
-  @override void dispose() { LocalFavoritesManager().removeListener(_refresh); LocalManager().removeListener(_refresh); super.dispose(); }
+  @override void initState() { super.initState(); _refresh(); listen(LocalFavoritesManager(), _refresh); listen(LocalManager(), _refresh); }
   @override Widget build(BuildContext context) {
     final lc = LocalManager().count;
     return SliverToBoxAdapter(child: Column(children: [
@@ -509,7 +509,7 @@ class _HomeHints extends StatefulWidget {
   State<_HomeHints> createState() => _HomeHintsState();
 }
 
-class _HomeHintsState extends State<_HomeHints> {
+class _HomeHintsState extends State<_HomeHints> with AutoListenMixin {
   int _localCount = 0;
   int _favoriteCount = 0;
   int _sourceCount = 0;
@@ -529,18 +529,11 @@ class _HomeHintsState extends State<_HomeHints> {
     _localCount = LocalManager().count;
     _favoriteCount = LocalFavoritesManager().totalComics;
     _sourceCount = ComicSource.enabled().length;
-    LocalManager().addListener(_refresh);
-    LocalFavoritesManager().addListener(_refresh);
-    ComicSourceManager().addListener(_refresh);
+    listen(LocalManager(), _refresh);
+    listen(LocalFavoritesManager(), _refresh);
+    listen(ComicSourceManager(), _refresh);
   }
 
-  @override
-  void dispose() {
-    LocalManager().removeListener(_refresh);
-    LocalFavoritesManager().removeListener(_refresh);
-    ComicSourceManager().removeListener(_refresh);
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {

@@ -9,7 +9,8 @@ class _ReaderScaffold extends StatefulWidget {
   State<_ReaderScaffold> createState() => _ReaderScaffoldState();
 }
 
-class _ReaderScaffoldState extends State<_ReaderScaffold> {
+class _ReaderScaffoldState extends State<_ReaderScaffold>
+    with AutoListenMixin {
   bool _isOpen = false;
 
   // 顶栏的「最小高度」基准。真实高度见 [topBarHeight]：系统字号放大后
@@ -110,7 +111,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> {
   @override
   void initState() {
     sliderFocus.canRequestFocus = false;
-    sliderFocus.addListener(() {
+    listen(sliderFocus, () {
       if (sliderFocus.hasFocus) {
         sliderFocus.nextFocus();
       }

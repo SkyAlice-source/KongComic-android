@@ -339,6 +339,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // 只收容器色，`error` 本身仍是红——删除类按钮按约定保留语义红。
         errorContainer: high,
         onErrorContainer: const Color(0xFFEDEAEB),
+        // 灰度外观里 error 是唯一保留的彩色（报错 / 删除必须一眼可辨），
+        // 取 M3 深色错误色保证纯黑底上的对比度。
+        error: const Color(0xFFFFB4AB),
+        onError: const Color(0xFF690005),
             inverseSurface: const Color(0xFFE0E0E0),
             inversePrimary: const Color(0xFFB0B0B0),
           );
@@ -382,6 +386,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             onTertiaryContainer: const Color(0xFFF0E7E8),
             inverseSurface: const Color(0xFFE0E0E0),
             inversePrimary: kcBrandColor,
+            // 深色下显式钉住 M3 深色错误色 #FFB4AB（soft 种子派生出来的本来
+            // 也是这个值，钉住是为了不随种子/色调策略变化漂移）。不能用浅色
+            // 那支 #8C1D18：深红在暖近黑底上只有 2:1，错误提示会看不清。
+            error: const Color(0xFFFFB4AB),
+            onError: const Color(0xFF690005),
           );
     } else {
       // 浅色：品牌红（或用户显式选的颜色）作为 primary。容器色仍交给
@@ -398,6 +407,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         surfaceTint: Colors.transparent,
         primary: primary,
         onPrimary: Colors.white,
+        // 错误色钉成「深层砖红」#8C1D18。vivid 种子派生出的 error 是 #BA1A1A
+        // （M3 默认），与品牌红 #D4381B 只差一档明度，同屏出现仍像同一个红。
+        // 再压深一档后：白底对比度 9.2:1（远超 4.5:1 要求），色相也偏冷，
+        // 「出错了」在视觉上明确退到「强调 / 已收藏」之后，不会被当成强调色。
+        error: const Color(0xFF8C1D18),
+        onError: Colors.white,
         // 表面层全部中性化：品牌红只做「强调」，不把卡片、弹窗、勾选行的底
         // 染成粉色。种子派生出的中性色带红相（弹窗看起来像一块浅粉），
         // 在城市白底上既不干净，也和「克制用色」的设计语汇相反。
@@ -534,7 +549,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               : Colors.black.withValues(alpha: 0.2),
         ),
         thickness: const WidgetStatePropertyAll(4.0),
-        radius: const Radius.circular(2),
+        radius: const Radius.circular(kcRadius3),
         interactive: true,
       ),
     );
@@ -559,7 +574,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 states.contains(WidgetState.selected) ? scheme.primary : null,
           ),
           checkColor: const WidgetStatePropertyAll(Colors.black),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kcRadius6)),
         ),
         radioTheme: RadioThemeData(
           fillColor: WidgetStateProperty.resolveWith(
@@ -627,7 +642,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               states.contains(WidgetState.selected) ? kcBrandColor : null,
         ),
         checkColor: const WidgetStatePropertyAll(Colors.white),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kcRadius6)),
       ),
       radioTheme: RadioThemeData(
         fillColor: WidgetStateProperty.resolveWith(

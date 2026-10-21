@@ -45,7 +45,9 @@ class _ComicThumbnailsState extends State<_ComicThumbnails> {
       next = res.subData;
       isInitialLoading = false;
     } else {
-      error = res.errorMessage;
+      error = res.errorMessage == null
+          ? null
+          : friendlyError(res.errorMessage!);
     }
     if (mounted) {
       setState(() {
@@ -59,7 +61,7 @@ class _ComicThumbnailsState extends State<_ComicThumbnails> {
     return MultiSliver(
       children: [
         SliverToBoxAdapter(
-          child: ListTile(
+          child: KcListTile(
             title: Text("Preview".tl),
           ),
         ),

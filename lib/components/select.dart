@@ -223,7 +223,7 @@ class AnimatedCheckIcon extends StatefulWidget {
 }
 
 class _AnimatedCheckIconState extends State<AnimatedCheckIcon>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutoListenMixin {
   late Animation<double> animation;
   late AnimationController controller;
 
@@ -233,10 +233,10 @@ class _AnimatedCheckIconState extends State<AnimatedCheckIcon>
       vsync: this,
       duration: _fastAnimationDuration,
     );
-    animation = Tween<double>(begin: 0, end: 1).animate(controller)
-      ..addListener(() {
-        setState(() {});
-      });
+    animation = Tween<double>(begin: 0, end: 1).animate(controller);
+    listen(animation, () {
+      setState(() {});
+    });
     controller.forward();
     super.initState();
   }

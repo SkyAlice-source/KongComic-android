@@ -50,9 +50,17 @@ class Channel<T> {
     return item;
   }
 
+  /// 关闭队列并唤醒所有阻塞的 push/pop。
+  ///
+  /// 生产者在投递完毕后会 close 一次；订阅方结束（`await for` 退出 / 流被
+  /// 关闭）时 `onCancel` 又会 close 一次 —— 两次都调用 complete() 会抛
+  /// 「Bad state: Future already completed」，在追更检查里刷了一堆红色堆栈。
+  /// 这里做成幂等：已完成的 completer 不再重复 complete。
   void close() {
     isClosed = true;
-    _pushCompleter?.complete();
-    _releaseCompleter?.complete();
+    final push = _pushCompleter;
+    if (push != null && !push.isCompleted) push.complete();
+    final release = _releaseCompleter;
+    if (release != null && !release.isCompleted) release.complete();
   }
 }

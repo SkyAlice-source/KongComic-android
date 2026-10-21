@@ -9,6 +9,7 @@ import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_source/source_repositories.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/app_dio.dart';
 import 'package:kong_comic/network/cookie_jar.dart';
@@ -20,7 +21,11 @@ import 'package:kong_comic/utils/translations.dart';
 
 /// 更新失败时展示给用户的文案：异常自带可读说明时直接用它。
 String updateFailureMessage(Object error) {
-  if (error is String && error.trim().isNotEmpty) return error;
+  // 原文先过一遍归一化：中文说明原样保留，英文技术串（TimeoutException /
+  // SocketException / DioException ...）换成可读提示，避免更新结果里出现英文。
+  if (error is String && error.trim().isNotEmpty) {
+    return friendlyErrorMessage(error);
+  }
   // 网络异常不是 String，以前一律被压成一句「Failed to update source」。
   // 批量更新时用户只看到「N 个源更新失败」，既不知道是超时、404 还是别的，
   // 也没法反馈。这里把状态码 / 失败类型带出来。
@@ -29,11 +34,24 @@ String updateFailureMessage(Object error) {
     if (code != null) {
       return "Server returned @code".tlParams({"code": code.toString()});
     }
-    return "${"Network error".tl} (${error.type.name})";
+    // 类型名（connectionTimeout / badCertificate ...）是英文枚举，不能直接
+    // 拼进提示里，翻成对应的中文说明。
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return "Connection timed out".tl;
+      case DioExceptionType.badCertificate:
+        return "SSL connection error".tl;
+      case DioExceptionType.connectionError:
+        return "Network Error".tl;
+      default:
+        return friendlyErrorMessage(error.toString());
+    }
   }
   final text = error.toString().trim();
   if (text.isEmpty || text.length > 160) return "Failed to update source".tl;
-  return text;
+  return friendlyErrorMessage(text);
 }
 
 /// What an update actually did.
@@ -301,7 +319,7 @@ class _Body extends StatefulWidget {
 /// Source list filters shown as a chip row above the list.
 enum _SourceFilter { all, enabled, disabled, unreachable, update }
 
-class _BodyState extends State<_Body> {
+class _BodyState extends State<_Body> with AutoListenMixin {
   var url = "";
 
   /// Selection mode for batch operations.
@@ -335,16 +353,10 @@ class _BodyState extends State<_Body> {
   @override
   void initState() {
     super.initState();
-    ComicSourceManager().addListener(updateUI);
+    listen(ComicSourceManager(), updateUI);
     // Repair sources added before auto-enable existed (e.g. a source whose
     // discover/category tab was missing from the enabled lists).
     _ensureAllPagesEnabled();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    ComicSourceManager().removeListener(updateUI);
   }
 
   @override
@@ -743,10 +755,7 @@ class _BodyState extends State<_Body> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                HugeIcon(
-                  icon: HugeIcons.strokeRoundedCancelCircle,
-                  size: 18,
-                ),
+                HugeIcon(icon: HugeIcons.strokeRoundedCancelCircle, size: 18),
                 const SizedBox(width: 6),
                 Text("Batch disable".tl),
               ],
@@ -1644,7 +1653,7 @@ class _CallbackSettingState extends State<_CallbackSetting> {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
+    return KcListTile(
       title: Text(title.ts(widget.sourceKey)),
       trailing: Button.normal(
         onPressed: onClick,
@@ -2307,9 +2316,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
 
     for (final entry in sorted) {
       final on = current.contains(entry.value);
-      yield ListTile(
-        dense: true,
-        visualDensity: VisualDensity.compact,
+      yield KcListTile(
         contentPadding: const EdgeInsets.only(left: 20, right: 8),
         title: Text(
           entry.label,
@@ -2374,7 +2381,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                 )['text'] ??
                 current;
           }
-          yield ListTile(
+          yield KcListTile(
             title: Text((item.value['title'] as String).ts(source.key)),
             trailing: Select(
               current: (current as String).ts(source.key),
@@ -2395,7 +2402,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
           );
         } else if (type == "switch") {
           var current = source.data['settings'][key] ?? item.value['default'];
-          yield ListTile(
+          yield KcListTile(
             title: Text((item.value['title'] as String).ts(source.key)),
             trailing: KcSwitch(
               value: current == true,
@@ -2409,7 +2416,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
         } else if (type == "input") {
           var current =
               source.data['settings'][key] ?? item.value['default'] ?? '';
-          yield ListTile(
+          yield KcListTile(
             title: Text((item.value['title'] as String).ts(source.key)),
             subtitle: Text(
               current,
@@ -2451,7 +2458,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     if (source.account == null) return;
     final bool logged = source.isLogged;
     if (!logged) {
-      yield ListTile(
+      yield KcListTile(
         title: Text("Log in".tl),
         trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
         onTap: () async {
@@ -2468,7 +2475,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
         if (item.builder != null) {
           yield item.builder!(context);
         } else {
-          yield ListTile(
+          yield KcListTile(
             title: Text(item.title.tl),
             subtitle: item.data == null ? null : Text(item.data!()),
             onTap: item.onTap,
@@ -2477,7 +2484,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
       }
       if (source.data["account"] is List) {
         bool loading = _reLogin[source.key] == true;
-        yield ListTile(
+        yield KcListTile(
           title: Text("Re-login".tl),
           subtitle: Text("Click if login expired".tl),
           onTap: () async {
@@ -2498,7 +2505,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             }
             var res = await source.account!.login!(account[0], account[1]);
             if (res.error) {
-              context.showMessage(message: res.errorMessage!);
+              context.showMessage(message: friendlyError(res.errorMessage!));
             } else {
               context.showMessage(message: "Success".tl);
             }
@@ -2514,8 +2521,9 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
               : HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
         );
       }
-      yield ListTile(
+      yield KcListTile(
         title: Text("Log out".tl),
+        showDivider: false,
         onTap: () {
           source.data["account"] = null;
           source.account?.logout();
@@ -2682,7 +2690,7 @@ class _LoginPageState extends State<_LoginPage> {
       });
       widget.config.login!(username, password).then((value) {
         if (value.error) {
-          context.showMessage(message: value.errorMessage!);
+          context.showMessage(message: friendlyError(value.errorMessage!));
           setState(() {
             loading = false;
           });

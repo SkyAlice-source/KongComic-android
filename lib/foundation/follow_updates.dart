@@ -22,7 +22,18 @@ Future<ComicUpdateResult> updateComic(
       if (comicSource == null) {
         return ComicUpdateResult(false, "Comic source not found".tl);
       }
-      var newInfo = (await comicSource.loadComicInfo!(c.id)).data;
+      final infoRes = await comicSource.loadComicInfo!(c.id);
+      if (infoRes.error) {
+        // Res.data 在出错时会抛异常，以前这里直接取 .data，导致 502 之类的
+        // 失败以未捕获异常的形式冒到 zone（logcat 里那条
+        // `Exception: Invalid status code: 502` 就是它），追更页只看到
+        // 「N 个失败」却拿不到原因。
+        return ComicUpdateResult(
+          false,
+          friendlyError(infoRes.errorMessage ?? "Unknown error".tl),
+        );
+      }
+      var newInfo = infoRes.data;
 
       var newTags = <String>[];
       for (var entry in newInfo.tags.entries) {
@@ -68,7 +79,7 @@ Future<ComicUpdateResult> updateComic(
       await Future.delayed(const Duration(seconds: 2));
       retries--;
       if (retries == 0) {
-        return ComicUpdateResult(false, e.toString());
+        return ComicUpdateResult(false, friendlyError(e));
       }
     }
   }

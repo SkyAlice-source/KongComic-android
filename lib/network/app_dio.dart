@@ -209,6 +209,15 @@ class RHttpAdapter implements HttpClientAdapter {
     final proxy = await getProxy();
     final uri = options.uri;
 
+    // 超时必须由 adapter 自己执行：Dio 的 connectTimeout / receiveTimeout /
+    // sendTimeout 只是一个字段，内置 IO adapter 才会用它，自定义 adapter 不
+    // 会。此前这里只设了 HttpClient.connectionTimeout（那仅管 TCP 建连），
+    // 于是断网或源站不响应时 openUrl / close() 可以无限期挂着 —— 实测断网
+    // 104 秒仍无任何结果，界面就一直停在骨架屏 / 转圈。
+    final connectTimeout = options.connectTimeout ?? const Duration(seconds: 15);
+    final receiveTimeout = options.receiveTimeout ?? const Duration(seconds: 15);
+    final sendTimeout = options.sendTimeout ?? const Duration(seconds: 15);
+
     // Reuse HttpClient for connection pooling.
     // Recreate only when proxy changes to avoid stale connections.
     if (_client == null || _lastProxy != proxy) {
@@ -220,10 +229,22 @@ class RHttpAdapter implements HttpClientAdapter {
           (X509Certificate cert, String host, int port) {
         return appdata.settings['ignoreBadCertificate'] == true;
       };
-      _client!.connectionTimeout = const Duration(seconds: 15);
+      _client!.connectionTimeout = connectTimeout;
     }
 
-    final request = await _client!.openUrl(options.method, uri);
+    // 建连（含 DNS 解析）超时。DNS 卡死时 connectionTimeout 兜不住，必须显式
+    // 给 openUrl 加 timeout。
+    final HttpClientRequest request;
+    try {
+      request = await _client!
+          .openUrl(options.method, uri)
+          .timeout(connectTimeout);
+    } on TimeoutException {
+      throw DioException.connectionTimeout(
+        timeout: connectTimeout,
+        requestOptions: options,
+      );
+    }
 
     options.headers.forEach((key, value) {
       if (value != null) {
@@ -232,20 +253,53 @@ class RHttpAdapter implements HttpClientAdapter {
     });
 
     if (requestStream != null) {
-        await request.addStream(requestStream);
+      try {
+        await request.addStream(requestStream).timeout(sendTimeout);
+      } on TimeoutException {
+        request.abort();
+        throw DioException.sendTimeout(
+          timeout: sendTimeout,
+          requestOptions: options,
+        );
+      }
     }
 
     cancelFuture?.then((_) => request.abort());
 
-    final response = await request.close();
+    // 等响应头。源站接受连接后一直不回包是「无限转圈」最常见的原因。
+    final HttpClientResponse response;
+    try {
+      response = await request.close().timeout(receiveTimeout);
+    } on TimeoutException {
+      request.abort();
+      throw DioException.receiveTimeout(
+        timeout: receiveTimeout,
+        requestOptions: options,
+      );
+    }
 
     final headers = <String, List<String>>{};
     response.headers.forEach((name, values) {
       headers[name.toLowerCase()] = values;
     });
 
+    // 响应体读取同样要限时：头回来了但 body 不再推进（大图下载中途断流、
+    // 服务端 keep-alive 挂着）也不该让上层永远 await 下去。
+    final body = response.cast<Uint8List>().timeout(
+      receiveTimeout,
+      onTimeout: (sink) {
+        sink.addError(
+          DioException.receiveTimeout(
+            timeout: receiveTimeout,
+            requestOptions: options,
+          ),
+        );
+        sink.close();
+      },
+    );
+
     return ResponseBody(
-      response.cast<Uint8List>(),
+      body,
       response.statusCode,
       statusMessage: _getStatusMessage(response.statusCode),
       isRedirect: false,

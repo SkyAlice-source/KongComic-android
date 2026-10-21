@@ -58,7 +58,7 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
             } catch (e) {
               // Without this the dialog closes never — it has no other exit.
               if (mounted) {
-                context.showMessage(message: e.toString());
+                context.showMessage(message: friendlyError(e));
               }
               return;
             } finally {

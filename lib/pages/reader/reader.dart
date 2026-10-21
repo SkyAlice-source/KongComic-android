@@ -16,6 +16,7 @@ import 'package:kong_comic/components/custom_slider.dart';
 import 'package:kong_comic/components/rich_comment_content.dart';
 import 'package:kong_comic/components/window_frame.dart';
 import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/cache_manager.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';

@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:kong_comic/components/components.dart";
 import "package:kong_comic/foundation/app.dart";
 import "package:kong_comic/foundation/comic_source/comic_source.dart";
+import "package:kong_comic/foundation/res.dart";
 import "package:kong_comic/utils/translations.dart";
 
 class CategoryComicsPage extends StatefulWidget {
@@ -81,10 +82,18 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
   }
 
   void loadOptions() async {
-    final res = await optionsLoader!(widget.category, widget.param);
+    // optionsLoader 抛异常时，以前 options 永远为 null 且 error 为 null
+    // → build 里 `options == null && optionsLoader != null` 分支一直转圈。
+    Res<List<CategoryComicsOptions>> res;
+    try {
+      res = await optionsLoader!(widget.category, widget.param);
+    } catch (e) {
+      res = Res<List<CategoryComicsOptions>>.error(friendlyError(e));
+    }
+    if (!mounted) return;
     if (res.error) {
       setState(() {
-        error = res.errorMessage;
+        error = friendlyError(res.errorMessage ?? "Unknown error".tl);
       });
     } else {
       setState(() {

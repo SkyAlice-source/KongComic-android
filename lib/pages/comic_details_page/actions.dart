@@ -19,7 +19,7 @@ abstract mixin class _ComicPageActions {
     update();
     var res = await comicSource.likeOrUnlikeComic!(comic.id, isLiked);
     if (res.error) {
-      App.rootContext.showMessage(message: res.errorMessage!);
+      App.rootContext.showMessage(message: friendlyError(res.errorMessage!));
     } else {
       isLiked = !isLiked;
     }
@@ -227,7 +227,7 @@ abstract mixin class _ComicPageActions {
                                 archives = value.data;
                               } else {
                                 App.rootContext
-                                    .showMessage(message: value.errorMessage!);
+                                    .showMessage(message: friendlyError(value.errorMessage!));
                               }
                               setState(() {
                                 isLoading = false;
@@ -268,7 +268,7 @@ abstract mixin class _ComicPageActions {
                         archives![selected].id,
                       );
                       if (res.error) {
-                        App.rootContext.showMessage(message: res.errorMessage!);
+                        App.rootContext.showMessage(message: friendlyError(res.errorMessage!));
                         setState(() {
                           isGettingLink = false;
                         });
@@ -489,7 +489,7 @@ abstract mixin class _ComicPageActions {
                               Navigator.of(dialogContext).pop();
                             } else {
                               App.rootContext
-                                  .showMessage(message: value.errorMessage!);
+                                  .showMessage(message: friendlyError(value.errorMessage!));
                               setState(() {
                                 isLoading = false;
                               });

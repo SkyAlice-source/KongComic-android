@@ -5,6 +5,7 @@ import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/global_state.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/res.dart';
 import 'package:kong_comic/pages/comic_source_page.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
@@ -19,7 +20,10 @@ class ExplorePage extends StatefulWidget {
 }
 
 class _ExplorePageState extends State<ExplorePage>
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin<ExplorePage> {
+    with
+        TickerProviderStateMixin,
+        AutomaticKeepAliveClientMixin<ExplorePage>,
+        AutoListenMixin {
   late TabController controller;
 
   final showFB = ValueNotifier<bool>(true);
@@ -102,7 +106,7 @@ class _ExplorePageState extends State<ExplorePage>
       length: pages.length,
       vsync: this,
     );
-    appdata.settings.addListener(onSettingsChanged);
+    listen(appdata.settings, onSettingsChanged);
     NaviPane.of(context).addNaviItemTapListener(onNaviItemTapped);
     super.initState();
   }
@@ -117,7 +121,6 @@ class _ExplorePageState extends State<ExplorePage>
   void dispose() {
     controller.dispose();
     showFB.dispose();
-    appdata.settings.removeListener(onSettingsChanged);
     naviPane?.removeNaviItemTapListener(onNaviItemTapped);
     super.dispose();
   }
@@ -271,7 +274,7 @@ class _SingleExplorePage extends StatefulWidget {
 }
 
 class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
-    with AutomaticKeepAliveClientMixin<_SingleExplorePage> {
+    with AutomaticKeepAliveClientMixin<_SingleExplorePage>, AutoListenMixin {
   late final ExplorePageData data;
 
   late final String comicSourceKey;
@@ -300,12 +303,12 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
         if (d.title == widget.title) {
           data = d;
           comicSourceKey = source.key;
-          appdata.settings.addListener(onSettingsChanged);
+          listen(appdata.settings, onSettingsChanged);
           return;
         }
       }
     }
-    appdata.settings.addListener(onSettingsChanged);
+    listen(appdata.settings, onSettingsChanged);
     // 源已被移除：标记为未找到，build 显示空状态而不是 throw 崩溃
     _notFound = true;
   }
@@ -313,7 +316,6 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
   @override
   void dispose() {
     scrollController.dispose();
-    appdata.settings.removeListener(onSettingsChanged);
     super.dispose();
   }
 
@@ -579,19 +581,33 @@ class _MultiPartExplorePageState extends State<_MultiPartExplorePage> {
     widget.refreshHandlerCallback(refresh);
   }
 
-  void load() async {
-    var res = await data.loadMultiPart!();
-    loading = false;
-    if (mounted) {
-      setState(() {
-        if (res.error) {
-          message = res.errorMessage;
-        } else {
-          parts = res.data;
-        }
-      });
-      storeState();
+  /// 正在飞的加载任务。`load()` 在 build 里被调用（`loading == true` 分支），
+  /// 每次 rebuild 都会再进来一次，以前没有去重 —— 一次加载会发出多个重复请求。
+  Future<void>? _inflight;
+
+  void load() {
+    if (_inflight != null) return;
+    _inflight = _doLoad().whenComplete(() => _inflight = null);
+  }
+
+  Future<void> _doLoad() async {
+    Res<List<ExplorePagePart>> res;
+    try {
+      res = await data.loadMultiPart!();
+    } catch (e) {
+      // 源脚本抛异常时，以前 loading 永远收不回来，界面一直转圈。
+      res = Res<List<ExplorePagePart>>.error(friendlyError(e));
     }
+    if (!mounted) return;
+    setState(() {
+      loading = false;
+      if (res.error) {
+        message = friendlyError(res.errorMessage ?? "Unknown error".tl);
+      } else {
+        parts = res.data;
+      }
+    });
+    storeState();
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/image_provider/cached_image.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/utils/io.dart';
@@ -14,7 +15,8 @@ class DownloadingPage extends StatefulWidget {
   State<DownloadingPage> createState() => _DownloadingPageState();
 }
 
-class _DownloadingPageState extends State<DownloadingPage> {
+class _DownloadingPageState extends State<DownloadingPage>
+    with AutoListenMixin {
   DownloadTask? firstTask;
 
   @override
@@ -33,13 +35,12 @@ class _DownloadingPageState extends State<DownloadingPage> {
 
   @override
   void initState() {
-    LocalManager().addListener(update);
+    listen(LocalManager(), update);
     super.initState();
   }
 
   @override
   void dispose() {
-    LocalManager().removeListener(update);
     firstTask?.removeListener(update);
     super.dispose();
   }
@@ -173,21 +174,17 @@ class _DownloadTaskTile extends StatefulWidget {
   State<_DownloadTaskTile> createState() => _DownloadTaskTileState();
 }
 
-class _DownloadTaskTileState extends State<_DownloadTaskTile> {
+class _DownloadTaskTileState extends State<_DownloadTaskTile>
+    with AutoListenMixin {
   late DownloadTask task;
 
   @override
   void initState() {
     task = widget.task;
-    task.addListener(update);
+    listen(task, update);
     super.initState();
   }
 
-  @override
-  void dispose() {
-    task.removeListener(update);
-    super.dispose();
-  }
 
   @override
   void didUpdateWidget(covariant _DownloadTaskTile oldWidget) {

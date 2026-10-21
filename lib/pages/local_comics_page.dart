@@ -5,6 +5,7 @@ import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/local.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/downloading_page.dart';
@@ -25,7 +26,8 @@ class LocalComicsPage extends StatefulWidget {
   State<LocalComicsPage> createState() => _LocalComicsPageState();
 }
 
-class _LocalComicsPageState extends State<LocalComicsPage> {
+class _LocalComicsPageState extends State<LocalComicsPage>
+    with AutoListenMixin {
   late LocalSortType sortType;
 
   String keyword = "";
@@ -62,17 +64,11 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
   void initState() {
     var sort = appdata.implicitData["local_sort"] ?? "name";
     sortType = LocalSortType.fromString(sort);
-    LocalManager().addListener(update);
-    LocalManager().addListener(_onDownloadListChanged);
+    listen(LocalManager(), update);
+    listen(LocalManager(), _onDownloadListChanged);
     super.initState();
   }
 
-  @override
-  void dispose() {
-    LocalManager().removeListener(update);
-    LocalManager().removeListener(_onDownloadListChanged);
-    super.dispose();
-  }
 
   /// Refreshes the "下载管理" entry's live task count without reloading the
   /// comic grid.

@@ -4,6 +4,7 @@ import 'package:kong_comic/pages/categories_page.dart';
 import 'package:kong_comic/pages/history_page.dart';
 import 'package:kong_comic/pages/search_page.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 import '../components/components.dart';
@@ -19,7 +20,7 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainPageState extends State<MainPage> with AutoListenMixin {
   late final NaviObserver _observer;
 
   GlobalKey<NavigatorState>? _navigatorKey;
@@ -45,7 +46,7 @@ class _MainPageState extends State<MainPage> {
     // MainPage 挂在主干 Navigator 路由里，App.forceRebuild()（作用于 MyApp）
     // 不会重建本 State，导致顶栏 paneActions 缓存的布局切换图标不刷新。
     // 改为直接监听 settings，任何 comicDisplayMode 变化都让本页重建并刷新图标/文案。
-    appdata.settings.addListener(_onSettingsChanged);
+    listen(appdata.settings, _onSettingsChanged);
     super.initState();
   }
 
@@ -53,11 +54,6 @@ class _MainPageState extends State<MainPage> {
     if (mounted) setState(() {});
   }
 
-  @override
-  void dispose() {
-    appdata.settings.removeListener(_onSettingsChanged);
-    super.dispose();
-  }
 
   final _pages = [
     const CategoriesPage(key: PageStorageKey('categories')),
@@ -163,13 +159,16 @@ class _MainPageState extends State<MainPage> {
       pageBuilder: (index) {
         return _pages[index];
       },
-      // 收藏页(1)与历史页(4)均自带完整顶栏（标题 + 工具胶囊条），故隐藏共享顶栏
-      // 避免「两排工具栏」；历史页在下面 topBarHiddenPages 单独声明。
-      topBarTitleHiddenPages: const [],
-      // 收藏页(1)与历史页(4)均自绘完整 SliverAppbar（标题 + 胶囊工具条），
-      // 共享顶栏整体让位，避免「两排工具栏」的层叠观感（Favorites 此前漏加，
-      // 导致收藏页顶部同时出现共享栏 + 自绘栏两道杠）。
-      topBarHiddenPages: const [1, 4],
+      // 收藏页 / 历史页均自绘完整顶栏（标题 + 胶囊工具条），共享顶栏整体让位，
+      // 避免「两排工具栏」的层叠观感。
+      //
+      // 名单由页面自己声明：实现 [SelfTopBarPage] 的 tab 自动被排除，这里按
+      // [_pages] 的实际顺序汇总。不再手写 `[1, 4]` 这类魔法索引 —— 调整底栏
+      // 顺序或插入新 tab 时不会再把别的页面顶栏误伤掉。
+      topBarHiddenPages: [
+        for (var i = 0; i < _pages.length; i++)
+          if (_pages[i] is SelfTopBarPage) i,
+      ],
     );
   }
 }

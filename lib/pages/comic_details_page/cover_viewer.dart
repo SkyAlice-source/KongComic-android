@@ -82,22 +82,22 @@ class _CoverViewerState extends State<_CoverViewer> {
   }
 
   void _saveCover() async {
+    ImageStream? imageStream;
+    ImageStreamListener? listener;
     try {
-      final imageStream = widget.imageProvider.resolve(
-        const ImageConfiguration(),
-      );
+      imageStream = widget.imageProvider.resolve(const ImageConfiguration());
       final completer = Completer<Uint8List>();
 
-      imageStream.addListener(
-        ImageStreamListener((ImageInfo info, bool _) async {
-          final byteData = await info.image.toByteData(
-            format: ImageByteFormat.png,
-          );
-          if (byteData != null) {
-            completer.complete(byteData.buffer.asUint8List());
-          }
-        }),
-      );
+      // 必须持有 listener 引用才能在同一 ImageStream 上摘掉它：一次性截图用的
+      // 流如果不 remove，多帧图（GIF / 动图封面）会再次回调，而 completer 只能
+      // complete 一次 —— 第二次会抛 StateError，并把 State 一直挂在流上。
+      listener = ImageStreamListener((ImageInfo info, bool _) async {
+        final byteData = await info.image.toByteData(format: ImageByteFormat.png);
+        if (byteData != null && !completer.isCompleted) {
+          completer.complete(byteData.buffer.asUint8List());
+        }
+      });
+      imageStream.addListener(listener);
 
       final data = await completer.future;
       final fileType = detectFileType(data);
@@ -108,6 +108,10 @@ class _CoverViewerState extends State<_CoverViewer> {
     } catch (e) {
       if (mounted) {
         context.showMessage(message: "Error".tl);
+      }
+    } finally {
+      if (imageStream != null && listener != null) {
+        imageStream.removeListener(listener);
       }
     }
   }

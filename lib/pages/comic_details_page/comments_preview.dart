@@ -36,7 +36,7 @@ class _CommentsPartState extends State<_CommentsPart> {
     return MultiSliver(
       children: [
         SliverLazyToBoxAdapter(
-          child: ListTile(
+          child: KcListTile(
             title: Text("Comments".tl),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,

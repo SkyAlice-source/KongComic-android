@@ -19,6 +19,7 @@ import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/image_provider/cached_image.dart';
 import 'package:kong_comic/foundation/local.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/res.dart';
 import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/network/cache.dart';
@@ -70,7 +71,7 @@ class ComicPage extends StatefulWidget {
 }
 
 class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
-    with _ComicPageActions {
+    with _ComicPageActions, AutoListenMixin {
   @override
   History? history;
 
@@ -159,16 +160,14 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   @override
   void initState() {
-    scrollController.addListener(onScroll);
-    LocalManager().addListener(_onDownloadProgress);
+    listen(scrollController, onScroll);
+    listen(LocalManager(), _onDownloadProgress);
     super.initState();
   }
 
   @override
   void dispose() {
-    scrollController.removeListener(onScroll);
     scrollController.dispose();
-    LocalManager().removeListener(_onDownloadProgress);
     _downloadTask?.removeListener(_onDownloadProgress);
     super.dispose();
   }
@@ -258,7 +257,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       await onDataLoaded();
       setState(() {});
     } else {
-      context.showMessage(message: res.errorMessage ?? "Refresh Failed".tl);
+      context.showMessage(message: friendlyError(res.errorMessage ?? "Refresh Failed".tl));
     }
   }
 
@@ -1138,9 +1137,9 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
                 // 分不清哪些是自己选的、哪些本来就有；而「下载选中」又会把已下载
                 // 的排除掉，外观和行为对不上。现在已下载改成右侧文字标签。
                 if (isDownloaded) {
-                  return ListTile(
+                  return KcListTile(
                     enabled: false,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    showDivider: false,
                     title: Text(
                       widget.eps[i],
                       maxLines: 1,

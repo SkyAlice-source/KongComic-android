@@ -470,6 +470,10 @@ class Share {
   /// 接收方会把图片显示成「文件」（这正是之前「分享不是图片」的原因）。
   static Future<void> shareImages(List<ShareImageData> images) async {
     final files = <s.XFile>[];
+    // cross_file 的 io 实现会忽略 XFile.fromData 的 name（只保留 mime），
+    // 分享出去的文件名就退化成 UUID 加扩展名，接收方看到一堆乱码文件名。
+    // share_plus 允许用 fileNameOverrides 逐项指定，必须显式传。
+    final names = <String>[];
     for (final image in images) {
       var data = image.data;
       var filename = image.filename;
@@ -487,9 +491,12 @@ class Share {
         }
       }
       files.add(s.XFile.fromData(data, name: filename, mimeType: mime));
+      names.add(filename);
     }
     if (files.isEmpty) return;
-    await s.SharePlus.instance.share(s.ShareParams(files: files));
+    await s.SharePlus.instance.share(
+      s.ShareParams(files: files, fileNameOverrides: names),
+    );
   }
 
   static String _withoutExtension(String filename) {

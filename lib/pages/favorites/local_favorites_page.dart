@@ -17,7 +17,8 @@ class _LocalFavoritesPage extends StatefulWidget {
   State<_LocalFavoritesPage> createState() => _LocalFavoritesPageState();
 }
 
-class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
+class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
+    with AutoListenMixin {
   late _FavoritesPageState favPage;
 
   late List<FavoriteItem> comics;
@@ -234,15 +235,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage> {
     }
     comics = [];
     updateComics();
-    LocalFavoritesManager().addListener(updateComics);
+    listen(LocalFavoritesManager(), updateComics);
     super.initState();
   }
 
-  @override
-  void dispose() {
-    LocalFavoritesManager().removeListener(updateComics);
-    super.dispose();
-  }
 
   void selectAll() {
     setState(() {
@@ -1417,7 +1413,7 @@ class _LocalFavoritesFilterDialogState
   Widget build(BuildContext context) {
     return ContentDialog(
       title: "Filter".tl,
-      content: ListTile(
+      content: KcListTile(
         title: Text("Filter reading status".tl),
         trailing: Select(
           current: readFilter.tl,

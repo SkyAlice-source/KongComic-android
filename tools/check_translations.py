@@ -52,7 +52,10 @@ def collect() -> tuple[dict, set, set]:
                 used[_val(m)].append(rel)
             for m in ANY_STR_RE.finditer(src):
                 code_strings.add(_val(m))
-    return data, set(used), code_strings
+    # 注意：必须返回 dict（键 -> 出现位置列表），main 里要靠 used[k][0]
+    # 取首个引用位置；早年误写成 set(used)，把 dict 压成 key 集合，
+    # 第 69 行 used[k][0] 下标访问 set 直接 TypeError，门禁形同虚设。
+    return data, used, code_strings
 
 
 def main() -> int:

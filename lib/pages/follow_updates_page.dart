@@ -13,95 +13,6 @@ import 'package:kong_comic/utils/translations.dart';
 import '../foundation/global_state.dart';
 import 'package:kong_comic/foundation/follow_updates.dart';
 
-class FollowUpdatesWidget extends StatefulWidget {
-  const FollowUpdatesWidget({super.key});
-
-  @override
-  State<FollowUpdatesWidget> createState() => _FollowUpdatesWidgetState();
-}
-
-class _FollowUpdatesWidgetState
-    extends AutomaticGlobalState<FollowUpdatesWidget> {
-  int _count = 0;
-
-  List<String> get folders => getEffectiveFollowFolders();
-
-  void getCount() {
-    final fs = folders;
-    if (fs.isEmpty) {
-      _count = 0;
-      return;
-    }
-    _count = fs
-        .map((f) => LocalFavoritesManager().countUpdates(f))
-        .fold(0, (a, b) => a + b);
-  }
-
-  void updateCount() {
-    setState(() {
-      getCount();
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    getCount();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: GlassCard(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        onTap: () {
-          context.to(() => FollowUpdatesPage());
-        },
-        child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: 56,
-                child: Row(
-                  children: [
-                    Center(
-                      child: Text('Follow Updates'.tl, style: TextStyle(fontSize: kcSectionTitle)),
-                    ),
-                    const Spacer(),
-                    HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ],
-                ),
-              ).paddingHorizontal(16),
-              if (_count > 0)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                  margin: const EdgeInsets.only(bottom: 16, left: 16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(kcRadius8),
-                    color: kcAccentSurface(context),
-                  ),
-                  child: Text(
-                    '@c updates'.tlParams({
-                      'c': _count,
-                    }),
-                    style: TextStyle(
-                      fontSize: kcSubtitle,
-                      color: kcBrandAdaptive(context),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-      ),
-    );
-  }
-
-  @override
-  Object? get key => 'FollowUpdatesWidget';
-}
-
 class FollowUpdatesPage extends StatefulWidget {
   const FollowUpdatesPage({super.key});
 
@@ -202,7 +113,8 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
+            KcListTile(
+              showDivider: false,
               leading: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 18),
               title: Text("Not Configured".tl),
             ),
@@ -1250,7 +1162,11 @@ abstract class FollowUpdatesService {
 }
 
 /// Update the UI of follow updates.
+///
+/// 仅刷新已挂载的追更页（[FollowUpdatesPage]）。历史上这里还尝试刷新一个
+/// 从未挂载的 `FollowUpdatesWidget`（主页追更入口其实是别处），那行
+/// `findOrNull<_FollowUpdatesWidgetState>()` 恒为 null、静默不执行，已于
+/// v1.5.2 删除 —— 不要再把刷新逻辑挂到不存在的 widget 上。
 void updateFollowUpdatesUI() {
-  GlobalState.findOrNull<_FollowUpdatesWidgetState>()?.updateCount();
   GlobalState.findOrNull<_FollowUpdatesPageState>()?.updateComics();
 }

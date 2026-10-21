@@ -1053,7 +1053,7 @@ class _ComicDescription extends StatelessWidget {
                         final brightness = Theme.of(context).brightness;
                         final amoled = appdata.isAmoledMode;
                         final bg = s == "Unavailable"
-                            ? context.colorScheme.errorContainer
+                            ? context.colorScheme.surfaceContainerHighest
                             : kcTagColor(kcStableHash(s.split(':').last),
                                 brightness,
                                 amoled: amoled);
@@ -1077,7 +1077,7 @@ class _ComicDescription extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: kcCaption,
                                 color: s == "Unavailable"
-                                    ? context.colorScheme.onErrorContainer
+                                    ? context.colorScheme.onSurfaceVariant
                                     : kcTagTextColor(bg),
                               ),
                               softWrap: true,
@@ -1179,7 +1179,8 @@ class SliverGridComics extends StatefulWidget {
   State<SliverGridComics> createState() => _SliverGridComicsState();
 }
 
-class _SliverGridComicsState extends State<SliverGridComics> {
+class _SliverGridComicsState extends State<SliverGridComics>
+    with AutoListenMixin {
   List<Comic> comics = [];
   List<int> heroIDs = [];
 
@@ -1248,16 +1249,9 @@ class _SliverGridComicsState extends State<SliverGridComics> {
     }
     generateHeroID();
     _precomputeStatus();
-    HistoryManager().addListener(update);
-    LocalFavoritesManager().addListener(update);
+    listen(HistoryManager(), update);
+    listen(LocalFavoritesManager(), update);
     super.initState();
-  }
-
-  @override
-  void dispose() {
-    HistoryManager().removeListener(update);
-    LocalFavoritesManager().removeListener(update);
-    super.dispose();
   }
 
   void update() {
@@ -1435,13 +1429,16 @@ class _ComicGridSkeleton extends StatelessWidget {
     final w = MediaQuery.of(context).size.width;
     // 与 SliverGridDelegateWithComics 列数估算接近，占位与真实网格同尺寸
     final crossAxisCount = (w / 150).floor().clamp(2, 6);
-    return GridView.count(
-      crossAxisCount: crossAxisCount,
-      childAspectRatio: 0.7,
-      padding: const EdgeInsets.all(kcSpaceMd),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      children: List.generate(12, (_) => const _ShimmerCard()),
+    // 弱网时骨架屏也会挂十秒，叠一层慢网络提示，让用户知道不是在卡死。
+    return SlowLoadingOverlay(
+      child: GridView.count(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: 0.7,
+        padding: const EdgeInsets.all(kcSpaceMd),
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        children: List.generate(12, (_) => const _ShimmerCard()),
+      ),
     );
   }
 }
@@ -1748,7 +1745,8 @@ class ComicListState extends State<ComicList> {
 
   Future<void> _loadPage(int page) async {
     if (widget.loadPage == null && widget.loadNext == null) {
-      _error = "loadPage and loadNext can't be null at the same time";
+      _error = "This source is misconfigured: loadPage and loadNext cannot both be null"
+          .tl;
       Future.microtask(() {
         setState(() {});
       });
@@ -1778,7 +1776,7 @@ class ComicListState extends State<ComicList> {
           }
         } else {
           setState(() {
-            _error = res.errorMessage ?? "Unknown error".tl;
+            _error = friendlyError(res.errorMessage ?? "Unknown error".tl);
           });
         }
       } else {
@@ -1792,10 +1790,19 @@ class ComicListState extends State<ComicList> {
         } catch (e) {
           if (mounted) {
             setState(() {
-              _error = "Failed to load comics".tl;
+              _error = friendlyError(e);
             });
           }
         }
+      }
+    } catch (e) {
+      // 源脚本 / 网络层抛异常（不是返回 Res.error）时，以前这里没有任何兜底：
+      // _data[page] 一直是 null、_error 一直为 null，build 里再调 _loadPage
+      // 又立刻抛一次 —— 界面就永久卡在骨架屏。这是断网进分类列表的实际表现。
+      if (mounted) {
+        setState(() {
+          _error = friendlyError(e);
+        });
       }
     } finally {
       _loading[page] = false;
@@ -2391,7 +2398,8 @@ class PaginatedSliverGridComics extends StatefulWidget {
 }
 
 class PaginatedSliverGridComicsState
-    extends State<PaginatedSliverGridComics> {
+    extends State<PaginatedSliverGridComics>
+    with AutoListenMixin {
   final List<Comic> _comics = [];
   final List<int> _heroIDs = [];
   final Map<String, bool> _favoriteStatus = {};
@@ -2412,16 +2420,9 @@ class PaginatedSliverGridComicsState
     // and refreshes the status badges. Previously the grid relied solely on its
     // parent page's listener, which could silently skip the refresh when the
     // grid's GlobalKey state was null (not yet mounted / just rebuilt).
-    HistoryManager().addListener(_onFavoritesChanged);
-    LocalFavoritesManager().addListener(_onFavoritesChanged);
+    listen(HistoryManager(), _onFavoritesChanged);
+    listen(LocalFavoritesManager(), _onFavoritesChanged);
     _loadNextPage();
-  }
-
-  @override
-  void dispose() {
-    HistoryManager().removeListener(_onFavoritesChanged);
-    LocalFavoritesManager().removeListener(_onFavoritesChanged);
-    super.dispose();
   }
 
   void _onFavoritesChanged() {
@@ -2457,7 +2458,7 @@ class PaginatedSliverGridComicsState
       }
       _initialized = true;
     } catch (e) {
-      _error = e;
+        _error = friendlyError(e);
     } finally {
       _isLoading = false;
       if (mounted) {

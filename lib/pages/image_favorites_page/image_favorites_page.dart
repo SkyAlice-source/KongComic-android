@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:kong_comic/components/components.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
@@ -32,7 +33,8 @@ class ImageFavoritesPage extends StatefulWidget {
   State<ImageFavoritesPage> createState() => _ImageFavoritesPageState();
 }
 
-class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
+class _ImageFavoritesPageState extends State<ImageFavoritesPage>
+    with AutoListenMixin {
   late ImageFavoriteSortType sortType;
   late TimeRange timeFilterSelect;
   late int numFilterSelect;
@@ -40,8 +42,9 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
   // 所有的图片收藏
   List<ImageFavoritesComic> comics = [];
 
-  late var controller =
-      TextEditingController(text: widget.initialKeyword ?? "");
+  late var controller = TextEditingController(
+    text: widget.initialKeyword ?? "",
+  );
 
   String get keyword => controller.text;
 
@@ -91,8 +94,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
       case ImageFavoriteSortType.timeDesc:
         comics.sort((a, b) => b.time.compareTo(a.time));
       case ImageFavoriteSortType.maxFavorites:
-        comics.sort((a, b) => b.images.length
-            .compareTo(a.images.length));
+        comics.sort((a, b) => b.images.length.compareTo(a.images.length));
       case ImageFavoriteSortType.favoritesCompareComicPages:
         comics.sort((a, b) {
           double tempA = a.images.length / a.maxPageFromEp;
@@ -107,21 +109,24 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
     if (widget.initialKeyword != null) {
       searchMode = true;
     }
-    sortType = ImageFavoriteSortType.values.firstWhereOrNull(
-            (e) => e.value == appdata.implicitData["image_favorites_sort"]) ??
+    sortType =
+        ImageFavoriteSortType.values.firstWhereOrNull(
+          (e) => e.value == appdata.implicitData["image_favorites_sort"],
+        ) ??
         ImageFavoriteSortType.title;
     timeFilterSelect = TimeRange.fromString(
-        appdata.implicitData["image_favorites_time_filter"]);
-    numFilterSelect = appdata.implicitData["image_favorites_number_filter"] ??
+      appdata.implicitData["image_favorites_time_filter"],
+    );
+    numFilterSelect =
+        appdata.implicitData["image_favorites_number_filter"] ??
         numFilterList[0];
     updateImageFavorites();
-    ImageFavoriteManager().addListener(updateImageFavorites);
+    listen(ImageFavoriteManager(), updateImageFavorites);
     super.initState();
   }
 
   @override
   void dispose() {
-    ImageFavoriteManager().removeListener(updateImageFavorites);
     scrollController.dispose();
     controller.dispose();
     super.dispose();
@@ -161,32 +166,37 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
   @override
   Widget build(BuildContext context) {
     List<Widget> selectActions = [
-      ToolsPill(children: [
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-          tooltip: "Select All".tl,
-          onPressed: selectAll,
-        ),
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedCancel01,
-          tooltip: "Deselect".tl,
-          onPressed: deSelect,
-        ),
-        ToolsPillMoreButton(entries: [
-          MenuEntry(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-            text: "Delete".tl,
-            onClick: () {
-              ImageFavoriteManager()
-                  .deleteImageFavorite(selectedImageFavorites.keys);
-              setState(() {
-                multiSelectMode = false;
-                selectedImageFavorites.clear();
-              });
-            },
+      ToolsPill(
+        children: [
+          ToolsPillButton(
+            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+            tooltip: "Select All".tl,
+            onPressed: selectAll,
           ),
-        ]),
-      ]),
+          ToolsPillButton(
+            icon: HugeIcons.strokeRoundedCancel01,
+            tooltip: "Deselect".tl,
+            onPressed: deSelect,
+          ),
+          ToolsPillMoreButton(
+            entries: [
+              MenuEntry(
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+                text: "Delete".tl,
+                onClick: () {
+                  ImageFavoriteManager().deleteImageFavorite(
+                    selectedImageFavorites.keys,
+                  );
+                  setState(() {
+                    multiSelectMode = false;
+                    selectedImageFavorites.clear();
+                  });
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
     ];
 
     var scrollWidget = SmoothCustomScrollView(
@@ -196,35 +206,38 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
           SliverAppbar(
             title: Text("Image Favorites".tl),
             actions: [
-              ToolsPill(children: [
-                ToolsPillButton(
-                  icon: HugeIcons.strokeRoundedSearch02,
-                  tooltip: "Search".tl,
-                  onPressed: () {
-                    setState(() {
-                      searchMode = true;
-                    });
-                  },
-                ),
-                ToolsPillButton(
-                  icon: HugeIcons.strokeRoundedSortDescending,
-                  active: timeFilterSelect != TimeRange.all ||
-                      numFilterSelect != numFilterList[0],
-                  tooltip: "Sort".tl,
-                  onPressed: sort,
-                ),
-                ToolsPillButton(
-                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                  tooltip: multiSelectMode
-                      ? "Exit Multi-Select".tl
-                      : "Multi-Select".tl,
-                  onPressed: () {
-                    setState(() {
-                      multiSelectMode = !multiSelectMode;
-                    });
-                  },
-                ),
-              ]),
+              ToolsPill(
+                children: [
+                  ToolsPillButton(
+                    icon: HugeIcons.strokeRoundedSearch02,
+                    tooltip: "Search".tl,
+                    onPressed: () {
+                      setState(() {
+                        searchMode = true;
+                      });
+                    },
+                  ),
+                  ToolsPillButton(
+                    icon: HugeIcons.strokeRoundedSortDescending,
+                    active:
+                        timeFilterSelect != TimeRange.all ||
+                        numFilterSelect != numFilterList[0],
+                    tooltip: "Sort".tl,
+                    onPressed: sort,
+                  ),
+                  ToolsPillButton(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    tooltip: multiSelectMode
+                        ? "Exit Multi-Select".tl
+                        : "Multi-Select".tl,
+                    onPressed: () {
+                      setState(() {
+                        multiSelectMode = !multiSelectMode;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ],
           )
         else if (multiSelectMode)
@@ -277,25 +290,24 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
             child: EmptyState(
               icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
               title: "No image favorites".tl,
-              subtitle: 'Long-press a comic image to favorite it; images are saved here.'.tl,
+              subtitle:
+                  'Long-press a comic image to favorite it; images are saved here.'
+                      .tl,
             ),
           )
         else
           SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final comic = comics[index];
-                return _ImageFavoritesItem(
-                  key: ValueKey('${comic.sourceKey}:${comic.id}'),
-                  imageFavoritesComic: comic,
-                  selectedImageFavorites: selectedImageFavorites,
-                  addSelected: addSelected,
-                  multiSelectMode: multiSelectMode,
-                  finalImageFavoritesComicList: comics,
-                );
-              },
-              childCount: comics.length,
-            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final comic = comics[index];
+              return _ImageFavoritesItem(
+                key: ValueKey('${comic.sourceKey}:${comic.id}'),
+                imageFavoritesComic: comic,
+                selectedImageFavorites: selectedImageFavorites,
+                addSelected: addSelected,
+                multiSelectMode: multiSelectMode,
+                finalImageFavoritesComicList: comics,
+              );
+            }, childCount: comics.length),
           ),
         SliverPadding(padding: EdgeInsets.only(top: context.padding.bottom)),
       ],
@@ -411,104 +423,112 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             tabBar,
-            TabViewBody(children: [
-              RadioGroup<ImageFavoriteSortType>(
-                groupValue: sortType,
-                onChanged: (v) {
-                  setState(() {
-                    sortType = v ?? sortType;
-                  });
-                },
-                child: Column(
-                  children: ImageFavoriteSortType.values
-                      .map(
-                        (e) => RadioListTile<ImageFavoriteSortType>(
-                          title: Text(e.value.tl),
-                          value: e,
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-              Column(
-                children: [
-                  ListTile(
-                    title: Text("Time Filter".tl),
-                    trailing: Select(
-                      current: timeRangeType.value.tl,
-                      values:
-                          TimeRangeType.values.map((e) => e.value.tl).toList(),
-                      minWidth: 64,
-                      onTap: (index) {
-                        setState(() {
-                          timeRangeType = TimeRangeType.values[index];
-                        });
-                      },
-                    ),
+            TabViewBody(
+              children: [
+                RadioGroup<ImageFavoriteSortType>(
+                  groupValue: sortType,
+                  onChanged: (v) {
+                    setState(() {
+                      sortType = v ?? sortType;
+                    });
+                  },
+                  child: Column(
+                    children: ImageFavoriteSortType.values
+                        .map(
+                          (e) => RadioListTile<ImageFavoriteSortType>(
+                            title: Text(e.value.tl),
+                            value: e,
+                          ),
+                        )
+                        .toList(),
                   ),
-                  if (timeRangeType == TimeRangeType.custom)
-                    Column(
-                      children: [
-                        ListTile(
-                          title: Text("Start Time".tl),
-                          trailing: Button.text(
-                            onPressed: () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate: start ?? DateTime.now(),
-                                firstDate: DateTime(2000),
-                                lastDate: end ?? DateTime.now(),
-                              );
-                              if (date != null) {
-                                setState(() {
-                                  start = date;
-                                });
-                              }
-                            },
-                            child: Text(start == null
-                                ? "Select Date".tl
-                                : DateFormat("yyyy-MM-dd").format(start!)),
-                          ),
-                        ),
-                        ListTile(
-                          title: Text("End Time".tl),
-                          trailing: Button.text(
-                            onPressed: () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate: end ?? DateTime.now(),
-                                firstDate: start ?? DateTime(2000),
-                                lastDate: DateTime.now(),
-                              );
-                              if (date != null) {
-                                setState(() {
-                                  end = date;
-                                });
-                              }
-                            },
-                            child: Text(end == null
-                                ? "Select Date".tl
-                                : DateFormat("yyyy-MM-dd").format(end!)),
-                          ),
-                        ),
-                      ],
+                ),
+                Column(
+                  children: [
+                    KcListTile(
+                      title: Text("Time Filter".tl),
+                      trailing: Select(
+                        current: timeRangeType.value.tl,
+                        values: TimeRangeType.values
+                            .map((e) => e.value.tl)
+                            .toList(),
+                        minWidth: 64,
+                        onTap: (index) {
+                          setState(() {
+                            timeRangeType = TimeRangeType.values[index];
+                          });
+                        },
+                      ),
                     ),
-                  ListTile(
-                    title: Text("Image Favorites Greater Than".tl),
-                    trailing: Select(
-                      current: numFilter.toString(),
-                      values: numFilterList.map((e) => e.toString()).toList(),
-                      minWidth: 64,
-                      onTap: (index) {
-                        setState(() {
-                          numFilter = numFilterList[index];
-                        });
-                      },
+                    if (timeRangeType == TimeRangeType.custom)
+                      Column(
+                        children: [
+                          KcListTile(
+                            title: Text("Start Time".tl),
+                            trailing: Button.text(
+                              onPressed: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: start ?? DateTime.now(),
+                                  firstDate: DateTime(2000),
+                                  lastDate: end ?? DateTime.now(),
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    start = date;
+                                  });
+                                }
+                              },
+                              child: Text(
+                                start == null
+                                    ? "Select Date".tl
+                                    : DateFormat("yyyy-MM-dd").format(start!),
+                              ),
+                            ),
+                          ),
+                          KcListTile(
+                            title: Text("End Time".tl),
+                            trailing: Button.text(
+                              onPressed: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: end ?? DateTime.now(),
+                                  firstDate: start ?? DateTime(2000),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    end = date;
+                                  });
+                                }
+                              },
+                              child: Text(
+                                end == null
+                                    ? "Select Date".tl
+                                    : DateFormat("yyyy-MM-dd").format(end!),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    KcListTile(
+                      title: Text("Image Favorites Greater Than".tl),
+                      showDivider: false,
+                      trailing: Select(
+                        current: numFilter.toString(),
+                        values: numFilterList.map((e) => e.toString()).toList(),
+                        minWidth: 64,
+                        onTap: (index) {
+                          setState(() {
+                            numFilter = numFilterList[index];
+                          });
+                        },
+                      ),
                     ),
-                  )
-                ],
-              )
-            ]),
+                  ],
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -551,8 +571,8 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
                 _ => TimeRange.all,
               };
             }
-            appdata.implicitData["image_favorites_time_filter"] =
-                timeRange.toString();
+            appdata.implicitData["image_favorites_time_filter"] = timeRange
+                .toString();
             appdata.implicitData["image_favorites_number_filter"] = numFilter;
             appdata.writeImplicitData();
             if (mounted) {

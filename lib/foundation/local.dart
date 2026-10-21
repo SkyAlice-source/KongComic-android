@@ -1097,8 +1097,10 @@ class LocalManager with ChangeNotifier {
 
   @override
   void dispose() {
-    super.dispose();
+    // 先关库再 super.dispose()：ChangeNotifier.dispose 之后不允许再 notifyListeners，
+    // 而关库期间若触发任何回调都属于越界操作。
     _db.close();
+    super.dispose();
   }
 
   List<LocalComic> getRecent() {

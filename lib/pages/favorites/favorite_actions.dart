@@ -94,7 +94,7 @@ void addFavorite(List<Comic> comics) {
       return StatefulBuilder(builder: (context, setState) {
         return ContentDialog(
           title: "Select a folder".tl,
-          content: ListTile(
+          content: KcListTile(
             title: Text("Folder".tl),
             trailing: Select(
               current: selectedFolder,
@@ -301,7 +301,7 @@ Future<void> sortFolders() async {
           },
           itemCount: folders.length,
           itemBuilder: (context, index) {
-            return ListTile(
+            return KcListTile(
               key: ValueKey(folders[index]),
               title: Text(folders[index]),
             );

@@ -84,7 +84,7 @@ class _FolderSelectorDialog extends StatelessWidget {
                     onSelected: () => context.pop(),
                   ),
                 ),
-                const SizedBox(height: kcSpaceXxs),
+                const SizedBox(height: kcSpace6),
               ],
             ),
           ),
@@ -109,7 +109,9 @@ class _LeftBar extends StatefulWidget {
   State<_LeftBar> createState() => _LeftBarState();
 }
 
-class _LeftBarState extends State<_LeftBar> implements FolderList {
+class _LeftBarState extends State<_LeftBar>
+    with AutoListenMixin
+    implements FolderList {
   late _FavoritesPageState favPage;
 
   var folders = <String>[];
@@ -140,16 +142,9 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
     favPage.folderList = this;
     folders = LocalFavoritesManager().folderNames;
     findNetworkFolders();
-    appdata.settings.addListener(updateFolders);
-    LocalFavoritesManager().addListener(updateFolders);
+    listen(appdata.settings, updateFolders);
+    listen(LocalFavoritesManager(), updateFolders);
     super.initState();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    appdata.settings.removeListener(updateFolders);
-    LocalFavoritesManager().removeListener(updateFolders);
   }
 
   @override
@@ -296,9 +291,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
                 HugeIcon(
                   icon: icon ?? HugeIcons.strokeRoundedFolder01,
                   size: 19,
-                  color: isSelected
-                      ? kcOnAccentColor
-                      : scheme.onSurfaceVariant,
+                  color: isSelected ? kcOnAccentColor : scheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: kcSpaceSm),
                 Expanded(
@@ -318,7 +311,7 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
                 const SizedBox(width: kcSpaceXs),
                 _countChip(count, isSelected),
                 if (trailing != null) ...[
-                  const SizedBox(width: kcSpaceXxs),
+                  const SizedBox(width: kcSpace6),
                   trailing,
                 ],
               ],
@@ -494,7 +487,10 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: kcBody, color: scheme.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: kcBody,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -590,18 +586,21 @@ class _LeftBarState extends State<_LeftBar> implements FolderList {
                 child: ListView(
                   shrinkWrap: true,
                   children: [
-                    ListTile(
+                    KcListTile(
                       title: Text('Uncategorized'.tl),
                       selected: current == null,
+                      // 只有后面还有分类名时才需要分隔线。
+                      showDivider: cats.isNotEmpty,
                       onTap: () {
                         BookshelfLayout.setCategory(folder, null);
                         context.pop();
                       },
                     ),
                     for (var cat in cats)
-                      ListTile(
+                      KcListTile(
                         title: Text(cat['name'] ?? ''),
                         selected: current == cat['id'],
+                        showDivider: cat != cats.last,
                         onTap: () {
                           BookshelfLayout.setCategory(folder, cat['id']);
                           context.pop();
@@ -650,7 +649,7 @@ class _GroupPills extends StatefulWidget {
   State<_GroupPills> createState() => _GroupPillsState();
 }
 
-class _GroupPillsState extends State<_GroupPills> {
+class _GroupPillsState extends State<_GroupPills> with AutoListenMixin {
   List<String> networkFolders = const [];
 
   void _findNetworkFolders() {
@@ -671,18 +670,12 @@ class _GroupPillsState extends State<_GroupPills> {
     super.initState();
     _findNetworkFolders();
     // 用户在设置里增删收藏源后，胶囊的「网络」可用态要跟着变。
-    appdata.settings.addListener(_onSettings);
+    listen(appdata.settings, _onSettings);
   }
 
   void _onSettings() {
     if (!mounted) return;
     setState(_findNetworkFolders);
-  }
-
-  @override
-  void dispose() {
-    appdata.settings.removeListener(_onSettings);
-    super.dispose();
   }
 
   @override
@@ -876,7 +869,7 @@ void _manageCategoriesDialog(BuildContext context) {
                       itemCount: cats.length,
                       itemBuilder: (dialogContext, index) {
                         final cat = cats[index];
-                        return ListTile(
+                        return KcListTile(
                           key: ValueKey(cat['id']),
                           leading: HugeIcon(
                             icon: HugeIcons.strokeRoundedArrange,

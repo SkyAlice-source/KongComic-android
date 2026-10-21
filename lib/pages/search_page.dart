@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 import 'package:kong_comic/components/components.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/colors.dart';
@@ -27,7 +28,7 @@ class SearchPage extends StatefulWidget {
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
+class _SearchPageState extends State<SearchPage> with AutoListenMixin {
   late final SearchBarController controller;
 
   late List<String> searchSources;
@@ -140,7 +141,7 @@ class _SearchPageState extends State<SearchPage> {
                 final colorIndex =
                     kcStableHash(source.key) % sourceColors.length;
                 final accentColor = sourceColors[colorIndex];
-                return ListTile(
+                return KcListTile(
                   leading: Container(
                     width: 36,
                     height: 36,
@@ -160,11 +161,7 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                   title: Text(source.name),
                   subtitle: Text("Open comic".tl),
-                  trailing: HugeIcon(
-                    icon: HugeIcons.strokeRoundedArrowRight01,
-                    size: 18,
-                    color: cs.onSurfaceVariant,
-                  ),
+                  chevron: true,
                   onTap: () {
                     Navigator.pop(context);
                     context.to(() => ComicPage(
@@ -278,7 +275,7 @@ class _SearchPageState extends State<SearchPage> {
     controller = SearchBarController(
       onSearch: search,
     );
-    appdata.settings.addListener(updateSearchSourcesIfNeeded);
+    listen(appdata.settings, updateSearchSourcesIfNeeded);
     super.initState();
   }
 
@@ -287,7 +284,6 @@ class _SearchPageState extends State<SearchPage> {
     focusNode.dispose();
     _searchTextController.dispose();
     _debounceTimer?.cancel();
-    appdata.settings.removeListener(updateSearchSourcesIfNeeded);
     super.dispose();
   }
 
@@ -629,7 +625,7 @@ class _SearchPageState extends State<SearchPage> {
       final cs = Theme.of(context).colorScheme;
       final typeColor = translationTypeColor(value.right, cs);
       if (value.left == "**URL**") {
-        return ListTile(
+        return KcListTile(
           leading: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
           title: Text("Open link".tl),
           subtitle: Text(
@@ -637,7 +633,7 @@ class _SearchPageState extends State<SearchPage> {
             maxLines: 1,
             overflow: TextOverflow.fade,
           ),
-          trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
+          chevron: true,
           onTap: () {
             setState(() {
               suggestions.clear();
@@ -656,7 +652,7 @@ class _SearchPageState extends State<SearchPage> {
         // 为每个源分配稳定的颜色标识
         final colorIndex = kcStableHash(key) % sourceColors.length;
         final accentColor = sourceColors[colorIndex];
-        return ListTile(
+        return KcListTile(
           leading: Container(
             width: 32,
             height: 32,
@@ -684,7 +680,7 @@ class _SearchPageState extends State<SearchPage> {
             overflow: TextOverflow.fade,
             style: const TextStyle(fontFamily: 'monospace', fontSize: kcCaption),
           ),
-          trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
+          chevron: true,
           onTap: () {
             context.to(
               () => ComicPage(
@@ -698,7 +694,7 @@ class _SearchPageState extends State<SearchPage> {
 
       var subTitle = TagsTranslation.translationTagWithNamespace(
           value.left, value.right.name);
-      return ListTile(
+      return KcListTile(
         leading: Container(
           width: 6,
           height: 24,
@@ -743,7 +739,7 @@ class _SearchPageState extends State<SearchPage> {
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
-          child: ListTile(
+          child: KcListTile(
             leading: HugeIcon(icon: HugeIcons.strokeRoundedAiNetwork, size: 18),
             title: Text("Suggestions".tl),
             trailing: Tooltip(

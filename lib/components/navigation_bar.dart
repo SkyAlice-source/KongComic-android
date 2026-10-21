@@ -36,6 +36,13 @@ class PaneActionEntry {
   });
 }
 
+/// 自绘整条顶栏（标题 + 工具栏）的根 Tab 页面标记。
+///
+/// 实现该接口的页面由 [NaviPane] 自动让位共享顶栏，不需要在
+/// `topBarHiddenPages` 里手写页索引 —— 页面自己声明意图，底栏顺序怎么调
+/// 都不会串位（此前 `const [1, 4]` 硬编码索引，加一个 Tab 就会指错页）。
+abstract interface class SelfTopBarPage {}
+
 class NaviPane extends StatefulWidget {
   const NaviPane({
     required this.paneItems,
@@ -59,7 +66,6 @@ class NaviPane extends StatefulWidget {
   });
 
   final List<PaneItemEntry> paneItems;
-
   final List<PaneActionEntry> paneActions;
 
   final Widget Function(int page) pageBuilder;
@@ -96,7 +102,8 @@ class NaviPaneState extends State<NaviPane>
         // Ticker，再建第二个时 debug 模式会直接抛
         // "SingleTickerProviderStateMixin is already used as a TickerProvider"。
         with
-        TickerProviderStateMixin {
+        TickerProviderStateMixin,
+        AutoListenMixin {
   bool _canPop = true;
 
   /// 全屏页面（目前是阅读器）要求收起导航框架的**请求数**。
@@ -250,8 +257,8 @@ class NaviPaneState extends State<NaviPane>
       vsync: this,
     );
     _pageNotifier.value = widget.initialPage;
-    widget.observer.addListener(onNavigatorStateChange);
-    pageActionsNotifier.addListener(_onPageActionsChanged);
+    listen(widget.observer, onNavigatorStateChange);
+    listen(pageActionsNotifier, _onPageActionsChanged);
     super.initState();
   }
 
@@ -260,8 +267,6 @@ class NaviPaneState extends State<NaviPane>
     controller.dispose();
     _chromeController.dispose();
     _pageNotifier.dispose();
-    widget.observer.removeListener(onNavigatorStateChange);
-    pageActionsNotifier.removeListener(_onPageActionsChanged);
     super.dispose();
   }
 
@@ -810,7 +815,7 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
           // 选中态背景交给底栏的「液体选中框」滑动药丸（_LiquidIndicator），
           // 这里只保留文字/图标的高亮色，避免两层背景叠加。
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(kcPillRadius),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -901,7 +906,7 @@ class _LiquidIndicator extends StatelessWidget {
                       height: height,
                       decoration: BoxDecoration(
                         color: cs.primary.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(kcPillRadius),
                       ),
                     ),
                   ),

@@ -37,18 +37,33 @@ class _NetworkSettingsState extends State<NetworkSettings> {
   }
 
   void _parseProxy(String proxy) {
-    if (proxy == 'direct') { proxyType = 'direct'; return; }
-    if (proxy == 'system') { proxyType = 'system'; return; }
+    if (proxy == 'direct') {
+      proxyType = 'direct';
+      return;
+    }
+    if (proxy == 'system') {
+      proxyType = 'system';
+      return;
+    }
     proxyType = 'manual';
     var parts = proxy.split('@');
     if (parts.length == 2) {
       var auth = parts[0].split(':');
-      if (auth.length == 2) { proxyUsername = auth[0]; proxyPassword = auth[1]; }
+      if (auth.length == 2) {
+        proxyUsername = auth[0];
+        proxyPassword = auth[1];
+      }
       parts = parts[1].split(':');
-      if (parts.length == 2) { proxyHost = parts[0]; proxyPort = parts[1]; }
+      if (parts.length == 2) {
+        proxyHost = parts[0];
+        proxyPort = parts[1];
+      }
     } else {
       parts = proxy.split(':');
-      if (parts.length == 2) { proxyHost = parts[0]; proxyPort = parts[1]; }
+      if (parts.length == 2) {
+        proxyHost = parts[0];
+        proxyPort = parts[1];
+      }
     }
   }
 
@@ -83,7 +98,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
       if (entry.key is String && entry.value is String) {
         _dnsOverrides.add((
           TextEditingController(text: entry.key),
-          TextEditingController(text: entry.value)
+          TextEditingController(text: entry.value),
         ));
       }
     }
@@ -128,17 +143,26 @@ class _NetworkSettingsState extends State<NetworkSettings> {
           child: Column(
             children: [
               RadioListTile<String>(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 0,
+                ),
                 title: Text("Direct".tl),
                 value: 'direct',
               ),
               RadioListTile<String>(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 0,
+                ),
                 title: Text("System".tl),
                 value: 'system',
               ),
               RadioListTile<String>(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 0,
+                ),
                 title: Text("Manual".tl),
                 value: 'manual',
               ),
@@ -150,44 +174,60 @@ class _NetworkSettingsState extends State<NetworkSettings> {
             key: _proxyFormKey,
             child: Column(
               children: [
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                KcListTile(
                   title: TextField(
-                    decoration: InputDecoration(labelText: "Host".tl),
+                    decoration: InputDecoration(
+                      labelText: "Host".tl,
+                      // M3 TextField 默认带 InputBorder.underline，会和这一行的
+                      // KcRowDivider 发丝线叠成「深一条浅一条」的双线。去掉自带
+                      // 下划线，只保留列表的分隔线。
+                      border: InputBorder.none,
+                    ),
                     controller: _hostController,
                     onChanged: (v) => proxyHost = v,
                   ),
                 ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                KcListTile(
                   title: TextField(
-                    decoration: InputDecoration(labelText: "Port".tl),
+                    decoration: InputDecoration(
+                      labelText: "Port".tl,
+                      border: InputBorder.none,
+                    ),
                     controller: _portController,
                     onChanged: (v) => proxyPort = v,
                     keyboardType: TextInputType.number,
                   ),
                 ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                KcListTile(
                   title: TextField(
-                    decoration: InputDecoration(labelText: "Username".tl),
+                    decoration: InputDecoration(
+                      labelText: "Username".tl,
+                      border: InputBorder.none,
+                    ),
                     controller: _usernameController,
                     onChanged: (v) => proxyUsername = v,
                   ),
                 ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                KcListTile(
                   title: TextField(
-                    decoration: InputDecoration(labelText: "Password".tl),
+                    decoration: InputDecoration(
+                      labelText: "Password".tl,
+                      border: InputBorder.none,
+                    ),
                     controller: _passwordController,
                     onChanged: (v) => proxyPassword = v,
                     obscureText: true,
                   ),
+                  // 下一项是「保存」按钮，不是又一行，末行不画线。
+                  showDivider: false,
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: Button.filled(
-                    onPressed: () { _saveProxy(); context.showMessage(message: "Saved".tl); },
+                    onPressed: () {
+                      _saveProxy();
+                      context.showMessage(message: "Saved".tl);
+                    },
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -219,10 +259,16 @@ class _NetworkSettingsState extends State<NetworkSettings> {
             margin: const EdgeInsets.symmetric(horizontal: 16),
             color: context.colorScheme.outlineVariant,
           ).toSliver(),
-        for (var i = 0; i < _dnsOverrides.length; i++) _buildDnsRow(i).toSliver(),
+        for (var i = 0; i < _dnsOverrides.length; i++)
+          _buildDnsRow(i).toSliver(),
         Button.text(
           onPressed: () {
-            setState(() => _dnsOverrides.add((TextEditingController(), TextEditingController())));
+            setState(
+              () => _dnsOverrides.add((
+                TextEditingController(),
+                TextEditingController(),
+              )),
+            );
           },
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -256,7 +302,10 @@ class _NetworkSettingsState extends State<NetworkSettings> {
           ),
           SizedBox(
             height: 32,
-            child: VerticalDivider(width: 1, color: context.colorScheme.outlineVariant),
+            child: VerticalDivider(
+              width: 1,
+              color: context.colorScheme.outlineVariant,
+            ),
           ),
           Expanded(
             child: TextField(
@@ -278,4 +327,3 @@ class _NetworkSettingsState extends State<NetworkSettings> {
     );
   }
 }
-

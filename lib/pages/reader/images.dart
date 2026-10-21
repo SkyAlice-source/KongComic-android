@@ -906,6 +906,7 @@ class _ContinuousMode extends StatefulWidget {
 }
 
 class _ContinuousModeState extends State<_ContinuousMode>
+    with AutoListenMixin
     implements _ImageViewController {
   late _ReaderState reader;
 
@@ -1000,7 +1001,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
   void initState() {
     reader = context.reader;
     reader._imageViewController = this;
-    itemPositionsListener.itemPositions.addListener(onPositionChanged);
+    listen(itemPositionsListener.itemPositions, onPositionChanged);
     cached = List.filled(reader.maxPage + 2, false);
     Future.delayed(
       const Duration(milliseconds: 100),
@@ -1014,7 +1015,6 @@ class _ContinuousModeState extends State<_ContinuousMode>
   @override
   void dispose() {
     _autoScrollTimer?.cancel();
-    itemPositionsListener.itemPositions.removeListener(onPositionChanged);
     photoViewController.dispose();
     imageStates.clear();
     super.dispose();
@@ -1906,7 +1906,7 @@ class _ChapterLinkButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = context.colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final radius = BorderRadius.circular(1000);
+    final radius = BorderRadius.circular(kcPillRadius);
     // 以 390dp 宽的手机为设计基准，按屏幕宽度等比缩放字号/内边距。
     // 平板、折叠屏展开态不会显得局促，小屏也不会把字挤到看不清。
     final screenWidth = MediaQuery.sizeOf(context).width;

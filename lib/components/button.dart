@@ -380,7 +380,7 @@ class _IconButtonState extends State<_IconButton> {
                   : null,
               borderRadius: BorderRadius.circular((iconSize + 12) / 2),
             ),
-            padding: const EdgeInsets.all(kcSpaceXxs),
+            padding: const EdgeInsets.all(kcSpace6),
             child: icon,
           ),
         ),

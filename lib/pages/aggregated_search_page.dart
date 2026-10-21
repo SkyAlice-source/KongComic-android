@@ -16,9 +16,7 @@ String _normalizeTitle(String s) {
   var t = s.toLowerCase();
   t = t.replaceAll(RegExp(r'\s+'), '');
   t = t.replaceAll(
-    RegExp(
-      r"[\]\[!@#%&*()_~|/.,:;'‘’“”【】（）《》「」『』、，。：；！？~^+\\-]",
-    ),
+    RegExp(r"[\]\[!@#%&*()_~|/.,:;'‘’“”【】（）《》「」『』、，。：；！？~^+\\-]"),
     '',
   );
   return t;
@@ -36,7 +34,11 @@ class _DedupedComic {
 }
 
 class AggregatedSearchPage extends StatefulWidget {
-  const AggregatedSearchPage({super.key, required this.keyword, this.sourceKeys});
+  const AggregatedSearchPage({
+    super.key,
+    required this.keyword,
+    this.sourceKeys,
+  });
 
   final String keyword;
 
@@ -93,51 +95,50 @@ class _AggregatedSearchPageState extends State<AggregatedSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SmoothCustomScrollView(slivers: [
-      SliverSearchBar(controller: controller),
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OptionChip(
-                text: "By Source".tl,
-                isSelected: !_aggregated,
-                onTap: () => setState(() => _aggregated = false),
-              ),
-              OptionChip(
-                text: "Aggregate & Dedupe".tl,
-                isSelected: _aggregated,
-                onTap: () => setState(() => _aggregated = true),
-              ),
-            ],
+    return SmoothCustomScrollView(
+      slivers: [
+        SliverSearchBar(controller: controller),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OptionChip(
+                  text: "By Source".tl,
+                  isSelected: !_aggregated,
+                  onTap: () => setState(() => _aggregated = false),
+                ),
+                OptionChip(
+                  text: "Aggregate & Dedupe".tl,
+                  isSelected: _aggregated,
+                  onTap: () => setState(() => _aggregated = true),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-      if (_aggregated)
-        _AggregatedResults(
-          key: ValueKey(_keyword),
-          sources: sources,
-          keyword: _keyword,
-        )
-      else
-        SliverList(
-          key: ValueKey(_keyword),
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
+        if (_aggregated)
+          _AggregatedResults(
+            key: ValueKey(_keyword),
+            sources: sources,
+            keyword: _keyword,
+          )
+        else
+          SliverList(
+            key: ValueKey(_keyword),
+            delegate: SliverChildBuilderDelegate((context, index) {
               final source = sources[index];
               return _SliverSearchResult(
                 key: ValueKey(source.key),
                 source: source,
                 keyword: _keyword,
               );
-            },
-            childCount: sources.length,
+            }, childCount: sources.length),
           ),
-        ),
-    ]);
+      ],
+    );
   }
 }
 
@@ -180,8 +181,9 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
   Future<List<Comic>> _fetchOne(ComicSource source) async {
     try {
       final data = source.searchPageData!;
-      final options =
-          (data.searchOptions ?? []).map((e) => e.defaultValue).toList();
+      final options = (data.searchOptions ?? [])
+          .map((e) => e.defaultValue)
+          .toList();
       if (data.loadPage != null) {
         final res = await data.loadPage!(widget.keyword, 1, options);
         if (!res.error) return res.data;
@@ -229,14 +231,14 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        error = e.toString();
+        // 下面 Text(error!) 直接展示这个字符串，异常原文会是英文技术串。
+        error = friendlyError(e);
         isLoading = false;
       });
     }
   }
 
-  _DedupedComic? _entryFor(Comic comic) =>
-      _byKey[_normalizeTitle(comic.title)];
+  _DedupedComic? _entryFor(Comic comic) => _byKey[_normalizeTitle(comic.title)];
 
   void _openDetail(Comic c, int heroID) {
     App.mainNavigatorKey?.currentContext?.to(
@@ -256,7 +258,9 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
       useRootNavigator: true,
       showDragHandle: true,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(kcSurfaceRadius)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(kcSurfaceRadius),
+        ),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -273,7 +277,8 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
             const Divider(height: 1),
             ...entry.sources.map((c) {
               final source = ComicSource.find(c.sourceKey);
-              return ListTile(
+              return KcListTile(
+                showDivider: c != entry.sources.last,
                 leading: SizedBox(
                   width: 36,
                   height: 48,
@@ -282,14 +287,20 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
                     child: CachedNetworkImage(
                       imageUrl: c.cover,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(color: context.colorScheme.surfaceContainerLow),
-                      errorWidget: (_, __, ___) => Container(color: context.colorScheme.surfaceContainerLow),
+                      placeholder: (_, __) => Container(
+                        color: context.colorScheme.surfaceContainerLow,
+                      ),
+                      errorWidget: (_, __, ___) => Container(
+                        color: context.colorScheme.surfaceContainerLow,
+                      ),
                     ),
                   ),
                 ),
                 title: Text(source?.name ?? c.sourceKey),
-                subtitle: c.subtitle?.isNotEmpty == true ? Text(c.subtitle!) : null,
-                trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
+                subtitle: c.subtitle?.isNotEmpty == true
+                    ? Text(c.subtitle!)
+                    : null,
+                chevron: true,
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _openDetail(c, -1);
@@ -309,9 +320,7 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
         child: SizedBox(
           height: 240,
           child: Center(
-            child: CircularProgressIndicator(
-              color: kcAccentColor(context),
-            ),
+            child: CircularProgressIndicator(color: kcAccentColor(context)),
           ),
         ),
       );
@@ -348,39 +357,41 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
     final works = "works".tl;
     final hitsAcross = "hits across".tl;
     final sourcesLabel = "sources".tl;
-    return SliverMainAxisGroup(slivers: [
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Text(
-            "${deduped!.length} $works · $_totalHits $hitsAcross ${widget.sources.length} $sourcesLabel",
-            style: TextStyle(
-              fontSize: kcBody,
-              color: context.colorScheme.outline,
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              "${deduped!.length} $works · $_totalHits $hitsAcross ${widget.sources.length} $sourcesLabel",
+              style: TextStyle(
+                fontSize: kcBody,
+                color: context.colorScheme.outline,
+              ),
             ),
           ),
         ),
-      ),
-      SliverGridComics(
-        comics: deduped!.map((e) => e.representative).toList(),
-        showSourceOnCover: true,
-        badgeBuilder: (comic) {
-          final entry = _entryFor(comic);
-          if (entry == null) return null;
-          final n = entry.sources.length;
-          return n > 1 ? "$n $sourcesLabel" : null;
-        },
-        onTap: (comic, heroID) {
-          final entry = _entryFor(comic);
-          if (entry == null) return;
-          if (entry.sources.length == 1) {
-            _openDetail(entry.sources.first, heroID);
-          } else {
-            _showSourcePicker(context, entry);
-          }
-        },
-      ),
-    ]);
+        SliverGridComics(
+          comics: deduped!.map((e) => e.representative).toList(),
+          showSourceOnCover: true,
+          badgeBuilder: (comic) {
+            final entry = _entryFor(comic);
+            if (entry == null) return null;
+            final n = entry.sources.length;
+            return n > 1 ? "$n $sourcesLabel" : null;
+          },
+          onTap: (comic, heroID) {
+            final entry = _entryFor(comic);
+            if (entry == null) return;
+            if (entry.sources.length == 1) {
+              _openDetail(entry.sources.first, heroID);
+            } else {
+              _showSourcePicker(context, entry);
+            }
+          },
+        ),
+      ],
+    );
   }
 }
 
@@ -415,8 +426,9 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
 
   void load() async {
     final data = widget.source.searchPageData!;
-    var options =
-        (data.searchOptions ?? []).map((e) => e.defaultValue).toList();
+    var options = (data.searchOptions ?? [])
+        .map((e) => e.defaultValue)
+        .toList();
     if (data.loadPage != null) {
       var res = await data.loadPage!(widget.keyword, 1, options);
       if (!mounted) return;
@@ -467,9 +479,10 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
   }
 
   Widget buildComic(Comic c) {
-    return SimpleComicTile(comic: c, withTitle: true)
-        .paddingLeft(_kLeftPadding)
-        .paddingBottom(2);
+    return SimpleComicTile(
+      comic: c,
+      withTitle: true,
+    ).paddingLeft(_kLeftPadding).paddingBottom(2);
   }
 
   @override
@@ -489,34 +502,33 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
       },
       child: Column(
         children: [
-          ListTile(
-            mouseCursor: SystemMouseCursors.click,
-            title: Text(widget.source.name),
-          ),
+          KcListTile(showDivider: false, title: Text(widget.source.name)),
           if (isLoading)
             SizedBox(
               height: _kComicHeight,
               width: double.infinity,
               child: Shimmer(
-                child: LayoutBuilder(builder: (context, constrains) {
-                  var itemWidth = _comicWidth + _kLeftPadding;
-                  var items = (constrains.maxWidth / itemWidth).ceil();
-                  return Stack(
-                    children: [
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: Row(
-                          children: List.generate(
-                            items,
-                            (index) => buildPlaceHolder(),
+                child: LayoutBuilder(
+                  builder: (context, constrains) {
+                    var itemWidth = _comicWidth + _kLeftPadding;
+                    var items = (constrains.maxWidth / itemWidth).ceil();
+                    return Stack(
+                      children: [
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: Row(
+                            children: List.generate(
+                              items,
+                              (index) => buildPlaceHolder(),
+                            ),
                           ),
                         ),
-                      )
-                    ],
-                  );
-                }),
+                      ],
+                    );
+                  },
+                ),
               ),
             )
           else if (error != null || comics == null || comics!.isEmpty)
@@ -526,7 +538,10 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
                 children: [
                   Row(
                     children: [
-                      HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 18),
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedAlertCircle,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -534,7 +549,7 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      )
+                      ),
                     ],
                   ),
                   const Spacer(),
@@ -546,9 +561,7 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
               height: _kComicHeight,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                children: [
-                  for (var c in comics!) buildComic(c),
-                ],
+                children: [for (var c in comics!) buildComic(c)],
               ),
             ),
         ],

@@ -15,6 +15,7 @@ import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/js_engine.dart';
 import 'package:kong_comic/foundation/local.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/foundation/update_mirror.dart';
 import 'package:kong_comic/utils/data.dart';
@@ -46,7 +47,7 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
   int currentPage = -1;
 
   ColorScheme get colors => Theme.of(context).colorScheme;
@@ -91,15 +92,10 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     currentPage = widget.initialPage;
-    appdata.settings.addListener(_onSettingsChange);
+    listen(appdata.settings, _onSettingsChange);
     super.initState();
   }
 
-  @override
-  void dispose() {
-    appdata.settings.removeListener(_onSettingsChange);
-    super.dispose();
-  }
 
   void _onSettingsChange() {
     if (mounted) setState(() {});

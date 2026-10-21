@@ -75,7 +75,9 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
       res = await manager.setNewPath(result, overwrite: overwrite);
     } catch (e) {
       if (mounted) {
-        context.showMessage(message: e.toString());
+        // 用户可见提示统一走 friendlyError：底层异常（IO / isolate）
+        // 直接 toString 会在中文界面里冒出整条英文技术串。
+        context.showMessage(message: friendlyError(e));
       }
       return;
     } finally {
@@ -939,10 +941,11 @@ class _WebdavSettingState extends State<_WebdavSetting> {
               onChanged: (value) => disableSync = value,
             ),
             const SizedBox(height: 12),
-            ListTile(
+            KcListTile(
+              showDivider: false,
+              contentPadding: EdgeInsets.zero,
               leading: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
               title: Text("Auto Sync Data".tl),
-              contentPadding: EdgeInsets.zero,
               trailing: KcSwitch(
                 value: autoSync,
                 onChanged: onAutoSyncChanged,
@@ -1040,7 +1043,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                     appdata.implicitData['webdavAutoSync'] = oldAutoSync;
                     appdata.writeImplicitData();
                     appdata.saveData();
-                    context.showMessage(message: testResult.errorMessage!);
+                    context.showMessage(message: friendlyError(testResult.errorMessage!));
                     context.showMessage(message: "Saved Failed".tl);
                   } else {
                     appdata.saveData();

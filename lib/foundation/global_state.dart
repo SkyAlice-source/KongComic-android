@@ -55,8 +55,8 @@ abstract class AutomaticGlobalState<T extends StatefulWidget>
   @override
   @mustCallSuper
   void dispose() {
-    super.dispose();
     GlobalState.unregister(this, key);
+    super.dispose();
   }
 
   Object? get key;

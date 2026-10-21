@@ -957,7 +957,7 @@ Future<ImageSaveChoice?> showImageSaveDialog(
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: kcSpaceXxs),
+              const SizedBox(height: kcSpace6),
               Text(
                 "Will be saved as @name".tlParams({'name': finalName}),
                 style: TextStyle(

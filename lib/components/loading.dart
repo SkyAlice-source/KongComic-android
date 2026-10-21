@@ -1,163 +1,9 @@
 part of 'components.dart';
 
-/// 判断错误是否由「未登录 / 未授权」引起。
-///
-/// 用于把漫画源返回的英文错误（如 "Not logged in" / "unauthorized" /
-/// HTTP 401）替换为本地化的「需登录」提示，并在存在漫画源上下文时
-/// 提供「去登录」入口。
-bool isAuthError(String message) {
-  final m = message.toLowerCase();
-  return m.contains('not logged') ||
-      m.contains('please log in') ||
-      m.contains('please login') ||
-      m.contains('login required') ||
-      m.contains('log in required') ||
-      m.contains('sign in') ||
-      m.contains('signin') ||
-      m.contains('unauthorized') ||
-      m.contains('not authorized') ||
-      m.contains('authorization failed') ||
-      m.contains('auth failed') ||
-      m.contains('login failed') ||
-      m.contains('log in failed') ||
-      m.contains('login error') ||
-      m.contains('access denied') ||
-      m.contains('access_denied') ||
-      m.contains('forbidden') ||
-      m.contains('token expired') ||
-      m.contains('session expired') ||
-      m.contains('login expired') ||
-      m.contains('invalid token') ||
-      m.contains('invalid credentials') ||
-      m.contains('logged out') ||
-      m.contains('401') ||
-      m.contains('403') ||
-      m.contains('未登录') ||
-      m.contains('请登录') ||
-      m.contains('需要登录') ||
-      m.contains('需登录') ||
-      m.contains('登陆') ||
-      m.contains('登录已过期') ||
-      m.contains('登录失效') ||
-      m.contains('会话过期') ||
-      m.contains('登录');
-}
+// 错误文案归一化（isAuthError / friendlyErrorMessage / HTTP 状态码映射）
+// 已上移到 lib/utils/translations.dart，供 NetworkError 与 SnackBar
+// 等所有出错路径共用一份实现，避免两套映射各自漂移。
 
-String _prettifyErrorMessage(String raw) {
-  var msg = raw.replaceFirst(RegExp(r'^DioException\s*\[[^\]]+\]:\s*'), '');
-  msg = msg.replaceFirst(RegExp(r'^Error:\s*SocketException:\s*'), '');
-
-  if (isAuthError(msg)) {
-    return "Login required".tl;
-  }
-
-  // 统一处理 "Invalid Status Code: 410" / "Invalid status code: 410"
-  final invalidStatusMatch =
-      RegExp(r'Invalid\s+[Ss]tatus\s+[Cc]ode:\s*(\d{3})').firstMatch(msg);
-  if (invalidStatusMatch != null) {
-    final code = int.tryParse(invalidStatusMatch.group(1)!);
-    return _friendlyHttpStatus(code);
-  }
-
-  if (msg.contains('Connection reset by peer') ||
-      msg.contains('连接被重置') ||
-      msg.contains('Connection reset')) {
-    return "Connection reset".tl;
-  }
-  if (msg.contains('timed out') ||
-      msg.contains('Timeout') ||
-      msg.contains('超时')) {
-    return "Connection timed out".tl;
-  }
-  if (msg.contains('Connection terminated during handshake') ||
-      msg.contains('handshake')) {
-    return "Connection handshake failed".tl;
-  }
-  if (msg.contains('No route to host') ||
-      msg.contains('No address associated with hostname') ||
-      msg.contains('Bad address')) {
-    return "Unable to connect server".tl;
-  }
-  if (msg.contains('Connection refused')) {
-    return "Connection refused".tl;
-  }
-  if (msg.contains('Failed to fetch') ||
-      msg.contains('NetworkError') ||
-      msg.contains('Network Error')) {
-    return "Network Error".tl;
-  }
-  if (msg.contains('HTTP')) {
-    final status = RegExp(r'HTTP[^\s]*\s+(\d+)').firstMatch(msg);
-    if (status != null) {
-      final code = int.tryParse(status.group(1)!);
-      return _friendlyHttpStatus(code);
-    }
-  }
-  // 源解析返回空对象导致的 JS 属性访问错误（如 CopyManga loadInfo null）
-  if (msg.contains("cannot read property") ||
-      msg.contains("Cannot read properties") ||
-      msg.contains("undefined is not an object") ||
-      msg.contains("null is not an object") ||
-      msg.contains("TypeError")) {
-    final sourceMatch = RegExp(r'\(([^:]+):\d+:\d+\)').firstMatch(msg);
-    final sourceName = sourceMatch?.group(1) ?? "Source";
-    return "@source: Source returned empty data, the comic may have been removed or the source is temporarily unavailable."
-        .tlParams({"source": sourceName});
-  }
-  // 服务器错误（5xx）兜底：源 JS 抛出的错误未必带 "HTTP" 字样，
-  // 用 word-boundary 匹配裸状态码，避免误伤漫画名/章节里的数字。
-  final low = msg.toLowerCase();
-  final serverError = RegExp(r'\b(?:500|502|503|504)\b').firstMatch(low);
-  if (serverError != null ||
-      low.contains('bad gateway') ||
-      low.contains('service unavailable') ||
-      low.contains('internal server error') ||
-      low.contains('server error')) {
-    return "This is server-side error, please try again later. Do not report this issue."
-        .tl;
-  }
-  if (low.contains('failed to fetch') ||
-      low.contains('xmlhttprequest') ||
-      low.contains('http request failed') ||
-      low.contains('failed to load resource')) {
-    return "Network Error".tl;
-  }
-  if (low.contains('unable to resolve host') ||
-      low.contains('name or service not known') ||
-      low.contains('no such host') ||
-      low.contains('dns')) {
-    return "Unable to connect server".tl;
-  }
-  if (low.contains('certificate') ||
-      low.contains('ssl') ||
-      low.contains('tls')) {
-    return "SSL connection error".tl;
-  }
-  return msg;
-}
-
-String _friendlyHttpStatus(int? code) {
-  if (code == null) return "Network Error".tl;
-  if (code >= 500) {
-    return "This is server-side error, please try again later. Do not report this issue."
-        .tl;
-  }
-  final messages = <int, String>{
-    400: "The Request is invalid.".tl,
-    401: "The Request is unauthorized.".tl,
-    402: "Payment required.".tl,
-    403: "No permission to access the resource. Check your account or network.".tl,
-    404: "Not found.".tl,
-    405: "Method not allowed.".tl,
-    406: "Not acceptable.".tl,
-    408: "Request timeout.".tl,
-    409: "Conflict.".tl,
-    410: "The resource has been removed.".tl,
-    429: "Too many requests. Please try again later.".tl,
-  };
-  return messages[code] ??
-      "Server returned @code".tlParams({"code": code.toString()});
-}
 
 /// 统一加载指示器 —— 应用默认加载态的唯一实现。
 ///
@@ -178,6 +24,123 @@ class AppLoadingIndicator extends StatelessWidget {
         height: size,
         child: CircularProgressIndicator(strokeWidth: strokeWidth),
       ),
+    );
+  }
+}
+
+/// 慢网络提示 —— 加载态持续超过 [delay] 仍没有结果时，淡入一行说明。
+///
+/// 为什么需要它：请求的总超时是 15s，断网/弱网时用户会先盯着转圈或骨架屏
+/// 十来秒。这段时间界面没有任何「还在努力」的信号，用户无法区分「正在
+/// 加载」和「已经卡死」，容易直接杀进程。7s 出现，恰好落在超时之前，
+/// 既不会在正常网络下闪一下，又能在真的慢时给出解释。
+///
+/// 计时器随组件销毁自动取消 —— 加载结束后本组件会整棵被替换掉。
+class SlowLoadingHint extends StatefulWidget {
+  const SlowLoadingHint({
+    super.key,
+    this.delay = const Duration(seconds: 7),
+    this.chip = false,
+  });
+
+  final Duration delay;
+
+  /// 叠在骨架屏等有内容画面上时置 true，加一层胶囊底保证可读。
+  final bool chip;
+
+  @override
+  State<SlowLoadingHint> createState() => _SlowLoadingHintState();
+}
+
+class _SlowLoadingHintState extends State<SlowLoadingHint> {
+  bool _visible = false;
+
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(widget.delay, () {
+      if (!mounted) return;
+      setState(() {
+        _visible = true;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    Widget content = Text(
+      "Network is slow, still loading…".tl,
+      textAlign: TextAlign.center,
+      style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant),
+    );
+    if (widget.chip) {
+      content = DecoratedBox(
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(kcRadius16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: kcSpaceLg,
+            vertical: kcSpaceSm,
+          ),
+          child: content,
+        ),
+      );
+    }
+    // AnimatedSize 让提示从 0 高度长出来，避免出现瞬间跳动；
+    // 未显示时占 0 高，不影响原有加载态居中。
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
+      child: _visible
+          ? Padding(
+              padding: EdgeInsets.only(top: widget.chip ? 0 : kcSpaceMd),
+              child: content,
+            )
+          : const SizedBox(width: double.infinity, height: 0),
+    );
+  }
+}
+
+/// 给骨架屏这类「铺满整块区域」的加载态叠一层慢网络提示。
+///
+/// 骨架屏本身是 GridView，没法在下面再塞一行，所以用 Stack 把提示浮在
+/// 底部。提示自带胶囊底，压在灰色占位块上依然清晰。
+class SlowLoadingOverlay extends StatelessWidget {
+  const SlowLoadingOverlay({
+    super.key,
+    required this.child,
+    this.delay = const Duration(seconds: 7),
+  });
+
+  final Widget child;
+
+  final Duration delay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(child: child),
+        Positioned(
+          left: kcSpaceLg,
+          right: kcSpaceLg,
+          bottom: 28,
+          child: Center(
+            child: SlowLoadingHint(delay: delay, chip: true),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -206,7 +169,7 @@ class NetworkError extends StatelessWidget {
   Widget build(BuildContext context) {
     var cfe = CloudflareException.fromString(message);
     final cs = context.colorScheme;
-    final displayMessage = _prettifyErrorMessage(
+    final displayMessage = friendlyErrorMessage(
       cfe == null ? message : "Cloudflare verification required".tl,
     );
     Widget body = Center(
@@ -327,18 +290,40 @@ abstract class LoadingState<T extends StatefulWidget, S extends Object>
 
   Future<Res<S>> loadDataWithRetry() async {
     int retry = 0;
+    // 重试总预算：失败得很快（5xx 几百毫秒）时多试几次几乎无感；但如果是
+    // 15s 超时这种慢失败，再叠 3 次就是用户盯着骨架屏一分钟。所以超过一个
+    // 完整超时周期就不再重试。
+    const totalBudget = Duration(seconds: 16);
+    final start = DateTime.now();
     while (true) {
-      var res = await loadData();
+      Res<S> res;
+      final attemptStart = DateTime.now();
+      try {
+        res = await loadData();
+      } catch (e) {
+        // 源脚本 / 网络层直接抛异常（而不是返回 Res.error）时，以前这里没有
+        // catch：Future 带着错误结束，isLoading 永远停在 true，界面就是一片
+        // 转圈或骨架屏，也没有任何提示。统一转成错误态。
+        res = Res<S>.error(friendlyError(e));
+      }
       if (res.success) {
         return res;
-      } else {
-        if (!mounted) return res;
-        if (retry >= 3) {
-          return res;
-        }
-        retry++;
-        await Future.delayed(const Duration(milliseconds: 200));
       }
+      if (!mounted) return res;
+      // 只对可能自愈的错误重试。断网 / DNS 失败 / 证书问题是硬失败。
+      final elapsed = DateTime.now().difference(start);
+      final attemptCost = DateTime.now().difference(attemptStart);
+      if (retry >= 3 ||
+          elapsed > totalBudget ||
+          // 单次就耗掉 8 秒以上（几乎都是撞上连接/接收超时），说明链路确实
+          // 不通。此时再叠一轮重试，用户要盯着加载态多等一个完整超时周期，
+          // 不如直接把失败抛给错误页。
+          attemptCost > const Duration(seconds: 8) ||
+          !isRetryableError(res.errorMessage)) {
+        return res;
+      }
+      retry++;
+      await Future.delayed(const Duration(milliseconds: 200));
     }
   }
 
@@ -349,7 +334,12 @@ abstract class LoadingState<T extends StatefulWidget, S extends Object>
   Widget? buildFrame(BuildContext context, Widget child) => null;
 
   Widget buildLoading() {
-    return const AppLoadingIndicator();
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [AppLoadingIndicator(), SlowLoadingHint()],
+      ),
+    );
   }
 
   void retry() {
@@ -357,20 +347,37 @@ abstract class LoadingState<T extends StatefulWidget, S extends Object>
       isLoading = true;
       error = null;
     });
-    loadDataWithRetry().then((value) async {
-      if (value.success) {
+    _performLoad();
+  }
+
+  /// 统一的「加载 → 落地」流程。两条入口（[initState] 与 [retry]）此前各写
+  /// 一份 .then，且都没有兜住 [onDataLoaded] 抛异常的情况 —— 一旦它抛，
+  /// isLoading 就停在 true，界面永远转圈。
+  Future<void> _performLoad() async {
+    final value = await loadDataWithRetry();
+    if (!mounted) return;
+    if (value.success) {
+      try {
         data = value.data;
         await onDataLoaded();
+      } catch (e) {
+        if (!mounted) return;
         setState(() {
           isLoading = false;
+          error = friendlyError(e);
         });
-      } else {
-        setState(() {
-          isLoading = false;
-          error = value.errorMessage!;
-        });
+        return;
       }
-    });
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+      });
+    } else {
+      setState(() {
+        isLoading = false;
+        error = friendlyError(value.errorMessage ?? "Unknown error".tl);
+      });
+    }
   }
 
   Widget buildError() {
@@ -381,23 +388,7 @@ abstract class LoadingState<T extends StatefulWidget, S extends Object>
   @mustCallSuper
   void initState() {
     isLoading = true;
-    Future.microtask(() {
-      loadDataWithRetry().then((value) async {
-        if (!mounted) return;
-        if (value.success) {
-          data = value.data;
-          await onDataLoaded();
-          setState(() {
-            isLoading = false;
-          });
-        } else {
-          setState(() {
-            isLoading = false;
-            error = value.errorMessage!;
-          });
-        }
-      });
-    });
+    Future.microtask(_performLoad);
     super.initState();
   }
 
@@ -447,24 +438,31 @@ abstract class MultiPageLoadingState<T extends StatefulWidget, S extends Object>
     if (_maxPage != null && _page > _maxPage!) return;
     if (_isLoading) return;
     _isLoading = true;
-    loadData(_page).then((value) {
-      _isLoading = false;
-      if (mounted) {
-        if (value.success) {
-          _page++;
-          if (value.subData is int) {
-            _maxPage = value.subData as int;
-          }
-          setState(() {
-            data!.addAll(value.data);
-          });
-        } else {
-          var message = value.errorMessage ?? "Network Error".tl;
-          if (message.length > 20) {
-            message = "${message.substring(0, 20)}...";
-          }
-          context.showMessage(message: message);
+    Future.microtask(() async {
+      // 抛异常也要把 _isLoading 收回来，否则后续翻页会被永久挡住。
+      Res<List<S>> value;
+      try {
+        value = await loadData(_page);
+      } catch (e) {
+        value = Res<List<S>>.error(friendlyError(e));
+      } finally {
+        _isLoading = false;
+      }
+      if (!mounted) return;
+      if (value.success) {
+        _page++;
+        if (value.subData is int) {
+          _maxPage = value.subData as int;
         }
+        setState(() {
+          data!.addAll(value.data);
+        });
+      } else {
+        var message = friendlyError(value.errorMessage ?? "Network Error".tl);
+        if (message.length > 20) {
+          message = "${message.substring(0, 20)}...";
+        }
+        context.showMessage(message: message);
       }
     });
   }
@@ -481,25 +479,30 @@ abstract class MultiPageLoadingState<T extends StatefulWidget, S extends Object>
   }
 
   void firstLoad() {
-    Future.microtask(() {
-      loadData(_page).then((value) {
-        if (!mounted) return;
-        if (value.success) {
-          _page++;
-          if (value.subData is int) {
-            _maxPage = value.subData as int;
-          }
-          setState(() {
-            _isFirstLoading = false;
-            data = value.data;
-          });
-        } else {
-          setState(() {
-            _isFirstLoading = false;
-            _error = value.errorMessage!;
-          });
+    Future.microtask(() async {
+      // 同 [nextPage]：异常必须落到错误态，不能把 _isFirstLoading 永远挂住。
+      Res<List<S>> value;
+      try {
+        value = await loadData(_page);
+      } catch (e) {
+        value = Res<List<S>>.error(friendlyError(e));
+      }
+      if (!mounted) return;
+      if (value.success) {
+        _page++;
+        if (value.subData is int) {
+          _maxPage = value.subData as int;
         }
-      });
+        setState(() {
+          _isFirstLoading = false;
+          data = value.data;
+        });
+      } else {
+        setState(() {
+          _isFirstLoading = false;
+          _error = friendlyError(value.errorMessage ?? "Unknown error".tl);
+        });
+      }
     });
   }
 
@@ -510,7 +513,12 @@ abstract class MultiPageLoadingState<T extends StatefulWidget, S extends Object>
   }
 
   Widget buildLoading(BuildContext context) {
-    return const AppLoadingIndicator();
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [AppLoadingIndicator(), SlowLoadingHint()],
+      ),
+    );
   }
 
   Widget buildError(BuildContext context, String error) {

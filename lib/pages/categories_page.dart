@@ -6,6 +6,7 @@ import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/pages/ranking_page.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/ext.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 import 'comic_source_page.dart';
@@ -20,7 +21,8 @@ class CategoriesPage extends StatefulWidget {
 class _CategoriesPageState extends State<CategoriesPage>
     with
         TickerProviderStateMixin,
-        AutomaticKeepAliveClientMixin<CategoriesPage> {
+        AutomaticKeepAliveClientMixin<CategoriesPage>,
+        AutoListenMixin {
   var categories = <String>[];
 
   late TabController controller;
@@ -84,7 +86,7 @@ class _CategoriesPageState extends State<CategoriesPage>
         .where((element) => allCategories.contains(element))
         .toList();
     _sortBySourceOrder(this.categories);
-    appdata.settings.addListener(onSettingsChanged);
+    listen(appdata.settings, onSettingsChanged);
     controller = TabController(length: this.categories.length, vsync: this);
   }
 
@@ -94,9 +96,9 @@ class _CategoriesPageState extends State<CategoriesPage>
 
   @override
   void dispose() {
-    super.dispose();
+    // 先释放自持资源，再 super.dispose()（AutoListenMixin 的自动注销在 super 里）。
     controller.dispose();
-    appdata.settings.removeListener(onSettingsChanged);
+    super.dispose();
   }
 
   Widget buildEmpty() {

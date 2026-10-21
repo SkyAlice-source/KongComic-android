@@ -7,6 +7,7 @@ import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_source/source_repositories.dart';
+import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/pages/comic_source_page.dart';
 import 'package:kong_comic/utils/translations.dart';
@@ -32,7 +33,8 @@ class SourceRepositoriesPage extends StatefulWidget {
   State<SourceRepositoriesPage> createState() => _SourceRepositoriesPageState();
 }
 
-class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
+class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
+    with AutoListenMixin {
   final repositories = SourceRepositories.instance;
 
   SourceRepository? _opened;
@@ -56,7 +58,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
   @override
   void initState() {
     super.initState();
-    repositories.addListener(_update);
+    listen(repositories, _update);
     _prefetchCatalogs();
   }
 
@@ -86,11 +88,6 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     }
   }
 
-  @override
-  void dispose() {
-    repositories.removeListener(_update);
-    super.dispose();
-  }
 
   void _update() {
     if (mounted) setState(() {});
@@ -149,7 +146,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        // 这个字符串直接渲染在整页错误态里（Text(_error!)），
+        // 用异常原文会在中文界面显示整条英文，先归一化。
+        _error = friendlyError(e);
         _loading = false;
       });
     }
@@ -227,7 +226,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
         }
       }
     } catch (e) {
-      if (mounted) context.showMessage(message: e.toString());
+      if (mounted) context.showMessage(message: friendlyError(e));
     }
   }
 
@@ -268,7 +267,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
     try {
       await repositories.link(source.key, repository, entry);
     } catch (e) {
-      if (mounted) context.showMessage(message: e.toString());
+      if (mounted) context.showMessage(message: friendlyError(e));
     }
     setState(() {});
   }
@@ -381,7 +380,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
         message: "Source uninstalled".tlParams({'name': entry.name}),
       );
     } catch (e) {
-      if (mounted) context.showMessage(message: e.toString());
+      if (mounted) context.showMessage(message: friendlyError(e));
     }
     setState(() {});
   }
@@ -1230,7 +1229,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                     ),
                   ],
                   if (entry.version.isNotEmpty) ...[
-                    const SizedBox(height: kcSpaceXxs),
+                    const SizedBox(height: kcSpace6),
                     AppBadge(
                       entry.version,
                       type: AppBadgeType.neutral,
@@ -1331,7 +1330,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                   ),
                 ],
                 if (installed != null) ...[
-                  const SizedBox(height: kcSpaceXxs),
+                  const SizedBox(height: kcSpace6),
                   Text(
                     "Installed @v".tlParams({'v': installed.version}),
                     style: TextStyle(
@@ -1341,9 +1340,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage> {
                   ),
                 ],
                 if (entry.version.isNotEmpty) ...[
-                  const SizedBox(height: kcSpaceXxs),
+                  const SizedBox(height: kcSpace6),
                   Wrap(
-                    spacing: kcSpaceXxs,
+                    spacing: kcSpace6,
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [

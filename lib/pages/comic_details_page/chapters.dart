@@ -92,7 +92,7 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
         return SliverMainAxisGroup(
           slivers: [
             SliverToBoxAdapter(
-              child: ListTile(
+              child: KcListTile(
                 title: Text("Chapters".tl),
                 trailing: Tooltip(
                   message: "Order".tl,
@@ -178,7 +178,7 @@ class _GroupedComicChapters extends StatefulWidget {
 }
 
 class _GroupedComicChaptersState extends State<_GroupedComicChapters>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutoListenMixin {
   late _ComicPageState state;
 
   late bool reverse;
@@ -227,7 +227,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
       length: chapters.ids.length,
       vsync: this,
     );
-    tabController.addListener(onTabChange);
+    listen(tabController, onTabChange);
     super.didChangeDependencies();
   }
 
@@ -241,7 +241,6 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
 
   @override
   void dispose() {
-    tabController.removeListener(onTabChange);
     tabController.dispose();
     super.dispose();
   }
@@ -276,7 +275,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
         return SliverMainAxisGroup(
           slivers: [
             SliverToBoxAdapter(
-              child: ListTile(
+              child: KcListTile(
                 title: Text("Chapters".tl),
                 trailing: Tooltip(
                   message: "Order".tl,

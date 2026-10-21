@@ -5,7 +5,12 @@ import 'foundation/appdata.dart';
 
 /// KongComic 设计令牌 —— 统一卡片圆角 / 描边 / 阴影 / 字号阶梯，消灭魔法数字。
 ///
-/// 配套文档：design/kongcomic-design/kongcomic-ui-improvement-proposal.md
+/// **本文件是设计令牌的唯一事实来源（single source of truth）。**
+/// 历史上曾存在 `lib/foundation/design_tokens.dart`（`AppRadii` / `AppSpacing`
+/// 体系），与本文档语义重叠且全库 0 引用，已于 v1.5.2 删除。任何新增令牌
+/// 必须放在这里；不要再引入第二套命名体系。CI（`tools/check_tokens.py`）会断言
+/// `AppRadii|AppSpacing` 不得再次出现。
+///
 /// 约束：主页英雄卡片外观保持不变，这里只把散落的硬编码值收口到令牌。
 
 // ── 品牌色 ───────────────────────────────────────────────
@@ -73,7 +78,6 @@ Color kcAccentSurface(BuildContext context, {double alpha = 0.10}) {
 const double kcCardRadius = 12; // 漫画卡 / 英雄卡 外圆角
 const double kcCardInnerRadius = 10; // 卡内裁剪圆角
 const double kcPillRadius = 999; // 胶囊 / 底栏激活态
-const double kcChipRadius = 10; // 文件夹 chip / 标签
 
 // ── 字号阶梯（对齐用户习惯，杜绝 18/20 混用）─────────────
 const double kcTitleMain = 20; // 全局根页主标题（粗体）
@@ -159,9 +163,17 @@ List<BoxShadow> kcContourGlow(BuildContext context, {Color? color}) {
 /// ColorOS 17 风格：对话框 / 底部弹窗 / 悬浮容器的统一大圆角。
 const double kcSurfaceRadius = 24;
 
+/// 可点击目标的最小高度 / 宽度（M3 & WCAG 无障碍下限 48dp）。
+///
+/// 列表行按 `kcBody(14) × 1.35 + 12 × 2` 算出来只有 42.9dp，指腹落在两行
+/// 交界处容易点进邻行，所以 `KcListTile` 用 `ConstrainedBox` 兜到这个下限。
+const double kcMinTapTarget = 48;
+
 // ── 间距（精确值令牌，覆盖散落字面量，零视觉改动）──────
+// 命名遵循「值即名」：kcSpaceXs(4) 是最小语义档，其余用精确 dp 值命名，
+// 避免早年 kcSpaceXxs=6 竟比 kcSpaceXs=4 大的反直觉坑（写新代码必点错一次）。
 const double kcSpaceXs = 4;
-const double kcSpaceXxs = 6;
+const double kcSpace6 = 6;
 const double kcSpaceSm = 8;
 const double kcSpaceMd = 12;
 const double kcSpaceLg = 16;
@@ -172,7 +184,6 @@ const double kcRadius4 = 4;
 const double kcRadius6 = 6;
 const double kcRadius8 = 8;
 const double kcRadius10 = 10;
-const double kcRadius11 = 11;
 const double kcRadius16 = 16;
 const double kcRadius18 = 18;
 const double kcRadius20 = 20;

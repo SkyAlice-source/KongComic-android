@@ -118,9 +118,7 @@ class _FavoriteDialog extends StatelessWidget {
                           'Favorite'.tl,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -138,7 +136,7 @@ class _FavoriteDialog extends StatelessWidget {
                   ),
                 ),
                 Flexible(child: panel),
-                const SizedBox(height: kcSpaceXxs),
+                const SizedBox(height: kcSpace6),
               ],
             ),
           ),
@@ -247,6 +245,7 @@ class _NetworkSection extends StatefulWidget {
 class _NetworkSectionState extends State<_NetworkSection> {
   bool isLoading = false;
   Map<String, String>? folders;
+
   /// Set when `loadFolders()` fails. Without it `folders` stays null while
   /// `isLoadingFolders` is already false, and building the multi-folder panel
   /// would hit `folders!` and take the whole sheet down.
@@ -261,7 +260,10 @@ class _NetworkSectionState extends State<_NetworkSection> {
   void initState() {
     super.initState();
     localIsFavorite = widget.isFavorite;
-    _skeletonWidths = List.generate(3, (_) => 0.3 + math.Random().nextDouble() * 0.5);
+    _skeletonWidths = List.generate(
+      3,
+      (_) => 0.3 + math.Random().nextDouble() * 0.5,
+    );
     if (widget.comicSource.favoriteData!.loadFolders != null) {
       loadFolders();
     } else {
@@ -307,7 +309,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
         Shimmer(
           child: Column(
             children: List.generate(3, (index) {
-              return ListTile(
+              return KcListTile(
                 // 占位图标：真实行都有 leading，骨架若没有，加载完成后文字会横向跳一下。
                 leading: SizedBox(
                   width: 24,
@@ -411,13 +413,14 @@ class _NetworkSectionState extends State<_NetworkSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionHeader(context, "Network".tl),
-        ListTile(
-          dense: true,
+        KcListTile(
           onTap: isLoading
               ? null
               : () async {
                   setState(() => isLoading = true);
-                  final res = await widget.comicSource.favoriteData!
+                  final res = await widget
+                      .comicSource
+                      .favoriteData!
                       .addOrDelFavorite!(widget.cid, '', !isFavorite, null);
                   if (!mounted) return;
                   if (res.success) {
@@ -430,13 +433,19 @@ class _NetworkSectionState extends State<_NetworkSection> {
                       context.pop();
                     }
                   } else {
-                    context.showMessage(message: friendlyError(res.errorMessage!));
+                    context.showMessage(
+                      message: friendlyError(res.errorMessage!),
+                    );
                   }
                   if (mounted) setState(() => isLoading = false);
                 },
           leading: _rowIcon(context, HugeIcons.strokeRoundedCloud),
           title: Text("Network Favorites".tl),
-          trailing: _FavoriteStatePill(isFavorite: isFavorite, isLoading: isLoading),
+          showDivider: false,
+          trailing: _FavoriteStatePill(
+            isFavorite: isFavorite,
+            isLoading: isLoading,
+          ),
         ),
       ],
     );
@@ -454,10 +463,14 @@ class _NetworkSectionState extends State<_NetworkSection> {
           // When `singleFolderForSingleComic` is `false`, all add and remove buttons are clickable.
           // When `singleFolderForSingleComic` is `true`, the remove button is always clickable,
           // while the add button is only clickable if the comic has not been added to any list.
-          final enabled = !(widget.comicSource.favoriteData!.singleFolderForSingleComic && addedFolders.isNotEmpty && !isAdded);
+          final enabled =
+              !(widget.comicSource.favoriteData!.singleFolderForSingleComic &&
+                  addedFolders.isNotEmpty &&
+                  !isAdded);
 
-          return ListTile(
-            dense: true,
+          return KcListTile(
+            // 列表末行不画分隔线：否则线贴在最下方，像多了一条边框。
+            showDivider: entry.key != folders!.entries.last.key,
             onTap: enabled
                 ? () async {
                     setState(() => _itemLoading[id] = true);
@@ -485,7 +498,9 @@ class _NetworkSectionState extends State<_NetworkSection> {
                         context.pop();
                       }
                     } else {
-                      context.showMessage(message: friendlyError(res.errorMessage!));
+                      context.showMessage(
+                        message: friendlyError(res.errorMessage!),
+                      );
                     }
                     if (mounted) setState(() => _itemLoading[id] = false);
                   }
@@ -550,8 +565,7 @@ class _LocalSectionState extends State<_LocalSection> {
         ...localFolders.where((f) => f != kReadLaterFolder).map((folder) {
           final isAdded = localAdded.contains(folder);
 
-          return ListTile(
-            dense: true,
+          return KcListTile(
             onTap: () {
               if (isAdded) {
                 LocalFavoritesManager().deleteComicWithId(
@@ -586,8 +600,7 @@ class _LocalSectionState extends State<_LocalSection> {
         }),
         // 与上方文件夹行拉开一点距离：这是「动作」，不是又一个文件夹。
         const SizedBox(height: kcSpaceXs),
-        ListTile(
-          dense: true,
+        KcListTile(
           leading: _rowIcon(context, HugeIcons.strokeRoundedAddCircle),
           title: Text(
             "New Folder".tl,
@@ -605,7 +618,6 @@ class _LocalSectionState extends State<_LocalSection> {
       ],
     );
   }
-
 }
 
 /// 收藏状态药丸（纯展示）：Add / Remove 两态，加载时显示转圈。
@@ -708,7 +720,11 @@ Widget _sectionDivider(BuildContext context) {
 }
 
 /// 行首图标：固定 24 宽，保证有图标 / 无图标行、本地行 / 网络行文字全部左对齐。
-Widget _rowIcon(BuildContext context, List<List<dynamic>> icon, {Color? color}) {
+Widget _rowIcon(
+  BuildContext context,
+  List<List<dynamic>> icon, {
+  Color? color,
+}) {
   return SizedBox(
     width: 24,
     child: HugeIcon(
