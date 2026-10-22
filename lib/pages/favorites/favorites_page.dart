@@ -28,16 +28,65 @@ import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/opencc.dart';
 import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
+import 'package:kong_comic/pages/favorites/recommend_basis.dart';
 
 part 'favorite_actions.dart';
 part 'side_bar.dart';
 part 'local_favorites_page.dart';
 part 'network_favorites_page.dart';
-part 'recommended_shelf.dart';
 
 const _kLeftBarWidth = 256.0;
 
 const _kTwoPanelChangeWidth = 720.0;
+
+/// 相邻两本书之间的基础间距（倾斜外扩另算）。
+const double _kShelfBookGap = 6.0;
+
+/// 书籍斜放角度（弧度）。负值 = 顶部向左倒，书脊落在左侧。
+///
+/// 角度刻意压得很小：既要一眼看出「斜放」，又要让绕底边旋转之后的封面上角
+/// 仍然待在货架槽位里。历史越界 bug 的根因就是没给这点外扩留空间——
+/// 行高恰好等于封面高，旋转后的上角直接探出去压到了标题行。
+const double _kShelfLeanAngle = -0.05;
+
+/// 绕底边中点倾斜后，封面相对原外框多占的尺寸。
+///
+/// 用来给货架槽位预留高度/水平留白，把「斜放」限制在几何上算得出来的范围内，
+/// 而不是靠拍一个固定 padding 去兜。
+class _ShelfLean {
+  const _ShelfLean({
+    required this.rise,
+    required this.bleed,
+    required this.sink,
+  });
+
+  /// 封面上角相对原外框向上多出的高度。
+  final double rise;
+
+  /// 倾斜侧（左侧）相对原外框多出的宽度。
+  final double bleed;
+
+  /// 翘起侧的**对角**底角往下沉了多少。
+  ///
+  /// 绕底边中点转必然一只角上翘、另一只角下沉；不把下沉量算进来，那半只角
+  /// 就会被横向滚动区裁掉，圆角变成一刀切平。
+  final double sink;
+
+  static _ShelfLean of({required double width, required double height}) {
+    final sin = math.sin(-_kShelfLeanAngle).abs();
+    final cos = math.cos(_kShelfLeanAngle);
+    // 绕底边中点旋转：最高点 = (w/2)·sinθ + h·cosθ，故相对原高多出
+    // (w/2)·sinθ − h·(1−cosθ)；水平同理多出 h·sinθ − (w/2)·(1−cosθ)；
+    // 最低点则比原底边低 (w/2)·sinθ。
+    final rise = (width / 2) * sin - height * (1 - cos);
+    final bleed = height * sin - (width / 2) * (1 - cos);
+    return _ShelfLean(
+      rise: rise > 0 ? rise : 0,
+      bleed: bleed > 0 ? bleed : 0,
+      sink: (width / 2) * sin,
+    );
+  }
+}
 
 /// 收藏页：自绘整条顶栏（标题 + 工具胶囊条），故实现 [SelfTopBarPage]
 /// 请求共享顶栏整体让位，避免「两排工具栏」。
@@ -60,74 +109,9 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   final ValueNotifier<bool> _showFab = ValueNotifier(true);
   double _scrollPos = 0;
 
-  /// 「推荐」货架取数依据的缓存 —— 见 [_recommendBasis]。
-  /// 收藏变化时置空，否则每次 rebuild 都要重扫收藏库统计一遍标签。
-  _RecommendBasis? _recommendBasisCache;
-
-  /// 缓存是否已算过：null 本身是合法结果（没有可用依据），
-  /// 光靠 [_recommendBasisCache] 判空会导致每次 rebuild 都重扫。
-  bool _recommendBasisComputed = false;
-
-  /// 「推荐」货架的取数依据：收藏里出现次数最多的标签 + 该标签所属漫画源。
-  ///
-  /// 锚点是「你已经收藏了什么」，所以只有收藏页拿得到这份偏好。拿不到依据时
-  /// （没收藏 / 收藏全在本地 / 源不支持按标签取漫画 / 该源的分类筛选项要联网
-  /// 才能确定）返回 null，那一排整排不渲染。
-  _RecommendBasis? get _recommendBasis {
-    if (_recommendBasisComputed) return _recommendBasisCache;
-    _recommendBasisComputed = true;
-    return _recommendBasisCache = _computeRecommendBasis();
-  }
-
-  _RecommendBasis? _computeRecommendBasis() {
-    // key 用 \u0000 分隔：标签本身可能带空格，用空格拼接再 split 会把标签切开。
-    final counts = <String, int>{};
-    final targets = <String, _CategoryTarget>{};
-    final sources = <String, ComicSource>{};
-    final owned = <String>{};
-    for (final item in LocalFavoritesManager().allComics()) {
-      owned.add('${item.id}|${item.sourceKey}');
-      final source = item.type.comicSource;
-      if (source == null) continue;
-      final data = source.categoryComicsData;
-      // optionsLoader 表示筛选项要发一次请求才知道，这类源没法直接发取数请求。
-      if (data == null || data.optionsLoader != null) continue;
-      if (_categoryTargetsOf(source).isEmpty) continue;
-      sources[source.key] = source;
-      for (final raw in item.tags) {
-        // 一个标签只贡献一次：同一本书的原文和「标签:」后面的值都命中时，
-        // 计两遍会把这本书的权重算成两倍。
-        for (final tag in _tagCandidates(raw)) {
-          final target = _categoryTargetsOf(source)[tag];
-          if (target == null) continue;
-          final k = '$tag\u0000${source.key}';
-          counts[k] = (counts[k] ?? 0) + 1;
-          targets.putIfAbsent(k, () => target);
-          break;
-        }
-      }
-    }
-    if (counts.isEmpty) return null;
-    // 同频次按字典序兜底：List.sort 不是稳定排序，否则每次刷新推荐都在跳。
-    final sorted = counts.entries.toList()
-      ..sort((a, b) {
-        final c = b.value.compareTo(a.value);
-        return c != 0 ? c : a.key.compareTo(b.key);
-      });
-    final best = sorted.first;
-    final parts = best.key.split('\u0000');
-    return _RecommendBasis(
-      tag: parts[0],
-      target: targets[best.key]!,
-      source: sources[parts[1]]!,
-      owned: owned,
-    );
-  }
-
-  /// 收藏变化时让 [_recommendBasis] 下次重算。
+  /// 收藏变化：让模块级推荐依据缓存下次重算（发现页也会用到同一份依据）。
   void _onFavoritesChanged() {
-    _recommendBasisComputed = false;
-    _recommendBasisCache = null;
+    invalidateRecommendBasis();
     // 回调可能来自 dispose 之后的异步路径。
     if (mounted) setState(() {});
   }
@@ -324,8 +308,9 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   /// 而不是把所有漫画混在一起、再靠顶部胶囊猜自己在哪儿。
   Widget _buildOverview() {
     final hidden = BookshelfLayout.hiddenFolders;
-    final folders =
-        userFolderNames().where((f) => !hidden.contains(f)).toList();
+    final folders = userFolderNames()
+        .where((f) => !hidden.contains(f))
+        .toList();
     final net = _computeNetworkFolders();
 
     return LayoutBuilder(
@@ -334,8 +319,9 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
         // 用 MediaQuery 会把卡片算大一圈，一行连第 4 张的边都露不出来。
         // -52 = 左侧留白 16 + 右侧让位 24 + 两张卡间距 12。
         final cardW = math.max(96.0, (constraints.maxWidth - 52) / 3.3);
-        // 封面按 0.64 宽高比，再留一行标题（货架卡不叠来源/日期黑条）。
-        final cardH = cardW / 0.64 + 34;
+        // 封面按 0.7 宽高比（接近标准封面 2:3，减少裁切）；标题已叠在封面
+        // 底部渐变上，不再需要预留下方标题行的高度。
+        final cardH = cardW / 0.7;
 
         final shelves = <Widget>[];
         for (final f in folders) {
@@ -367,41 +353,33 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
                   : null,
               title: Text(
                 "Favorites".tl,
-                style: const TextStyle(
-                  fontSize: kcSectionTitle,
-                  fontWeight: FontWeight.w600,
-                ),
+                // 不自定义字号：继承 SliverAppbar 的默认标题样式（kcAppbarTitle
+                // + w600），与历史/发现等根 tab 页的大字标题一致（用户反馈）。
               ),
             ),
             if (empty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: EmptyState(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedFolder01,
+                    size: 18,
+                  ),
                   title: 'No favorites yet'.tl,
                   subtitle:
-                      'Favorite a comic from any source and it shows up here.'.tl,
+                      'Favorite a comic from any source and it shows up here.'
+                          .tl,
                 ),
               )
             else ...[
               for (final s in shelves) SliverToBoxAdapter(child: s),
               if (net.isNotEmpty)
                 SliverToBoxAdapter(child: _buildNetworkSection(net)),
-              // 推荐放最底部：它要联网取数，排在文件夹货架之后，
-              // 「一进收藏页先看到自己的书架」才不会被网络请求拖住。
-              SliverToBoxAdapter(
-                child: _RecommendedShelf(
-                  basis: _recommendBasis,
-                  cardW: cardW,
-                  cardH: cardH,
-                  onTap: _openComic,
-                ),
-              ),
             ],
             SliverToBoxAdapter(
               // 底栏是浮岛式、覆盖在页面之上的，必须按它的实际占位让出空间。
-              // 只留系统手势区（context.padding.bottom）会让最后一行 —— 网络入口
-              // 和推荐书架 —— 被压在底栏下面，滚到底也露不出来。
+              // 只留系统手势区（context.padding.bottom）会让最后一行（网络入口）
+              // 被压在底栏下面，滚到底也露不出来。
               child: SizedBox(
                 height: NaviPane.of(context).bottomBarHeight + kcSpaceLg,
               ),
@@ -417,8 +395,11 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   Widget? _buildShelf(String folder, double cardW, double cardH) {
     final total = LocalFavoritesManager().getFolderComicCount(folder);
     if (total == 0) return null;
-    final comics = LocalFavoritesManager()
-        .getFolderComicsPaginated(folder, limit: _shelfLimit, offset: 0);
+    final comics = LocalFavoritesManager().getFolderComicsPaginated(
+      folder,
+      limit: _shelfLimit,
+      offset: 0,
+    );
     if (comics.isEmpty) return null;
 
     final name = getFavoriteDataOrNull(folder)?.title ?? folder;
@@ -487,7 +468,12 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
       padding: const EdgeInsets.fromLTRB(kcSpaceLg, 0, kcSpaceLg, kcSpaceSm),
       child: Material(
         color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(kcCardRadius),
+        // 描边 + 圆角：光靠底色不够「可点击」，加一圈边框让它看起来是
+        // 独立卡片入口（用户反馈），与设置页分类项的可点击样式一致。
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kcCardRadius),
+          side: BorderSide(color: cs.outlineVariant, width: 1),
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => setFolder(true, key),
@@ -599,9 +585,8 @@ abstract interface class FolderList {
 
 /// 一排货架：标题行 + 横滑封面。
 ///
-/// 做成顶层函数（而不是 [_FavoritesPageState] 的方法），是为了让独立加载数据的
-/// 「推荐」货架 [_RecommendedShelf] 复用同一套尺寸、间距与标题排版 —— 否则
-/// 收藏页里会出现两套看起来不一样、但其实是同一种东西的货架。
+/// 做成顶层函数（而不是 [_FavoritesPageState] 的方法），便于复用同一套尺寸、
+/// 间距与标题排版；目前收藏页的文件夹货架都走这里。
 Widget _shelf({
   required BuildContext context,
   required String title,
@@ -614,6 +599,9 @@ Widget _shelf({
   String? subtitle,
   double topPadding = 24,
 }) {
+  // 斜放带来的外扩：槽位高度与左右留白都按它算，保证旋转后的封面不会探出货架。
+  final lean = _ShelfLean.of(width: cardW, height: cardH);
+
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -626,33 +614,76 @@ Widget _shelf({
         topPadding: topPadding,
       ),
       SizedBox(
-        height: cardH,
-        child: ListView.separated(
-          // 不用 PageStorageKey：货架内容随收藏变化，记住旧偏移只会滑到空白处；
-          // 也避开与纵向列表共用 PageStorage 标识导致的 `as double?` 崩溃。
-          key: ValueKey('shelf_$title'),
+        // 槽位 = 封面 + 顶端上翘外扩 + 底角下沉 + 1px 余量：整个旋转外框都
+        // 兜在这一行里，所以不需要靠 Clip.none 去「放行」溢出——那会让横向
+        // 滚动区把书画到页面外面的左栏上。
+        height: cardH + lean.rise + lean.sink + 1,
+        child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(left: kcSpaceLg, right: kcSpaceSm),
+          // 行内已容得下整本书，左内边距再补一份 bleed，让第一本的上角
+          // 不会贴到（甚至压出）视口边界。
+          padding: EdgeInsets.only(
+            left: kcSpaceLg + lean.bleed,
+            right: kcSpaceSm,
+          ),
           physics: const BouncingScrollPhysics(),
-          itemCount: comics.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (context, i) {
-            final c = comics[i];
-            return SizedBox(
-              width: cardW,
-              child: ComicTile(
-                comic: c,
-                showSourceOnCover: false,
-                // 货架卡片本来就小，再叠一条「来源 · 收藏日期」黑条会把封面
-                // 压掉 1/6 且字号糊成一团；来源信息留给列表页和详情页。
-                showBottomSourceDate: false,
-                onTap: () => onTap(c),
-              ),
-            );
-          },
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (final c in comics) ...[
+                _shelfBook(
+                  comic: c,
+                  width: cardW,
+                  height: cardH,
+                  onTap: () => onTap(c),
+                ),
+                // 间距要容得下单本书向左的外扩，否则相邻两本会在顶角处压叠。
+                SizedBox(width: _kShelfBookGap + lean.bleed),
+              ],
+            ],
+          ),
         ),
       ),
     ],
+  );
+}
+
+/// 书架上的单本书：整体向左微倾，像从书架上抽出来还没摆正的一本。
+///
+/// 这里**不再**叠「书脊」那条暗渐变：封面在卡片内本来就有几像素透明内缩
+/// （卡片背景透出来），任何贴着左边缘画的渐变都会把那圈内缩染成一条白灰
+/// 边，看起来像封面外多了一圈边框。要书脊感就得先让封面真正铺满卡片，
+/// 那是 ComicTile 内部的事，不该在这一层硬压。
+Widget _shelfBook({
+  required Comic comic,
+  required double width,
+  required double height,
+  required VoidCallback onTap,
+}) {
+  final lean = _ShelfLean.of(width: width, height: height);
+
+  return Padding(
+    // 上留 rise+1、下沉 sink：旋转后的整本书正好落在自己的布局框里，
+    // 最下那只角就是这一行的基线，不会再被横向滚动区切平。
+    padding: EdgeInsets.only(top: lean.rise + 1, bottom: lean.sink),
+    child: Transform.rotate(
+      angle: _kShelfLeanAngle,
+      alignment: Alignment.bottomCenter,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: ComicTile(
+          comic: comic,
+          showSourceOnCover: false,
+          // 货架卡片本来就小，再叠一条「来源 · 收藏日期」黑条会把封面
+          // 压掉 1/6 且字号糊成一团；来源信息留给列表页和详情页。
+          showBottomSourceDate: false,
+          // 书籍样式：封面底部压一条暗色渐变显示漫画名。
+          showTitleAtBottom: true,
+          onTap: onTap,
+        ),
+      ),
+    ),
   );
 }
 
@@ -667,58 +698,58 @@ Widget _shelfHeader({
 }) {
   final cs = Theme.of(context).colorScheme;
   return Padding(
-    padding: EdgeInsets.fromLTRB(
-      kcSpaceLg,
-      topPadding,
-      kcSpaceSm,
-      kcSpaceSm,
-    ),
+    padding: EdgeInsets.fromLTRB(kcSpaceLg, topPadding, kcSpaceSm, kcSpaceSm),
     child: Row(
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: kcSubtitle,
-                        fontWeight: FontWeight.w600,
+          child: InkWell(
+            // 整块标题区（标题 + 数量 + 副标题）都能点进文件夹，不必只戳「全部 ›」。
+            onTap: onOpenAll,
+            borderRadius: BorderRadius.circular(kcRadius8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: kcSubtitle,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                  if (total != null) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      total.toString(),
+                    if (total != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        total.toString(),
+                        style: TextStyle(
+                          fontSize: kcCaption,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (subtitle != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: kcCaption,
                         color: cs.onSurfaceVariant,
                       ),
                     ),
-                  ],
-                ],
-              ),
-              if (subtitle != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: kcCaption,
-                      color: cs.onSurfaceVariant,
-                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
         if (onOpenAll != null)

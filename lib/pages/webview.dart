@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -73,15 +74,17 @@ extension WebviewExtension on InAppWebViewController {
       if (!res.any((c) => c.name == 'cf_clearance') && App.isAndroid) {
         try {
           const channel = MethodChannel("kong_comic/method_channel");
-          final raw = await channel.invokeMethod<String>(
-              "getWebViewCookie", {"url": url});
+          final raw = await channel.invokeMethod<String>("getWebViewCookie", {
+            "url": url,
+          });
           if (raw != null && raw.isNotEmpty) {
             for (var part in raw.split(';')) {
               final idx = part.indexOf('=');
-              if (idx > 0 &&
-                  part.substring(0, idx).trim() == 'cf_clearance') {
-                final c =
-                    io.Cookie('cf_clearance', part.substring(idx + 1).trim());
+              if (idx > 0 && part.substring(0, idx).trim() == 'cf_clearance') {
+                final c = io.Cookie(
+                  'cf_clearance',
+                  part.substring(idx + 1).trim(),
+                );
                 final hostParts = uri.host.split('.');
                 if (hostParts.length >= 2) {
                   c.domain =
@@ -112,22 +115,23 @@ extension WebviewExtension on InAppWebViewController {
 }
 
 class AppWebview extends StatefulWidget {
-  const AppWebview(
-      {required this.initialUrl,
-      this.onTitleChange,
-      this.onNavigation,
-      this.singlePage = false,
-      this.onStarted,
-      this.onLoadStop,
-      super.key});
+  const AppWebview({
+    required this.initialUrl,
+    this.onTitleChange,
+    this.onNavigation,
+    this.singlePage = false,
+    this.onStarted,
+    this.onLoadStop,
+    super.key,
+  });
 
   final String initialUrl;
 
   final void Function(String title, InAppWebViewController controller)?
-      onTitleChange;
+  onTitleChange;
 
   final bool Function(String url, InAppWebViewController controller)?
-      onNavigation;
+  onNavigation;
 
   final void Function(InAppWebViewController controller)? onStarted;
 
@@ -163,9 +167,7 @@ class _AppWebviewState extends State<AppWebview> {
           proxy = "http://$proxy";
         }
         await proxyController.setProxyOverride(
-          settings: ProxySettings(
-            proxyRules: [ProxyRule(url: proxy)],
-          ),
+          settings: ProxySettings(proxyRules: [ProxyRule(url: proxy)]),
         );
       }
     }
@@ -188,52 +190,48 @@ class _AppWebviewState extends State<AppWebview> {
         child: IconButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 18),
           onPressed: () {
-            showMenuX(
-              context,
-              Offset(context.width, context.padding.top),
-              [
-                MenuEntry(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedBrowser, size: 18),
-                  text: "Open in browser".tl,
-                  onClick: () async {
-                    final url = await controller?.getUrl();
-                    if (url != null) launchUrlString(url.toString());
-                  },
-                ),
-                MenuEntry(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
-                  text: "Copy link".tl,
-                  onClick: () async {
-                    final url = await controller?.getUrl();
-                    if (url != null) {
-                      Clipboard.setData(ClipboardData(text: url.toString()));
-                    }
-                  },
-                ),
-                MenuEntry(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-                  text: "Reload".tl,
-                  onClick: () => controller?.reload(),
-                ),
-              ],
-            );
+            showMenuX(context, Offset(context.width, context.padding.top), [
+              MenuEntry(
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedBrowser, size: 18),
+                text: "Open in browser".tl,
+                onClick: () async {
+                  final url = await controller?.getUrl();
+                  if (url != null) launchUrlString(url.toString());
+                },
+              ),
+              MenuEntry(
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+                text: "Copy link".tl,
+                onClick: () async {
+                  final url = await controller?.getUrl();
+                  if (url != null) {
+                    Clipboard.setData(ClipboardData(text: url.toString()));
+                  }
+                },
+              ),
+              MenuEntry(
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+                text: "Reload".tl,
+                onClick: () => controller?.reload(),
+              ),
+            ]);
           },
         ),
-      )
+      ),
     ];
 
     Widget body = FutureBuilder(
       future: future,
       builder: (context, e) {
         if (e.error != null) {
-          return Center(child: Text("Error: @error".tlParams({"error": e.error ?? ""})));
+          return Center(
+            child: Text("Error: @error".tlParams({"error": e.error ?? ""})),
+          );
         }
         if (!e.hasData) {
           return const SizedBox();
         }
-        return createWebviewWithEnvironment(
-          AppWebview.webViewEnvironment,
-        );
+        return createWebviewWithEnvironment(AppWebview.webViewEnvironment);
       },
     );
 
@@ -242,27 +240,27 @@ class _AppWebviewState extends State<AppWebview> {
         Positioned.fill(child: body),
         if (_progress < 1.0)
           const Positioned.fill(
-              child: Center(child: CircularProgressIndicator()))
+            child: Center(child: CircularProgressIndicator()),
+          ),
       ],
     );
 
     return Scaffold(
-        appBar: Appbar(
-          title: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          actions: actions,
-        ),
-        body: body);
+      appBar: Appbar(
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: actions,
+      ),
+      body: body,
+    );
   }
 
   Widget createWebviewWithEnvironment(WebViewEnvironment? e) {
     return InAppWebView(
       webViewEnvironment: e,
       initialSettings: InAppWebViewSettings(
-        isInspectable: true,
+        // 这个 WebView 要读登录 cookie（cf_clearance 等），release 里放开
+        // 远程调试等于把登录态暴露给同机任何能连调试端口的人。只在 debug 开。
+        isInspectable: kDebugMode,
       ),
       initialUrlRequest: URLRequest(url: WebUri(widget.initialUrl)),
       onTitleChanged: (c, t) {
@@ -274,9 +272,20 @@ class _AppWebviewState extends State<AppWebview> {
         widget.onTitleChange?.call(title, controller!);
       },
       shouldOverrideUrlLoading: (c, r) async {
+        // 只放行 http(s)。file:/javascript:/intent:/content: 这类 scheme 会把
+        // App 拉去打开本地文件或外部应用，而这里的页面握着登录 cookie，
+        // 被恶意页/开放重定向利用的代价很高。
+        final scheme = r.request.url?.scheme.toLowerCase();
+        if (scheme != null && scheme != 'http' && scheme != 'https') {
+          Log.info(
+            "Webview",
+            "Blocked non-http(s) navigation: ${r.request.url}",
+          );
+          return NavigationActionPolicy.CANCEL;
+        }
         var res =
             widget.onNavigation?.call(r.request.url?.toString() ?? "", c) ??
-                false;
+            false;
         if (res) {
           return NavigationActionPolicy.CANCEL;
         } else {
@@ -314,12 +323,13 @@ class DesktopWebview {
 
   final void Function()? onClose;
 
-  DesktopWebview(
-      {required this.initialUrl,
-      this.onTitleChange,
-      this.onNavigation,
-      this.onStarted,
-      this.onClose});
+  DesktopWebview({
+    required this.initialUrl,
+    this.onTitleChange,
+    this.onNavigation,
+    this.onStarted,
+    this.onClose,
+  });
 
   Webview? _webview;
 
@@ -373,12 +383,13 @@ class DesktopWebview {
 
   void open() async {
     _webview = await WebviewWindow.create(
-        configuration: CreateConfiguration(
-      useWindowPositionAndSize: true,
-      userDataFolderWindows: "${App.dataPath}\\webview",
-      title: "webview".tl,
-      proxy: await getProxy(),
-    ));
+      configuration: CreateConfiguration(
+        useWindowPositionAndSize: true,
+        userDataFolderWindows: "${App.dataPath}\\webview",
+        title: "webview".tl,
+        proxy: await getProxy(),
+      ),
+    );
     _webview!.addOnWebMessageReceivedCallback(onMessage);
     _webview!.setOnNavigation((s) {
       s = s.substring(1, s.length - 1);

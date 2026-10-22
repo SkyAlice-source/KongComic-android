@@ -18,6 +18,12 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false">
+        <!-- Impeller（Flutter 3.27+ Android 默认开启）在部分模拟器/低端 GPU 上
+             大图纹理上传失败，封面会渲染成黄黑警示斜纹（DUMMY COVERAGE
+             PATTERN）。回退 Skia 渲染，真机与模拟器都稳定。 -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -39,24 +45,11 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="nhentai.net" android:pathPrefix="/g" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="e-hentai.org" android:pathPrefix="/g" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="exhentai.org" android:pathPrefix="/g" />
-            </intent-filter>
+            <!-- 这里原先声明了 nhentai / e-hentai / exhentai 的 VIEW 深链，
+                 但 Dart 侧与 MainActivity 都没有任何 ACTION_VIEW 处理（onCreate /
+                 onNewIntent 只认 ACTION_SEND），等于把本应用注册成这些站点的
+                 链接打开器、点开却什么都不做。属于「声明了却没人处理」的裸露面，
+                 先移除；将来真正要做深链时再连同 host/path 校验一起加回来。 -->
             <intent-filter android:label="@string/share_text">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
