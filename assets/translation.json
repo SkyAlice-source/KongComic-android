@@ -1,5 +1,8 @@
 {
   "zh_CN": {
+    "No comics match the current filter": "没有符合当前筛选的漫画",
+    "Clear the filter to see every comic in this folder": "清除筛选即可看到该文件夹里的全部漫画",
+    "Clear filter": "清除筛选",
     "Auto-update comic sources": "自动更新漫画源",
     "Automatically update installed sources on WiFi. Overrides local source edits.": "在 WiFi 下自动更新已安装的漫画源，会覆盖本机对源的手动修改。",
     "Backup Retention": "备份保留时长",
@@ -941,6 +944,9 @@
     "Network is slow, still loading…": "网络较慢，仍在加载…"
   },
   "zh_TW": {
+    "No comics match the current filter": "沒有符合目前篩選的漫畫",
+    "Clear the filter to see every comic in this folder": "清除篩選即可看到該資料夾裡的全部漫畫",
+    "Clear filter": "清除篩選",
     "Auto-update comic sources": "自動更新漫畫源",
     "Automatically update installed sources on WiFi. Overrides local source edits.": "在 WiFi 下自動更新已安裝的漫畫源，會覆蓋本機對源的手动修改。",
     "Backup Retention": "備份保留時長",
@@ -1882,6 +1888,9 @@
     "Network is slow, still loading…": "網路較慢，仍在載入…"
   },
   "ja_JP": {
+    "No comics match the current filter": "現在のフィルターに一致する漫画はありません",
+    "Clear the filter to see every comic in this folder": "フィルターを解除すると、このフォルダの漫画がすべて表示されます",
+    "Clear filter": "フィルターを解除",
     "Auto-update comic sources": "漫画ソースの自動更新",
     "Automatically update installed sources on WiFi. Overrides local source edits.": "WiFi 接続時にインストール済みの漫画ソースを自動更新します。端末側での手動修正は上書きされます。",
     "Backup Retention": "バックアップの保存期間",

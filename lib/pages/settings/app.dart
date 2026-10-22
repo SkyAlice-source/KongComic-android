@@ -524,9 +524,9 @@ class _StoragePathFallbackBannerState
     widget.onResolved();
   }
 
-  /// 用户确认「知道了」：丢掉提示，不再打扰。
+  /// 用户确认「知道了」：接受当前目录，不再打扰。
   void _ignore() {
-    LocalManager().clearPathFallback().then((_) {
+    LocalManager().acceptCurrentPath().then((_) {
       if (mounted) widget.onResolved();
     });
   }

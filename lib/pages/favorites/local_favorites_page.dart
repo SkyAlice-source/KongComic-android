@@ -1124,6 +1124,13 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
   /// 空状态：当前文件夹没有收藏时，用文件夹插画 + 引导文案取代空白。
   Widget _buildEmptyState() {
     final cs = Theme.of(context).colorScheme;
+    // 过滤器生效时空态必须说清「是筛选没命中」。
+    //
+    // 阅读状态筛选会被持久化到 implicitData，下次进来依然生效；而侧栏文件夹上
+    // 的数字是总数、不受筛选影响。于是「左边显示 2、右边一片空白」看起来就像
+    // 收藏丢了 —— 之前这里只说「这个文件夹是空的，去发现页添加漫画」，
+    // 完全没提筛选，用户根本想不到要点筛选按钮。
+    final filterActive = readFilterSelect != readFilterList[0];
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -1137,7 +1144,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             ),
             const SizedBox(height: 16),
             Text(
-              "This folder is empty".tl,
+              filterActive
+                  ? "No comics match the current filter".tl
+                  : "This folder is empty".tl,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: kcSubtitle,
                 fontWeight: FontWeight.w600,
@@ -1146,13 +1156,29 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             ),
             const SizedBox(height: 6),
             Text(
-              "Add comics from the Discover page".tl,
+              filterActive
+                  ? "Clear the filter to see every comic in this folder".tl
+                  : "Add comics from the Discover page".tl,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: kcCaption,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.7),
               ),
             ),
+            if (filterActive) ...[
+              const SizedBox(height: 16),
+              Button.filled(
+                onPressed: () {
+                  setState(() {
+                    readFilterSelect = readFilterList[0];
+                  });
+                  appdata.implicitData["local_favorites_read_filter"] =
+                      readFilterSelect;
+                  appdata.writeImplicitData();
+                },
+                child: Text("Clear filter".tl),
+              ),
+            ],
           ],
         ),
       ),

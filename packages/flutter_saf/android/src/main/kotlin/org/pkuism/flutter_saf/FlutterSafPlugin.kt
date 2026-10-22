@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.util.Log
 import android.util.Pair
 import androidx.annotation.Keep
 import androidx.core.net.toUri
@@ -250,9 +251,21 @@ class SAFPathWrapper(private val myContext: Context) {
   fun init() {
     System.loadLibrary("flutter-saf")
     setupNativeProxy()
+    // Restore the trees the user granted in previous sessions.
+    //
+    // One bad entry must not take the whole plugin down: getTreeDocumentId
+    // throws IllegalArgumentException for a URI that is not a tree URI, and an
+    // uncaught throw here aborts onAttachedToEngine — after which _roots stays
+    // empty for the entire session, every `android://...` path resolves to
+    // nothing, and the storage path the user picked looks "no longer
+    // accessible" right after a restart.
     val permissions = myContext.contentResolver.persistedUriPermissions
     for (p in permissions) {
-      updateRoot(p.uri)
+      try {
+        updateRoot(p.uri)
+      } catch (e: Exception) {
+        Log.w("flutter_saf", "Cannot restore persisted uri: $p", e)
+      }
     }
   }
 
@@ -287,9 +300,25 @@ class SAFPathWrapper(private val myContext: Context) {
     }
     val pickedDirectoryUri = data?.data ?: return null
 
-    myContext.contentResolver.takePersistableUriPermission(pickedDirectoryUri,
-      Intent.FLAG_GRANT_READ_URI_PERMISSION
-              or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+    // Persist the grant so the tree still works after the app is killed.
+    //
+    // Only ask for flags the picker actually returned: requesting
+    // FLAG_GRANT_WRITE_URI_PERMISSION when the provider granted read only
+    // throws SecurityException. That exception used to escape
+    // onActivityResult *before* `result.success(...)`, so the Dart future never
+    // completed and the permission was never persisted — the new folder worked
+    // until the next launch, then showed up as "storage path unavailable".
+    val takeFlags =
+      Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+    val grantedFlags = (data?.flags ?: 0) and takeFlags
+    try {
+      myContext.contentResolver.takePersistableUriPermission(
+        pickedDirectoryUri,
+        if (grantedFlags != 0) grantedFlags else takeFlags
+      )
+    } catch (e: Exception) {
+      Log.e("flutter_saf", "takePersistableUriPermission failed: $pickedDirectoryUri", e)
+    }
 
     val rootID = updateRoot(pickedDirectoryUri)
 

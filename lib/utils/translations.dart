@@ -214,6 +214,14 @@ String friendlyErrorMessage(String raw) {
   if (msg.contains('Connection refused')) {
     return "Connection refused".tl;
   }
+  // 源里抛出的 `Not login` / `未登录` / `请先登录`。之前没有映射，中文界面里
+  // 会显示成「未知错误」，用户完全不知道是自己没登录。（不区分大小写，
+  // 源作者写法五花八门。）
+  if (RegExp(r'not\s*log(?:in|ged)|unlogged|login\s*required|please\s*log\s*in',
+          caseSensitive: false)
+      .hasMatch(msg)) {
+    return "Login required".tl;
+  }
   if (msg.contains('Failed to fetch') ||
       msg.contains('NetworkError') ||
       msg.contains('Network Error')) {

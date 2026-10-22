@@ -397,7 +397,18 @@ class LocalManager with ChangeNotifier {
     if (!exists) {
       return "Directory does not exist".tl;
     }
-    if (p.equals(directory.path, newDir.path)) {
+    // 同一处目录可能有两种写法：当前存储路径是普通路径
+    // （`/storage/emulated/0/Download/Comic`），而系统目录选择器交回来的是
+    // SAF 树标识（`android://primary:Download/Comic`）。字符串不相等但物理上是
+    // 同一个文件夹。若不识别这种「别名」，后续流程会把它当成「迁移到别处」：
+    // 逐个文件「复制到自己身上」，然后把源目录清空 —— 整个书库被抹掉。
+    final plainCurrent = await _plainPathOf(directory.path);
+    final plainTarget = await _plainPathOf(newDir.path);
+    if (p.equals(plainCurrent ?? directory.path, plainTarget ?? newDir.path)) {
+      Log.warning(
+          "Local",
+          "Storage path '${newDir.path}' points to the current directory "
+              "'${directory.path}'; skipping migration.");
       return null;
     }
     // 迁移前必须让存储目录「静默」：流程是复制到新目录 → 删除旧目录 → 切换
@@ -457,6 +468,10 @@ class LocalManager with ChangeNotifier {
     }
     path = newDir.path;
     _checkNoMedia();
+    // 迁移成功即说明用户已经换到新目录，旧的「原目录失效」提示不该继续挂着。
+    if (_pendingFallback != null) {
+      await clearPathFallback();
+    }
     // 成功迁移：把进行中的下载任务重定向到新目录，否则恢复后它们会继续写
     // 已被清空的旧目录，导致同一部漫画的文件分裂在两处。
     _resumePausedTasks(paused, newDir.path, oldRoot);
@@ -867,6 +882,19 @@ class LocalManager with ChangeNotifier {
     }
   }
 
+  /// 用户选择「忽略」：接受当前（临时）目录，并且不再提示。
+  ///
+  /// 必须把当前目录写进 `local_path`。否则下次启动读到的还是那个失效的原目录，
+  /// 探测失败后又重新弹提示 —— 「忽略」形同虚设。
+  Future<void> acceptCurrentPath() async {
+    try {
+      await File(FilePath.join(App.dataPath, 'local_path')).writeAsString(path);
+    } catch (e, s) {
+      Log.error("IO", "Failed to persist local_path: $e", s);
+    }
+    await clearPathFallback();
+  }
+
   /// 用户已处理（切回原目录 / 另选目录 / 主动忽略），丢弃提示。
   Future<void> clearPathFallback() async {
     _pendingFallback = null;
@@ -876,14 +904,90 @@ class LocalManager with ChangeNotifier {
     notifyListeners();
   }
 
+  /// 目录是否存在（不创建），异常一律按「不存在」处理。
+  Future<bool> _exists(String dir) async {
+    try {
+      return await Directory(dir).exists();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 存储目录是否存在，带一次短暂重试。
+  ///
+  /// 与 [_probeWritable] 同理：开机后立刻被拉起时，外部存储可能还没挂载完，
+  /// 一次 `exists()` 返回 false 不代表用户把目录删了。
+  Future<bool> _directoryExistsWithRetry() async {
+    bool exists() {
+      try {
+        return directory.existsSync();
+      } catch (_) {
+        return false;
+      }
+    }
+
+    if (exists()) return true;
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    return exists();
+  }
+
+  /// [canWrite] 带一次短暂重试。
+  ///
+  /// 冷启动时外部存储（尤其 SAF 授权树所在的卷）可能还没挂载完，一次探测失败
+  /// 就判定目录失效过于激进 —— 随后 App 会切到临时目录并弹「存储路径不可用」，
+  /// 而用户什么都没做错。
+  Future<bool> _probeWritable(String dir) async {
+    if (await canWrite(dir)) return true;
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    return canWrite(dir);
+  }
+
+  /// 上次判定失效的原目录如果重新可用了，静默恢复并清掉提示。
+  ///
+  /// `local_path` 现在保存的是用户真正选定的目录（回退只作用于内存），所以
+  /// 权限补回来 / 存储重新挂载之后，这一次启动就能把漫画找回来，不需要用户
+  /// 再去设置页点「使用原文件夹」。
+  Future<bool> _restoreOriginalPathIfUsable() async {
+    final pending = _pendingFallback;
+    if (pending == null) return false;
+    final original = pending.originalPath;
+    if (original.isEmpty || p.equals(original, path)) return false;
+    // 必须先确认目录真的还在：canWrite 内部会 create(recursive: true)，对着一个
+    // 已经被删掉的路径也能「成功」，那会把恢复变成一个空目录，问题反而被藏起来。
+    final stillThere = await _exists(original);
+    if (!stillThere) return false;
+    if (!await _probeWritable(original)) return false;
+    path = original;
+    await clearPathFallback();
+    Log.warning("Local", "Storage path recovered: '$original'");
+    return true;
+  }
+
   Future<void> _checkPathValidation() async {
     var previous = path;
-    if (await canWrite(path)) {
-      // 注意：这里**不**清除失效提示。local_path 已经被写成回退后的目录，
-      // 下次启动校验必然通过，若在此清除，用户永远看不到「文件还在原处」的提示。
+    if (await _probeWritable(path)) {
+      // 注意：这里**不**清除失效提示。它与「当前 path 是否可用」是两件事：
+      // 提示说的是「原目录里的文件还在」，由 [_restoreOriginalPathIfUsable]
+      // 或用户主动操作来收尾。
       return;
     }
     await _fallbackToDefaultPath(previous, 'not-writable');
+  }
+
+  /// 把 `android://primary:<rel>` 形式的 SAF 路径折算成等价的普通路径。
+  ///
+  /// 非 SAF 路径、非 `primary:` 卷（例如 SD 卡 `1A2B-3C4D:`）或拿不到公共存储
+  /// 根时返回 null，调用方自行退回原字符串。
+  Future<String?> _plainPathOf(String path) async {
+    const prefix = 'android://';
+    const primary = 'primary:';
+    if (!path.startsWith(prefix)) return null;
+    final id = path.substring(prefix.length);
+    if (!id.startsWith(primary)) return null;
+    final root = await publicStorageRoot();
+    if (root == null) return null;
+    final rel = id.substring(primary.length);
+    return rel.isEmpty ? root : p.join(root, rel);
   }
 
   /// 只把存储目录切换到 [newPath]，**不搬运任何文件**。
@@ -955,28 +1059,43 @@ class LocalManager with ChangeNotifier {
     await _loadPathFallback();
     if (File(FilePath.join(App.dataPath, 'local_path')).existsSync()) {
       path = File(FilePath.join(App.dataPath, 'local_path')).readAsStringSync();
-      if (!directory.existsSync()) {
-        // 目录被外部删除 / SAF 授权失效：记录下来，让设置页能提示用户找回。
-        await _fallbackToDefaultPath(path, 'missing');
-      }
     } else {
       path = await findDefaultPath();
     }
-    try {
-      if (!directory.existsSync()) {
-        await directory.create();
+    // 上次记下「目录失效」的原目录，如果现在又能写了，直接恢复：这次启动就
+    // 把漫画找回来，不留提示。
+    final recovered = await _restoreOriginalPathIfUsable();
+    if (!recovered) {
+      // 顺序很重要：先判「目录还在不在」，再判「写得进去吗」。
+      // 若先走 canWrite（它内部会 create(recursive: true)），用户删掉的目录会被
+      // 悄悄重建出来，校验于是通过、漫画列表却全是空壳 —— 正是「有数量、页面空」。
+      if (!await _directoryExistsWithRetry()) {
+        await _fallbackToDefaultPath(path, 'missing');
+      } else {
+        // 必须 await：校验失败时会把 path 改回默认路径，若不等待就往下走，
+        // 落盘的会是被覆盖前的旧路径 —— 表现为「迁移成功后重启又变回原路径」。
+        await _checkPathValidation();
       }
-    } catch (e, s) {
-      Log.error("IO", "Failed to create local folder: $e", s);
+      try {
+        if (!await directory.exists()) {
+          await directory.create();
+        }
+      } catch (e, s) {
+        Log.error("IO", "Failed to create local folder: $e", s);
+      }
     }
-    // 必须 await：校验失败时会把 path 改回默认路径，若不等待就往下走，
-    // 落盘的会是被覆盖前的旧路径 —— 表现为「迁移成功后重启又变回原路径」。
-    await _checkPathValidation();
     _checkNoMedia();
-    // 保存有效路径，避免下次启动路径错误
-    try {
-      File(FilePath.join(App.dataPath, 'local_path')).writeAsString(path);
-    } catch (_) {}
+    // 只有当前目录真的可用（没有待处理回退）时才落盘。
+    //
+    // 之前这里无条件写入：一旦某次启动探测失败，`local_path` 就被换成临时
+    // 目录，用户选定的目录永久丢失 —— 表现为「设置好存储路径，关掉应用再打开
+    // 又变成不可用」，而且再也不会自愈。现在回退只作用于本次运行的 path，
+    // `local_path` 保留用户的选择，下次启动还能重试。
+    if (_pendingFallback == null) {
+      try {
+        File(FilePath.join(App.dataPath, 'local_path')).writeAsString(path);
+      } catch (_) {}
+    }
     await ComicSourceManager().ensureInit();
     restoreDownloadingTasks();
   }
