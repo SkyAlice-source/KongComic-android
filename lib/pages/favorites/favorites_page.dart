@@ -399,7 +399,12 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
               ),
             ],
             SliverToBoxAdapter(
-              child: SizedBox(height: context.padding.bottom + kcSpaceLg),
+              // 底栏是浮岛式、覆盖在页面之上的，必须按它的实际占位让出空间。
+              // 只留系统手势区（context.padding.bottom）会让最后一行 —— 网络入口
+              // 和推荐书架 —— 被压在底栏下面，滚到底也露不出来。
+              child: SizedBox(
+                height: NaviPane.of(context).bottomBarHeight + kcSpaceLg,
+              ),
             ),
           ],
         );
