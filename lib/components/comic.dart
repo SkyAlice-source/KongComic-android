@@ -52,6 +52,7 @@ class ComicTile extends StatelessWidget {
     this.showBottomSourceDate = false,
     this.badgeAsTopLeftSource = false,
     this.openLocalIfAvailable = false,
+    this.showTitleAtBottom = false,
   });
 
   final Comic comic;
@@ -95,6 +96,12 @@ class ComicTile extends StatelessWidget {
   /// exists (offline reading), otherwise falls back to the online ComicPage.
   /// Used by the favorites pages so downloaded comics can be read without network.
   final bool openLocalIfAvailable;
+
+  /// When true, overlays the comic title as a dark gradient strip at the bottom
+  /// of the cover (instead of below it). Used by the favorites "bookshelf" rows
+  /// where the tile is height-constrained to the cover and there is no room for
+  /// a separate title line.
+  final bool showTitleAtBottom;
 
   void _onTap() {
     if (onTap != null) {
@@ -728,6 +735,50 @@ class ComicTile extends StatelessWidget {
                         );
                       })(),
                     ),
+                    // 底部叠漫画名的渐变条必须贴底（bottom:0）且渲染在进度条
+                    // 之前（下层）：整体上移会露出一条无渐变的封面底边，形成
+                    // 「名字黑条悬浮」的割裂感（用户反馈）。文字让位改为在渐变
+                    // 内部加 padding-bottom，进度条则叠在渐变上层。
+                    if (showTitleAtBottom)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding: EdgeInsets.fromLTRB(6, 12, 6, histBadge != null ? 18.0 : 4.0),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.72),
+                                Colors.transparent,
+                              ],
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(kcCardInnerRadius),
+                              bottomRight: Radius.circular(kcCardInnerRadius),
+                            ),
+                          ),
+                          child: Text(
+                            comic.title.replaceAll('\n', ''),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: titleFont,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                              shadows: const [
+                                Shadow(
+                                  color: Color(0x59000000),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     if (histBadge != null)
                       Positioned(
                         left: 0,
@@ -748,20 +799,21 @@ class ComicTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-                child: Text(
-                  comic.title.replaceAll('\n', ''),
-                  maxLines: 1,
-                  // clip 会把字从中间劈开（「美奈酱与千寻姊」截在笔画上），
-                  // 窄卡更常见；改省略号，截断位置看起来是排版而非故障。
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: titleFont,
+              if (!showTitleAtBottom)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+                  child: Text(
+                    comic.title.replaceAll('\n', ''),
+                    maxLines: 1,
+                    // clip 会把字从中间劈开（「美奈酱与千寻姊」截在笔画上），
+                    // 窄卡更常见；改省略号，截断位置看起来是排版而非故障。
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: titleFont,
+                    ),
                   ),
                 ),
-              ),
             ],
           ).paddingHorizontal(6).paddingVertical(8),
         );

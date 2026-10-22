@@ -42,6 +42,10 @@ const _kTwoPanelChangeWidth = 720.0;
 /// 相邻两本书之间的基础间距（倾斜外扩另算）。
 const double _kShelfBookGap = 6.0;
 
+/// 货架右缘渐隐宽度，同时也是横滑行末尾的留白（两者相等，滑到尽头时
+/// 渐隐正好落在空白上，不会把最后一本封面擦淡）。
+const double _kShelfEdgeFade = 24.0;
+
 /// 书籍斜放角度（弧度）。负值 = 顶部向左倒，书脊落在左侧。
 ///
 /// 角度刻意压得很小：既要一眼看出「斜放」，又要让绕底边旋转之后的封面上角
@@ -337,25 +341,40 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
           // 不加 key 时从深滚过的文件夹回到总览会落在半山腰。
           key: const PageStorageKey('favoritesOverview'),
           slivers: [
+            // 顶栏结构与分类/主页/发现对齐：标题贴左、动作放在右上角。
+            // 之前把「文件夹」做成 leading 的汉堡按钮，标题被整体右推一格，
+            // 和别的页面首字对不齐（用户反馈「破坏一体性」）。
             SliverAppbar(
-              leading: context.width <= _kTwoPanelChangeWidth
-                  ? Tooltip(
-                      message: "Folders".tl,
-                      child: IconButton(
-                        icon: HugeIcon(
-                          icon: HugeIcons.strokeRoundedMenu02,
-                          size: 18,
-                        ),
-                        color: kcBrandAdaptive(context),
-                        onPressed: showFolderSelector,
-                      ),
-                    )
-                  : null,
+              // 根 tab 没有返回箭头：左间距收成 8，标题正好落在 16 的全局
+              // 内容基准线上，与共享顶栏（左右各 16）首字对齐。
+              titleGap: kcSpaceSm,
               title: Text(
                 "Favorites".tl,
-                // 不自定义字号：继承 SliverAppbar 的默认标题样式（kcAppbarTitle
-                // + w600），与历史/发现等根 tab 页的大字标题一致（用户反馈）。
+                // 与共享顶栏 NaviPane.buildTop 同款：kcTitleMain + 粗体。
+                // 之前靠 SliverAppbar 默认（kcAppbarTitle + w600），字号虽然
+                // 一样，字重偏细，和其它根 tab 摆在一起能看出不是一套。
+                style: const TextStyle(
+                  fontSize: kcTitleMain,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+              // 宽屏（>720）左栏常驻，文件夹列表已经在页面左侧，不再重复入口。
+              actions: context.width <= _kTwoPanelChangeWidth
+                  ? [
+                      // 单个动作就用普通图标按钮（分类/主页/发现右上角就是这么
+                      // 放的）；文件夹内页动作多，才收进工具胶囊条。
+                      IconButton(
+                        icon: HugeIcon(
+                          icon: HugeIcons.strokeRoundedFolder01,
+                          size: 22,
+                        ),
+                        tooltip: "Folders".tl,
+                        onPressed: showFolderSelector,
+                      ),
+                      // 共享顶栏右边距 16；SliverAppbar 自己已留 8，这里补 8。
+                      const SizedBox(width: kcSpaceSm),
+                    ]
+                  : null,
             ),
             if (empty)
               SliverFillRemaining(
@@ -417,42 +436,19 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
 
   /// 网络收藏源入口：不预加载内容（要发网络请求），只做分组入口。
   Widget _buildNetworkSection(List<String> net) {
-    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(top: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              kcSpaceLg,
-              0,
-              kcSpaceLg,
-              kcSpaceSm,
-            ),
-            child: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    "Network".tl,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: kcSubtitle,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  net.length.toString(),
-                  style: TextStyle(
-                    fontSize: kcCaption,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+          // 与文件夹货架共用同一套分区标题排版（只是没有箭头：网络源是
+          // 一张张独立卡片，各自可点，不需要「整组进入」）。
+          _sectionHeader(
+            context: context,
+            title: "Network".tl,
+            total: net.length,
+            topPadding: 0,
+            bottomPadding: kcSpaceXs,
           ),
           for (final k in net) _networkTile(k),
         ],
@@ -605,12 +601,12 @@ Widget _shelf({
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      _shelfHeader(
+      _sectionHeader(
         context: context,
         title: title,
         total: total,
         subtitle: subtitle,
-        onOpenAll: onOpenAll,
+        onTap: onOpenAll,
         topPadding: topPadding,
       ),
       SizedBox(
@@ -618,29 +614,51 @@ Widget _shelf({
         // 兜在这一行里，所以不需要靠 Clip.none 去「放行」溢出——那会让横向
         // 滚动区把书画到页面外面的左栏上。
         height: cardH + lean.rise + lean.sink + 1,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          // 行内已容得下整本书，左内边距再补一份 bleed，让第一本的上角
-          // 不会贴到（甚至压出）视口边界。
-          padding: EdgeInsets.only(
-            left: kcSpaceLg + lean.bleed,
-            right: kcSpaceSm,
-          ),
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              for (final c in comics) ...[
-                _shelfBook(
-                  comic: c,
-                  width: cardW,
-                  height: cardH,
-                  onTap: () => onTap(c),
-                ),
-                // 间距要容得下单本书向左的外扩，否则相邻两本会在顶角处压叠。
-                SizedBox(width: _kShelfBookGap + lean.bleed),
+        child: ShaderMask(
+          // 右缘渐隐：横滑列表被屏幕边缘一刀切会显得「没做完」，也给不出
+          // 「后面还有」的暗示。渐隐宽度与右侧留白一致（_kShelfEdgeFade），
+          // 滑到末尾时渐隐正好落在空白上，不会把最后一本的封面擦掉。
+          shaderCallback: (rect) {
+            final stop = ((rect.width - _kShelfEdgeFade) / rect.width).clamp(
+              0.0,
+              1.0,
+            );
+            return LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.white,
+                Colors.white,
+                Colors.white.withValues(alpha: 0),
               ],
-            ],
+              stops: [0.0, stop, 1.0],
+            ).createShader(rect);
+          },
+          blendMode: BlendMode.dstIn,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            // 行内已容得下整本书，左内边距再补一份 bleed，让第一本的上角
+            // 不会贴到（甚至压出）视口边界。
+            padding: EdgeInsets.only(
+              left: kcSpaceLg + lean.bleed,
+              right: _kShelfEdgeFade,
+            ),
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final c in comics) ...[
+                  _shelfBook(
+                    comic: c,
+                    width: cardW,
+                    height: cardH,
+                    onTap: () => onTap(c),
+                  ),
+                  // 间距要容得下单本书向左的外扩，否则相邻两本会在顶角处压叠。
+                  SizedBox(width: _kShelfBookGap + lean.bleed),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -687,99 +705,114 @@ Widget _shelfBook({
   );
 }
 
-/// 货架标题行：标题 + （可选）数量 + （可选）一行说明 + （可选）「全部」入口。
-Widget _shelfHeader({
+/// 分区标题：名称 + 数量胶囊 +（可点进入时）右侧箭头。
+///
+/// 收藏总览里，「文件夹货架」和「网络收藏源」共用这一套标题排版，避免同一页
+/// 出现两种分区头的字号/间距。
+///
+/// 整行都是点击区（而不是只有原来那截「全部 ›」小字）：40dp 高、跨满宽度的
+/// InkWell 才有像样的按压反馈，也不会让人误以为只有右侧文字能点进去。
+Widget _sectionHeader({
   required BuildContext context,
   required String title,
   int? total,
   String? subtitle,
-  VoidCallback? onOpenAll,
+  VoidCallback? onTap,
   double topPadding = 24,
+  double bottomPadding = 0,
 }) {
   final cs = Theme.of(context).colorScheme;
-  return Padding(
-    padding: EdgeInsets.fromLTRB(kcSpaceLg, topPadding, kcSpaceSm, kcSpaceSm),
-    child: Row(
-      children: [
-        Expanded(
-          child: InkWell(
-            // 整块标题区（标题 + 数量 + 副标题）都能点进文件夹，不必只戳「全部 ›」。
-            onTap: onOpenAll,
-            borderRadius: BorderRadius.circular(kcRadius8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: kcSubtitle,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (total != null) ...[
-                      const SizedBox(width: 6),
-                      Text(
-                        total.toString(),
-                        style: TextStyle(
-                          fontSize: kcCaption,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
+  final children = <Widget>[
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: kcSubtitle,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                if (subtitle != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: kcCaption,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
+              ),
+              if (total != null) ...[
+                const SizedBox(width: 6),
+                // 数量做成小胶囊：裸数字贴在标题后面，看起来像标题的一部分，
+                // 分不清是「第 5 个文件夹」还是「5 本」。
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
                   ),
-              ],
-            ),
-          ),
-        ),
-        if (onOpenAll != null)
-          InkWell(
-            borderRadius: BorderRadius.circular(kcPillRadius),
-            onTap: onOpenAll,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "All".tl,
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(kcPillRadius),
+                  ),
+                  child: Text(
+                    total.toString(),
                     style: TextStyle(
-                      fontSize: kcBody,
-                      fontWeight: FontWeight.w500,
-                      color: kcAccentColor(context),
+                      fontSize: kcCaption,
+                      height: 1.35,
+                      color: cs.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(width: 2),
-                  HugeIcon(
-                    icon: HugeIcons.strokeRoundedArrowRight01,
-                    size: 14,
-                    color: kcAccentColor(context),
-                  ),
-                ],
+                ),
+              ],
+            ],
+          ),
+          if (subtitle != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: kcCaption,
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     ),
+    // 箭头是「这一整块能进去」的唯一提示：把「全部 ›」那截红字删掉，
+    // 避免同一行出现两个指向同一动作的入口。
+    if (onTap != null) ...[
+      const SizedBox(width: kcSpaceSm),
+      HugeIcon(
+        icon: HugeIcons.strokeRoundedArrowRight01,
+        size: 16,
+        color: cs.onSurfaceVariant,
+      ),
+    ],
+  ];
+
+  final content = Padding(
+    // 横向 8 的内边距 + 外层 8 的负向补偿，让文字仍然落在 kcSpaceLg 基准线上。
+    padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: 10),
+    child: Row(children: children),
+  );
+
+  return Padding(
+    padding: EdgeInsets.fromLTRB(
+      kcSpaceSm,
+      topPadding,
+      kcSpaceSm,
+      bottomPadding,
+    ),
+    child: onTap == null
+        ? content
+        : InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(kcRadius8),
+            child: content,
+          ),
   );
 }

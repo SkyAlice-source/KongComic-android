@@ -87,8 +87,8 @@ class _AppbarState extends State<Appbar> {
     // 静止时就在顶栏下缘留下一条明显色带（浅色白 0.66 叠在 surface#FAF8FF 上偏亮）。
     // 用 scaffoldBackgroundColor 做基色，合成结果正好等于页面底色，滚动时仍可透出内容。
     final base = Theme.of(context).scaffoldBackgroundColor;
-    final barTint = widget.backgroundColor ??
-        base.withValues(alpha: isDark ? 0.54 : 0.66);
+    final barTint =
+        widget.backgroundColor ?? base.withValues(alpha: isDark ? 0.54 : 0.66);
     // 背景完全透明时不套模糊：模糊会把弹窗背后的页面内容糊进标题栏，
     // 在对话框上表现为一块与内容区色差明显的灰白色块（ContentDialog 即如此）。
     final transparentBackground = barTint.a == 0;
@@ -102,28 +102,27 @@ class _AppbarState extends State<Appbar> {
               Tooltip(
                 message: "Back".tl,
                 child: IconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowLeft01,
+                    size: 18,
+                  ),
                   onPressed: () => Navigator.maybePop(context),
                 ),
               ),
-          const SizedBox(
-            width: 16,
-          ),
+          const SizedBox(width: 16),
           Expanded(
             child: DefaultTextStyle(
               style: DefaultTextStyle.of(context).style.copyWith(
-                    fontSize: kcAppbarTitle,
-                    fontWeight: FontWeight.w600,
-                  ),
+                fontSize: kcAppbarTitle,
+                fontWeight: FontWeight.w600,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               child: widget.title,
             ),
           ),
           ...?widget.actions,
-          const SizedBox(
-            width: 8,
-          )
+          const SizedBox(width: 8),
         ],
       ).paddingTop(context.padding.top),
     );
@@ -155,10 +154,7 @@ class _AppbarState extends State<Appbar> {
   }
 }
 
-enum AppbarStyle {
-  blur,
-  shadow,
-}
+enum AppbarStyle { blur, shadow }
 
 /// 顶栏「不透明底色」的解析规则。
 ///
@@ -183,6 +179,7 @@ class SliverAppbar extends StatelessWidget {
     this.radius = 0,
     this.style = AppbarStyle.blur,
     this.backgroundColor,
+    this.titleGap = 16,
   });
 
   final Widget? leading;
@@ -190,6 +187,13 @@ class SliverAppbar extends StatelessWidget {
   final Widget title;
 
   final List<Widget>? actions;
+
+  /// 标题左内边距（在左侧固定 8 的留白之后）。
+  ///
+  /// 默认 16：带返回箭头的子页面里，标题和箭头的间距。根 tab 页没有箭头时
+  /// 传 8，标题才会落在 16 的全局内容基准线上，与共享顶栏（NaviPane 的
+  /// buildTop，左右各 16）首字对齐——否则同一颗 tab 之间会横跳 8dp。
+  final double titleGap;
 
   final double radius;
 
@@ -206,8 +210,9 @@ class SliverAppbar extends StatelessWidget {
     // （半透明白 0.66 + BackdropFilter 模糊）在这里会与内容区形成明显色块分层：
     // 标题栏看起来「浮」在面板上，左缘还多出一道由模糊内容透出的灰白渐变色带。
     // 侧栏内退回不透明样式，与面板底色（colorScheme.surface / 全局 bg 同为纯白）一致。
-    final effectiveStyle =
-        ModalRoute.of(context) is SideBarRoute ? AppbarStyle.shadow : style;
+    final effectiveStyle = ModalRoute.of(context) is SideBarRoute
+        ? AppbarStyle.shadow
+        : style;
     return SliverPersistentHeader(
       pinned: true,
       delegate: _MySliverAppBarDelegate(
@@ -218,6 +223,7 @@ class SliverAppbar extends StatelessWidget {
         radius: radius,
         style: effectiveStyle,
         backgroundColor: backgroundColor,
+        titleGap: titleGap,
       ),
     );
   }
@@ -234,6 +240,8 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   final double topPadding;
 
+  final double titleGap;
+
   final double radius;
 
   final AppbarStyle style;
@@ -248,11 +256,15 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     this.radius = 0,
     this.style = AppbarStyle.blur,
     this.backgroundColor,
+    this.titleGap = 16,
   });
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     var body = Row(
       children: [
         const SizedBox(width: 8),
@@ -261,32 +273,30 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
                 ? Tooltip(
                     message: "Back".tl,
                     child: IconButton(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowLeft01,
+                        size: 18,
+                      ),
                       onPressed: () => Navigator.maybePop(context),
                     ),
                   )
                 : const SizedBox()),
-        const SizedBox(
-          width: 16,
-        ),
+        SizedBox(width: titleGap),
         Expanded(
           child: DefaultTextStyle(
             style: DefaultTextStyle.of(context).style.copyWith(
-                  fontSize: kcAppbarTitle,
-                  fontWeight: FontWeight.w600,
-                ),
+              fontSize: kcAppbarTitle,
+              fontWeight: FontWeight.w600,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             child: title,
           ),
         ),
         ...?actions,
-        const SizedBox(
-          width: 8,
-        )
+        const SizedBox(width: 8),
       ],
     ).paddingTop(topPadding);
-
     if (style == AppbarStyle.blur) {
       final isDark = Theme.of(context).brightness == Brightness.dark;
       // 同 Appbar：tint 以页面底色为基色，否则会与内容区形成一条色带分层。
@@ -297,8 +307,9 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
           valueListenable: KcGlassActivity.scrolling,
           builder: (context, scrolling, _) {
             // 滚动中把 tint 加厚并去掉模糊：可读性反而更好，且省掉每帧高斯模糊。
-            final effectiveTint =
-                scrolling ? base.withValues(alpha: isDark ? 0.74 : 0.88) : tint;
+            final effectiveTint = scrolling
+                ? base.withValues(alpha: isDark ? 0.74 : 0.88)
+                : tint;
             Widget bar = Material(
               color: effectiveTint,
               elevation: 0,
@@ -340,6 +351,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
         title != oldDelegate.title ||
         actions != oldDelegate.actions ||
         topPadding != oldDelegate.topPadding ||
+        titleGap != oldDelegate.titleGap ||
         radius != oldDelegate.radius ||
         style != oldDelegate.style ||
         backgroundColor != oldDelegate.backgroundColor;
@@ -570,12 +582,12 @@ class _AppTabBarState extends State<AppTabBar> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: DefaultTextStyle(
-                style: DefaultTextStyle.of(context).style.copyWith(
-                  color: i == _controller.animation?.value.round()
-                      ? kcOnAccentColor
-                      : context.colorScheme.onSurface,
-                  fontWeight: FontWeight.w500,
-                ),
+            style: DefaultTextStyle.of(context).style.copyWith(
+              color: i == _controller.animation?.value.round()
+                  ? kcOnAccentColor
+                  : context.colorScheme.onSurface,
+              fontWeight: FontWeight.w500,
+            ),
             child: widget.tabs[i],
           ),
         ),
@@ -584,10 +596,8 @@ class _AppTabBarState extends State<AppTabBar> {
   }
 }
 
-typedef _TabRenderCallback = void Function(
-  List<double> offsets,
-  double itemHeight,
-);
+typedef _TabRenderCallback =
+    void Function(List<double> offsets, double itemHeight);
 
 class _TabRow extends Row {
   const _TabRow({required this.callback, required super.children});
@@ -597,13 +607,14 @@ class _TabRow extends Row {
   @override
   RenderFlex createRenderObject(BuildContext context) {
     return _RenderTabFlex(
-        direction: Axis.horizontal,
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        textDirection: Directionality.of(context),
-        verticalDirection: VerticalDirection.down,
-        callback: callback);
+      direction: Axis.horizontal,
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      textDirection: Directionality.of(context),
+      verticalDirection: VerticalDirection.down,
+      callback: callback,
+    );
   }
 
   @override
@@ -925,7 +936,10 @@ class _SliverSearchBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
       height: _kAppBarHeight + topPadding,
       width: double.infinity,
@@ -966,7 +980,10 @@ class _SliverSearchBarDelegate extends SliverPersistentHeaderDelegate {
                   ? const SizedBox()
                   : IconButton(
                       iconSize: 20,
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedCancel01,
+                        size: 18,
+                      ),
                       onPressed: () {
                         editingController.clear();
                         onChanged?.call("");
@@ -1070,7 +1087,10 @@ class _SearchBarState extends State<AppSearchBar> with _SearchBarMixin {
                   ? const SizedBox()
                   : IconButton(
                       iconSize: 20,
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedCancel01,
+                        size: 18,
+                      ),
                       onPressed: () {
                         _editingController.clear();
                       },

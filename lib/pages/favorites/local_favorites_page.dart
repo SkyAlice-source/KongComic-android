@@ -239,7 +239,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     super.initState();
   }
 
-
   void selectAll() {
     setState(() {
       if (searchMode) {
@@ -459,9 +458,13 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
               "Favorites".tl,
               // 页面标识固定为「收藏」，不再随文件夹变：当前文件夹已由下方
               // 胶囊条高亮表达，标题再写一遍等于同一信息出现两次。
+              //
+              // 字重/字号与收藏总览、分类、主页、发现统一（kcTitleMain + 粗体）。
+              // 此前这里写死 kcSectionTitle（17 + w600），从总览点进来标题会
+              // 突然缩一号、细一档（用户反馈「不一体」）。
               style: const TextStyle(
-                fontSize: kcSectionTitle,
-                fontWeight: FontWeight.w600,
+                fontSize: kcTitleMain,
+                fontWeight: FontWeight.bold,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -480,13 +483,14 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
                     "Switch to grid view".tl,
                     "Switch to list view".tl,
                   ],
-                  selectedIndex:
-                      appdata.settings['comicDisplayMode'] != 'brief' ? 1 : 0,
+                  selectedIndex: appdata.settings['comicDisplayMode'] != 'brief'
+                      ? 1
+                      : 0,
                   onSelected: (_) {
                     appdata.settings['comicDisplayMode'] =
                         appdata.settings['comicDisplayMode'] != 'brief'
-                            ? 'brief'
-                            : 'detailed';
+                        ? 'brief'
+                        : 'detailed';
                     appdata.saveData();
                     setState(() {});
                   },
@@ -613,164 +617,171 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
               "Selected @c comics".tlParams({"c": selectedComics.length}),
             ),
             actions: [
-              ToolsPill(children: [
-                ToolsPillButton(
-                  icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                  tooltip: "Select All".tl,
-                  onPressed: selectAll,
-                ),
-                ToolsPillButton(
-                  icon: HugeIcons.strokeRoundedCancel01,
-                  tooltip: "Deselect".tl,
-                  onPressed: _cancel,
-                ),
-                ToolsPillMoreButton(entries: [
-                  if (!isAllFolder)
-                    MenuEntry(
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedMove01,
-                        size: 18,
-                      ),
-                      text: "Move to folder".tl,
-                      onClick: () => favoriteOption('move'),
-                    ),
-                  if (!isAllFolder)
-                    MenuEntry(
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedCopy01,
-                        size: 18,
-                      ),
-                      text: "Copy to folder".tl,
-                      onClick: () => favoriteOption('add'),
-                    ),
-                  MenuEntry(
-                    icon: HugeIcon(
-                      icon: HugeIcons.strokeRoundedFlipHorizontal,
-                      size: 18,
-                    ),
-                    text: "Invert Selection".tl,
-                    onClick: invertSelection,
+              ToolsPill(
+                children: [
+                  ToolsPillButton(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                    tooltip: "Select All".tl,
+                    onPressed: selectAll,
                   ),
-                  MenuEntry(
-                    icon: HugeIcon(
-                      icon: HugeIcons.strokeRoundedFavourite,
-                      size: 18,
-                    ),
-                    text: "Remove from favorites".tl,
-                    onClick: () {
-                      for (var c in selectedComics.keys) {
-                        var fav = c as FavoriteItem;
-                        if (isAllFolder) {
-                          // In All view, find which folder the comic belongs to
-                          for (var f in LocalFavoritesManager().folderNames) {
-                            var folderComics = LocalFavoritesManager()
-                                .getFolderComics(f);
-                            if (folderComics.any(
-                              (fc) =>
-                                  fc.id == fav.id &&
-                                  fc.type.value == fav.type.value,
-                            )) {
+                  ToolsPillButton(
+                    icon: HugeIcons.strokeRoundedCancel01,
+                    tooltip: "Deselect".tl,
+                    onPressed: _cancel,
+                  ),
+                  ToolsPillMoreButton(
+                    entries: [
+                      if (!isAllFolder)
+                        MenuEntry(
+                          icon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedMove01,
+                            size: 18,
+                          ),
+                          text: "Move to folder".tl,
+                          onClick: () => favoriteOption('move'),
+                        ),
+                      if (!isAllFolder)
+                        MenuEntry(
+                          icon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedCopy01,
+                            size: 18,
+                          ),
+                          text: "Copy to folder".tl,
+                          onClick: () => favoriteOption('add'),
+                        ),
+                      MenuEntry(
+                        icon: HugeIcon(
+                          icon: HugeIcons.strokeRoundedFlipHorizontal,
+                          size: 18,
+                        ),
+                        text: "Invert Selection".tl,
+                        onClick: invertSelection,
+                      ),
+                      MenuEntry(
+                        icon: HugeIcon(
+                          icon: HugeIcons.strokeRoundedFavourite,
+                          size: 18,
+                        ),
+                        text: "Remove from favorites".tl,
+                        onClick: () {
+                          for (var c in selectedComics.keys) {
+                            var fav = c as FavoriteItem;
+                            if (isAllFolder) {
+                              // In All view, find which folder the comic belongs to
+                              for (var f
+                                  in LocalFavoritesManager().folderNames) {
+                                var folderComics = LocalFavoritesManager()
+                                    .getFolderComics(f);
+                                if (folderComics.any(
+                                  (fc) =>
+                                      fc.id == fav.id &&
+                                      fc.type.value == fav.type.value,
+                                )) {
+                                  LocalFavoritesManager().deleteComicWithId(
+                                    f,
+                                    fav.id,
+                                    fav.type,
+                                  );
+                                  break;
+                                }
+                              }
+                            } else {
                               LocalFavoritesManager().deleteComicWithId(
-                                f,
+                                widget.folder,
                                 fav.id,
                                 fav.type,
                               );
-                              break;
                             }
                           }
-                        } else {
-                          LocalFavoritesManager().deleteComicWithId(
-                            widget.folder,
-                            fav.id,
-                            fav.type,
-                          );
-                        }
-                      }
-                      setState(() {
-                        multiSelectMode = false;
-                        selectedComics.clear();
-                      });
-                    },
-                  ),
-                  if (!isAllFolder)
-                    MenuEntry(
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedDelete01,
-                        size: 18,
+                          setState(() {
+                            multiSelectMode = false;
+                            selectedComics.clear();
+                          });
+                        },
                       ),
-                      text: "Delete Comic".tl,
-                      color: context.colorScheme.error,
-                      onClick: () {
-                        showConfirmDialog(
-                          context: context,
-                          title: "Delete".tl,
-                          content: "Delete @c comics?".tlParams({
-                            "c": selectedComics.length,
-                          }),
-                          btnColor: context.colorScheme.error,
-                          onConfirm: () {
-                            _deleteComicWithId();
-                          },
-                        );
-                      },
-                    ),
-                  MenuEntry(
-                    icon: HugeIcon(
-                      icon: HugeIcons.strokeRoundedDownload04,
-                      size: 18,
-                    ),
-                    text: "Download".tl,
-                    onClick: downloadSelected,
-                  ),
-                  if (selectedComics.length == 1)
-                    MenuEntry(
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedCopy01,
-                        size: 18,
-                      ),
-                      text: "Copy Title".tl,
-                      onClick: () {
-                        Clipboard.setData(
-                          ClipboardData(text: selectedComics.keys.first.title),
-                        );
-                        context.showMessage(message: "Copied".tl);
-                      },
-                    ),
-                  if (selectedComics.length == 1)
-                    MenuEntry(
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedBook01,
-                        size: 18,
-                      ),
-                      text: "Read".tl,
-                      onClick: () {
-                        final c = selectedComics.keys.first as FavoriteItem;
-                        // Push onto the main navigator so back returns to the
-                        // local favorites page instead of the home page.
-                        App.mainNavigatorKey?.currentContext?.to(
-                          () => ReaderWithLoading(
-                            id: c.id,
-                            sourceKey: c.sourceKey,
+                      if (!isAllFolder)
+                        MenuEntry(
+                          icon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedDelete01,
+                            size: 18,
                           ),
-                        );
-                      },
-                    ),
-                  if (selectedComics.length == 1)
-                    MenuEntry(
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedArrowRight01,
-                        size: 18,
+                          text: "Delete Comic".tl,
+                          color: context.colorScheme.error,
+                          onClick: () {
+                            showConfirmDialog(
+                              context: context,
+                              title: "Delete".tl,
+                              content: "Delete @c comics?".tlParams({
+                                "c": selectedComics.length,
+                              }),
+                              btnColor: context.colorScheme.error,
+                              onConfirm: () {
+                                _deleteComicWithId();
+                              },
+                            );
+                          },
+                        ),
+                      MenuEntry(
+                        icon: HugeIcon(
+                          icon: HugeIcons.strokeRoundedDownload04,
+                          size: 18,
+                        ),
+                        text: "Download".tl,
+                        onClick: downloadSelected,
                       ),
-                      text: "Jump to Detail".tl,
-                      onClick: () {
-                        final c = selectedComics.keys.first as FavoriteItem;
-                        App.mainNavigatorKey?.currentContext?.to(
-                          () => ComicPage(id: c.id, sourceKey: c.sourceKey),
-                        );
-                      },
-                    ),
-                ]),
-              ]),
+                      if (selectedComics.length == 1)
+                        MenuEntry(
+                          icon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedCopy01,
+                            size: 18,
+                          ),
+                          text: "Copy Title".tl,
+                          onClick: () {
+                            Clipboard.setData(
+                              ClipboardData(
+                                text: selectedComics.keys.first.title,
+                              ),
+                            );
+                            context.showMessage(message: "Copied".tl);
+                          },
+                        ),
+                      if (selectedComics.length == 1)
+                        MenuEntry(
+                          icon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedBook01,
+                            size: 18,
+                          ),
+                          text: "Read".tl,
+                          onClick: () {
+                            final c = selectedComics.keys.first as FavoriteItem;
+                            // Push onto the main navigator so back returns to the
+                            // local favorites page instead of the home page.
+                            App.mainNavigatorKey?.currentContext?.to(
+                              () => ReaderWithLoading(
+                                id: c.id,
+                                sourceKey: c.sourceKey,
+                              ),
+                            );
+                          },
+                        ),
+                      if (selectedComics.length == 1)
+                        MenuEntry(
+                          icon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowRight01,
+                            size: 18,
+                          ),
+                          text: "Jump to Detail".tl,
+                          onClick: () {
+                            final c = selectedComics.keys.first as FavoriteItem;
+                            App.mainNavigatorKey?.currentContext?.to(
+                              () => ComicPage(id: c.id, sourceKey: c.sourceKey),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ],
           )
         else if (searchMode)
@@ -1034,28 +1045,25 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
         text: "Rename".tl,
-          onClick: () {
-            showInputDialog(
-              context: App.rootContext,
-              title: "Rename".tl,
-              hintText: "New Name".tl,
-              onConfirm: (value) {
-                var err = validateFolderName(value.toString());
-                if (err != null) {
-                  return err;
-                }
-                LocalFavoritesManager().rename(widget.folder, value.toString());
-                BookshelfLayout.onFolderRenamed(
-                  widget.folder,
-                  value.toString(),
-                );
-                favPage.folderList?.updateFolders();
-                favPage.setFolder(false, value.toString());
-                return null;
-              },
-            );
-          },
-        ),
+        onClick: () {
+          showInputDialog(
+            context: App.rootContext,
+            title: "Rename".tl,
+            hintText: "New Name".tl,
+            onConfirm: (value) {
+              var err = validateFolderName(value.toString());
+              if (err != null) {
+                return err;
+              }
+              LocalFavoritesManager().rename(widget.folder, value.toString());
+              BookshelfLayout.onFolderRenamed(widget.folder, value.toString());
+              favPage.folderList?.updateFolders();
+              favPage.setFolder(false, value.toString());
+              return null;
+            },
+          );
+        },
+      ),
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
         text: "Reorder".tl,
@@ -1097,21 +1105,21 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
         text: "Delete Folder".tl,
-          color: context.colorScheme.error,
-          onClick: () {
-            showConfirmDialog(
-              context: App.rootContext,
-              title: "Delete".tl,
-              content: "Delete folder '@f' ?".tlParams({"f": widget.folder}),
-              btnColor: context.colorScheme.error,
-              onConfirm: () {
-                favPage.setFolder(false, null);
-                LocalFavoritesManager().deleteFolder(widget.folder);
-                favPage.folderList?.updateFolders();
-              },
-            );
-          },
-        ),
+        color: context.colorScheme.error,
+        onClick: () {
+          showConfirmDialog(
+            context: App.rootContext,
+            title: "Delete".tl,
+            content: "Delete folder '@f' ?".tlParams({"f": widget.folder}),
+            btnColor: context.colorScheme.error,
+            onConfirm: () {
+              favPage.setFolder(false, null);
+              LocalFavoritesManager().deleteFolder(widget.folder);
+              favPage.folderList?.updateFolders();
+            },
+          );
+        },
+      ),
       // 收藏页自绘顶栏后，全局共享顶栏的「设置」入口随之让位；
       // 设置是全局功能，不该在收藏页彻底消失，收进「更多」兜底。
       MenuEntry(
