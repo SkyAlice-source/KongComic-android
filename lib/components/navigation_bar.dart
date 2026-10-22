@@ -229,7 +229,9 @@ class NaviPaneState extends State<NaviPane>
 
   static const _kSideBarWidth = 224.0;
 
-  static const _kTopBarHeight = 48.0;
+  /// 栏体高度：值来自 [kcRootTopBarHeight]，自绘顶栏的根 tab 共用同一个
+  /// 令牌，保证切换 tab 时标题不上下跳。
+  static const _kTopBarHeight = kcRootTopBarHeight;
 
   /// 底栏**实际遮挡**的高度：栏体 + 下方留白 + 系统手势区。
   /// 页面（列表底部 padding、悬浮按钮）靠它给内容让位。

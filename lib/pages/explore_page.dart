@@ -9,6 +9,8 @@ import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/res.dart';
 import 'package:kong_comic/pages/comic_source_page.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
+import 'package:kong_comic/pages/explore/recommend_grid.dart';
+import 'package:kong_comic/pages/favorites/recommend_basis.dart';
 import 'package:kong_comic/utils/ext.dart';
 import 'package:kong_comic/utils/translations.dart';
 
@@ -32,21 +34,35 @@ class _ExplorePageState extends State<ExplorePage>
 
   late List<String> pages;
 
+  /// tab 栏实际渲染的 key 序列：开启推荐且确有推荐依据时，第一个是
+  /// [kRecommendTabKey]（推荐），其后才是各探索页标题。
+  late List<String> tabKeys;
+
+  List<String> computeTabKeys(List<String> explorePages) {
+    final showRecommend =
+        appdata.settings['showRecommendOnExplore'] != false &&
+        computeRecommendBasis() != null;
+    return showRecommend ? [kRecommendTabKey, ...explorePages] : explorePages;
+  }
+
   void onSettingsChanged() {
-    var explorePages = List<String>.from(appdata.settings["explore_pages"] ?? []);
+    var explorePages = List<String>.from(
+      appdata.settings["explore_pages"] ?? [],
+    );
     var all = ComicSource.enabled()
         .map((e) => e.explorePages)
         .expand((e) => e.map((e) => e.title))
         .toList();
     explorePages = explorePages.where((e) => all.contains(e)).toList();
     _sortBySourceOrder(explorePages);
-    if (!pages.isEqualTo(explorePages)) {
+    final newKeys = computeTabKeys(explorePages);
+    if (!explorePages.isEqualTo(pages) || !newKeys.isEqualTo(tabKeys)) {
       setState(() {
         pages = explorePages;
-        controller = TabController(
-          length: pages.length,
-          vsync: this,
-        );
+        tabKeys = newKeys;
+        controller.removeListener(_onTabChanged);
+        controller = TabController(length: tabKeys.length, vsync: this);
+        controller.addListener(_onTabChanged);
       });
     }
   }
@@ -77,12 +93,22 @@ class _ExplorePageState extends State<ExplorePage>
     // swallowed the "tap the current tab again to scroll to top" gesture and
     // ran the body when the *Home* tab was tapped instead.
     if (index != 3) return;
-    if (pages.isEmpty) return;
+    if (tabKeys.isEmpty) return;
     final page = controller.index;
-    if (page < 0 || page >= pages.length) return;
+    if (page < 0 || page >= tabKeys.length) return;
     // `find` throws when the page state has not registered yet (e.g. the tab
     // was never built); use the nullable variant and skip quietly.
-    GlobalState.findOrNull<_SingleExplorePageState>(pages[page])?.toTop();
+    _scrollTabToTop(tabKeys[page]);
+  }
+
+  /// 把当前 tab 滚回顶部；推荐 tab 与普通探索页分别查找各自的 State，
+  /// `findOrNull` 在状态尚未注册时返回 null，静默跳过。
+  void _scrollTabToTop(String tabKey) {
+    if (tabKey == kRecommendTabKey) {
+      GlobalState.findOrNull<ExploreRecommendPageState>(tabKey)?.toTop();
+      return;
+    }
+    GlobalState.findOrNull<_SingleExplorePageState>(tabKey)?.toTop();
   }
 
   /// 发现页右上「添加」的真实意图是「添加漫画源」，而不是在已装源里勾选探索页 tab。
@@ -102,10 +128,11 @@ class _ExplorePageState extends State<ExplorePage>
         .toList();
     pages = pages.where((e) => all.contains(e)).toList();
     _sortBySourceOrder(pages);
-    controller = TabController(
-      length: pages.length,
-      vsync: this,
-    );
+    tabKeys = computeTabKeys(pages);
+    controller = TabController(length: tabKeys.length, vsync: this);
+    // 推荐页内容固定一屏、右下角还有「换一批」刷新按钮，不需要回顶 FAB；
+    // 监听 tab 切换以便及时隐藏/恢复。
+    controller.addListener(_onTabChanged);
     listen(appdata.settings, onSettingsChanged);
     NaviPane.of(context).addNaviItemTapListener(onNaviItemTapped);
     super.initState();
@@ -119,36 +146,56 @@ class _ExplorePageState extends State<ExplorePage>
 
   @override
   void dispose() {
+    controller.removeListener(_onTabChanged);
     controller.dispose();
     showFB.dispose();
     naviPane?.removeNaviItemTapListener(onNaviItemTapped);
     super.dispose();
   }
 
+  void _onTabChanged() {
+    if (controller.indexIsChanging) {
+      setState(() {});
+    }
+  }
+
   void refresh() {
-    int page = controller.index;
-    String currentPageId = pages[page];
-    GlobalState.find<_SingleExplorePageState>(currentPageId).refresh();
+    String pageId = tabKeys[controller.index];
+    if (pageId == kRecommendTabKey) {
+      GlobalState.findOrNull<ExploreRecommendPageState>(pageId)?.refresh();
+      return;
+    }
+    GlobalState.findOrNull<_SingleExplorePageState>(pageId)?.refresh();
   }
 
   Widget buildFAB() => ScrollTopFab(
-        avoidNavBar: true,
-        heroTag: 'exploreScrollTopFab',
-        onPressed: () {
-          String currentPageId = pages[controller.index];
-          GlobalState.find<_SingleExplorePageState>(currentPageId).toTop();
-        },
-      );
+    avoidNavBar: true,
+    heroTag: 'exploreScrollTopFab',
+    onPressed: () {
+      _scrollTabToTop(tabKeys[controller.index]);
+    },
+  );
 
   Tab buildTab(String i) {
-    var comicSource = ComicSource.enabled()
-        .firstWhere((e) => e.explorePages.any((e) => e.title == i));
+    if (i == kRecommendTabKey) {
+      return Tab(text: "Recommended".tl, key: Key(i));
+    }
+    var comicSource = ComicSource.enabled().firstWhere(
+      (e) => e.explorePages.any((e) => e.title == i),
+    );
     return Tab(text: i.ts(comicSource.key), key: Key(i));
   }
 
-  Widget buildBody(String i) => Material(
-        child: _SingleExplorePage(i, key: PageStorageKey(i)),
+  Widget buildBody(String i) {
+    if (i == kRecommendTabKey) {
+      return Material(
+        child: ExploreRecommendPage(
+          key: const PageStorageKey(kRecommendTabKey),
+        ),
       );
+    }
+    return Material(child: _SingleExplorePage(i, key: PageStorageKey(i)));
+  }
 
   Widget buildEmpty() {
     if (ComicSource.isEmpty) {
@@ -178,19 +225,14 @@ class _ExplorePageState extends State<ExplorePage>
 
     Widget tabBar = Material(
       color: Theme.of(context).scaffoldBackgroundColor,
-      // 与分类页同因：横向可滚动的标签栏要避开系统返回手势的起手区，
-      // 否则从最左边缘滑标签会被判成「返回」并弹确认退出。
-      child: SystemGestureExclusion(
-        enabled: NaviPane.of(context).isRootTabPage,
-        child: AppTabBar(
-          key: PageStorageKey(pages.toString()),
-          tabs: pages.map((e) => buildTab(e)).toList(),
-          controller: controller,
-          actionButton: TabActionButton(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
-            text: "Add".tl,
-            onPressed: addComicSource,
-          ),
+      child: AppTabBar(
+        key: PageStorageKey(tabKeys.toString()),
+        tabs: tabKeys.map((e) => buildTab(e)).toList(),
+        controller: controller,
+        actionButton: TabActionButton(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
+          text: "Add".tl,
+          onPressed: addComicSource,
         ),
       ),
     ).paddingTop(context.padding.top);
@@ -198,50 +240,55 @@ class _ExplorePageState extends State<ExplorePage>
     return Stack(
       children: [
         Positioned.fill(
-          child: Column(
-            children: [
-              tabBar,
-              Expanded(
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: (notifications) {
-                    // 横向滑动已关闭（见下方 TabBarView.physics），这条分支现在
-                    // 只兜住 TabController 点选时 PageView 的程序化过渡。
-                    if (notifications.metrics.axis == Axis.horizontal) {
-                      if (!showFB.value) {
+          // 与分类页同一套分区：整页从系统返回手势里让出顶部一条带
+          // （[kSystemGestureExclusionBand]），带内贴边横滑 = 切探索页，
+          // 带下贴边横滑 = 系统返回（滑动退出）。
+          child: SystemGestureExclusion(
+            enabled: NaviPane.of(context).isRootTabPage,
+            excludeHeight: kSystemGestureExclusionBand,
+            child: Column(
+              children: [
+                tabBar,
+                Expanded(
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notifications) {
+                      // 横向滚动（手滑切页 / 点 Tab 的程序化过渡）一律把回顶按钮
+                      // 显出来：换了一页，原来的纵向偏移基准已经无意义。
+                      if (notifications.metrics.axis == Axis.horizontal) {
+                        if (!showFB.value) {
+                          showFB.value = true;
+                        }
+                        return true;
+                      }
+
+                      var current = notifications.metrics.pixels;
+                      var overflow = notifications.metrics.outOfRange;
+                      if (current > location && current != 0 && showFB.value) {
+                        showFB.value = false;
+                      } else if ((current < location - 50 || current == 0) &&
+                          !showFB.value) {
                         showFB.value = true;
                       }
-                      return true;
-                    }
-
-                    var current = notifications.metrics.pixels;
-                    var overflow = notifications.metrics.outOfRange;
-                    if (current > location && current != 0 && showFB.value) {
-                      showFB.value = false;
-                    } else if ((current < location - 50 || current == 0) &&
-                        !showFB.value) {
-                      showFB.value = true;
-                    }
-                    if ((current > location || current < location - 50) &&
-                        !overflow) {
-                      location = current;
-                    }
-                    return false;
-                  },
-                  child: MediaQuery.removePadding(
-                    context: context,
-                    removeTop: true,
-                    child: TabBarView(
-                      controller: controller,
-                      // 与分类页同因：根 tab 页的横滑会和系统返回手势抢同一个
-                      // 边缘区域，从最左侧起手会弹「确认退出」而不是切页。
-                      // 关掉手指拖拽，点 Tab 仍在（过渡动画由 controller 驱动）。
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: pages.map((e) => buildBody(e)).toList(),
+                      if ((current > location || current < location - 50) &&
+                          !overflow) {
+                        location = current;
+                      }
+                      return false;
+                    },
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      // 手指横滑切探索页**重新打开**：边缘冲突已由上面那条
+                      // 手势排除带解决，顶部条带内贴边起手也只会切页。
+                      child: TabBarView(
+                        controller: controller,
+                        children: tabKeys.map((e) => buildBody(e)).toList(),
+                      ),
                     ),
                   ),
                 ),
-              )
-            ],
+              ],
+            ),
           ),
         ),
         Positioned(
@@ -250,23 +297,29 @@ class _ExplorePageState extends State<ExplorePage>
           // 抬升，这里只留 endFloat 默认的 16 边距。原 90 会导致发现页 FAB 比
           // 历史页高出一大截（90 + bottomBarHeight vs 16 + bottomBarHeight）。
           bottom: 16,
-          child: ValueListenableBuilder<bool>(
-            valueListenable: showFB,
-            builder: (context, visible, _) => AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              reverseDuration: const Duration(milliseconds: 150),
-              child: visible ? buildFAB() : const SizedBox(),
-              transitionBuilder: (widget, animation) {
-                var tween = Tween<Offset>(
-                    begin: const Offset(0, 1), end: const Offset(0, 0));
-                return SlideTransition(
-                  position: tween.animate(animation),
-                  child: widget,
-                );
-              },
-            ),
-          ),
-        )
+          // 推荐页内容固定一屏、右下角已有「换一批」刷新按钮，不再显示回顶
+          // FAB——两者挨在一起既拥挤又没用（用户反馈）。
+          child: tabKeys[controller.index] == kRecommendTabKey
+              ? const SizedBox()
+              : ValueListenableBuilder<bool>(
+                  valueListenable: showFB,
+                  builder: (context, visible, _) => AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 150),
+                    reverseDuration: const Duration(milliseconds: 150),
+                    child: visible ? buildFAB() : const SizedBox(),
+                    transitionBuilder: (widget, animation) {
+                      var tween = Tween<Offset>(
+                        begin: const Offset(0, 1),
+                        end: const Offset(0, 0),
+                      );
+                      return SlideTransition(
+                        position: tween.animate(animation),
+                        child: widget,
+                      );
+                    },
+                  ),
+                ),
+        ),
       ],
     );
   }
@@ -373,9 +426,7 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
         },
       );
     } else {
-      return Center(
-        child: Text("Empty Page".tl),
-      );
+      return Center(child: Text("Empty Page".tl));
     }
   }
 
@@ -402,8 +453,13 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
 }
 
 class _MixedExplorePage extends StatefulWidget {
-  const _MixedExplorePage(this.data, this.sourceKey,
-      {super.key, this.controller, required this.refreshHandlerCallback});
+  const _MixedExplorePage(
+    this.data,
+    this.sourceKey, {
+    super.key,
+    this.controller,
+    required this.refreshHandlerCallback,
+  });
 
   final ExplorePageData data;
 
@@ -434,10 +490,7 @@ class _MixedExplorePageState
     for (var part in data) {
       if (part is ExplorePagePart) {
         if (cache.isNotEmpty) {
-          yield SliverGridComics(
-            comics: (cache),
-            showSourceOnCover: false,
-          );
+          yield SliverGridComics(comics: (cache), showSourceOnCover: false);
           yield const SliverToBoxAdapter(child: Divider());
           cache.clear();
         }
@@ -448,10 +501,7 @@ class _MixedExplorePageState
       }
     }
     if (cache.isNotEmpty) {
-      yield SliverGridComics(
-        comics: (cache),
-        showSourceOnCover: false,
-      );
+      yield SliverGridComics(comics: (cache), showSourceOnCover: false);
     }
   }
 
@@ -482,7 +532,9 @@ class _MixedExplorePageState
 }
 
 Iterable<Widget> _buildExplorePagePart(
-    ExplorePagePart part, String sourceKey) sync* {
+  ExplorePagePart part,
+  String sourceKey,
+) sync* {
   Widget buildTitle(ExplorePagePart part) {
     return SliverToBoxAdapter(
       child: SizedBox(
@@ -493,8 +545,10 @@ Iterable<Widget> _buildExplorePagePart(
             children: [
               Text(
                 part.title,
-                style:
-                    const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: kcTitleLarge,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const Spacer(),
               if (part.viewMore != null)
@@ -504,7 +558,7 @@ Iterable<Widget> _buildExplorePagePart(
                     part.viewMore!.jump(context);
                   },
                   child: Text("View more".tl),
-                )
+                ),
             ],
           ),
         ),
@@ -513,10 +567,7 @@ Iterable<Widget> _buildExplorePagePart(
   }
 
   Widget buildComics(ExplorePagePart part) {
-    return SliverGridComics(
-      comics: part.comics,
-      showSourceOnCover: false,
-    );
+    return SliverGridComics(comics: part.comics, showSourceOnCover: false);
   }
 
   yield buildTitle(part);
@@ -554,10 +605,10 @@ class _MultiPartExplorePageState extends State<_MultiPartExplorePage> {
   String? message;
 
   Map<String, dynamic> get state => {
-        "loading": loading,
-        "message": message,
-        "parts": parts,
-      };
+    "loading": loading,
+    "message": message,
+    "parts": parts,
+  };
 
   void restoreState(dynamic state) {
     if (state == null) return;
@@ -625,16 +676,15 @@ class _MultiPartExplorePageState extends State<_MultiPartExplorePage> {
   Widget build(BuildContext context) {
     if (loading) {
       load();
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     } else if (message != null) {
       final msg = message!;
       final source = ComicSource.find(widget.comicSourceKey);
       if (source != null && source.account != null && isAuthError(msg)) {
         return NetworkError(
-          message: "Log in to @source to view this content."
-              .tlParams({"source": source.name}),
+          message: "Log in to @source to view this content.".tlParams({
+            "source": source.name,
+          }),
           retry: () {
             setState(() {
               loading = true;

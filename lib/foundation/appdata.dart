@@ -296,6 +296,7 @@ class Settings with ChangeNotifier {
     'updateMirror': 'auto',
     'updateMirrorTemplate': '', // 自定义模板，必须含 {url}
     'updateMirrorLastGood': '', // 上次成功线路的 id，仅记录内置镜像
+    'showRecommendOnExplore': true, // 发现页顶部「推荐」九宫格总开关
   };
 
   operator [](String key) {

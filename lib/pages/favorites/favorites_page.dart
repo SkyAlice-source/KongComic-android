@@ -344,7 +344,17 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
             // 顶栏结构与分类/主页/发现对齐：标题贴左、动作放在右上角。
             // 之前把「文件夹」做成 leading 的汉堡按钮，标题被整体右推一格，
             // 和别的页面首字对不齐（用户反馈「破坏一体性」）。
-            SliverAppbar(
+                        SliverAppbar(
+              // 与共享顶栏同高，切 tab 时标题不会上下跳 2dp。
+              // 与共享顶栏逐项对齐：
+              // - 同高（48，切 tab 标题不上下跳）；
+              // - 纯色不透明 + 不投影（共享顶栏就是纯色 Material，玻璃态会把
+              //   下方封面模糊进栏体、在下缘留下一条忽明忽暗的色带，看起来像
+              //   顶栏和内容分了两层）；
+              // - 标题 20pt 粗体、贴左 16dp。
+              height: kcRootTopBarHeight,
+              style: AppbarStyle.shadow,
+              shadowOnScroll: false,
               // 根 tab 没有返回箭头：左间距收成 8，标题正好落在 16 的全局
               // 内容基准线上，与共享顶栏（左右各 16）首字对齐。
               titleGap: kcSpaceSm,

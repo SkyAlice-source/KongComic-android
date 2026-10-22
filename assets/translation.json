@@ -119,6 +119,7 @@
     "Exit?": "确定要退出吗？",
     "Don't ask again": "不再提示",
     "Search": "搜索",
+    "Search settings": "搜索设置",
     "Search chapters": "搜索章节",
     "History": "历史",
     "Local": "本地",
@@ -954,7 +955,9 @@
     "Recommended": "推荐",
     "Because you like @tag": "因为你喜欢「@tag」",
     "Favorite a comic from any source and it shows up here.": "从任意漫画源收藏的漫画都会出现在这里。",
-    "No favorites yet": "还没有收藏"
+    "No favorites yet": "还没有收藏",
+    "No recommendations": "暂无推荐",
+    "Show recommendations on explore": "在发现页显示推荐"
   },
   "zh_TW": {
     "Previous page": "上一頁",
@@ -1076,6 +1079,7 @@
     "Exit?": "確定要退出嗎？",
     "Don't ask again": "不再提示",
     "Search": "搜尋",
+    "Search settings": "搜尋設定",
     "Search chapters": "搜尋章節",
     "History": "歷史",
     "Local": "本機",
@@ -1911,7 +1915,9 @@
     "Recommended": "推薦",
     "Because you like @tag": "因為你喜歡「@tag」",
     "Favorite a comic from any source and it shows up here.": "從任意漫畫源收藏的漫畫都會出現在這裡。",
-    "No favorites yet": "還沒有收藏"
+    "No favorites yet": "還沒有收藏",
+    "No recommendations": "暫無推薦",
+    "Show recommendations on explore": "在探索頁顯示推薦"
   },
   "ja_JP": {
     "Previous page": "前のページ",
@@ -2032,6 +2038,7 @@
     "Exit?": "終了しますか？",
     "Don't ask again": "次回から表示しない",
     "Search": "検索",
+    "Search settings": "設定を検索",
     "Search chapters": "チャプターを検索",
     "History": "履歴",
     "Local": "ローカル",
@@ -2868,6 +2875,8 @@
     "Recommended": "おすすめ",
     "Because you like @tag": "「@tag」が好きだから",
     "Favorite a comic from any source and it shows up here.": "どのソースでお気に入りに追加した作品もここに表示されます。",
-    "No favorites yet": "お気に入りはまだありません"
+    "No favorites yet": "お気に入りはまだありません",
+    "No recommendations": "おすすめはありません",
+    "Show recommendations on explore": "探索ページに推薦を表示"
   }
 }

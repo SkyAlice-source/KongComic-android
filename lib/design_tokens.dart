@@ -178,6 +178,12 @@ const double kcSpaceSm = 8;
 const double kcSpaceMd = 12;
 const double kcSpaceLg = 16;
 
+/// 根页共享顶栏（`NaviPane.buildTop`）的栏体高度，不含状态栏内边距。
+///
+/// 自绘顶栏的根 tab（收藏 / 历史）必须用同一个值：`SliverAppbar` 默认的
+/// 52dp 会把标题整体下移 2dp，与相邻 tab 切换时标题会上下跳一下。
+const double kcRootTopBarHeight = 48;
+
 // ── 圆角（精确值令牌，覆盖散落字面量，零视觉改动）──────
 const double kcRadius3 = 3;
 const double kcRadius4 = 4;

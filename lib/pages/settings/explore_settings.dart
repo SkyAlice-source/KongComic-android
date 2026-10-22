@@ -18,6 +18,10 @@ class _ExploreSettingsState extends State<ExploreSettings> {
           settingKey: "comicDisplayMode",
           optionTranslation: {"detailed": "Detailed".tl, "brief": "Brief".tl},
         ).toSliver(),
+        _SwitchSetting(
+          title: "Show recommendations on explore".tl,
+          settingKey: "showRecommendOnExplore",
+        ).toSliver(),
         _SliderSetting(
           title: "Size of comic tile".tl,
           settingsIndex: "comicTileScale",

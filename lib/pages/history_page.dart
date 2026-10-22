@@ -11,7 +11,7 @@ import 'package:kong_comic/pages/search_page.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
-/// 历史页：自绘整条顶栏（标题 + 工具胶囊条），故实现 [SelfTopBarPage]
+/// 历史页：自绘整条顶栏（标题 + 右上角图标按钮），故实现 [SelfTopBarPage]
 /// 请求共享顶栏整体让位。此前靠 `main_page` 里硬编码的 `[1, 4]` 索引，
 /// 底栏顺序一变就会指错页。
 class HistoryPage extends StatefulWidget implements SelfTopBarPage {
@@ -269,17 +269,26 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         body: SmoothCustomScrollView(
           controller: _scrollController,
           slivers: [
-            // 历史页顶栏（标题 + 工具胶囊条）由本页自绘，与收藏页同一套外观。
-            // 共享顶栏已通过 NaviPane.topBarHiddenPages 对历史页整条让位，
-            // 因此标题也在这里承担，避免出现「两排工具栏」。
-            SliverAppbar(
-              title: multiSelectMode
-                  ? Text(
-                      "Selected @c comics".tlParams({
-                        "c": selectedComics.length,
-                      }),
-                    )
-                  : Text("History".tl),
+            // 历史页顶栏（标题 + 右上角图标）由本页自绘，外观与共享顶栏
+            // （NaviPane.buildTop）逐项对齐：标题贴左 16dp、20pt 粗体；
+            // 右上角是平铺的独立图标按钮 + 8dp 收尾。
+            //
+            // 共享顶栏已通过 [SelfTopBarPage] 对历史页整条让位，标题只能在这里
+            // 承担，否则会出现「两排工具栏」。
+                        SliverAppbar(
+              // 与共享顶栏同高，切 tab 时标题不会上下跳 2dp。
+              // 与共享顶栏逐项对齐：
+              // - 同高（48，切 tab 标题不上下跳）；
+              // - 纯色不透明 + 不投影（共享顶栏就是纯色 Material，玻璃态会把
+              //   下方封面模糊进栏体、在下缘留下一条忽明忽暗的色带，看起来像
+              //   顶栏和内容分了两层）；
+              // - 标题 20pt 粗体、贴左 16dp。
+              height: kcRootTopBarHeight,
+              style: AppbarStyle.shadow,
+              shadowOnScroll: false,
+              // 根 tab 没有返回箭头：8 的间距让标题首字正好落在 16 的内容基准线上。
+              titleGap: kcSpaceSm,
+              title: _buildTitle(),
               actions: multiSelectMode
                   ? _multiSelectActions()
                   : _normalActions(),
@@ -353,110 +362,129 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     );
   }
 
-  /// 正常模式操作：布局 / 筛选 / 多选 / 更多（刷新全部·清空历史）。
-  /// 外观与收藏页完全一致（[ToolsPill]）：胶囊条 + 中性图标，红只用于「筛选已启用」。
-  /// 共享顶栏已对历史页让位，所以「列表/网格切换」由这里承担；
-  /// 清空/刷新是低频且危险/耗时的动作，收进「更多」菜单。
+  /// 顶栏标题：与共享顶栏 [NaviPane.buildTop] 同款（kcTitleMain + 粗体）。
+  ///
+  /// [SliverAppbar] 默认给的是 kcAppbarTitle(20) + w600 —— 字号一样、字重偏细，
+  /// 和分类/主页/发现摆在一起切换能看出不是同一套字。
+  Widget _buildTitle() {
+    const style = TextStyle(
+      fontSize: kcTitleMain,
+      fontWeight: FontWeight.bold,
+    );
+    return multiSelectMode
+        ? Text(
+            "Selected @c comics".tlParams({"c": selectedComics.length}),
+            style: style,
+          )
+        : Text("History".tl, style: style);
+  }
+
+  /// 右上角「更多」：图标按钮样式与共享顶栏一致，菜单沿用全站 [showMenuX]。
+  Widget _moreButton(List<MenuEntry> entries) {
+    return Builder(
+      builder: (ctx) => IconButton(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreVertical, size: 22),
+        tooltip: "More".tl,
+        onPressed: () {
+          final rb = ctx.findRenderObject() as RenderBox;
+          showMenuX(ctx, rb.localToGlobal(Offset.zero), entries);
+        },
+      ),
+    );
+  }
+
+  /// 正常模式操作：布局 / 筛选 / 多选 / 更多（刷新全部·清空历史·搜索·设置）。
+  ///
+  /// 外观与共享顶栏一致 —— 平铺的 [IconButton]，不再套「工具胶囊条」容器：
+  /// 胶囊条是列表内的临时工具栏，出现在根 tab 的 20pt 粗体标题旁边，会让历史页
+  /// 在几个 tab 之间显得不是一套。红只用于「状态」（筛选非默认时点亮）。
   List<Widget> _normalActions() => [
-    const SizedBox(width: 12),
-    ToolsPill(
-      children: [
-        // 布局切换做成双态分段：左侧「网格(简明)」、右侧「列表(详细)」，
-        // 当前布局高亮 accent 红。比原来「单图标 + 图标随状态反转」直观得多。
-        ToolsPillSegment(
-          icons: const [
-            HugeIcons.strokeRoundedGridView,
-            HugeIcons.strokeRoundedListView,
-          ],
-          tooltips: ["Switch to grid view".tl, "Switch to list view".tl],
-          selectedIndex: _isDetailedLayout ? 1 : 0,
-          onSelected: (_) => _toggleLayout(),
-        ),
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedSortDescending,
-          tooltip: "Filter".tl,
-          active: _timeFilter != 'all',
-          onPressed: _showTimeFilterDialog,
-        ),
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedCheckList,
-          tooltip: "Multi-Select".tl,
-          onPressed: () => setState(() => multiSelectMode = true),
-        ),
-        ToolsPillMoreButton(
-          entries: [
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-              text: "Refresh All Histories".tl,
-              onClick: _refreshAllHistories,
-            ),
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-              text: "Clear History".tl,
-              color: context.colorScheme.error,
-              onClick: _confirmClearHistory,
-            ),
-            // 历史页自绘顶栏后，全局共享顶栏的「搜索 / 设置」入口随之让位；
-            // 这两个是全局功能，不该在历史页彻底消失，收进「更多」兜底。
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18),
-              text: "Search".tl,
-              onClick: () => context.to(() => const SearchPage()),
-            ),
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
-              text: "Settings".tl,
-              onClick: () => context.to(() => const SettingsPage()),
-            ),
-          ],
-        ),
-      ],
+    IconButton(
+      icon: HugeIcon(
+        icon: _isDetailedLayout
+            ? HugeIcons.strokeRoundedGridView
+            : HugeIcons.strokeRoundedListView,
+        size: 22,
+      ),
+      tooltip: _isDetailedLayout
+          ? "Switch to grid view".tl
+          : "Switch to list view".tl,
+      onPressed: _toggleLayout,
     ),
+    IconButton(
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 22),
+      color: _timeFilter != 'all' ? kcAccentColor(context) : null,
+      tooltip: "Filter".tl,
+      onPressed: _showTimeFilterDialog,
+    ),
+    IconButton(
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 22),
+      tooltip: "Multi-Select".tl,
+      onPressed: () => setState(() => multiSelectMode = true),
+    ),
+    _moreButton([
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+        text: "Refresh All Histories".tl,
+        onClick: _refreshAllHistories,
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+        text: "Clear History".tl,
+        color: context.colorScheme.error,
+        onClick: _confirmClearHistory,
+      ),
+      // 共享顶栏对历史页让位后，「搜索 / 设置」这两个全局入口也得由这里兜住，
+      // 否则在历史页就彻底没了入口。
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18),
+        text: "Search".tl,
+        onClick: () => context.to(() => const SearchPage()),
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
+        text: "Settings".tl,
+        onClick: () => context.to(() => const SettingsPage()),
+      ),
+    ]),
+    // 共享顶栏右边距 16；SliverAppbar 自己已留 8，这里补 8。
+    const SizedBox(width: kcSpaceSm),
   ];
 
   /// 多选模式操作：全选 / 删除 / 更多(反选·取消) / 退出。
   List<Widget> _multiSelectActions() => [
-    const SizedBox(width: 12),
-    ToolsPill(
-      children: [
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedCheckList,
-          tooltip: "Select All".tl,
-          onPressed: selectAll,
-        ),
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedDelete01,
-          tooltip: "Delete".tl,
-          color: context.colorScheme.error,
-          onPressed: _deleteSelected,
-        ),
-        ToolsPillMoreButton(
-          entries: [
-            MenuEntry(
-              icon: HugeIcon(
-                icon: HugeIcons.strokeRoundedFlipHorizontal,
-                size: 18,
-              ),
-              text: "Invert Selection".tl,
-              onClick: invertSelection,
-            ),
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-              text: "Deselect".tl,
-              onClick: deSelect,
-            ),
-          ],
-        ),
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedCancel01,
-          tooltip: "Exit Multi-Select".tl,
-          onPressed: () => setState(() {
-            multiSelectMode = false;
-            selectedComics.clear();
-          }),
-        ),
-      ],
+    IconButton(
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 22),
+      tooltip: "Select All".tl,
+      onPressed: selectAll,
     ),
+    IconButton(
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 22),
+      color: context.colorScheme.error,
+      tooltip: "Delete".tl,
+      onPressed: _deleteSelected,
+    ),
+    _moreButton([
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedFlipHorizontal, size: 18),
+        text: "Invert Selection".tl,
+        onClick: invertSelection,
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+        text: "Deselect".tl,
+        onClick: deSelect,
+      ),
+    ]),
+    IconButton(
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 22),
+      tooltip: "Exit Multi-Select".tl,
+      onPressed: () => setState(() {
+        multiSelectMode = false;
+        selectedComics.clear();
+      }),
+    ),
+    const SizedBox(width: kcSpaceSm),
   ];
 
   /// Scroll-to-top FAB，样式与发现页完全一致（统一组件）。

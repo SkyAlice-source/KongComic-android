@@ -180,6 +180,8 @@ class SliverAppbar extends StatelessWidget {
     this.style = AppbarStyle.blur,
     this.backgroundColor,
     this.titleGap = 16,
+    this.height = _kAppBarHeight,
+    this.shadowOnScroll = true,
   });
 
   final Widget? leading;
@@ -194,6 +196,19 @@ class SliverAppbar extends StatelessWidget {
   /// 传 8，标题才会落在 16 的全局内容基准线上，与共享顶栏（NaviPane 的
   /// buildTop，左右各 16）首字对齐——否则同一颗 tab 之间会横跳 8dp。
   final double titleGap;
+
+  /// 栏体高度（不含状态栏内边距）。
+  ///
+  /// 默认 52 是内页（带返回箭头）的常规高度。自绘顶栏的根 tab 传
+  /// [kcRootTopBarHeight]（48，与共享顶栏同值），否则标题会比相邻 tab 低 2dp，
+  /// 切页时肉眼可见地窜一下。
+  final double height;
+
+  /// 内容滚到栏体下方时是否投影（[AppbarStyle.shadow] 才有效）。
+  ///
+  /// 根 tab 的自绘顶栏传 false：它要与共享顶栏（纯色 [Material]、不投影）
+  /// 完全同观感，否则一滚动就多出一条阴影线，像贴了两层。
+  final bool shadowOnScroll;
 
   final double radius;
 
@@ -224,6 +239,8 @@ class SliverAppbar extends StatelessWidget {
         style: effectiveStyle,
         backgroundColor: backgroundColor,
         titleGap: titleGap,
+        height: height,
+        shadowOnScroll: shadowOnScroll,
       ),
     );
   }
@@ -242,6 +259,10 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   final double titleGap;
 
+  final double height;
+
+  final bool shadowOnScroll;
+
   final double radius;
 
   final AppbarStyle style;
@@ -257,6 +278,8 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     this.style = AppbarStyle.blur,
     this.backgroundColor,
     this.titleGap = 16,
+    this.height = _kAppBarHeight,
+    this.shadowOnScroll = true,
   });
 
   @override
@@ -330,7 +353,7 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
       return SizedBox.expand(
         child: Material(
           color: kcAppbarOpaqueColor(context, backgroundColor),
-          elevation: shrinkOffset == 0 ? 0 : 2,
+          elevation: (shrinkOffset == 0 || !shadowOnScroll) ? 0 : 2,
           borderRadius: BorderRadius.circular(radius),
           child: body,
         ),
@@ -339,10 +362,10 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  double get maxExtent => _kAppBarHeight + topPadding;
+  double get maxExtent => height + topPadding;
 
   @override
-  double get minExtent => _kAppBarHeight + topPadding;
+  double get minExtent => height + topPadding;
 
   @override
   bool shouldRebuild(SliverPersistentHeaderDelegate oldDelegate) {
@@ -352,6 +375,8 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
         actions != oldDelegate.actions ||
         topPadding != oldDelegate.topPadding ||
         titleGap != oldDelegate.titleGap ||
+        height != oldDelegate.height ||
+        shadowOnScroll != oldDelegate.shadowOnScroll ||
         radius != oldDelegate.radius ||
         style != oldDelegate.style ||
         backgroundColor != oldDelegate.backgroundColor;

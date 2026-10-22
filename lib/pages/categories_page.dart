@@ -150,15 +150,16 @@ class _CategoriesPageState extends State<CategoriesPage>
     }
 
     return Material(
-      child: Column(
-        children: [
-          // 标签栏整条从系统返回手势里让开：否则从屏幕最左边起手横滑标签，
-          // 会被系统判成「返回」并弹出确认退出（Flutter 侧拦不住，见
-          // [SystemGestureExclusion]）。压到子页面下面时立刻撤销，让子页的
-          // 边缘侧滑返回照常工作。
-          SystemGestureExclusion(
-            enabled: NaviPane.of(context).isRootTabPage,
-            child: AppTabBar(
+      // 整页（标签栏 + 内容）一起从系统返回手势里让出**顶部一条带**：
+      // [kSystemGestureExclusionBand] 之内贴边横滑 = 切分类（系统不接管），
+      // 之下贴边横滑 = 系统返回（滑动退出）。压到子页面下面时立刻撤销，
+      // 让子页的边缘侧滑返回照常工作。
+      child: SystemGestureExclusion(
+        enabled: NaviPane.of(context).isRootTabPage,
+        excludeHeight: kSystemGestureExclusionBand,
+        child: Column(
+          children: [
+            AppTabBar(
               controller: controller,
               key: PageStorageKey(categories.toString()),
               tabs: categories.map((e) {
@@ -172,33 +173,25 @@ class _CategoriesPageState extends State<CategoriesPage>
                 return Tab(text: title.tl, key: Key(e));
               }).toList(),
               actionButton: TabActionButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedAddCircle,
+                  size: 18,
+                ),
                 text: "Add".tl,
                 onPressed: addPage,
               ),
+            ).paddingTop(context.padding.top),
+            Expanded(
+              // 手指横滑切分类**重新打开**（上一版因边缘冲突整体关掉过）。
+              // 冲突现在由上面那条手势排除带解决：顶部条带内系统不抢手势，
+              // 从那里贴边起手也只会切分类，不会再弹「确认退出」。
+              child: TabBarView(
+                controller: controller,
+                children: categories.map((e) => _CategoryPage(e)).toList(),
+              ),
             ),
-          ).paddingTop(context.padding.top),
-          Expanded(
-            // 关闭手指横滑，只保留点 Tab 切换。
-            //
-            // 分类页是**根 tab 页**：屏幕最左/最右侧约 20dp 是系统返回手势的
-            // 保留区，从那里起手横滑会被系统吃掉 —— 于是「想切分类」变成
-            // 「弹出确认退出」。这个冲突在 Flutter 侧无法拦截（系统手势在
-            // 原生层先于触摸事件分发），唯一的原生 API
-            // `setSystemGestureExclusionRects` 又限制排除区总高 200dp，盖不住
-            // 整块内容区。
-            //
-            // Material 3 也不给底部标签页之间定义横滑关系（横滑只用于同一页
-            // 内的顶部 Tab）。所以这里按规范关掉拖拽：TabController 点选仍会
-            // 驱动 PageView 做水平过渡动画，视觉上依旧是「切过去」，只是不再
-            // 和系统返回抢同一个手势。
-            child: TabBarView(
-              controller: controller,
-              physics: const NeverScrollableScrollPhysics(),
-              children: categories.map((e) => _CategoryPage(e)).toList(),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -243,13 +236,9 @@ class _CategoryPage extends StatelessWidget {
           child: Wrap(
             children: [
               if (data.enableRankingPage)
-                buildTag(
-                  "Ranking".tl,
-                  () {
-                    context.to(() => RankingPage(categoryKey: data.key));
-                  },
-                  sourceKey: sourceKey,
-                ),
+                buildTag("Ranking".tl, () {
+                  context.to(() => RankingPage(categoryKey: data.key));
+                }, sourceKey: sourceKey),
               for (var buttonData in data.buttons)
                 buildTag(
                   buttonData.label.tl,
@@ -305,7 +294,10 @@ class _CategoryPage extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 5, 10),
       child: Text(
         title.tl,
-        style: const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          fontSize: kcTitleLarge,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -317,7 +309,10 @@ class _CategoryPage extends StatelessWidget {
         children: [
           Text(
             title.tl,
-            style: const TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: kcTitleLarge,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const Spacer(),
           IconButton(
@@ -345,17 +340,13 @@ class _CategoryPage extends StatelessWidget {
   }
 
   Widget buildCategory(CategoryItem c, String sourceKey) {
-    return buildTag(
-      c.label.ts(sourceKey),
-      () {
-        // 分类项可能被点击时 App 已重建过 navigator：用 `?.` + 判空，别用
-        // `!` —— 这里崩过（currentContext 在路由切换的那一帧为 null）。
-        final navContext = App.mainNavigatorKey?.currentContext;
-        if (navContext == null) return;
-        c.target.jump(navContext);
-      },
-      sourceKey: sourceKey,
-    );
+    return buildTag(c.label.ts(sourceKey), () {
+      // 分类项可能被点击时 App 已重建过 navigator：用 `?.` + 判空，别用
+      // `!` —— 这里崩过（currentContext 在路由切换的那一帧为 null）。
+      final navContext = App.mainNavigatorKey?.currentContext;
+      if (navContext == null) return;
+      c.target.jump(navContext);
+    }, sourceKey: sourceKey);
   }
 
   /// 基于标签名生成 chip 底色（稳定哈希）；AMOLED 模式下用灰阶。
@@ -377,7 +368,12 @@ class _CategoryPage extends StatelessWidget {
         builder: (context) {
           final brightness = Theme.of(context).brightness;
           final amoled = appdata.isAmoledMode;
-          final bg = _colorForTag(label, brightness, amoled, sourceKey: sourceKey);
+          final bg = _colorForTag(
+            label,
+            brightness,
+            amoled,
+            sourceKey: sourceKey,
+          );
           return Material(
             borderRadius: BorderRadius.circular(kcRadius10),
             color: bg,
@@ -395,10 +391,7 @@ class _CategoryPage extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Text(
                   label,
-                  style: TextStyle(
-                    fontSize: kcBody,
-                    color: kcTagTextColor(bg),
-                  ),
+                  style: TextStyle(fontSize: kcBody, color: kcTagTextColor(bg)),
                 ),
               ),
             ),

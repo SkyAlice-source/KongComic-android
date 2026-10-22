@@ -1,8 +1,11 @@
 part of 'components.dart';
 
 class MouseBackDetector extends StatelessWidget {
-  const MouseBackDetector(
-      {super.key, required this.onTapDown, required this.child});
+  const MouseBackDetector({
+    super.key,
+    required this.onTapDown,
+    required this.child,
+  });
 
   final Widget child;
 
@@ -71,6 +74,13 @@ class _AnimatedTapRegionState extends State<AnimatedTapRegion> {
   }
 }
 
+/// 系统允许的最大排除带高度（dp）。
+///
+/// Android 会把 `systemGestureExclusionRects` 按高度累加裁剪到 200dp，
+/// 超出部分**直接丢掉**（不报错、不生效）。这里留 2dp 余量，避免四舍五入
+/// 后越界被裁掉尾部。
+const double kSystemGestureExclusionBand = 198;
+
 /// 把自己占的那一块从 Android 的系统返回手势里排除掉。
 ///
 /// 系统返回手势的起手区是屏幕左右边缘约 20dp 的竖条，而且**优先级高于应用
@@ -79,8 +89,12 @@ class _AnimatedTapRegionState extends State<AnimatedTapRegion> {
 ///
 /// Flutter 拦不住这件事 —— 系统手势在原生层先于触摸事件分发。唯一能让位的
 /// 是 Android 10 的 `systemGestureExclusionRects`，但它规定同一条边被排除
-/// 的高度合计不得超过 200dp，所以只能保护顶部那一条标签栏（48dp）；整块内容
-/// 区无解，那部分改为关掉页面横向拖拽（见 `TabBarView.physics`）。
+/// 的高度合计不得超过 200dp。
+///
+/// 于是「横滑切 tab / 边缘滑动退出」只能按高度分区：[excludeHeight] 之内
+/// 让给内容（横滑切 tab），之下仍是系统返回（滑动退出）。分类页和发现页用
+/// [kSystemGestureExclusionBand] 把这条带拉到上限，覆盖「标签栏 + 一行半
+/// 内容」——这是系统允许的最大范围，再想往上加会被静默裁掉。
 ///
 /// ⚠️ [dispose] 时必定清除：排除区是**窗口级**状态，留着会让子页面无法从
 /// 边缘侧滑返回。
@@ -89,6 +103,7 @@ class SystemGestureExclusion extends StatefulWidget {
     super.key,
     required this.child,
     this.enabled = true,
+    this.excludeHeight,
   });
 
   final Widget child;
@@ -98,6 +113,12 @@ class SystemGestureExclusion extends StatefulWidget {
   /// 用在「本页被压在子页面下面」的情形：此时边缘侧滑应该回到上一级，不能
   /// 再被这条排除区挡住。
   final bool enabled;
+
+  /// 只把**自身顶部**这一段高度排除出去；null = 整个自身高度。
+  ///
+  /// 包住整页（标签栏 + 内容区）时传 [kSystemGestureExclusionBand]：只有顶部
+  /// 那条可横滑，下半屏的贴边横滑仍然交给系统返回。
+  final double? excludeHeight;
 
   @override
   State<SystemGestureExclusion> createState() => _SystemGestureExclusionState();
@@ -158,11 +179,18 @@ class _SystemGestureExclusionState extends State<SystemGestureExclusion> {
       final width = (size.width * ratio).round();
       if (band <= 0 || width <= 0) return;
 
+      // 只排除顶部一段时，下缘按 excludeHeight 裁：矩形高度必须 ≤200dp，
+      // 否则系统会静默丢掉超出的部分（也可能整条失效）。
+      final excludedHeight = widget.excludeHeight == null
+          ? size.height
+          : math.min(size.height, widget.excludeHeight!);
+      if (excludedHeight <= 0) return;
+
       _apply([
         0,
         (origin.dy * ratio).round(),
         band < width ? band : width,
-        ((origin.dy + size.height) * ratio).round(),
+        ((origin.dy + excludedHeight) * ratio).round(),
       ]);
     } catch (_) {
       // 拿不到几何信息就维持现状：下一次 build 还会再试。
