@@ -323,8 +323,10 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
         // 用 MediaQuery 会把卡片算大一圈，一行连第 4 张的边都露不出来。
         // -52 = 左侧留白 16 + 右侧让位 24 + 两张卡间距 12。
         final cardW = math.max(96.0, (constraints.maxWidth - 52) / 3.3);
-        // 封面按 0.7 宽高比（接近标准封面 2:3，减少裁切）；标题已叠在封面
-        // 底部渐变上，不再需要预留下方标题行的高度。
+        // cardH 只是**封面**高度，按 0.7 宽高比（接近标准封面 2:3，减少裁切）。
+        // 书名行的开销由 [_shelf] 自己按 [comicTileTitleBlock] 加上去——写死在
+        // 这里就会和 ComicTile 的实际排版对不上，多出来的高度表现为整排下面的
+        // 一片空白（不同字号档位下尤其明显）。
         final cardH = cardW / 0.7;
 
         final shelves = <Widget>[];
@@ -344,7 +346,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
             // 顶栏结构与分类/主页/发现对齐：标题贴左、动作放在右上角。
             // 之前把「文件夹」做成 leading 的汉堡按钮，标题被整体右推一格，
             // 和别的页面首字对不齐（用户反馈「破坏一体性」）。
-                        SliverAppbar(
+            SliverAppbar(
               // 与共享顶栏同高，切 tab 时标题不会上下跳 2dp。
               // 与共享顶栏逐项对齐：
               // - 同高（48，切 tab 标题不上下跳）；
@@ -605,8 +607,15 @@ Widget _shelf({
   String? subtitle,
   double topPadding = 24,
 }) {
+  // 书名行开销：书名放在封面下方独立一行，卡片高度必须和 [ComicTile] 内部
+  // 完全一致。之前书名叠在封面底部渐变上，封面被卡片高度「吃掉」标题那一段、
+  // 书名又和「第 X 话 · 进度」胶囊抢同一条底边，部分设备上直接看不见。
+  final titleBlock = comicTileTitleBlock(
+    cardW,
+    MediaQuery.textScalerOf(context),
+  );
   // 斜放带来的外扩：槽位高度与左右留白都按它算，保证旋转后的封面不会探出货架。
-  final lean = _ShelfLean.of(width: cardW, height: cardH);
+  final lean = _ShelfLean.of(width: cardW, height: cardH + titleBlock);
 
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -620,10 +629,10 @@ Widget _shelf({
         topPadding: topPadding,
       ),
       SizedBox(
-        // 槽位 = 封面 + 顶端上翘外扩 + 底角下沉 + 1px 余量：整个旋转外框都
-        // 兜在这一行里，所以不需要靠 Clip.none 去「放行」溢出——那会让横向
-        // 滚动区把书画到页面外面的左栏上。
-        height: cardH + lean.rise + lean.sink + 1,
+        // 槽位 = 封面 + 书名行 + 顶端上翘外扩 + 底角下沉 + 1px 余量：整个旋转
+        // 外框都兜在这一行里，所以不需要靠 Clip.none 去「放行」溢出——那会让
+        // 横向滚动区把书画到页面外面的左栏上。
+        height: cardH + titleBlock + lean.rise + lean.sink + 1,
         child: ShaderMask(
           // 右缘渐隐：横滑列表被屏幕边缘一刀切会显得「没做完」，也给不出
           // 「后面还有」的暗示。渐隐宽度与右侧留白一致（_kShelfEdgeFade），
@@ -661,7 +670,7 @@ Widget _shelf({
                   _shelfBook(
                     comic: c,
                     width: cardW,
-                    height: cardH,
+                    height: cardH + titleBlock,
                     onTap: () => onTap(c),
                   ),
                   // 间距要容得下单本书向左的外扩，否则相邻两本会在顶角处压叠。
@@ -706,8 +715,9 @@ Widget _shelfBook({
           // 货架卡片本来就小，再叠一条「来源 · 收藏日期」黑条会把封面
           // 压掉 1/6 且字号糊成一团；来源信息留给列表页和详情页。
           showBottomSourceDate: false,
-          // 书籍样式：封面底部压一条暗色渐变显示漫画名。
-          showTitleAtBottom: true,
+          // 书名放封面**下方**独立一行：叠在封面底部会和「第 X 话 · 进度」
+          // 胶囊抢同一条底边，小卡片上直接糊成一片甚至看不见（用户反馈）。
+          showTitleAtBottom: false,
           onTap: onTap,
         ),
       ),

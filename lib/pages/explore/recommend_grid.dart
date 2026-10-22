@@ -106,121 +106,87 @@ class ExploreRecommendPageState
       return Center(
         child: Text(
           "No recommendations".tl,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
     final comics = _comics;
     final cs = Theme.of(context).colorScheme;
 
-    final width = MediaQuery.of(context).size.width;
-    const pad = kcSpaceLg;
-    const gap = 12.0;
-    final cardW = (width - pad * 2 - gap * 2) / 3;
-    final coverH = cardW / 0.7;
-    // 格子高度要和 ComicTile（brief 模式、标题在封面下方）的真实开销对齐：
-    // 标题块（上内边距 4 + 行高，随字号档位与系统字号缩放变化）＋ ComicTile
-    // 自带的上下各 8 内边距。原先把高度写死成「封面 + 22」，只够标题、没算
-    // 内边距，封面被压短、四周露出卡片底色，看着像「越界」。
-    final titleFont = cardW < 120
-        ? kcCaption
-        : cardW < 150
-            ? kcBody
-            : kcFont15;
-    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
-    final titleBlock = 4 + titleFont * 1.2 * textScale;
-    final cellH = coverH + titleBlock + 16; // 封面 + 标题块 + 上下内边距
-    final childAspect = cardW / cellH;
-
-    return SingleChildScrollView(
-      controller: scrollController,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(pad, 12, pad, pad + MediaQuery.of(context).padding.bottom),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    "Recommended".tl,
-                    style: const TextStyle(
-                      fontSize: kcSectionTitle,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Flexible(
-                  child: Text(
-                    "Because you like @tag".tlParams({'tag': basis.tag}),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: kcCaption,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
+    // 「换一批」：加载中转圈，否则是可点的图标 + 文字。做成方法是因为空状态
+    // 与网格状态都要用，且空状态要跟着提示一起居中。
+    Widget refreshButton() => _loading
+        ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : TextButton.icon(
+            // 空结果也给「换一批」：源偶尔超时/限流时，整页只剩一句
+            // 「暂无推荐」，用户没有重新拉取的入口。
+            onPressed: () => _load(refresh: true),
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedRefresh,
+              size: 16,
+              color: cs.onSurfaceVariant,
             ),
-            const SizedBox(height: 10),
-            if (comics == null)
-              SizedBox(
-                height: cellH * 3 + gap * 2,
-                child: const Center(child: CircularProgressIndicator()),
-              )
-            else if (comics.isEmpty)
-              SizedBox(
-                height: 72,
-                child: Center(
-                  child: Text(
+            label: Text(
+              "Refresh".tl,
+              style: TextStyle(fontSize: kcBody, color: cs.onSurfaceVariant),
+            ),
+          );
+
+    return CustomScrollView(
+      controller: scrollController,
+      slivers: [
+        if (comics == null)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (comics.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
                     "No recommendations".tl,
                     style: TextStyle(color: cs.onSurfaceVariant),
                   ),
-                ),
-              )
-            else
-              GridView.count(
-                crossAxisCount: 3,
-                childAspectRatio: childAspect,
-                crossAxisSpacing: gap,
-                mainAxisSpacing: gap,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  for (final c in comics)
-                    ComicTile(
-                      comic: c,
-                      showSourceOnCover: false,
-                      showBottomSourceDate: false,
-                      onTap: () => _openComic(c),
-                    ),
+                  const SizedBox(height: 8),
+                  refreshButton(),
                 ],
               ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Spacer(),
-                _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : IconButton(
-                        icon: HugeIcon(
-                          icon: HugeIcons.strokeRoundedRefresh,
-                          size: 18,
-                          color: cs.onSurfaceVariant,
-                        ),
-                        tooltip: "Refresh".tl,
-                        onPressed: () => _load(refresh: true),
-                      ),
-              ],
             ),
-          ],
-        ),
-      ),
+          )
+        else ...[
+          // 与漫画源列表用同一个网格组件（内部是 SliverGridDelegateWithComics）：
+          // 列数、宽高比、间距、字号档位全部跟随「格子大小」设置。之前这里手算
+          // 3 列 + 固定 12 间距，结果推荐页的卡片比别的源明显大一圈，看着像另一套。
+          SliverGridComics(
+            comics: comics,
+            showSourceOnCover: false,
+            onTap: (c, _) => _openComic(c),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              // 底部留出浮岛式底栏与手势条：这里没有 SliverListLoadingIndicator
+              // 兜底，不自己让位就会被底栏压住。
+              padding: EdgeInsets.fromLTRB(
+                kcSpaceLg,
+                12,
+                kcSpaceLg,
+                24 + MediaQuery.of(context).padding.bottom,
+              ),
+              child: Center(child: refreshButton()),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -35,6 +35,22 @@ ImageProvider? _findImageProvider(Comic comic) {
 /// 解析顺序与 [ComicTile] 完全一致：自定义封面 > 本地漫画 > 历史 > 网络缓存。
 ImageProvider? comicCoverImageProvider(Comic comic) => _findImageProvider(comic);
 
+/// brief 模式卡片里「封面下方标题行」的垂直开销（不含封面本身）。
+///
+/// 收藏书架按这条公式给每个卡槽预留高度。之前书架把卡高写死成封面高，
+/// 书名叠在封面底部又被「第 X 话 · 进度」胶囊挤掉，看起来就是「名字没了、
+/// 一排下面空一大截」。字号档位与 [ComicTile] 内部保持一致，行高也统一
+/// 锁在 1.3，两端算出来的值才对得上。
+double comicTileTitleBlock(double cardWidth, TextScaler scaler) {
+  final fontSize = cardWidth < 120
+      ? kcCaption
+      : cardWidth < 150
+          ? kcBody
+          : kcFont15;
+  // 上内边距 4 + 一行文字。
+  return 4 + scaler.scale(fontSize) * 1.3;
+}
+
 class ComicTile extends StatelessWidget {
   const ComicTile({
     super.key,
@@ -811,6 +827,10 @@ class ComicTile extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: titleFont,
+                      // 行高锁定：卡槽高度按 [comicTileTitleBlock] 算，
+                      // 靠字体默认 metrics 会随系统字体/Sans fallback 漂移，
+                      // 高度对不上时多出来的部分就是一整条空白。
+                      height: 1.3,
                     ),
                   ),
                 ),

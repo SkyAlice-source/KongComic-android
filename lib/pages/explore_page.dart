@@ -297,28 +297,26 @@ class _ExplorePageState extends State<ExplorePage>
           // 抬升，这里只留 endFloat 默认的 16 边距。原 90 会导致发现页 FAB 比
           // 历史页高出一大截（90 + bottomBarHeight vs 16 + bottomBarHeight）。
           bottom: 16,
-          // 推荐页内容固定一屏、右下角已有「换一批」刷新按钮，不再显示回顶
-          // FAB——两者挨在一起既拥挤又没用（用户反馈）。
-          child: tabKeys[controller.index] == kRecommendTabKey
-              ? const SizedBox()
-              : ValueListenableBuilder<bool>(
-                  valueListenable: showFB,
-                  builder: (context, visible, _) => AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 150),
-                    reverseDuration: const Duration(milliseconds: 150),
-                    child: visible ? buildFAB() : const SizedBox(),
-                    transitionBuilder: (widget, animation) {
-                      var tween = Tween<Offset>(
-                        begin: const Offset(0, 1),
-                        end: const Offset(0, 0),
-                      );
-                      return SlideTransition(
-                        position: tween.animate(animation),
-                        child: widget,
-                      );
-                    },
-                  ),
-                ),
+          // 推荐页同样给回顶按钮：它也是可滚动的（一行 9 本、底部还有「换一批」），
+          // 之前为躲「换一批」把它整个藏了，用户能感觉到「这个 tab 少了点什么」。
+          child: ValueListenableBuilder<bool>(
+            valueListenable: showFB,
+            builder: (context, visible, _) => AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              reverseDuration: const Duration(milliseconds: 150),
+              child: visible ? buildFAB() : const SizedBox(),
+              transitionBuilder: (widget, animation) {
+                var tween = Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: const Offset(0, 0),
+                );
+                return SlideTransition(
+                  position: tween.animate(animation),
+                  child: widget,
+                );
+              },
+            ),
+          ),
         ),
       ],
     );
