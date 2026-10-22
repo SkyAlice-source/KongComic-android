@@ -957,7 +957,8 @@
     "Favorite a comic from any source and it shows up here.": "从任意漫画源收藏的漫画都会出现在这里。",
     "No favorites yet": "还没有收藏",
     "No recommendations": "暂无推荐",
-    "Show recommendations on explore": "在发现页显示推荐"
+    "Show recommendations on explore": "在发现页显示推荐",
+    "Shuffle": "换一批"
   },
   "zh_TW": {
     "Previous page": "上一頁",
@@ -1917,7 +1918,8 @@
     "Favorite a comic from any source and it shows up here.": "從任意漫畫源收藏的漫畫都會出現在這裡。",
     "No favorites yet": "還沒有收藏",
     "No recommendations": "暫無推薦",
-    "Show recommendations on explore": "在探索頁顯示推薦"
+    "Show recommendations on explore": "在探索頁顯示推薦",
+    "Shuffle": "換一批"
   },
   "ja_JP": {
     "Previous page": "前のページ",
@@ -2877,6 +2879,7 @@
     "Favorite a comic from any source and it shows up here.": "どのソースでお気に入りに追加した作品もここに表示されます。",
     "No favorites yet": "お気に入りはまだありません",
     "No recommendations": "おすすめはありません",
-    "Show recommendations on explore": "探索ページに推薦を表示"
+    "Show recommendations on explore": "探索ページにおすすめを表示",
+    "Shuffle": "別のおすすめ"
   }
 }

@@ -12,7 +12,29 @@ extension AppTranslation on String {
     if (locale.languageCode == "en") {
       key = "en_US";
     }
-    return (translations[key]?[this]) ?? this;
+    // 精确命中优先；命不中再按语言代码兜底。
+    //
+    // 只做精确匹配时，任何「语言 + 地区」组合与表里的键对不上，整张表就会
+    // 静默退回英文原文 —— 例如某些 ROM 把日语报成不带地区的 `ja`，拼出的
+    // 键是 `ja_null`；或者 zh 带脚本标签（`zh_Hans` / `zh_Hant_HK`）。
+    // [App] 只对 zh / en 做过归一化，其余语言全靠这里保底，否则用户会看到
+    // 一个「界面大半中文、个别词是英文」的混合状态，很难反应过来是语言键
+    // 没匹配上。
+    return (translations[key] ?? _fallbackTable(locale.languageCode))?[this] ??
+        this;
+  }
+
+  /// 同语言兜底：取任意一张以 `语言代码_` 开头的表。
+  ///
+  /// zh 由 [App.locale] 归一化成 `zh_CN` / `zh_TW`，真走到这里只可能是
+  /// 其它代码（如 `ja_jp` 大小写异常）—— 所以这里不区分简繁，只保证
+  /// 「别掉回英文」。
+  Map<String, String>? _fallbackTable(String languageCode) {
+    final prefix = "${languageCode}_";
+    for (var entry in translations.entries) {
+      if (entry.key.startsWith(prefix)) return entry.value;
+    }
+    return null;
   }
 
   String get tl => _translate();
