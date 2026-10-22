@@ -635,11 +635,13 @@ class _LeftBarState extends State<_LeftBar>
   }
 }
 
-/// 收藏页顶部分组胶囊：本地 / 网络（一级切换）。
+/// 收藏页顶部的文件夹胶囊条。
 ///
-/// 从 [_LeftBar] 抽到收藏正文顶部，让单栏窄屏也能直接切分组，不必先点开弹窗。
-/// 点胶囊只切顶层分组、原地换内容；具体某个本地子文件夹 / 网络源仍走左上角
-/// 文件夹图标 → 弹窗列表。本身不挂菜单（创建文件夹 / 设置等留在弹窗头部）。
+/// 取代原来的「本地 | 网络」两段等分胶囊 —— 那两个胶囊只表达顶层分组，
+/// 真正的文件夹仍要点开左上角弹窗才看得到。现在把「全部 + 各本地文件夹 +
+/// 各网络收藏源」平铺成一条可横滑的胶囊，一次点到位（Mihon / Kotatsu 的
+/// 分类 tab 同范式）；配合 [_SliverFolderChipsHeader] 常驻在顶栏下方，
+/// 滚到列表深处也不用滚回顶部才能换文件夹。
 class _GroupPills extends StatefulWidget {
   const _GroupPills({required this.favPage});
 
@@ -650,91 +652,125 @@ class _GroupPills extends StatefulWidget {
 }
 
 class _GroupPillsState extends State<_GroupPills> with AutoListenMixin {
-  List<String> networkFolders = const [];
+  final ScrollController _controller = ScrollController();
 
-  void _findNetworkFolders() {
-    final all = ComicSource.enabled()
-        .where((e) => e.favoriteData != null)
-        .map((e) => e.favoriteData!.key)
-        .toList();
-    final settings = appdata.settings['favorites'] as List;
-    final list = <String>[];
-    for (final p in settings) {
-      if (all.contains(p) && !list.contains(p)) list.add(p);
-    }
-    networkFolders = list;
-  }
+  /// 只挂在当前选中项上：切换后把它滚进视野中部。
+  final GlobalKey _selectedKey = GlobalKey();
+
+  var _localFolders = <String>[];
+  var _networkFolders = <String>[];
+
+  String? _lastFolder;
+  bool _lastIsNetwork = false;
 
   @override
   void initState() {
     super.initState();
-    _findNetworkFolders();
-    // 用户在设置里增删收藏源后，胶囊的「网络」可用态要跟着变。
-    listen(appdata.settings, _onSettings);
+    _load();
+    // 建 / 删文件夹、改分类、增删收藏源后，胶囊要跟着变。
+    listen(LocalFavoritesManager(), _reload);
+    listen(appdata.settings, _reload);
   }
 
-  void _onSettings() {
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _load() {
+    final hidden = BookshelfLayout.hiddenFolders;
+    _localFolders =
+        userFolderNames().where((f) => !hidden.contains(f)).toList();
+    _networkFolders = widget.favPage._computeNetworkFolders();
+  }
+
+  void _reload() {
     if (!mounted) return;
-    setState(_findNetworkFolders);
+    setState(_load);
+  }
+
+  String _displayName(String folder) =>
+      getFavoriteDataOrNull(folder)?.title ?? folder;
+
+  void _ensureSelectedVisible() {
+    final ctx = _selectedKey.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      alignment: 0.5,
+      duration: AppAnimations.duration(const Duration(milliseconds: 220)),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = context.colorScheme;
     final fp = widget.favPage;
-    final isNetwork = fp.isNetwork;
-    final isLocal = !isNetwork;
-    final counts = fp._favoritesGroupCounts();
 
-    Widget pill(
-      String label,
-      bool selected,
-      VoidCallback? onTap, {
+    // 只在选中项真正变化时滚一次：点已可见的胶囊不该出现无谓的居中跳动。
+    if (_lastFolder != fp.folder || _lastIsNetwork != fp.isNetwork) {
+      _lastFolder = fp.folder;
+      _lastIsNetwork = fp.isNetwork;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _ensureSelectedVisible();
+      });
+    }
+
+    Widget cell({
+      required String label,
+      required bool selected,
+      required VoidCallback onTap,
       int? count,
+      bool network = false,
     }) {
-      // 未选中且不可点（例如没有任何网络收藏源）= 弱化态，避免点了没反应。
-      final disabled = onTap == null && !selected;
-      return Opacity(
-        opacity: disabled ? 0.45 : 1,
-        child: InkWell(
+      return Material(
+        // 选中的那颗挂 key，供切换后自动滚进视野。
+        key: selected ? _selectedKey : null,
+        color: selected ? kcAccentColor(context) : Colors.transparent,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kcPillRadius),
+          side: selected
+              ? BorderSide.none
+              : BorderSide(color: scheme.outlineVariant, width: 0.8),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
           onTap: selected ? null : onTap,
-          child: AnimatedContainer(
-            duration: AppAnimations.duration(const Duration(milliseconds: 180)),
-            height: 34,
+          child: Container(
+            height: 32,
             padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              // 选中态走 accent 红（设计系统：选中胶囊一律红底白字），不再用 primaryContainer。
-              color: selected ? kcAccentColor(context) : Colors.transparent,
-              borderRadius: BorderRadius.circular(kcPillRadius),
-              border: selected
-                  ? null
-                  : Border.all(color: scheme.outlineVariant, width: 0.8),
-            ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (network) ...[
+                  HugeIcon(
+                    icon: HugeIcons.strokeRoundedGlobe02,
+                    size: 13,
+                    color:
+                        selected ? kcOnAccentColor : scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 5),
+                ],
                 Text(
                   label,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: kcCaption,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: selected ? kcOnAccentColor : scheme.onSurfaceVariant,
+                    color: selected ? kcOnAccentColor : scheme.onSurface,
                   ),
                 ),
                 if (count != null) ...[
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   Text(
                     count.toString(),
                     style: TextStyle(
                       fontSize: kcCaption,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight: FontWeight.w500,
                       color: selected
-                          ? kcOnAccentColor
+                          ? kcOnAccentColor.withValues(alpha: 0.8)
                           : scheme.onSurfaceVariant,
                     ),
                   ),
@@ -746,42 +782,82 @@ class _GroupPillsState extends State<_GroupPills> with AutoListenMixin {
       );
     }
 
-    return Padding(
-      // 等宽铺满：三颗胶囊各占 1/3 行宽，像分段控件，点击区更大也更整齐。
-      // 不再用 SingleChildScrollView——胶囊不再需要横向滚动，也就没有
-      // PageStorage 读 state Map 触发 `as double?` 崩溃的隐患（见上轮修复）。
-      padding: const EdgeInsets.fromLTRB(
-        kcSpaceLg,
-        kcSpaceSm,
-        kcSpaceLg,
-        kcSpaceSm,
-      ),
-      child: Row(
-        children: [
-          // 本地是「分组」：原地切换，收藏正文跟着换。
-          Expanded(
-            child: pill("Local".tl, isLocal, () {
-              fp.setFolder(false, _localAllFolderLabel);
-            }, count: counts['local']),
-          ),
-          const SizedBox(width: kcSpaceXs),
-          // 网络是「分组」但排最后：依赖源可用性、相对本地是次要视图。
-          Expanded(
-            child: pill(
-              "Network".tl,
-              isNetwork,
-              networkFolders.isEmpty
-                  ? null
-                  : () {
-                      fp.setFolder(true, networkFolders.first);
-                    },
-              count: counts['network'],
+    final cells = <Widget>[];
+    for (final f in _localFolders) {
+      cells.add(
+        cell(
+          label: _displayName(f),
+          selected: !fp.isNetwork && fp.folder == f,
+          count: LocalFavoritesManager().folderComics(f),
+          onTap: () => fp.setFolder(false, f),
+        ),
+      );
+    }
+    for (final k in _networkFolders) {
+      cells.add(
+        cell(
+          label: _displayName(k),
+          selected: fp.isNetwork && fp.folder == k,
+          network: true,
+          onTap: () => fp.setFolder(true, k),
+        ),
+      );
+    }
+
+    return Container(
+      // 作为 pinned header 时会盖住滚动内容，底色必须与页面同源，否则封面透上来。
+      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.only(top: 4, bottom: 10),
+      child: SingleChildScrollView(
+        // 不用 PageStorageKey：横向滚动位置无需持久化，也避开与纵向列表共用
+        // PageStorage 标识导致的 `as double?` 崩溃（见 1.5.x 修复记录）。
+        key: const ValueKey('favoriteFolderChips'),
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
+        child: Row(
+          children: [
+            // 「全部」钉在最前：最高频的落点，不该被文件夹挤到屏幕外。
+            cell(
+              label: "All".tl,
+              selected: !fp.isNetwork && fp.folder == _localAllFolderLabel,
+              count: LocalFavoritesManager().totalComics,
+              onTap: () => fp.setFolder(false, _localAllFolderLabel),
             ),
-          ),
-        ],
+            for (final c in cells) ...[
+              const SizedBox(width: 8),
+              c,
+            ],
+          ],
+        ),
       ),
     );
   }
+}
+
+/// 把文件夹胶囊条钉在顶栏下方（pinned）。
+///
+/// 高度必须与 [_GroupPills] 的实际高度一致：4(top) + 32(胶囊) + 10(bottom)。
+class _SliverFolderChipsHeader extends SliverPersistentHeaderDelegate {
+  const _SliverFolderChipsHeader(this.child);
+
+  final Widget child;
+
+  static const double _height = 46;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
+      child;
+
+  @override
+  bool shouldRebuild(covariant _SliverFolderChipsHeader old) =>
+      old.child != child;
 }
 
 /// 弹窗头部的「本地」文件夹管理菜单（创建文件夹 / 排序 / 分类）。

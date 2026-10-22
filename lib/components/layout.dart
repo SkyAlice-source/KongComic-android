@@ -113,7 +113,10 @@ class SliverGridDelegateWithComics extends SliverGridDelegate {
 
   SliverGridLayout getBriefModeLayout(
       SliverConstraints constraints, double scale) {
-    final maxCrossAxisExtent = 192.0 * scale;
+    // 基准宽度从 192 收到 150：手机（~411dp）从 2 列变 3 列，单屏封面数从
+    // 6 本提到 9 本以上；平板按同一比例自动变密（Mihon 的库网格也是 3 列起）。
+    // 仍随 comicTileScale 缩放，用户可在设置里自己调疏密。
+    final maxCrossAxisExtent = 150.0 * scale;
     const childAspectRatio = 0.64;
     const crossAxisSpacing = 0.0;
     int crossAxisCount =

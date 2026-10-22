@@ -537,6 +537,13 @@ class ComicTile extends StatelessWidget {
         // 折角随封面宽度缩放（网格卡座的 padding 左右各 6，实际封面更窄，
         // 但同一档位下的比例关系不变，没必要在这里再减）。
         final badgeSize = _favoriteBadgeSize(constraints.maxWidth);
+        // 网格卡宽决定标题字号：三列窄卡（~137dp）用 15sp 中文只放得下 6 个字，
+        // 几乎每条都被截；降到正文档后同一屏能读全更多标题。
+        final titleFont = constraints.maxWidth < 120
+            ? kcCaption
+            : constraints.maxWidth < 150
+                ? kcBody
+                : kcFont15;
         final favBadge = isFavorite
             ? Positioned.fill(
                 // 角标要「长在」封面上：按封面同款圆角裁一刀，折角的尖
@@ -746,10 +753,12 @@ class ComicTile extends StatelessWidget {
                 child: Text(
                   comic.title.replaceAll('\n', ''),
                   maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: const TextStyle(
+                  // clip 会把字从中间劈开（「美奈酱与千寻姊」截在笔画上），
+                  // 窄卡更常见；改省略号，截断位置看起来是排版而非故障。
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: kcFont15,
+                    fontSize: titleFont,
                   ),
                 ),
               ),
@@ -1627,123 +1636,195 @@ class ComicListState extends State<ComicList> {
     setState(() {});
   }
 
+  /// 分页条：`‹  12 / 90 ⌄  ›` 三段式胶囊，居中。
+  ///
+  /// 老实现是「84dp 后退按钮 + 页码胶囊 + 84dp 前进按钮」占满一整行，两端固定
+  /// 宽度把中间挤成一条缝；跳转还要走「点胶囊 → 弹窗 → 键盘 → 输入 → 确认」。
+  /// 现在收成一颗胶囊：两侧箭头翻页，中间页码区点开页码网格，一次点击直达。
+  ///
+  /// 箭头统一用中性色而不是「前进=品牌红实心」：分页条在列表顶部和底部各出现
+  /// 一次，两颗红按钮同屏太吵，而且它只是导航而不是主 CTA。
   Widget _buildPageSelector() {
-    final cs = Theme.of(context).colorScheme;
-    // 前进是主动作（品牌红；AMOLED 自动退化中性深灰），后退是次级动作（中性
-    // 容器底 + 正文色）。两颗都做成实心红会分不清主次，页面也过重。
-    Widget pagerButton({
-      required String label,
-      required VoidCallback? onPressed,
-      required bool primary,
-    }) {
-      final disabled = onPressed == null;
-      return Button(
-        type: primary ? ButtonType.filled : ButtonType.normal,
-        color: disabled ? cs.surfaceContainerHighest : null,
-        onPressed: onPressed ?? () {},
-        child: Text(label),
-      ).fixWidth(84);
-    }
-
-    return Row(
-      children: [
-        pagerButton(
-          label: "Back".tl,
-          primary: false,
-          onPressed: _page > 1
-              ? () {
-                  setState(() {
-                    _error = null;
-                    _page--;
-                  });
-                }
-              : null,
-        ),
-        Expanded(
-          child: Center(
-            child: Material(
-              color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(kcRadius8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(kcRadius8),
-                onTap: () {
-                  String value = '';
-                  showDialog(
-                    context: App.rootContext,
-                    builder: (context) {
-                      return ContentDialog(
-                        title: "Jump to page".tl,
-                        content: TextField(
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: "Page".tl,
-                          ),
-                          inputFormatters: <TextInputFormatter>[
-                            FilteringTextInputFormatter.digitsOnly
-                          ],
-                          onChanged: (v) {
-                            value = v;
-                          },
-                        ).paddingHorizontal(16),
-                        actions: [
-                          Button.filled(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              var page = int.tryParse(value);
-                              if (page == null) {
-                                context.showMessage(message: "Invalid page".tl);
-                              } else {
-                                if (page > 0 &&
-                                    (_maxPage == null || page <= _maxPage!)) {
-                                  setState(() {
-                                    _error = null;
-                                    _page = page;
-                                  });
-                                } else {
-                                  context.showMessage(
-                                      message: "Invalid page".tl);
-                                }
-                              }
-                            },
-                            child: Text("Jump".tl),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Text("Page @page / @maxPage".tlParams({"page": _page, "maxPage": _maxPage ?? '?'})),
-                ),
-              ),
-            ),
+    final maxPage = _maxPage;
+    // 取数期间在页码后面挂个小转圈，替代原来「整条消失 → 骨架屏」的跳变。
+    final loading = _data[_page] == null && _error == null;
+    return Center(
+      child: ToolsPill(
+        height: 38,
+        children: [
+          ToolsPillButton(
+            icon: HugeIcons.strokeRoundedArrowLeft01,
+            tooltip: "Previous page".tl,
+            onPressed: _page > 1 ? () => _goToPage(_page - 1) : null,
           ),
-        ),
-        pagerButton(
-          label: "Next".tl,
-          primary: true,
-          onPressed: _page < (_maxPage ?? (_page + 1))
-              ? () {
-                  setState(() {
-                    _error = null;
-                    _page++;
-                  });
-                }
-              : null,
-        ),
-      ],
+          _buildPageLabel(loading: loading),
+          ToolsPillButton(
+            icon: HugeIcons.strokeRoundedArrowRight01,
+            tooltip: "Next page".tl,
+            onPressed: maxPage == null || _page < maxPage
+                ? () => _goToPage(_page + 1)
+                : null,
+          ),
+        ],
+      ),
     ).paddingVertical(8).paddingHorizontal(16);
   }
 
-  Widget _buildSliverPageSelector() {
-    return SliverToBoxAdapter(
+  Widget _buildPageLabel({required bool loading}) {
+    final cs = Theme.of(context).colorScheme;
+    final maxPage = _maxPage;
+    return InkWell(
+      borderRadius: BorderRadius.circular(kcPillRadius),
+      onTap: _showPagePicker,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Page @page / @maxPage"
+                  .tlParams({"page": _page, "maxPage": maxPage ?? '?'}),
+              style: TextStyle(
+                fontSize: kcBody,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+                // 等宽数字：「1 / 90」翻到「2 / 90」时胶囊不会左右抖一下。
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(width: 4),
+            if (loading)
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.6,
+                  color: cs.onSurfaceVariant,
+                ),
+              )
+            else
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowDown01,
+                size: 14,
+                color: cs.onSurfaceVariant,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 跳到 [page] 并清掉错误态。
+  ///
+  /// 滚动位置不用手动复位：滚动视图挂着 `PageStorageKey('scroll$_page')`，
+  /// key 一变整棵子树重建，新页面自然从顶部开始，不会停在上一页的半山腰。
+  void _goToPage(int page) {
+    final maxPage = _maxPage;
+    if (page < 1 || (maxPage != null && page > maxPage) || page == _page) {
+      return;
+    }
+    setState(() {
+      _error = null;
+      _page = page;
+    });
+    storeState();
+  }
+
+  Future<void> _showPagePicker() async {
+    final maxPage = _maxPage;
+    // 只有一页时列出来没有意义（错误态下顶部分页条仍会渲染）。
+    if (maxPage != null && maxPage < 2) return;
+    final picked = maxPage == null
+        ? await _showPageInputDialog()
+        : await showDialog<int>(
+            context: App.rootContext,
+            builder: (_) => _PagePickerDialog(current: _page, maxPage: maxPage),
+          );
+    if (picked != null && mounted) {
+      _goToPage(picked);
+    }
+  }
+
+  /// 源没上报总页数时的兜底：只能输入，不猜。
+  Future<int?> _showPageInputDialog() async {
+    final controller = TextEditingController(text: "$_page");
+    try {
+      return await showDialog<int>(
+        context: App.rootContext,
+        builder: (context) {
+          void submit() {
+            final page = int.tryParse(controller.text);
+            if (page == null || page < 1) {
+              // 保持弹窗开着让用户改，而不是关掉再从头点一遍。
+              context.showMessage(message: "Invalid page".tl);
+              return;
+            }
+            Navigator.of(context).pop(page);
+          }
+
+          return ContentDialog(
+            title: "Jump to page".tl,
+            headerIcon: HugeIcons.strokeRoundedGrid02,
+            showClose: false,
+            content: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(labelText: "Page".tl),
+              onSubmitted: (_) => submit(),
+            ).paddingHorizontal(16),
+            actions: [
+              Button.filled(onPressed: submit, child: Text("Jump".tl)),
+            ],
+          );
+        },
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  /// 钉在屏幕底部的分页栏。
+  ///
+  /// 翻页是这一屏唯一的导航动作，也是最需要「按一下」的动作。放在列表顶部
+  /// 意味着大屏单手要换手；钉在底部后，拇指原地就能翻，顺带省掉了「滚到底
+  /// 才有下一页」的来回。分页条因此只保留这一条，顶部那条已删除。
+  Widget _buildPageBar() {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: Border(
+          top: BorderSide(color: cs.outlineVariant, width: 0.8),
+        ),
+      ),
+      // 手势条 / 三键栏占的高度，避免分页条被系统条压住。
+      padding: EdgeInsets.only(bottom: context.padding.bottom),
       child: _buildPageSelector(),
     );
   }
 
-  Future<void> _loadPage(int page) async {
+  /// 预取下一页。
+  ///
+  /// 分类页一页要等一次完整的网络往返，老实现点「下一页」必闪一次骨架屏。当前
+  /// 页渲染完再悄悄把下一页取下来，翻页基本瞬时。失败保持静默：不写 [_error]，
+  /// 用户真翻过去时走正常加载，该提示的错误一条不少。
+  void _prefetch(int page) {
+    // 总页数未知时不预取：把返回的空页错记成总页数，分页条会凭空多出一页。
+    final maxPage = _maxPage;
+    if (maxPage == null || page > maxPage) return;
+    if (_data[page] != null || _loading[page] == true) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final maxPage = _maxPage;
+      if (maxPage == null || page > maxPage) return;
+      if (_data[page] != null || _loading[page] == true) return;
+      _loadPage(page, silent: true);
+    });
+  }
+
+  Future<void> _loadPage(int page, {bool silent = false}) async {
     if (widget.loadPage == null && widget.loadNext == null) {
       _error = "This source is misconfigured: loadPage and loadNext cannot both be null"
           .tl;
@@ -1774,7 +1855,7 @@ class ComicListState extends State<ComicList> {
               }
             });
           }
-        } else {
+        } else if (!silent) {
           setState(() {
             _error = friendlyError(res.errorMessage ?? "Unknown error".tl);
           });
@@ -1788,7 +1869,7 @@ class ComicListState extends State<ComicList> {
             setState(() {});
           }
         } catch (e) {
-          if (mounted) {
+          if (mounted && !silent) {
             setState(() {
               _error = friendlyError(e);
             });
@@ -1799,7 +1880,7 @@ class ComicListState extends State<ComicList> {
       // 源脚本 / 网络层抛异常（不是返回 Res.error）时，以前这里没有任何兜底：
       // _data[page] 一直是 null、_error 一直为 null，build 里再调 _loadPage
       // 又立刻抛一次 —— 界面就永久卡在骨架屏。这是断网进分类列表的实际表现。
-      if (mounted) {
+      if (mounted && !silent) {
         setState(() {
           _error = friendlyError(e);
         });
@@ -1807,6 +1888,11 @@ class ComicListState extends State<ComicList> {
     } finally {
       _loading[page] = false;
       storeState();
+      // 只在「用户主动翻到的页」加载成功后预取，静默加载自己不再触发预取，
+      // 否则会顺着 2、3、4… 一路把整本分类全下完。
+      if (!silent && _error == null && _data[page] != null) {
+        _prefetch(page + 1);
+      }
     }
   }
 
@@ -1827,11 +1913,26 @@ class ComicListState extends State<ComicList> {
   }
 
   Widget buildPagingMode() {
+    final body = _buildPagingBody();
+    // 只有一页时不留那条 54dp 的底栏。`_maxPage == null`（源不上报总页数）
+    // 必须留：这种源只能靠「下一页」往后翻，把底栏藏了就没法翻页了。
+    final showBar = _maxPage != 1;
+    if (!showBar) {
+      return body;
+    }
+    return Column(
+      children: [
+        Expanded(child: body),
+        _buildPageBar(),
+      ],
+    );
+  }
+
+  Widget _buildPagingBody() {
     if (_error != null) {
       return Column(
         children: [
           if (widget.errorLeading != null) widget.errorLeading!,
-          _buildPageSelector(),
           Expanded(
             child: NetworkError(
               withAppbar: false,
@@ -1856,11 +1957,15 @@ class ComicListState extends State<ComicList> {
       );
     }
     return SmoothCustomScrollView(
-      key: enablePageStorage ? PageStorageKey('scroll$_page') : null,
+      // 换页回到顶部。`enablePageStorage` 默认是 false，以前这里是 `null`，
+      // key 不变 → 滚动位置被沿用，从上一页底部翻页会直接落在新页的半山腰，
+      // 顶上前几部漫画被跳过。带上页码的 key 让滚动视图跟着页码重建。
+      key: enablePageStorage
+          ? PageStorageKey('scroll$_page')
+          : ValueKey('scroll$_page'),
       controller: widget.controller,
       slivers: [
         if (widget.leadingSliver != null) widget.leadingSliver!,
-        if (_maxPage != 1) _buildSliverPageSelector(),
         SliverGridComics(
           comics: _data[_page] ?? const [],
           menuBuilder: widget.menuBuilder,
@@ -1870,8 +1975,6 @@ class ComicListState extends State<ComicList> {
           badgeAsTopLeftSource: widget.badgeAsTopLeftSource,
           openLocalIfAvailable: widget.openLocalIfAvailable,
         ),
-        if (_data[_page]!.length > 6 && _maxPage != 1)
-          _buildSliverPageSelector(),
         if (widget.trailingSliver != null) widget.trailingSliver!,
       ],
     );
@@ -1882,7 +1985,8 @@ class ComicListState extends State<ComicList> {
       return Column(
         children: [
           if (widget.errorLeading != null) widget.errorLeading!,
-          _buildPageSelector(),
+          // 这里原本还挂着分页条，但连续模式渲染的是 `_data.values` 的拼接，
+          // `_page` 完全不参与渲染 —— 两颗箭头点了没有任何反应，是死控件。
           Expanded(
             child: NetworkError(
               withAppbar: false,
@@ -1954,6 +2058,120 @@ class ComicListState extends State<ComicList> {
           const SliverListLoadingIndicator(),
         if (widget.trailingSliver != null) widget.trailingSliver!,
       ],
+    );
+  }
+}
+
+/// 页码网格：一次点击直达目标页。
+///
+/// 相比「弹窗 + 键盘 + 输入 + 确认」，少两步、不弹键盘、也不遮住列表。90 页
+/// 的分类一屏能看到四十多页，打开时自动滚到当前页上方一点。
+class _PagePickerDialog extends StatefulWidget {
+  const _PagePickerDialog({required this.current, required this.maxPage});
+
+  final int current;
+
+  final int maxPage;
+
+  @override
+  State<_PagePickerDialog> createState() => _PagePickerDialogState();
+}
+
+class _PagePickerDialogState extends State<_PagePickerDialog> {
+  static const _columns = 6;
+  static const _cellHeight = 44.0;
+  static const _gap = 8.0;
+
+  /// 与 [ContentDialog] 的正文左右内边距一致，格子才不会贴到弹窗边缘。
+  static const _hPadding = 16.0;
+
+  late final ScrollController _controller =
+      ScrollController(initialScrollOffset: _initialOffset());
+
+  /// 让当前页落在可视区偏上，而不是贴在最顶端或最底端。
+  double _initialOffset() {
+    final row = (widget.current - 1) ~/ _columns;
+    final offset = row * (_cellHeight + _gap) - 88;
+    return offset > 0 ? offset : 0;
+  }
+
+  /// 弹窗宽度由 `ContentDialog` 定成 `min(400, 屏宽 - 16)`，这里照着算，
+  /// 让 6 列刚好铺满 —— 写死列宽会留下一大块右侧空白。
+  double _gridWidth(BuildContext context) {
+    final dialogWidth = math.min(400.0, context.width - 16);
+    return dialogWidth - _hPadding * 2;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gridWidth = _gridWidth(context);
+    final cellWidth = (gridWidth - (_columns - 1) * _gap) / _columns;
+    return ContentDialog(
+      title: "Jump to page".tl,
+      headerIcon: HugeIcons.strokeRoundedGrid02,
+      showClose: false,
+      content: SizedBox(
+        // 固定宽度：ContentDialog 外面是 IntrinsicWidth，不给尺寸它会去问
+        // Wrap 的固有宽度，而 Wrap 会回答「全部格子排一行」。
+        width: gridWidth + _hPadding * 2,
+        child: ConstrainedBox(
+          // 高度刻意不取整行：底部露出半行格子，用户才知道下面还有页。
+          // 取 320 时正好塞下 6 整行，看起来像「一共就 36 页」。
+          constraints: const BoxConstraints(maxHeight: 292),
+          child: Scrollbar(
+            controller: _controller,
+            child: SingleChildScrollView(
+              controller: _controller,
+              padding: const EdgeInsets.symmetric(
+                horizontal: _hPadding,
+                vertical: 4,
+              ),
+              child: Wrap(
+                spacing: _gap,
+                runSpacing: _gap,
+                children: [
+                  for (var page = 1; page <= widget.maxPage; page++)
+                    _buildCell(context, page, cellWidth),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCell(BuildContext context, int page, double width) {
+    final cs = Theme.of(context).colorScheme;
+    final selected = page == widget.current;
+    return SizedBox(
+      width: width,
+      height: _cellHeight,
+      child: Material(
+        color: selected ? kcAccentColor(context) : cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(kcRadius8),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => Navigator.of(context).pop(page),
+          child: Center(
+            child: Text(
+              "$page",
+              style: TextStyle(
+                fontSize: kcBody,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                // 红底前景一律 kcOnAccentColor（恒白）；onPrimary 在 AMOLED 下是黑。
+                color: selected ? kcOnAccentColor : cs.onSurface,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

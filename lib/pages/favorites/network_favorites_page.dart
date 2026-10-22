@@ -1,5 +1,21 @@
 part of 'favorites_page.dart';
 
+/// 网络收藏子页统一拦返回：先退回货架总览，而不是直接弹「确认退出」。
+///
+/// 这几个页面自身没有多选 / 搜索态（选择集由外部传入），返回键可以一路
+/// 交给总览；真正需要先吃掉返回的弹层都是独立 route，会先于这里处理。
+Widget _withBackToOverview(_FavoritesPageState favPage, Widget child) {
+  return PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, result) {
+      if (didPop) return;
+      favPage.setFolder(false, null);
+    },
+    child: child,
+  );
+}
+
+
 Future<bool> _deleteComic(
   String cid,
   String? fid,
@@ -98,6 +114,10 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
   Widget build(BuildContext context) {
     final favPage =
         context.findAncestorStateOfType<_FavoritesPageState>()!;
+    return _withBackToOverview(favPage, _buildList(favPage));
+  }
+
+  Widget _buildList(_FavoritesPageState favPage) {
     return ComicList(
       key: comicListKey,
       controller: widget.controller,
@@ -110,14 +130,13 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
             style:
                 context.width < changePoint ? AppbarStyle.shadow : AppbarStyle.blur,
             leading: Tooltip(
-              message: "Folders".tl,
-              child: context.width <= _kTwoPanelChangeWidth
-                  ? IconButton(
-                      icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                      color: context.colorScheme.onSurfaceVariant,
-                      onPressed: showFolders,
-                    )
-                  : null,
+              message: "Favorites".tl,
+              child: IconButton(
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+                color: context.colorScheme.onSurfaceVariant,
+                onPressed: () => favPage.setFolder(false, null),
+              ),
             ),
             title: Text(widget.data.title),
             actions: [
@@ -169,8 +188,11 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
               ]),
             ],
           ),
-          // 分组切换胶囊常驻顶部（在 Appbar 下方，随列表一起滚动）。
-          SliverToBoxAdapter(child: _GroupPills(favPage: favPage)),
+          // 文件夹胶囊条常驻顶栏下方（pinned，不随列表滚走）。
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
+          ),
         ],
       ),
       // 错误 / 未登录态不能用 leadingSliver，胶囊单独补在 Appbar 下方，
@@ -182,17 +204,15 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
         children: [
           Appbar(
             leading: Tooltip(
-              message: "Folders".tl,
-              child: context.width <= _kTwoPanelChangeWidth
-                  ? IconButton(
-                      icon: HugeIcon(
-                          icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                      color: context.colorScheme.onSurfaceVariant,
-                      onPressed: context
-                          .findAncestorStateOfType<_FavoritesPageState>()
-                          ?.showFolderSelector,
-                    )
-                  : null,
+              message: "Favorites".tl,
+              child: IconButton(
+                icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+                color: context.colorScheme.onSurfaceVariant,
+                onPressed: () => context
+                    .findAncestorStateOfType<_FavoritesPageState>()
+                    ?.setFolder(false, null),
+              ),
             ),
             title: Text(widget.data.title),
           ),
@@ -329,18 +349,25 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
   Widget build(BuildContext context) {
     final favPage =
         context.findAncestorStateOfType<_FavoritesPageState>()!;
+    return _withBackToOverview(favPage, _buildBody(context));
+  }
+
+  Widget _buildBody(BuildContext context) {
+    final favPage =
+        context.findAncestorStateOfType<_FavoritesPageState>()!;
     var sliverAppBar = SliverAppbar(
       style:
           context.width < changePoint ? AppbarStyle.shadow : AppbarStyle.blur,
       leading: Tooltip(
-        message: "Folders".tl,
-        child: context.width <= _kTwoPanelChangeWidth
-            ? IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                color: context.colorScheme.onSurfaceVariant,
-                onPressed: showFolders,
-              )
-            : null,
+        message: "Favorites".tl,
+        child: IconButton(
+          icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+          color: context.colorScheme.onSurfaceVariant,
+          onPressed: () => context
+              .findAncestorStateOfType<_FavoritesPageState>()
+              ?.setFolder(false, null),
+        ),
       ),
       title: GestureDetector(
         onTap: context.width < _kTwoPanelChangeWidth ? showFolders : null,
@@ -350,14 +377,15 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
 
     var appBar = Appbar(
       leading: Tooltip(
-        message: "Folders".tl,
-        child: context.width <= _kTwoPanelChangeWidth
-            ? IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu02, size: 18),
-                color: context.colorScheme.onSurfaceVariant,
-                onPressed: showFolders,
-              )
-            : null,
+        message: "Favorites".tl,
+        child: IconButton(
+          icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+          color: context.colorScheme.onSurfaceVariant,
+          onPressed: () => context
+              .findAncestorStateOfType<_FavoritesPageState>()
+              ?.setFolder(false, null),
+        ),
       ),
       title: GestureDetector(
         onTap: context.width < _kTwoPanelChangeWidth ? showFolders : null,
@@ -402,8 +430,11 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         controller: widget.controller,
         slivers: [
           sliverAppBar,
-          // 分组切换胶囊常驻顶部（在 Appbar 下方，随列表一起滚动）。
-          SliverToBoxAdapter(child: _GroupPills(favPage: favPage)),
+          // 文件夹胶囊条常驻顶栏下方（pinned，不随列表滚走）。
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
+          ),
           SliverGridViewWithFixedItemHeight(
             delegate:
                 SliverChildBuilderDelegate(childCount: length, (context, i) {

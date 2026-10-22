@@ -1,5 +1,7 @@
 {
   "zh_CN": {
+    "Previous page": "上一页",
+    "Next page": "下一页",
     "No comics match the current filter": "没有符合当前筛选的漫画",
     "Clear the filter to see every comic in this folder": "清除筛选即可看到该文件夹里的全部漫画",
     "Clear filter": "清除筛选",
@@ -922,6 +924,13 @@
     "Ignore": "忽略",
     "Cannot write to this directory": "无法写入此目录",
     "All files access": "所有文件访问权限",
+    "Switch": "切换",
+    "The storage path has changed. Files in the previous folder were not moved here.": "存储路径已更改，原文件夹中的文件没有搬过来。",
+    "Notifications": "通知",
+    "Turned off": "已关闭",
+    "Use Download/Comic": "使用 Download/Comic",
+    "Switch the storage path to the public Download/Comic folder": "把存储路径切换到公共的 Download/Comic 文件夹（卸载 App 也不会一起被删）",
+    "Cannot use the Download/Comic folder": "无法使用 Download/Comic 文件夹",
     "Granted": "已授予",
     "Required only to use the public Download/Comic folder": "仅在使用公共 Download/Comic 目录时需要",
     "Open Original Comic": "前往原漫画",
@@ -941,9 +950,15 @@
     "Add comics from the Discover page": "从发现页添加漫画",
     "Notification permission is off. The check still runs, but its progress won't be shown.": "通知权限未开启：检查仍会继续，但通知栏不会显示进度。",
     "This source is misconfigured: loadPage and loadNext cannot both be null": "源配置有误：loadPage 与 loadNext 不能同时为空",
-    "Network is slow, still loading…": "网络较慢，仍在加载…"
+    "Network is slow, still loading…": "网络较慢，仍在加载…",
+    "Recommended": "推荐",
+    "Because you like @tag": "因为你喜欢「@tag」",
+    "Favorite a comic from any source and it shows up here.": "从任意漫画源收藏的漫画都会出现在这里。",
+    "No favorites yet": "还没有收藏"
   },
   "zh_TW": {
+    "Previous page": "上一頁",
+    "Next page": "下一頁",
     "No comics match the current filter": "沒有符合目前篩選的漫畫",
     "Clear the filter to see every comic in this folder": "清除篩選即可看到該資料夾裡的全部漫畫",
     "Clear filter": "清除篩選",
@@ -1866,6 +1881,13 @@
     "Ignore": "忽略",
     "Cannot write to this directory": "無法寫入此目錄",
     "All files access": "所有檔案存取權限",
+    "Switch": "切換",
+    "The storage path has changed. Files in the previous folder were not moved here.": "儲存路徑已更改，原資料夾中的檔案沒有搬過來。",
+    "Notifications": "通知",
+    "Turned off": "已關閉",
+    "Use Download/Comic": "使用 Download/Comic",
+    "Switch the storage path to the public Download/Comic folder": "把儲存路徑切換到公共的 Download/Comic 資料夾（解除安裝 App 也不會一起被刪）",
+    "Cannot use the Download/Comic folder": "無法使用 Download/Comic 資料夾",
     "Granted": "已授予",
     "Required only to use the public Download/Comic folder": "僅在使用公開 Download/Comic 目錄時需要",
     "Open Original Comic": "前往原漫畫",
@@ -1885,9 +1907,15 @@
     "Add comics from the Discover page": "從發現頁添加漫畫",
     "Notification permission is off. The check still runs, but its progress won't be shown.": "通知權限未開啟：檢查仍會繼續，但通知列不會顯示進度。",
     "This source is misconfigured: loadPage and loadNext cannot both be null": "源設定有誤：loadPage 與 loadNext 不能同時為空",
-    "Network is slow, still loading…": "網路較慢，仍在載入…"
+    "Network is slow, still loading…": "網路較慢，仍在載入…",
+    "Recommended": "推薦",
+    "Because you like @tag": "因為你喜歡「@tag」",
+    "Favorite a comic from any source and it shows up here.": "從任意漫畫源收藏的漫畫都會出現在這裡。",
+    "No favorites yet": "還沒有收藏"
   },
   "ja_JP": {
+    "Previous page": "前のページ",
+    "Next page": "次のページ",
     "No comics match the current filter": "現在のフィルターに一致する漫画はありません",
     "Clear the filter to see every comic in this folder": "フィルターを解除すると、このフォルダの漫画がすべて表示されます",
     "Clear filter": "フィルターを解除",
@@ -2807,6 +2835,13 @@
     "Ignore": "無視",
     "Cannot write to this directory": "このフォルダーに書き込めません",
     "All files access": "すべてのファイルへのアクセス",
+    "Switch": "切り替え",
+    "The storage path has changed. Files in the previous folder were not moved here.": "保存先を変更しました。元のフォルダー内のファイルは移動していません。",
+    "Notifications": "通知",
+    "Turned off": "ブロック中",
+    "Use Download/Comic": "Download/Comic を使用",
+    "Switch the storage path to the public Download/Comic folder": "保存先を公開フォルダー Download/Comic に切り替えます（アプリを削除しても残ります）",
+    "Cannot use the Download/Comic folder": "Download/Comic フォルダーを使用できません",
     "Granted": "付与済み",
     "Required only to use the public Download/Comic folder": "公開の Download/Comic フォルダーを使う場合のみ必要",
     "Open Original Comic": "元の漫画を開く",
@@ -2829,6 +2864,10 @@
     "Network is slow, still loading…": "通信が遅いようです。読み込みを続けています…",
     "Auto update sources result": "ソースの自動更新：@ok 件成功、@fail 件失敗",
     "Automatically clear a comic from Read Later once you start reading it": "読み始めた漫画は「あとで読む」から自動で削除する",
-    "Read Later": "あとで読む"
+    "Read Later": "あとで読む",
+    "Recommended": "おすすめ",
+    "Because you like @tag": "「@tag」が好きだから",
+    "Favorite a comic from any source and it shows up here.": "どのソースでお気に入りに追加した作品もここに表示されます。",
+    "No favorites yet": "お気に入りはまだありません"
   }
 }

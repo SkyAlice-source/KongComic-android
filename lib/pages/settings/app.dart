@@ -15,11 +15,15 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
   /// findDefaultPath() 悄悄探测失败后回退。
   bool _allFilesAccess = false;
 
+  /// 系统通知开关状态。null = 还没查到（首帧不显示，避免闪一下「已关闭」）。
+  bool? _notificationsAllowed;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadAllFilesAccess();
+    _loadNotificationPermission();
   }
 
   @override
@@ -33,6 +37,7 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
     // 从系统设置页返回后重新取一次，状态才会跟着变。
     if (state == AppLifecycleState.resumed) {
       _loadAllFilesAccess();
+      _loadNotificationPermission();
     }
   }
 
@@ -41,6 +46,43 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
     if (!mounted) return;
     if (granted == _allFilesAccess) return;
     setState(() => _allFilesAccess = granted);
+  }
+
+  Future<void> _loadNotificationPermission() async {
+    if (!App.isAndroid) return;
+    var allowed = await AppNotifications.isAllowed;
+    if (!mounted) return;
+    if (allowed == _notificationsAllowed) return;
+    setState(() => _notificationsAllowed = allowed);
+  }
+
+  /// 存储权限入口：Android 10 及以下弹系统授权框，Android 11+ 只能跳系统设置页。
+  Future<void> _openStoragePermission() async {
+    var granted = await LocalManager.requestStoragePermission();
+    if (!mounted) return;
+    if (granted) {
+      await _loadAllFilesAccess();
+      return;
+    }
+    await LocalManager.openAllFilesAccessSettings();
+  }
+
+  /// 把存储路径切到公共 Download/Comic（需已授予「所有文件访问」）。
+  ///
+  /// 授予权限本身不会改变当前路径 —— 默认路径只在首次启动时探测一次。没有这个
+  /// 入口的话，用户开了权限却看不到任何变化，会以为授权没生效。
+  Future<void> _useDownloadComicFolder() async {
+    final target = await LocalManager().detectDownloadComicPath();
+    if (!mounted) return;
+    if (target == null) {
+      context.showMessage(message: "Cannot use the Download/Comic folder".tl);
+      return;
+    }
+    if (await LocalManager().isSameAsCurrentPath(target)) {
+      context.showMessage(message: "Already in current storage path".tl);
+      return;
+    }
+    await _setStoragePath(target);
   }
   /// 把下载目录迁移到 [result]：冲突检测 → 弹窗选择覆盖/合并 → 复制+删旧。
   /// 与「Set New Storage Path」和「Move to Download/Comic」共用。
@@ -236,7 +278,27 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
                 ? "Granted".tl
                 : "Required only to use the public Download/Comic folder".tl,
             actionTitle: "Open".tl,
-            callback: () => LocalManager.openAllFilesAccessSettings(),
+            // 老设备（Android 10 及以下）先弹系统授权框，Android 11+ 只能跳设置页。
+            callback: () => _openStoragePermission(),
+          ).toSliver(),
+        // 授予「所有文件访问」不会自动改变当前路径（默认路径只在首次启动时探测
+        // 一次）。给一个显式入口，否则用户开了权限却看不到任何变化。
+        if (App.isAndroid && _allFilesAccess)
+          _CallbackSetting(
+            title: "Use Download/Comic".tl,
+            subtitle:
+                "Switch the storage path to the public Download/Comic folder".tl,
+            actionTitle: "Switch".tl,
+            callback: () => _useDownloadComicFolder(),
+          ).toSliver(),
+        if (App.isAndroid)
+          _CallbackSetting(
+            title: "Notifications".tl,
+            subtitle: _notificationsAllowed == null
+                ? null
+                : (_notificationsAllowed! ? "Granted".tl : "Turned off".tl),
+            actionTitle: "Open".tl,
+            callback: () => AppNotifications.openSettings(),
           ).toSliver(),
         _KcSettingTile(
           title: Text("Cache Size".tl),
@@ -554,6 +616,9 @@ class _StoragePathFallbackBannerState
   Widget build(BuildContext context) {
     final fallback = LocalManager().pendingPathFallback;
     if (fallback == null) return const SizedBox.shrink();
+    // 仍在用临时目录 / 用户已经换到别的目录，是两种不同的处境：后者再说
+    // 「正在使用临时文件夹」就不对了，得提醒他原目录的文件并没有跟过来。
+    final usingFallbackPath = LocalManager().path == fallback.fallbackPath;
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -586,7 +651,9 @@ class _StoragePathFallbackBannerState
           ),
           const SizedBox(height: 8),
           Text(
-            "The folder used last time is no longer accessible, so a temporary folder is in use. Your files are still in the original folder."
+            (usingFallbackPath
+                    ? "The folder used last time is no longer accessible, so a temporary folder is in use. Your files are still in the original folder."
+                    : "The storage path has changed. Files in the previous folder were not moved here.")
                 .tl,
             style: TextStyle(
               fontSize: kcCaption,

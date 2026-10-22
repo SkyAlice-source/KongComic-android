@@ -411,6 +411,23 @@ class LocalManager with ChangeNotifier {
               "'${directory.path}'; skipping migration.");
       return null;
     }
+    // 当前目录是「上次失效后临时切过去的目录」时，里面没有属于用户的文件
+    // （用户的文件还在 pendingPathFallback.originalPath 里）。这时走迁移流程
+    // 只会复制一个空目录再把它删掉，还会对目标目录里已有的文件弹一次毫无意义
+    // 的「冲突」对话框。改成纯切换（不搬运、不清空）。
+    final pending = _pendingFallback;
+    if (pending != null && p.equals(directory.path, pending.fallbackPath)) {
+      bool empty;
+      try {
+        empty = directory.listSync().isEmpty;
+      } catch (_) {
+        // 列不出来就按非空处理：宁可走迁移，也不要漏搬用户的文件。
+        empty = false;
+      }
+      if (empty) {
+        return await switchPathWithoutMoving(newPath);
+      }
+    }
     // 迁移前必须让存储目录「静默」：流程是复制到新目录 → 删除旧目录 → 切换
     // 路径，若此时下载任务仍在往旧目录写文件，复制可能漏掉或只复制一半，
     // 随后旧目录被清空 → 这一话直接丢失。
@@ -468,10 +485,9 @@ class LocalManager with ChangeNotifier {
     }
     path = newDir.path;
     _checkNoMedia();
-    // 迁移成功即说明用户已经换到新目录，旧的「原目录失效」提示不该继续挂着。
-    if (_pendingFallback != null) {
-      await clearPathFallback();
-    }
+    // 迁移完成：只有搬过去的正是原目录时，「原目录还有文件」的提示才该撤掉，
+    // 见 [_resolveFallbackFor]。
+    await _resolveFallbackFor(newDir.path);
     // 成功迁移：把进行中的下载任务重定向到新目录，否则恢复后它们会继续写
     // 已被清空的旧目录，导致同一部漫画的文件分裂在两处。
     _resumePausedTasks(paused, newDir.path, oldRoot);
@@ -766,6 +782,24 @@ class LocalManager with ChangeNotifier {
     }
   }
 
+  /// 申请旧版（Android 10 及以下）的存储写入权限。
+  ///
+  /// 这个权限只在 Manifest 里声明过、从未在运行时申请，于是老设备上
+  /// [hasAllFilesAccess] 恒为 false —— 公共 Download/Comic 永远探测不成功。
+  /// Android 11+ 没有这个权限模型（写公共目录只认「所有文件访问」，开关只存在
+  /// 于系统设置页），这里返回 false，由调用方跳 [openAllFilesAccessSettings]。
+  static Future<bool> requestStoragePermission() async {
+    if (!App.isAndroid) return false;
+    try {
+      return await const MethodChannel('kong_comic/method_channel')
+              .invokeMethod<bool>('requestStoragePermission') ??
+          false;
+    } catch (e) {
+      Log.warning("IO", "Failed to request storage permission: $e");
+      return false;
+    }
+  }
+
   /// 打开系统的「所有文件访问」设置页，由用户自己决定是否授予。
   static Future<void> openAllFilesAccessSettings() async {
     if (!App.isAndroid) return;
@@ -1028,9 +1062,36 @@ class LocalManager with ChangeNotifier {
     path = newPath;
     // 这里刻意不写 .nomedia：目录由用户选定且可能还在被其它应用使用，
     // 写进去会让其中的图片/视频对系统相册整体隐藏。
-    await clearPathFallback();
+    // 提示只在切回的正是原目录时才撤，见 [_resolveFallbackFor]。
+    await _resolveFallbackFor(newPath);
     notifyListeners();
     return null;
+  }
+
+  /// [other] 是否就是当前存储目录。
+  ///
+  /// 同一个目录可能有两种写法（普通路径 / SAF 的 `android://primary:`），
+  /// 字符串比较会漏判，这里统一折算后再比。
+  Future<bool> isSameAsCurrentPath(String other) async {
+    final a = await _plainPathOf(directory.path) ?? directory.path;
+    final b = await _plainPathOf(other) ?? other;
+    return p.equals(a, b);
+  }
+
+  /// 切换目录后决定要不要撤掉「原目录失效」提示。
+  ///
+  /// 提示说的是「你原来的文件还在 originalPath 里」。只有新的存储目录就是
+  /// 那个原目录（同一种目录的两种写法都算）时，文件才算真的找回来了，提示才
+  /// 该清除。切到别的目录时文件并没有跟过来，清掉提示等于抹掉用户唯一一条
+  /// 找回线索 —— 那时提示继续挂着，用户仍可「忽略」或再切一次。
+  Future<void> _resolveFallbackFor(String newPath) async {
+    final pending = _pendingFallback;
+    if (pending == null) return;
+    final plainNew = await _plainPathOf(newPath);
+    final plainOriginal = await _plainPathOf(pending.originalPath);
+    if (p.equals(plainNew ?? newPath, plainOriginal ?? pending.originalPath)) {
+      await clearPathFallback();
+    }
   }
 
   Future<void> init() async {

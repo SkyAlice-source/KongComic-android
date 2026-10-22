@@ -31,6 +31,33 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
 
   bool showAll = false;
 
+  /// 章节标题行的定位锚点：切换顺序后要把这一行拉回视野，
+  /// 否则列表翻了个个、滚动位置却没动，用户会停在一屏陌生的章节上。
+  final _headerKey = GlobalKey();
+
+  void _onOrderChanged(bool value) {
+    if (value == reverse) return;
+    setState(() => reverse = value);
+    appdata.settings["reverseChapterOrder"] = value;
+    appdata.saveData();
+    _scrollBackToChapters();
+  }
+
+  void _scrollBackToChapters() {
+    // 下一帧才完成重排，提前取 context 会拿到待布局的旧位置。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _headerKey.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        // 详情页顶栏会盖住视口最上面一段，留一点余量别顶到栏底下。
+        alignment: 0.12,
+      );
+    });
+  }
+
   late History? history;
 
   late ComicChapters chapters;
@@ -93,21 +120,11 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
           slivers: [
             SliverToBoxAdapter(
               child: KcListTile(
+                key: _headerKey,
                 title: Text("Chapters".tl),
-                trailing: Tooltip(
-                  message: "Order".tl,
-                  child: IconButton(
-                    icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedArrowUpDown,
-                        size: 20),
-                    onPressed: () {
-                      setState(() {
-                        reverse = !reverse;
-                      });
-                      appdata.settings["reverseChapterOrder"] = reverse;
-                      appdata.saveData();
-                    },
-                  ),
+                trailing: _ChapterOrderToggle(
+                  reverse: reverse,
+                  onChanged: _onOrderChanged,
                 ),
               ),
             ),
@@ -197,6 +214,32 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
   Set<String> _downloadedKeys = const {};
   String? _downloadedComicId;
 
+  /// 章节标题行的定位锚点 —— 见 [_NormalComicChaptersState._scrollBackToChapters]。
+  final _headerKey = GlobalKey();
+
+  void _onOrderChanged(bool value) {
+    if (value == reverse) return;
+    setState(() => reverse = value);
+    appdata.settings["reverseChapterOrder"] = value;
+    appdata.saveData();
+    // 分组模式下翻顺序同样要把标题拉回视野：.Table 在下、格子在上，
+    // 停在半山腰会看到别的分组的章节。
+    _scrollBackToChapters();
+  }
+
+  void _scrollBackToChapters() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _headerKey.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: 0.12,
+      );
+    });
+  }
+
   void _syncDownloaded() {
     final id = state.comic.id;
     if (_downloadedComicId == id) return;
@@ -276,21 +319,11 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
           slivers: [
             SliverToBoxAdapter(
               child: KcListTile(
+                key: _headerKey,
                 title: Text("Chapters".tl),
-                trailing: Tooltip(
-                  message: "Order".tl,
-                  child: IconButton(
-                    icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedArrowUpDown,
-                        size: 20),
-                    onPressed: () {
-                      setState(() {
-                        reverse = !reverse;
-                      });
-                      appdata.settings["reverseChapterOrder"] = reverse;
-                      appdata.saveData();
-                    },
-                  ),
+                trailing: _ChapterOrderToggle(
+                  reverse: reverse,
+                  onChanged: _onOrderChanged,
                 ),
               ),
             ),
@@ -370,6 +403,66 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
           ],
         );
       },
+    );
+  }
+}
+
+/// 章节顺序切换：胶囊按钮直接把「当前是升序还是降序」写出来。
+///
+/// 原先是一个笼统的「上下箭头」图标按钮 —— 既看不出当前是升序还是降序，
+/// 也看不出点了会切成什么，只能靠列表内容自己反推。现在按钮上的箭头与
+/// 文字都描述**当前状态**（↑ 降序 = 最新话在最上），tooltip 才提示「点了
+/// 会变成什么」，两种信息不混在一处。
+class _ChapterOrderToggle extends StatelessWidget {
+  const _ChapterOrderToggle({required this.reverse, required this.onChanged});
+
+  final bool reverse;
+
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: (reverse ? "Ascending" : "Descending").tl,
+      child: Material(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kcPillRadius),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(kcPillRadius),
+          onTap: () => onChanged(!reverse),
+          child: Container(
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(kcPillRadius),
+              border: Border.all(color: cs.outlineVariant, width: 0.8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HugeIcon(
+                  // 箭头指向章节号的增长方向：升序向下、降序向上。
+                  icon: reverse
+                      ? HugeIcons.strokeRoundedArrowUp01
+                      : HugeIcons.strokeRoundedArrowDown01,
+                  size: 15,
+                  color: cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  reverse ? "Descending".tl : "Ascending".tl,
+                  style: TextStyle(
+                    fontSize: kcCaption,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

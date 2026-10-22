@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:archive/archive.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
+import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/follow_update_worker.dart';
@@ -143,32 +144,74 @@ Future<void> performAutoBackup() async {
 
   final zipBytes = ZipEncoder().encode(archive);
 
-  // 优先写入用户下载目录；若权限不足（如未授予管理外部存储），回退到应用外部存储目录。
-  String backupDirPath;
-  try {
-    backupDirPath = "/storage/emulated/0/Download/KongComic/AutoBackup";
-    await Directory(backupDirPath).create(recursive: true);
-  } catch (e) {
-    Log.warning("AutoBackup", "Cannot write to Download, fallback: $e");
-    backupDirPath = FilePath.join(
-        App.externalStoragePath ?? dataPath, "KongComicAutoBackup");
-    await Directory(backupDirPath).create(recursive: true);
-  }
-
   // 同一天多次备份：在「日期」与扩展名之间追加短随机后缀，避免覆盖已有文件。
   var fileName = "KongComic_auto_${dateStr}_${_randomSuffix()}.kongcomic";
-  while (File(FilePath.join(backupDirPath, fileName)).existsSync()) {
-    fileName = "KongComic_auto_${dateStr}_${_randomSuffix()}.kongcomic";
-  }
 
-  final outFile = File(FilePath.join(backupDirPath, fileName));
-  await outFile.writeAsBytes(zipBytes);
+  final outFile = await _writeBackup(zipBytes, fileName);
   Log.info("AutoBackup", "Backup written to ${outFile.path}");
 
-  // 双维度清理，避免备份无限堆积：
-  // 1) 时间维度 —— 删除早于保留天数的旧备份，让「保留多久」可预期；
-  // 2) 数量维度 —— 剩余文件按修改时间排序，超出 [autoBackupKeepCount] 上限的
-  //    删最旧的，作为兜底（例如长期没打开 App、周期性任务没机会跑时）。
+  await _cleanupOldBackups(outFile.parent.path);
+}
+
+/// 备份目录候选，按「用户越容易找到越优先」排序。
+///
+/// 之前硬编码 `/storage/emulated/0/...`：多用户 / 应用分身 / 双开场景下那不是
+/// 当前用户的存储根。公共根只能问原生要（[LocalManager.publicStorageRoot] →
+/// `Environment.getExternalStorageDirectory()`）；拿不到就依次退到 App 专属
+/// 外部存储、App 私有目录。
+Future<List<String>> _backupDirCandidates() async {
+  final candidates = <String>[];
+  final root = await LocalManager.publicStorageRoot();
+  if (root != null) {
+    candidates.add(FilePath.join(root, "Download", "KongComic", "AutoBackup"));
+  }
+  final ext = App.externalStoragePath;
+  if (ext != null) {
+    candidates.add(FilePath.join(ext, "KongComicAutoBackup"));
+  }
+  candidates.add(FilePath.join(App.dataPath, "KongComicAutoBackup"));
+  return candidates;
+}
+
+/// 依次把 [bytes] 写进候选目录，返回落盘的那个文件。
+///
+/// 关键：**目录建得成不等于写得进去**。未授予「所有文件访问」时
+/// `create(recursive: true)` 可能成功，随后的写入却被 FUSE/SELinux 拒绝 ——
+/// 之前只有 create 在 try 里、真正的 `writeAsBytes` 在 try 之外，于是每次备份
+/// 都失败且没有二次回退。这里把「写」本身当作探测：写不进去就换下一个目录。
+Future<File> _writeBackup(List<int> bytes, String fileName) async {
+  Object? lastError;
+  for (final dir in await _backupDirCandidates()) {
+    try {
+      final directory = Directory(dir);
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+      var out = File(FilePath.join(dir, fileName));
+      // 极端情况下（同一秒跑两次）文件名仍可能撞车，顺手错开。
+      var attempt = 0;
+      while (await out.exists() && attempt < 20) {
+        out = File(FilePath.join(
+            dir,
+            "KongComic_auto_${DateTime.now().millisecondsSinceEpoch}_"
+                "${_randomSuffix()}.kongcomic"));
+        attempt++;
+      }
+      await out.writeAsBytes(bytes, flush: true);
+      return out;
+    } catch (e) {
+      lastError = e;
+      Log.warning("AutoBackup", "Cannot write backup to $dir: $e");
+    }
+  }
+  throw Exception("Failed to write backup file: $lastError");
+}
+
+/// 双维度清理，避免备份无限堆积：
+/// 1) 时间维度 —— 删除早于保留天数的旧备份，让「保留多久」可预期；
+/// 2) 数量维度 —— 剩余文件按修改时间排序，超出 [autoBackupKeepCount] 上限的
+///    删最旧的，作为兜底（例如长期没打开 App、周期性任务没机会跑时）。
+Future<void> _cleanupOldBackups(String backupDirPath) async {
   try {
     final dir = Directory(backupDirPath);
     if (!dir.existsSync()) return;

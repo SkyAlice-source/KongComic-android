@@ -7,6 +7,7 @@ import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutManager
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -20,6 +21,7 @@ import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
@@ -45,6 +47,13 @@ class MainActivity : FlutterFragmentActivity() {
     private val sharedTexts = ArrayList<String>()
 
     private var textShareHandler: ((String) -> Unit)? = null
+
+    // Pending result of a runtime permission prompt started from Flutter
+    // (see the "requestStoragePermission" channel). Kept here because the
+    // answer only arrives in onRequestPermissionsResult.
+    private var pendingPermissionResult: MethodChannel.Result? = null
+
+    private val storagePermissionRequestCode = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -154,6 +163,34 @@ class MainActivity : FlutterFragmentActivity() {
                     res.success(getDeviceAbi())
                 }
 
+                // Exclude a strip of the window from the system back gesture
+                // (Android 10+). Used by the horizontally scrolling tab bar on
+                // the root pages: the system's back-gesture hotspot is a ~20dp
+                // vertical band along each screen edge, so swiping the tab bar
+                // from the very left edge used to be swallowed by the system,
+                // which then popped the "really exit?" dialog instead of
+                // scrolling the tabs.
+                //
+                // Rects are physical pixels in window coordinates, and the
+                // system caps the excluded height at 200dp per edge — a tab bar
+                // (48dp) fits, the whole content area does not. Passing an
+                // empty list clears the exclusions; the caller MUST clear them
+                // when leaving the page, otherwise edge-swiping back on a
+                // sub-page stops working.
+                "setGestureExclusionRects" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        @Suppress("UNCHECKED_CAST")
+                        val rects = call.argument<List<List<Int>>>("rects")
+                            ?: emptyList()
+                        window.decorView.systemGestureExclusionRects =
+                            rects.mapNotNull { r ->
+                                if (r.size != 4) null
+                                else Rect(r[0], r[1], r[2], r[3])
+                            }
+                    }
+                    res.success(null)
+                }
+
                 // Public (shared) external storage root, e.g. /storage/emulated/0.
                 // path_provider's getExternalStorageDirectory() returns the
                 // app-specific directory (/Android/data/<pkg>/files) instead,
@@ -197,6 +234,52 @@ class MainActivity : FlutterFragmentActivity() {
                         startActivity(intent)
                     } catch (e: Exception) {
                         Log.w("MainActivity", "Cannot open all-files access settings: $e")
+                    }
+                    res.success(null)
+                }
+
+                // Android 10 and below: WRITE_EXTERNAL_STORAGE is a runtime
+                // permission that this app never requested, so `hasAllFilesAccess`
+                // was permanently false there and the public Download/Comic folder
+                // could never be used. Android 11+ has no such prompt (the only
+                // switch lives in the all-files-access settings page), so report
+                // false and let Dart fall back to opening that page.
+                "requestStoragePermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        res.success(false)
+                    } else if (ContextCompat.checkSelfPermission(
+                            this,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        res.success(true)
+                    } else {
+                        pendingPermissionResult = res
+                        ActivityCompat.requestPermissions(
+                            this,
+                            arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                            storagePermissionRequestCode
+                        )
+                    }
+                }
+
+                // Android 13 made notifications a runtime permission: deny it once
+                // and the system never prompts again, so the app needs a direct
+                // route back to the system switch.
+                "openNotificationSettings" -> {
+                    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    } else {
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:$packageName")
+                        )
+                    }
+                    try {
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Log.w("MainActivity", "Cannot open notification settings: $e")
                     }
                     res.success(null)
                 }
@@ -499,6 +582,21 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == storagePermissionRequestCode) {
+            pendingPermissionResult?.success(
+                grantResults.isNotEmpty() &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED
+            )
+            pendingPermissionResult = null
         }
     }
 

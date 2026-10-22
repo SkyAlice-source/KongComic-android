@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
@@ -207,6 +208,21 @@ class AppNotifications {
         AndroidFlutterLocalNotificationsPlugin>();
     final granted = await androidPlugin?.requestNotificationsPermission();
     return granted ?? false;
+  }
+
+  /// 打开系统的通知设置页（Android 8+ 直达本 App 的通知开关）。
+  ///
+  /// Android 13 起通知是运行时权限：用户一旦在首次弹窗里点了「不允许」，之后再
+  /// [requestPermission] 系统不会重新弹窗。App 内必须留一条能回到系统开关的路，
+  /// 否则用户既收不到下载/追更通知，也无从恢复。
+  static Future<void> openSettings() async {
+    if (!App.isAndroid) return;
+    try {
+      await const MethodChannel('kong_comic/method_channel')
+          .invokeMethod('openNotificationSettings');
+    } catch (e) {
+      Log.error("Notification", "Failed to open notification settings: $e", null);
+    }
   }
 
   static Future<bool> get isAllowed async {

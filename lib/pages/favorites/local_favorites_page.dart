@@ -437,11 +437,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
 
   @override
   Widget build(BuildContext context) {
-    var title = favPage.folder ?? "Unselected".tl;
-    if (title == _localAllFolderLabel) {
-      title = "All".tl;
-    }
-
     Widget body = SmoothCustomScrollView(
       controller: widget.controller,
       slivers: [
@@ -450,22 +445,20 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             style: context.width < changePoint
                 ? AppbarStyle.shadow
                 : AppbarStyle.shadow,
-            leading: context.width <= _kTwoPanelChangeWidth
-                ? Tooltip(
-                    message: "Folders".tl,
-                    child: IconButton(
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedMenu02,
-                        size: 18,
-                      ),
-                      onPressed: favPage.showFolderSelector,
-                    ),
-                  )
-                : const SizedBox(),
+            leading: Tooltip(
+              message: "Favorites".tl,
+              child: IconButton(
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowLeft01,
+                  size: 18,
+                ),
+                onPressed: () => favPage.setFolder(false, null),
+              ),
+            ),
             title: Text(
-              title,
-              // 二级标题：低于根页「收藏」的 kcTitleMain(20)/bold。
-              // 分组切换已交给正文顶部的 _GroupPills，这里只显示当前文件夹名。
+              "Favorites".tl,
+              // 页面标识固定为「收藏」，不再随文件夹变：当前文件夹已由下方
+              // 胶囊条高亮表达，标题再写一遍等于同一信息出现两次。
               style: const TextStyle(
                 fontSize: kcSectionTitle,
                 fontWeight: FontWeight.w600,
@@ -594,8 +587,11 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
               ]),
             ],
           ),
-          // 分组切换胶囊：常驻正文顶部，单栏窄屏也能直接切分组。
-          SliverToBoxAdapter(child: _GroupPills(favPage: favPage)),
+          // 文件夹胶囊条：常驻顶栏下方（pinned），滚到列表深处也能直接换文件夹。
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
+          ),
         ] else if (multiSelectMode)
           SliverAppbar(
             style: context.width < changePoint
@@ -849,7 +845,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       ),
     );
     return PopScope(
-      canPop: !multiSelectMode && !searchMode,
+      // 收藏页是「货架总览 → 文件夹」两层：文件夹视图里返回键先退回总览，
+      // 而不是直接弹「确认退出」（总览是 tab 根页，那才是该退出的位置）。
+      // 多选 / 搜索优先吃掉返回，与之前一致。
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (multiSelectMode) {
           setState(() {
@@ -862,6 +861,8 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             keyword = "";
             updateComics();
           });
+        } else {
+          favPage.setFolder(false, null);
         }
       },
       child: body,
