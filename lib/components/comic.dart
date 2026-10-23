@@ -291,7 +291,14 @@ class ComicTile extends StatelessWidget {
         ? _buildDetailedMode(context, histBadge, isFavorite)
         : _buildBriefMode(context, histBadge, isFavorite);
 
-    return child;
+    // 无障碍：漫画卡是核心可点元素，给 TalkBack 一个可读标签（漫画名 + 按钮角色）。
+    // 否则视障用户只能听到「按钮」或整块无标签。进度胶囊信息次要，留待语义
+    // 树自动合并（histBadge 内有 Text，会被并入同节点）。
+    return Semantics(
+      label: comic.title.replaceAll('\n', ''),
+      button: true,
+      child: child,
+    );
   }
 
   Widget buildImage(BuildContext context) {

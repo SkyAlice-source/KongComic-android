@@ -130,9 +130,9 @@ class _SystemGestureExclusionState extends State<SystemGestureExclusion> {
   /// 排除条带的宽度。系统的返回手势热区约 20dp，取 24dp 留一点余量。
   static const _bandWidth = 24.0;
 
-  /// 已上报的矩形（物理像素）。页面滚动时会频繁 rebuild，不加去重就是每帧
-  /// 过一次 platform channel。
-  List<int>? _sent;
+  /// 已上报的矩形列表（物理像素，每条边一个）。页面滚动时会频繁 rebuild，
+  /// 不加去重就是每帧过一次 platform channel。
+  List<List<int>>? _sent;
 
   bool _syncScheduled = false;
 
@@ -186,39 +186,51 @@ class _SystemGestureExclusionState extends State<SystemGestureExclusion> {
           : math.min(size.height, widget.excludeHeight!);
       if (excludedHeight <= 0) return;
 
-      _apply([
-        0,
-        (origin.dy * ratio).round(),
-        band < width ? band : width,
-        ((origin.dy + excludedHeight) * ratio).round(),
-      ]);
+      final y = (origin.dy * ratio).round();
+      final bottom = ((origin.dy + excludedHeight) * ratio).round();
+      final w = band < width ? band : width;
+      final rects = <List<int>>[
+        [0, y, w, bottom],
+      ];
+      // 右缘对称带：让「从屏幕右边缘起手向左滑」也切 tab，而不是触发系统返回。
+      // Android 对**每条边**的排除高度分别限 200dp（本带仅 [excludeHeight] 高，
+      // 远小于上限），左右各自生效、互不挤占预算——之前只排左缘，右缘横滑
+      // 仍被系统判成「确认退出」。
+      final rightX = width - band;
+      if (rightX > band) {
+        rects.add([rightX, y, band, bottom]);
+      }
+      _apply(rects);
     } catch (_) {
       // 拿不到几何信息就维持现状：下一次 build 还会再试。
     }
   }
 
-  void _apply(List<int>? rect) {
+  void _apply(List<List<int>>? rects) {
     // 只有 Android 有这个原生通道；其它平台调过去会抛
     // MissingPluginException（异步未捕获，日志里一片红）。
     if (!App.isAndroid) return;
-    if (rect == null) {
+    if (rects == null) {
       if (_sent == null) return;
       _sent = null;
     } else {
-      if (_sent != null && _sameRect(rect, _sent!)) return;
-      _sent = rect;
+      if (_sent != null && _sameRects(rects, _sent!)) return;
+      _sent = rects;
     }
     _channel.invokeMethod('setGestureExclusionRects', {
-      'rects': rect == null ? const <List<int>>[] : <List<int>>[rect],
+      'rects': rects ?? const <List<int>>[],
     });
   }
 
   /// 不引入 `foundation.listEquals`：本文件是 `components.dart` 的 part，
   /// 那个库没有导出它，为一个三行循环加 import 不值得。
-  static bool _sameRect(List<int> a, List<int> b) {
+  static bool _sameRects(List<List<int>> a, List<List<int>> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
+      if (a[i].length != b[i].length) return false;
+      for (var j = 0; j < a[i].length; j++) {
+        if (a[i][j] != b[i][j]) return false;
+      }
     }
     return true;
   }
