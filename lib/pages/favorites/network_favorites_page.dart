@@ -114,7 +114,76 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
   Widget build(BuildContext context) {
     final favPage =
         context.findAncestorStateOfType<_FavoritesPageState>()!;
+    // 顶栏已并入 NaviPane 共享栏：正常 / 错误 / 未登录态共用同一注入
+    //（build 是三态的共同入口）。
+    favPage.pushTopBar(
+      sig: 'net_${widget.data.key}',
+      leading: Tooltip(
+        message: "Favorites".tl,
+        child: IconButton(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+          onPressed: () => favPage.setFolder(false, null),
+        ),
+      ),
+      title: Text(
+        widget.data.title,
+        style: TextStyle(fontSize: kcTitleMain, fontWeight: FontWeight.bold),
+        overflow: TextOverflow.ellipsis,
+      ),
+      actions: [
+        favPage._favToolsPill(context, _pillChildren(favPage)),
+      ],
+    );
     return _withBackToOverview(favPage, _buildList(favPage));
+  }
+
+  /// 网络收藏页工具胶囊条内容（原 SliverAppbar 的 actions 原样迁移）。
+  List<Widget> _pillChildren(_FavoritesPageState favPage) {
+    return [
+      // 布局切换双态分段：与「本地」收藏同一套写法，翻全局
+      // comicDisplayMode；ComicList 经 AnimatedBuilder 自动重建。
+      ToolsPillSegment(
+        icons: const [
+          HugeIcons.strokeRoundedGridView,
+          HugeIcons.strokeRoundedListView,
+        ],
+        tooltips: [
+          "Switch to grid view".tl,
+          "Switch to list view".tl,
+        ],
+        selectedIndex: appdata.settings['comicDisplayMode'] != 'brief' ? 1 : 0,
+        onSelected: (_) {
+          appdata.settings['comicDisplayMode'] =
+              appdata.settings['comicDisplayMode'] != 'brief'
+              ? 'brief'
+              : 'detailed';
+          appdata.saveData();
+          setState(() {});
+        },
+      ),
+      favPage._toolIconButton(
+        context,
+        icon: HugeIcons.strokeRoundedRefresh,
+        tooltip: "Refresh".tl,
+        onPressed: () {
+          // Force refresh bypassing cache
+          NetworkCacheManager().clear();
+          comicListKey.currentState!.refresh();
+        },
+      ),
+      favPage._toolMoreButton(context, [
+        MenuEntry(
+          icon: HugeIcon(
+            icon: HugeIcons.strokeRoundedRefresh,
+            size: 18,
+          ),
+          text: "Convert to local".tl,
+          onClick: () {
+            importNetworkFolder(widget.data.key, 9999999, null, null);
+          },
+        ),
+      ]),
+    ];
   }
 
   Widget _buildList(_FavoritesPageState favPage) {
@@ -126,68 +195,6 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
       openLocalIfAvailable: true,
       leadingSliver: MultiSliver(
         children: [
-          SliverAppbar(
-            style:
-                context.width < changePoint ? AppbarStyle.shadow : AppbarStyle.blur,
-            leading: Tooltip(
-              message: "Favorites".tl,
-              child: IconButton(
-                icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
-                color: context.colorScheme.onSurfaceVariant,
-                onPressed: () => favPage.setFolder(false, null),
-              ),
-            ),
-            title: Text(widget.data.title),
-            actions: [
-              favPage._favToolsPill(context, [
-                // 布局切换双态分段：与「本地」收藏同一套写法，翻全局
-                // comicDisplayMode；ComicList 经 AnimatedBuilder 自动重建。
-                ToolsPillSegment(
-                  icons: const [
-                    HugeIcons.strokeRoundedGridView,
-                    HugeIcons.strokeRoundedListView,
-                  ],
-                  tooltips: [
-                    "Switch to grid view".tl,
-                    "Switch to list view".tl,
-                  ],
-                  selectedIndex:
-                      appdata.settings['comicDisplayMode'] != 'brief' ? 1 : 0,
-                  onSelected: (_) {
-                    appdata.settings['comicDisplayMode'] =
-                        appdata.settings['comicDisplayMode'] != 'brief'
-                            ? 'brief'
-                            : 'detailed';
-                    appdata.saveData();
-                    setState(() {});
-                  },
-                ),
-                favPage._toolIconButton(
-                  context,
-                  icon: HugeIcons.strokeRoundedRefresh,
-                  tooltip: "Refresh".tl,
-                  onPressed: () {
-                    // Force refresh bypassing cache
-                    NetworkCacheManager().clear();
-                    comicListKey.currentState!.refresh();
-                  },
-                ),
-                favPage._toolMoreButton(context, [
-                  MenuEntry(
-                    icon: HugeIcon(
-                      icon: HugeIcons.strokeRoundedRefresh,
-                      size: 18,
-                    ),
-                    text: "Convert to local".tl,
-                    onClick: () {
-                      importNetworkFolder(widget.data.key, 9999999, null, null);
-                    },
-                  ),
-                ]),
-              ]),
-            ],
-          ),
           // 文件夹胶囊条常驻顶栏下方（pinned，不随列表滚走）。
           SliverPersistentHeader(
             pinned: true,
@@ -195,27 +202,13 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
           ),
         ],
       ),
-      // 错误 / 未登录态不能用 leadingSliver，胶囊单独补在 Appbar 下方，
-      // 否则会卡在网络源错误页里没有分组切换入口。
+      // 错误 / 未登录态不能用 leadingSliver，胶囊单独补在共享顶栏下方，
+      // 否则会卡在网络源错误页里没有分组切换入口（顶栏本身由共享栏提供）。
       errorLeading: Column(
         mainAxisSize: MainAxisSize.min,
         // stretch 让胶囊与正常态一样左对齐、占满整行，而不是被 Column 居中。
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Appbar(
-            leading: Tooltip(
-              message: "Favorites".tl,
-              child: IconButton(
-                icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
-                color: context.colorScheme.onSurfaceVariant,
-                onPressed: () => context
-                    .findAncestorStateOfType<_FavoritesPageState>()
-                    ?.setFolder(false, null),
-              ),
-            ),
-            title: Text(widget.data.title),
-          ),
           _GroupPills(favPage: favPage),
         ],
       ),

@@ -183,6 +183,9 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
       this.folder = folder;
     });
     _showFab.value = true; // 切到别的文件夹后回到顶部，回顶按钮重新出现
+    // 内联切换视图与换 tab 同理：新视图从顶部开始看，底栏放回来。
+    // 否则在总览滚到深处（底栏已被滚动收起）点进文件夹，底栏一直不出现。
+    NaviPane.of(context).setBottomBarCollapsed(false);
     folderList?.update();
     appdata.implicitData['favoriteFolder'] = {
       'name': folder,

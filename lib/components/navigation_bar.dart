@@ -104,7 +104,18 @@ class NaviPaneState extends State<NaviPane>
         with
         TickerProviderStateMixin,
         AutoListenMixin {
+  /// 返回键分流信号：当前路由是否「内部就能吃掉一次 pop」。
+  ///
+  /// 注意它与 [isRootTabPage] 不是一回事：内联在根 tab 页里的组件只要注册了
+  /// `PopScope(canPop: false)`（如收藏文件夹页的「返回先回总览」），框架就会
+  /// 发出 `NavigationNotification(canHandlePop: true)`，把它置为 false —— 但
+  /// 这**不代表有子页被 push**。若拿它当「是否根页」用，内联 PopScope 会让
+  /// NaviPane 误判成子页态，把共享顶栏和底栏一起藏掉（v1.5.9 收藏页实测）。
+  /// 「是否根页」看 [isRootTabPage]（基于 observer 的路由数）。
   bool _canPop = true;
+
+  /// 上一次 [isRootTabPage] 的取值，用于在路由数跨越边界时触发一次重建。
+  bool _wasAtRoot = true;
 
   /// 底栏是否被「滚动」收进屏幕底部（沉浸模式）。
   ///
@@ -158,7 +169,12 @@ class NaviPaneState extends State<NaviPane>
   }
 
   /// Whether the current route is a root tab page (no inner page is shown).
-  bool get isRootTabPage => _canPop;
+  ///
+  /// 判据是 pane navigator 的**实际路由数**，而不是 [_canPop]：内联在根 tab
+  /// 页里的 `PopScope(canPop: false)`（收藏文件夹页「返回回总览」、历史页
+  /// 多选模式）只会把路由标记为「拦截 pop」，并不代表有子页压在上面 ——
+  /// 用 `_canPop` 当判据会让共享顶栏 / 底栏在这些正常根页态下一起消失。
+  bool get isRootTabPage => widget.observer.routes.length <= 1;
 
   /// Whether the shared mobile top bar should be rendered.
   ///
@@ -258,6 +274,18 @@ class NaviPaneState extends State<NaviPane>
   );
 
   void onNavigatorStateChange() {
+    // 路由数跨越「根页 / 子页」边界时重建一次：共享顶栏 / 底栏的显隐
+    // （isRootTabPage）读的是路由数，而 NavigationNotification 不保证在这
+    // 两种场景下都会带来一次 setState（例如从子页返回一个带 PopScope 的
+    // 根页，canHandlePop 前后都是 true，通知侧看不到变化）。
+    final bool atRoot = widget.observer.routes.length <= 1;
+    if (atRoot != _wasAtRoot) {
+      _wasAtRoot = atRoot;
+      setState(() {
+        // 从子页回到根页：底栏必须回来（滚动收起状态不跨层残留）。
+        if (atRoot) _bottomBarCollapsed = false;
+      });
+    }
     onRebuild(context);
   }
 
