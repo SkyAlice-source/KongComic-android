@@ -210,6 +210,11 @@ class NaviPaneState extends State<NaviPane>
   /// 顶栏无 leading（根 tab）。文件夹内页的「回总览」箭头走这里。
   final pageLeadingNotifier = ValueNotifier<Widget?>(null);
 
+  /// 当前页面可要求隐藏全局 [NaviPane.paneActions]（搜索/设置等）。收藏页
+  /// 的文件夹内层/多选/搜索态在工具胶囊里已有夹内搜索，右上角再放全局
+  /// 搜索是重复入口；由 pushTopBar 按视图声明，换 tab 复位为 false。
+  final pageHideGlobalActionsNotifier = ValueNotifier<bool>(false);
+
   void _onPageActionsChanged() {
     if (mounted) setState(() {});
   }
@@ -310,6 +315,7 @@ class NaviPaneState extends State<NaviPane>
     pageActionsNotifier.value = null;
     pageTitleNotifier.value = null;
     pageLeadingNotifier.value = null;
+    pageHideGlobalActionsNotifier.value = false;
     mainViewUpdateHandler?.call();
   }
 
@@ -326,6 +332,7 @@ class NaviPaneState extends State<NaviPane>
     listen(pageActionsNotifier, _onPageActionsChanged);
     listen(pageTitleNotifier, _onPageActionsChanged);
     listen(pageLeadingNotifier, _onPageActionsChanged);
+    listen(pageHideGlobalActionsNotifier, _onPageActionsChanged);
     super.initState();
   }
 
@@ -337,6 +344,7 @@ class NaviPaneState extends State<NaviPane>
     pageActionsNotifier.dispose();
     pageTitleNotifier.dispose();
     pageLeadingNotifier.dispose();
+    pageHideGlobalActionsNotifier.dispose();
     super.dispose();
   }
 
@@ -560,6 +568,7 @@ class NaviPaneState extends State<NaviPane>
     final pageActions = pageActionsNotifier.value;
     final pageLeading = pageLeadingNotifier.value;
     final pageTitle = pageTitleNotifier.value;
+    final hideGlobalActions = pageHideGlobalActionsNotifier.value;
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Container(
@@ -584,17 +593,24 @@ class NaviPaneState extends State<NaviPane>
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
-              ),
-            const Spacer(),
+              )
+            else
+              // 无标题时用 Spacer 把操作推到右侧。注意它不能与上面的
+              // Expanded 并存 —— 两个 flex 子节点会平分剩余空间，标题被
+              // 挤到一半宽（窄屏 + 宽工具胶囊下直接放不下两个字）。
+              const Spacer(),
             // 页面注入的精确操作（历史页的筛选/多选/更多等），保留其原有视觉
             // （如筛选激活时变红、自定义 showMenuX 菜单），不再强转 PaneActionEntry。
             if (pageActions != null) ...pageActions,
             // 全局共享操作（布局切换 / 搜索 / 设置），按 PaneActionEntry 渲染。
+            // 页面可通过 pageHideGlobalActionsNotifier 隐藏（收藏页内层已
+            // 有夹内搜索，全局入口留在总览层）。
             // 注意语义标签必须走 IconButton/PopupMenuButton 的 tooltip 参数
             // （映射到无障碍 content-desc）；外层 Tooltip 的 message 只进
             // tooltipText 通道，读屏与 uiautomator 都拿不到（实证 3 次重采
             // 均无标签，与页面注入操作的 IconButton(tooltip:) 表现不一致）。
-            for (var action in widget.paneActions)
+            if (!hideGlobalActions)
+              for (var action in widget.paneActions)
               if (action.menu != null)
                 PopupMenuButton<dynamic>(
                   icon: action.icon,

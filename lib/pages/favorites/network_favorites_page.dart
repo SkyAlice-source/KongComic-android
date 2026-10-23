@@ -133,6 +133,8 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
       actions: [
         favPage._favToolsPill(context, _pillChildren(favPage)),
       ],
+      // 内层工具胶囊已有夹内搜索，右上角不重复全局搜索/设置入口。
+      hideGlobalActions: true,
     );
     return _withBackToOverview(favPage, _buildList(favPage));
   }

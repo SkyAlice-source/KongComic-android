@@ -737,6 +737,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       leading: leading,
       title: title,
       actions: actions,
+      // 内层（文件夹/多选/搜索）工具胶囊里已有夹内搜索，右上角不再重复
+      // 全局搜索/设置入口 —— 全局入口留在总览层。
+      hideGlobalActions: true,
     );
   }
 

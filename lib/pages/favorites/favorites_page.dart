@@ -159,6 +159,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
     Widget? leading,
     Widget? title,
     List<Widget>? actions,
+    bool hideGlobalActions = false,
   }) {
     final pane = NaviPane.of(context);
     _myPageIndex ??= pane.currentPage;
@@ -174,6 +175,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
       pane.pageLeadingNotifier.value = leading;
       pane.pageTitleNotifier.value = title;
       pane.pageActionsNotifier.value = actions;
+      pane.pageHideGlobalActionsNotifier.value = hideGlobalActions;
     });
   }
 
