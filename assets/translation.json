@@ -27,7 +27,6 @@
     "Failed to open the system installer": "无法打开系统安装器",
     "The downloaded file is incomplete. Please download it again.": "下载的文件不完整，请重新下载。",
     "The update was downloaded but the system installer could not open it. Install it manually from the Download folder.": "更新已下载完成，但无法唤起系统安装器。请从 Download 文件夹手动安装。",
-    "KongComic needs the 「Install unknown apps」 permission. Allow it on the next screen, then try again.": "空漫需要「安装未知应用」权限。请在接下来的页面里允许，然后重试。",
     "No source repository linked": "未关联源仓库",
     "Imported from file": "从文件导入",
     "Installed from link": "通过链接安装",
@@ -958,7 +957,8 @@
     "No favorites yet": "还没有收藏",
     "No recommendations": "暂无推荐",
     "Show recommendations on explore": "在发现页显示推荐",
-    "Shuffle": "换一批"
+    "Shuffle": "换一批",
+    "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫需要「安装未知应用」权限。请在接下来的页面里允许，然后重试。"
   },
   "zh_TW": {
     "Previous page": "上一頁",
@@ -988,7 +988,6 @@
     "Failed to open the system installer": "無法開啟系統安裝程式",
     "The downloaded file is incomplete. Please download it again.": "下載的檔案不完整，請重新下載。",
     "The update was downloaded but the system installer could not open it. Install it manually from the Download folder.": "更新已下載完成，但無法喚起系統安裝程式。請從 Download 資料夾手動安裝。",
-    "KongComic needs the 「Install unknown apps」 permission. Allow it on the next screen, then try again.": "空漫需要「安裝未知應用程式」權限。請在下一個頁面允許後再試一次。",
     "No source repository linked": "未關聯源倉庫",
     "Imported from file": "從檔案匯入",
     "Installed from link": "透過連結安裝",
@@ -1919,7 +1918,8 @@
     "No favorites yet": "還沒有收藏",
     "No recommendations": "暫無推薦",
     "Show recommendations on explore": "在探索頁顯示推薦",
-    "Shuffle": "換一批"
+    "Shuffle": "換一批",
+    "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫需要「安裝未知應用程式」權限。請在下一個頁面允許後再試一次。"
   },
   "ja_JP": {
     "Previous page": "前のページ",
@@ -1948,7 +1948,6 @@
     "Failed to open the system installer": "システムインストーラーを開けませんでした",
     "The downloaded file is incomplete. Please download it again.": "ダウンロードしたファイルは不完全です。もう一度ダウンロードしてください。",
     "The update was downloaded but the system installer could not open it. Install it manually from the Download folder.": "アップデートはダウンロード済みですが、システムインストーラーを開けませんでした。Download フォルダーから手動でインストールしてください。",
-    "KongComic needs the 「Install unknown apps」 permission. Allow it on the next screen, then try again.": "空漫には「提供元不明のアプリのインストール」権限が必要です。次の画面で許可してから、もう一度お試しください。",
     "No source repository linked": "ソースリポジトリ未連携",
     "Imported from file": "ファイルから読み込み",
     "Installed from link": "リンクからインストール",
@@ -2880,6 +2879,7 @@
     "No favorites yet": "お気に入りはまだありません",
     "No recommendations": "おすすめはありません",
     "Show recommendations on explore": "探索ページにおすすめを表示",
-    "Shuffle": "別のおすすめ"
+    "Shuffle": "別のおすすめ",
+    "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫には「提供元不明のアプリのインストール」権限が必要です。次の画面で許可してから、もう一度お試しください。"
   }
 }

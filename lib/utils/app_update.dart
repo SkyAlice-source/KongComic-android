@@ -124,7 +124,7 @@ String updateFailureMessage(Object e) {
     case UpdateFailureStage.install:
       final install = e is UpdateInstallException ? e : null;
       if (install != null && install.isPermissionIssue) {
-        return "KongComic needs the 「Install unknown apps」 permission. Allow it on the next screen, then try again."
+        return 'KongComic needs the "Install unknown apps" permission. Allow it on the next screen, then try again.'
             .tl;
       }
       return "The update was downloaded but the system installer could not open it. Install it manually from the Download folder."

@@ -73,6 +73,18 @@ def main() -> int:
         return 1
     print("\n✅ 无缺口：所有 .tl 文案在三语中都有译文。")
 
+    # 键纯英文：.tl 的英文兜底是「返回键本身」，键里若混入中文，
+    # en/de/fr 等语言用户就会直接看到中文。只拦 CJK 意音文字与全角/
+    # CJK 标点（「」（）等）；· … 等西文排版符号属于正常英文用法，放行。
+    cjk = re.compile(r"[\u3000-\u303f\uff00-\uffef\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]")
+    cjk_keys = sorted(k for k in data[langs[0]] if cjk.search(k))
+    if cjk_keys:
+        print(f"\n❌ {len(cjk_keys)} 条 key 含非 ASCII 字符（英文兜底会漏中文）：")
+        for k in cjk_keys[:20]:
+            print(f"   {k[:80]!r}")
+        return 1
+    print("✅ 键全部为纯英文：en 等无表语言兜底回键本身，不会漏出中文/日语。")
+
     if "--dead" in sys.argv:
         dead = [k for k in data[langs[0]] if k not in used]
         no_literal = [k for k in dead if k not in code_strings]
