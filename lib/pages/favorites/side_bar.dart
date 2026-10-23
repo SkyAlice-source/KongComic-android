@@ -122,8 +122,12 @@ class _LeftBarState extends State<_LeftBar>
 
   void findNetworkFolders() {
     networkFolders.clear();
+    // 与 favPage._computeNetworkFolders 同口径：只列已登录的源。
+    // 网络收藏挂在账号下，未登录的源不可能有收藏；装源时会自动把
+    // favoriteData.key 写进 settings['favorites']，不过滤就会出现
+    // 一排点了只会报错的死入口。
     var all = ComicSource.enabled()
-        .where((e) => e.favoriteData != null)
+        .where((e) => e.favoriteData != null && e.isLogged)
         .map((e) => e.favoriteData!.key)
         .toList();
     var settings = appdata.settings['favorites'] as List;

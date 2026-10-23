@@ -69,6 +69,7 @@ class ComicTile extends StatelessWidget {
     this.badgeAsTopLeftSource = false,
     this.openLocalIfAvailable = false,
     this.showTitleAtBottom = false,
+    this.displayMode,
   });
 
   final Comic comic;
@@ -118,6 +119,13 @@ class ComicTile extends StatelessWidget {
   /// where the tile is height-constrained to the cover and there is no room for
   /// a separate title line.
   final bool showTitleAtBottom;
+
+  /// 覆盖全局 `comicDisplayMode` 的显示模式（'brief' / 'detailed'）。
+  ///
+  /// 供槽位尺寸固定的调用方（收藏页货架 `_shelfBook` 等）锁定模式：detailed
+  /// 的封面宽按行高算（`height * 0.68`），在窄槽位里必然横向溢出、书名被挤没。
+  /// null 时跟随全局设置。
+  final String? displayMode;
 
   void _onTap() {
     if (onTap != null) {
@@ -210,7 +218,7 @@ class ComicTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var type = appdata.settings['comicDisplayMode'];
+    var type = displayMode ?? appdata.settings['comicDisplayMode'];
 
     var isFavorite = appdata.settings['showFavoriteStatusOnTile']
         ? LocalFavoritesManager()

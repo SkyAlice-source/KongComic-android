@@ -280,9 +280,14 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
 
   /// 复刻 _LeftBarState.findNetworkFolders：从已启用源的 favoriteData 键与
   /// settings['favorites'] 求交集，得到网络分组文件夹列表。
+  ///
+  /// 只保留**已登录**的源：网络收藏挂在账号下，未登录的源不可能有收藏，
+  /// 而装源时 [_addAllPagesWithComicSource] 会自动把 favoriteData.key 写进
+  /// settings['favorites']，不过滤的话装一堆源就会在总览底部排出一列
+  /// 同图标的死入口（用户反馈）。空列表时总览的整个 Network 区不渲染。
   List<String> _computeNetworkFolders() {
     final all = ComicSource.enabled()
-        .where((e) => e.favoriteData != null)
+        .where((e) => e.favoriteData != null && e.isLogged)
         .map((e) => e.favoriteData!.key)
         .toList();
     final settings = appdata.settings['favorites'];
@@ -715,8 +720,11 @@ Widget _shelfBook({
           // 货架卡片本来就小，再叠一条「来源 · 收藏日期」黑条会把封面
           // 压掉 1/6 且字号糊成一团；来源信息留给列表页和详情页。
           showBottomSourceDate: false,
-          // 书名放封面**下方**独立一行：叠在封面底部会和「第 X 话 · 进度」
-          // 胶囊抢同一条底边，小卡片上直接糊成一片甚至看不见（用户反馈）。
+          // 锁定 brief（纯封面 + 下方书名）：detailed 模式的封面宽按行高算
+          // （height * 0.68），塞进 cardW 窄槽位必横向溢出 57px、书名被挤成
+          // 0 宽（logcat 实证 comic.dart _buildDetailedMode Row OVERFLOWING）。
+          // 货架本意就是封面卡，模式不该随全局「详细列表」设置漂移。
+          displayMode: 'brief',
           showTitleAtBottom: false,
           onTap: onTap,
         ),
