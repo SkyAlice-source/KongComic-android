@@ -547,20 +547,23 @@ class NaviPaneState extends State<NaviPane>
             // （如筛选激活时变红、自定义 showMenuX 菜单），不再强转 PaneActionEntry。
             if (pageActions != null) ...pageActions,
             // 全局共享操作（布局切换 / 搜索 / 设置），按 PaneActionEntry 渲染。
+            // 注意语义标签必须走 IconButton/PopupMenuButton 的 tooltip 参数
+            // （映射到无障碍 content-desc）；外层 Tooltip 的 message 只进
+            // tooltipText 通道，读屏与 uiautomator 都拿不到（实证 3 次重采
+            // 均无标签，与页面注入操作的 IconButton(tooltip:) 表现不一致）。
             for (var action in widget.paneActions)
               if (action.menu != null)
-                Tooltip(
-                  message: action.label,
-                  child: PopupMenuButton<dynamic>(
-                    icon: action.icon,
-                    itemBuilder: (_) => action.menu!,
-                    onSelected: action.onSelected,
-                  ),
+                PopupMenuButton<dynamic>(
+                  icon: action.icon,
+                  tooltip: action.label,
+                  itemBuilder: (_) => action.menu!,
+                  onSelected: action.onSelected,
                 )
               else
-                Tooltip(
-                  message: action.label,
-                  child: IconButton(icon: action.icon, onPressed: action.onTap),
+                IconButton(
+                  icon: action.icon,
+                  tooltip: action.label,
+                  onPressed: action.onTap,
                 ),
           ],
         ),
