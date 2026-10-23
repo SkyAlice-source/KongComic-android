@@ -186,8 +186,13 @@ class NaviPaneState extends State<NaviPane>
   final pageActionsNotifier = ValueNotifier<List<Widget>?>(null);
 
   /// 当前页面可覆盖的顶栏标题（按页生效）。为 null 时回退到
-  /// [NaviPane.paneItems] 的静态标签。用于多选态显示「已选 N 项」等动态标题。
-  final pageTitleNotifier = ValueNotifier<String?>(null);
+  /// [NaviPane.paneItems] 的静态标签。用于多选态「已选 N 项」、文件夹内页
+  /// 「收藏」等动态标题；升级为 Widget 是为了让搜索态直接放输入框。
+  final pageTitleNotifier = ValueNotifier<Widget?>(null);
+
+  /// 当前页面可注入的顶栏 leading（返回键等），排在标题前。为 null 时
+  /// 顶栏无 leading（根 tab）。文件夹内页的「回总览」箭头走这里。
+  final pageLeadingNotifier = ValueNotifier<Widget?>(null);
 
   void _onPageActionsChanged() {
     if (mounted) setState(() {});
@@ -276,6 +281,7 @@ class NaviPaneState extends State<NaviPane>
     // 操作残留在探索页）。新页面若在 build 里通过 _syncTopBar 重新注入会立即补回。
     pageActionsNotifier.value = null;
     pageTitleNotifier.value = null;
+    pageLeadingNotifier.value = null;
     mainViewUpdateHandler?.call();
   }
 
@@ -291,6 +297,7 @@ class NaviPaneState extends State<NaviPane>
     listen(widget.observer, onNavigatorStateChange);
     listen(pageActionsNotifier, _onPageActionsChanged);
     listen(pageTitleNotifier, _onPageActionsChanged);
+    listen(pageLeadingNotifier, _onPageActionsChanged);
     super.initState();
   }
 
@@ -301,6 +308,7 @@ class NaviPaneState extends State<NaviPane>
     _pageNotifier.dispose();
     pageActionsNotifier.dispose();
     pageTitleNotifier.dispose();
+    pageLeadingNotifier.dispose();
     super.dispose();
   }
 
@@ -522,7 +530,8 @@ class NaviPaneState extends State<NaviPane>
   Widget buildTop() {
     final hideTitle = widget.topBarTitleHiddenPages.contains(currentPage);
     final pageActions = pageActionsNotifier.value;
-    final title = pageTitleNotifier.value ?? widget.paneItems[currentPage].label;
+    final pageLeading = pageLeadingNotifier.value;
+    final pageTitle = pageTitleNotifier.value;
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Container(
@@ -531,16 +540,22 @@ class NaviPaneState extends State<NaviPane>
         width: double.infinity,
         child: Row(
           children: [
+            // 页面注入的 leading（文件夹内页的「回总览」返回键等）。
+            if (pageLeading != null) pageLeading,
+            // 标题：页面注入 Widget（搜索态输入框 / 多选态文本）优先，
+            // 否则回退到当前 tab 的静态标签（kcTitleMain + 粗体，与
+            // 各根 tab 的 SliverAppbar 标题逐项一致）。
             if (!hideTitle)
               Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: kcTitleMain,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: pageTitle ??
+                    Text(
+                      widget.paneItems[currentPage].label,
+                      style: TextStyle(
+                        fontSize: kcTitleMain,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
               ),
             const Spacer(),
             // 页面注入的精确操作（历史页的筛选/多选/更多等），保留其原有视觉

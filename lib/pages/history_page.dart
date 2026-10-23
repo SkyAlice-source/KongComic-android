@@ -366,8 +366,16 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _myPageIndex == null) return;
       if (pane.currentPage != _myPageIndex) return;
+      // 标题已升级为 Widget：多选态注入与共享栏样式一致的粗体文本。
       pane.pageTitleNotifier.value = multiSelectMode
-          ? "Selected @c comics".tlParams({'c': selectedComics.length})
+          ? Text(
+              "Selected @c comics".tlParams({'c': selectedComics.length}),
+              style: TextStyle(
+                fontSize: kcTitleMain,
+                fontWeight: FontWeight.bold,
+              ),
+              overflow: TextOverflow.ellipsis,
+            )
           : null;
       pane.pageActionsNotifier.value =
           multiSelectMode ? _multiSelectActions() : _normalActions();
