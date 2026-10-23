@@ -148,40 +148,37 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
   Widget _favSortButton(BuildContext context) {
     final current = appdata.settings['favoriteSort'] as String?;
     Widget check(bool on) => HugeIcon(
-          icon: on
-              ? HugeIcons.strokeRoundedCheckmarkCircle02
-              : HugeIcons.strokeRoundedCircle,
-          size: 15,
-          color: on
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.onSurfaceVariant,
-        );
-    return favPage._favToolsPill(
-      context,
-      [
-        ToolsPillMoreButton(
-          icon: HugeIcons.strokeRoundedSorting02,
-          tooltip: "Sort".tl,
-          entries: [
-            MenuEntry(
-              text: "Manual order".tl,
-              icon: check(current == 'manual'),
-              onClick: () => _onSortSelected('manual'),
-            ),
-            MenuEntry(
-              text: "Recently favorited".tl,
-              icon: check(current == 'recent'),
-              onClick: () => _onSortSelected('recent'),
-            ),
-            MenuEntry(
-              text: "By title".tl,
-              icon: check(current == 'name'),
-              onClick: () => _onSortSelected('name'),
-            ),
-          ],
-        ),
-      ],
+      icon: on
+          ? HugeIcons.strokeRoundedCheckmarkCircle02
+          : HugeIcons.strokeRoundedCircle,
+      size: 15,
+      color: on
+          ? Theme.of(context).colorScheme.primary
+          : Theme.of(context).colorScheme.onSurfaceVariant,
     );
+    return favPage._favToolsPill(context, [
+      ToolsPillMoreButton(
+        icon: HugeIcons.strokeRoundedSorting02,
+        tooltip: "Sort".tl,
+        entries: [
+          MenuEntry(
+            text: "Manual order".tl,
+            icon: check(current == 'manual'),
+            onClick: () => _onSortSelected('manual'),
+          ),
+          MenuEntry(
+            text: "Recently favorited".tl,
+            icon: check(current == 'recent'),
+            onClick: () => _onSortSelected('recent'),
+          ),
+          MenuEntry(
+            text: "By title".tl,
+            icon: check(current == 'name'),
+            onClick: () => _onSortSelected('name'),
+          ),
+        ],
+      ),
+    ]);
   }
 
   void _onSortSelected(String sort) {
@@ -506,387 +503,374 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    Widget body = SmoothCustomScrollView(
-      controller: widget.controller,
-      slivers: [
-        if (!searchMode && !multiSelectMode) ...[
-          SliverAppbar(
-            style: context.width < changePoint
-                ? AppbarStyle.shadow
-                : AppbarStyle.shadow,
-            leading: Tooltip(
-              message: "Favorites".tl,
-              child: IconButton(
+  /// 多选态注入共享顶栏的工具（原多选 SliverAppbar 的 actions 原样迁移）。
+  List<Widget> _multiSelectActions() {
+    return [
+      ToolsPill(
+        children: [
+          ToolsPillButton(
+            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+            tooltip: "Select All".tl,
+            onPressed: selectAll,
+          ),
+          ToolsPillButton(
+            icon: HugeIcons.strokeRoundedCancel01,
+            tooltip: "Deselect".tl,
+            onPressed: _cancel,
+          ),
+          ToolsPillMoreButton(
+            entries: [
+              if (!isAllFolder)
+                MenuEntry(
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedMove01, size: 18),
+                  text: "Move to folder".tl,
+                  onClick: () => favoriteOption('move'),
+                ),
+              if (!isAllFolder)
+                MenuEntry(
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+                  text: "Copy to folder".tl,
+                  onClick: () => favoriteOption('add'),
+                ),
+              MenuEntry(
                 icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedArrowLeft01,
+                  icon: HugeIcons.strokeRoundedFlipHorizontal,
                   size: 18,
                 ),
-                onPressed: () => favPage.setFolder(false, null),
+                text: "Invert Selection".tl,
+                onClick: invertSelection,
               ),
-            ),
-            title: Text(
-              "Favorites".tl,
-              // 页面标识固定为「收藏」，不再随文件夹变：当前文件夹已由下方
-              // 胶囊条高亮表达，标题再写一遍等于同一信息出现两次。
-              //
-              // 字重/字号与收藏总览、分类、主页、发现统一（kcTitleMain + 粗体）。
-              // 此前这里写死 kcSectionTitle（17 + w600），从总览点进来标题会
-              // 突然缩一号、细一档（用户反馈「不一体」）。
-              style: const TextStyle(
-                fontSize: kcTitleMain,
-                fontWeight: FontWeight.bold,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-            actions: [
-              favPage._favToolsPill(context, [
-                // 布局切换双态分段：左「网格(简明)」/ 右「列表(详细)」，当前态高亮
-                // accent 红。与历史页同一套写法，翻的是全局 comicDisplayMode，
-                // 下方 PaginatedSliverGridComics/SliverGridComics 经 AnimatedBuilder
-                // 自动重建，无需手动刷新。
-                ToolsPillSegment(
-                  icons: const [
-                    HugeIcons.strokeRoundedGridView,
-                    HugeIcons.strokeRoundedListView,
-                  ],
-                  tooltips: [
-                    "Switch to grid view".tl,
-                    "Switch to list view".tl,
-                  ],
-                  selectedIndex: appdata.settings['comicDisplayMode'] != 'brief'
-                      ? 1
-                      : 0,
-                  onSelected: (_) {
-                    appdata.settings['comicDisplayMode'] =
-                        appdata.settings['comicDisplayMode'] != 'brief'
-                        ? 'brief'
-                        : 'detailed';
-                    appdata.saveData();
-                    setState(() {});
-                  },
+              MenuEntry(
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedFavourite,
+                  size: 18,
                 ),
-                // 排序：全局 favoriteSort 设置（manual/recent/name），菜单里
-                // 单选打勾。总览货架与「全部」视图读同一份设置，即时同步。
-                _favSortButton(context),
-                if (networkSource != null && !isAllFolder)
-                  Tooltip(
-                    message: "Sync".tl,
-                    child: Flyout(
-                      flyoutBuilder: (context) {
-                        var updatePageWidget = _SelectUpdatePageNum(
-                          networkSource: networkSource!,
-                          networkFolder: networkFolder,
-                          key: _selectUpdatePageNumKey,
-                        );
-                        return FlyoutContent(
-                          title: "Sync".tl,
-                          content: updatePageWidget,
-                          actions: [
-                            Button.filled(
-                              child: Text("Update".tl),
-                              onPressed: () {
-                                context.pop();
-                                importNetworkFolder(
-                                  networkSource!,
-                                  _selectUpdatePageNumKey
-                                      .currentState!
-                                      .updatePageNum,
-                                  widget.folder,
-                                  networkFolder!,
-                                ).then((value) {
-                                  updateComics();
-                                });
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                      child: Builder(
-                        builder: (context) {
-                          return IconButton(
-                            icon: HugeIcon(
-                              icon: HugeIcons.strokeRoundedRefresh,
-                              size: 18,
-                            ),
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            constraints: const BoxConstraints(
-                              minWidth: 36,
-                              minHeight: 36,
-                            ),
-                            padding: EdgeInsets.zero,
-                            splashRadius: 20,
-                            onPressed: () {
-                              Flyout.of(context).show();
-                            },
+                text: "Remove from favorites".tl,
+                onClick: () {
+                  for (var c in selectedComics.keys) {
+                    var fav = c as FavoriteItem;
+                    if (isAllFolder) {
+                      // In All view, find which folder the comic belongs to
+                      for (var f in LocalFavoritesManager().folderNames) {
+                        var folderComics = LocalFavoritesManager()
+                            .getFolderComics(f);
+                        if (folderComics.any(
+                          (fc) =>
+                              fc.id == fav.id &&
+                              fc.type.value == fav.type.value,
+                        )) {
+                          LocalFavoritesManager().deleteComicWithId(
+                            f,
+                            fav.id,
+                            fav.type,
                           );
-                        },
-                      ),
-                    ),
-                  ),
-                favPage._toolIconButton(
-                  context,
-                  icon: HugeIcons.strokeRoundedSortDescending,
-                  active: readFilterSelect != readFilterList[0],
-                  tooltip: "Filter".tl,
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) {
-                        return _LocalFavoritesFilterDialog(
-                          initReadFilterSelect: readFilterSelect,
-                          updateConfig: (readFilter) {
-                            setState(() {
-                              readFilterSelect = readFilter;
-                            });
-                            updateComics();
-                          },
-                        );
-                      },
-                    );
-                  },
-                ),
-                favPage._toolIconButton(
-                  context,
-                  icon: HugeIcons.strokeRoundedSearch02,
-                  tooltip: "Search".tl,
-                  onPressed: () {
-                    setState(() {
-                      keyword = "";
-                      searchMode = true;
-                      updateSearchResult();
-                    });
-                  },
-                ),
-                if (!isAllFolder)
-                  favPage._toolMoreButton(context, _buildMoreEntries()),
-              ]),
-            ],
-          ),
-          // 文件夹胶囊条：常驻顶栏下方（pinned），滚到列表深处也能直接换文件夹。
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
-          ),
-        ] else if (multiSelectMode)
-          SliverAppbar(
-            style: context.width < changePoint
-                ? AppbarStyle.shadow
-                : AppbarStyle.shadow,
-            leading: Tooltip(
-              message: "Cancel".tl,
-              child: IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-                onPressed: () {
+                          break;
+                        }
+                      }
+                    } else {
+                      LocalFavoritesManager().deleteComicWithId(
+                        widget.folder,
+                        fav.id,
+                        fav.type,
+                      );
+                    }
+                  }
                   setState(() {
                     multiSelectMode = false;
                     selectedComics.clear();
                   });
                 },
               ),
-            ),
-            title: Text(
-              "Selected @c comics".tlParams({"c": selectedComics.length}),
-            ),
-            actions: [
-              ToolsPill(
-                children: [
-                  ToolsPillButton(
-                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                    tooltip: "Select All".tl,
-                    onPressed: selectAll,
+              if (!isAllFolder)
+                MenuEntry(
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedDelete01,
+                    size: 18,
                   ),
-                  ToolsPillButton(
-                    icon: HugeIcons.strokeRoundedCancel01,
-                    tooltip: "Deselect".tl,
-                    onPressed: _cancel,
+                  text: "Delete Comic".tl,
+                  color: context.colorScheme.error,
+                  onClick: () {
+                    showConfirmDialog(
+                      context: context,
+                      title: "Delete".tl,
+                      content: "Delete @c comics?".tlParams({
+                        "c": selectedComics.length,
+                      }),
+                      btnColor: context.colorScheme.error,
+                      onConfirm: () {
+                        _deleteComicWithId();
+                      },
+                    );
+                  },
+                ),
+              MenuEntry(
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedDownload04,
+                  size: 18,
+                ),
+                text: "Download".tl,
+                onClick: downloadSelected,
+              ),
+              if (selectedComics.length == 1)
+                MenuEntry(
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+                  text: "Copy Title".tl,
+                  onClick: () {
+                    Clipboard.setData(
+                      ClipboardData(text: selectedComics.keys.first.title),
+                    );
+                    context.showMessage(message: "Copied".tl);
+                  },
+                ),
+              if (selectedComics.length == 1)
+                MenuEntry(
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
+                  text: "Read".tl,
+                  onClick: () {
+                    final c = selectedComics.keys.first as FavoriteItem;
+                    // Push onto the main navigator so back returns to the
+                    // local favorites page instead of the home page.
+                    App.mainNavigatorKey?.currentContext?.to(
+                      () => ReaderWithLoading(id: c.id, sourceKey: c.sourceKey),
+                    );
+                  },
+                ),
+              if (selectedComics.length == 1)
+                MenuEntry(
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowRight01,
+                    size: 18,
                   ),
-                  ToolsPillMoreButton(
-                    entries: [
-                      if (!isAllFolder)
-                        MenuEntry(
-                          icon: HugeIcon(
-                            icon: HugeIcons.strokeRoundedMove01,
-                            size: 18,
-                          ),
-                          text: "Move to folder".tl,
-                          onClick: () => favoriteOption('move'),
-                        ),
-                      if (!isAllFolder)
-                        MenuEntry(
-                          icon: HugeIcon(
-                            icon: HugeIcons.strokeRoundedCopy01,
-                            size: 18,
-                          ),
-                          text: "Copy to folder".tl,
-                          onClick: () => favoriteOption('add'),
-                        ),
-                      MenuEntry(
-                        icon: HugeIcon(
-                          icon: HugeIcons.strokeRoundedFlipHorizontal,
-                          size: 18,
-                        ),
-                        text: "Invert Selection".tl,
-                        onClick: invertSelection,
-                      ),
-                      MenuEntry(
-                        icon: HugeIcon(
-                          icon: HugeIcons.strokeRoundedFavourite,
-                          size: 18,
-                        ),
-                        text: "Remove from favorites".tl,
-                        onClick: () {
-                          for (var c in selectedComics.keys) {
-                            var fav = c as FavoriteItem;
-                            if (isAllFolder) {
-                              // In All view, find which folder the comic belongs to
-                              for (var f
-                                  in LocalFavoritesManager().folderNames) {
-                                var folderComics = LocalFavoritesManager()
-                                    .getFolderComics(f);
-                                if (folderComics.any(
-                                  (fc) =>
-                                      fc.id == fav.id &&
-                                      fc.type.value == fav.type.value,
-                                )) {
-                                  LocalFavoritesManager().deleteComicWithId(
-                                    f,
-                                    fav.id,
-                                    fav.type,
-                                  );
-                                  break;
-                                }
-                              }
-                            } else {
-                              LocalFavoritesManager().deleteComicWithId(
-                                widget.folder,
-                                fav.id,
-                                fav.type,
-                              );
-                            }
-                          }
-                          setState(() {
-                            multiSelectMode = false;
-                            selectedComics.clear();
-                          });
-                        },
-                      ),
-                      if (!isAllFolder)
-                        MenuEntry(
-                          icon: HugeIcon(
-                            icon: HugeIcons.strokeRoundedDelete01,
-                            size: 18,
-                          ),
-                          text: "Delete Comic".tl,
-                          color: context.colorScheme.error,
-                          onClick: () {
-                            showConfirmDialog(
-                              context: context,
-                              title: "Delete".tl,
-                              content: "Delete @c comics?".tlParams({
-                                "c": selectedComics.length,
-                              }),
-                              btnColor: context.colorScheme.error,
-                              onConfirm: () {
-                                _deleteComicWithId();
-                              },
-                            );
-                          },
-                        ),
-                      MenuEntry(
-                        icon: HugeIcon(
-                          icon: HugeIcons.strokeRoundedDownload04,
-                          size: 18,
-                        ),
-                        text: "Download".tl,
-                        onClick: downloadSelected,
-                      ),
-                      if (selectedComics.length == 1)
-                        MenuEntry(
-                          icon: HugeIcon(
-                            icon: HugeIcons.strokeRoundedCopy01,
-                            size: 18,
-                          ),
-                          text: "Copy Title".tl,
-                          onClick: () {
-                            Clipboard.setData(
-                              ClipboardData(
-                                text: selectedComics.keys.first.title,
-                              ),
-                            );
-                            context.showMessage(message: "Copied".tl);
-                          },
-                        ),
-                      if (selectedComics.length == 1)
-                        MenuEntry(
-                          icon: HugeIcon(
-                            icon: HugeIcons.strokeRoundedBook01,
-                            size: 18,
-                          ),
-                          text: "Read".tl,
-                          onClick: () {
-                            final c = selectedComics.keys.first as FavoriteItem;
-                            // Push onto the main navigator so back returns to the
-                            // local favorites page instead of the home page.
-                            App.mainNavigatorKey?.currentContext?.to(
-                              () => ReaderWithLoading(
-                                id: c.id,
-                                sourceKey: c.sourceKey,
-                              ),
-                            );
-                          },
-                        ),
-                      if (selectedComics.length == 1)
-                        MenuEntry(
-                          icon: HugeIcon(
-                            icon: HugeIcons.strokeRoundedArrowRight01,
-                            size: 18,
-                          ),
-                          text: "Jump to Detail".tl,
-                          onClick: () {
-                            final c = selectedComics.keys.first as FavoriteItem;
-                            App.mainNavigatorKey?.currentContext?.to(
-                              () => ComicPage(id: c.id, sourceKey: c.sourceKey),
-                            );
-                          },
-                        ),
-                    ],
+                  text: "Jump to Detail".tl,
+                  onClick: () {
+                    final c = selectedComics.keys.first as FavoriteItem;
+                    App.mainNavigatorKey?.currentContext?.to(
+                      () => ComicPage(id: c.id, sourceKey: c.sourceKey),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ],
+      ),
+    ];
+  }
+
+  /// 搜索态注入共享顶栏：leading 取消 + 标题位直接放输入框
+  ///（这就是 pageTitleNotifier 升级为 Widget 的原因）。
+  List<Widget> _searchLeading() {
+    return [
+      Tooltip(
+        message: "Cancel".tl,
+        child: IconButton(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+          onPressed: () {
+            setState(() {
+              searchMode = false;
+            });
+          },
+        ),
+      ),
+    ];
+  }
+
+  Widget _searchTitleField() {
+    return TextField(
+      autofocus: true,
+      decoration: InputDecoration(
+        hintText: "Search".tl,
+        border: UnderlineInputBorder(),
+      ),
+      onChanged: (v) {
+        keyword = v;
+        searchHasUpper = keyword.contains(RegExp(r'[A-Z]'));
+        updateSearchResult();
+      },
+    ).paddingBottom(8).paddingRight(8);
+  }
+
+  /// 把本页（普通 / 多选 / 搜索三态）的顶栏内容同步进 NaviPane 共享栏。
+  /// 写值机制与历史页 _syncTopBar 相同：post-frame + 签名守卫 + 前台校验。
+  void _syncTopBar() {
+    String sig;
+    Widget? leading;
+    Widget? title;
+    List<Widget>? actions;
+    if (multiSelectMode) {
+      sig = 'ms_${selectedComics.length}';
+      leading = Tooltip(
+        message: "Cancel".tl,
+        child: IconButton(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+          onPressed: () {
+            setState(() {
+              multiSelectMode = false;
+              selectedComics.clear();
+            });
+          },
+        ),
+      );
+      title = Text("Selected @c comics".tlParams({"c": selectedComics.length}));
+      actions = _multiSelectActions();
+    } else if (searchMode) {
+      sig = 'search';
+      leading = _searchLeading().first;
+      title = _searchTitleField();
+    } else {
+      sig = 'n_${readFilterSelect}_${networkSource ?? 'l'}';
+      leading = Tooltip(
+        message: "Favorites".tl,
+        child: IconButton(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+          onPressed: () => favPage.setFolder(false, null),
+        ),
+      );
+      title = Text(
+        "Favorites".tl,
+        style: TextStyle(fontSize: kcTitleMain, fontWeight: FontWeight.bold),
+        overflow: TextOverflow.ellipsis,
+      );
+      actions = [favPage._favToolsPill(context, _normalPillChildren())];
+    }
+    favPage.pushTopBar(
+      sig: sig,
+      leading: leading,
+      title: title,
+      actions: actions,
+    );
+  }
+
+  /// 普通态工具胶囊条内容（原普通 SliverAppbar 的 actions 原样迁移）。
+  List<Widget> _normalPillChildren() {
+    return [
+      // 布局切换双态分段：左「网格(简明)」/ 右「列表(详细)」，当前态高亮
+      // accent 红。与历史页同一套写法，翻的是全局 comicDisplayMode，
+      // 下方 PaginatedSliverGridComics/SliverGridComics 经 AnimatedBuilder
+      // 自动重建，无需手动刷新。
+      ToolsPillSegment(
+        icons: const [
+          HugeIcons.strokeRoundedGridView,
+          HugeIcons.strokeRoundedListView,
+        ],
+        tooltips: ["Switch to grid view".tl, "Switch to list view".tl],
+        selectedIndex: appdata.settings['comicDisplayMode'] != 'brief' ? 1 : 0,
+        onSelected: (_) {
+          appdata.settings['comicDisplayMode'] =
+              appdata.settings['comicDisplayMode'] != 'brief'
+              ? 'brief'
+              : 'detailed';
+          appdata.saveData();
+          setState(() {});
+        },
+      ),
+      // 排序：全局 favoriteSort 设置（manual/recent/name），菜单里
+      // 单选打勾。总览货架与「全部」视图读同一份设置，即时同步。
+      _favSortButton(context),
+      if (networkSource != null && !isAllFolder)
+        Tooltip(
+          message: "Sync".tl,
+          child: Flyout(
+            flyoutBuilder: (context) {
+              var updatePageWidget = _SelectUpdatePageNum(
+                networkSource: networkSource!,
+                networkFolder: networkFolder,
+                key: _selectUpdatePageNumKey,
+              );
+              return FlyoutContent(
+                title: "Sync".tl,
+                content: updatePageWidget,
+                actions: [
+                  Button.filled(
+                    child: Text("Update".tl),
+                    onPressed: () {
+                      context.pop();
+                      importNetworkFolder(
+                        networkSource!,
+                        _selectUpdatePageNumKey.currentState!.updatePageNum,
+                        widget.folder,
+                        networkFolder!,
+                      ).then((value) {
+                        updateComics();
+                      });
+                    },
                   ),
                 ],
-              ),
-            ],
-          )
-        else if (searchMode)
-          SliverAppbar(
-            style: context.width < changePoint
-                ? AppbarStyle.shadow
-                : AppbarStyle.shadow,
-            leading: Tooltip(
-              message: "Cancel".tl,
-              child: IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-                onPressed: () {
-                  setState(() {
-                    searchMode = false;
-                  });
-                },
-              ),
-            ),
-            title: TextField(
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: "Search".tl,
-                border: UnderlineInputBorder(),
-              ),
-              onChanged: (v) {
-                keyword = v;
-                searchHasUpper = keyword.contains(RegExp(r'[A-Z]'));
-                updateSearchResult();
+              );
+            },
+            child: Builder(
+              builder: (context) {
+                return IconButton(
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedRefresh,
+                    size: 18,
+                  ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  padding: EdgeInsets.zero,
+                  splashRadius: 20,
+                  onPressed: () {
+                    Flyout.of(context).show();
+                  },
+                );
               },
-            ).paddingBottom(8).paddingRight(8),
+            ),
+          ),
+        ),
+      favPage._toolIconButton(
+        context,
+        icon: HugeIcons.strokeRoundedSortDescending,
+        active: readFilterSelect != readFilterList[0],
+        tooltip: "Filter".tl,
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) {
+              return _LocalFavoritesFilterDialog(
+                initReadFilterSelect: readFilterSelect,
+                updateConfig: (readFilter) {
+                  setState(() {
+                    readFilterSelect = readFilter;
+                  });
+                  updateComics();
+                },
+              );
+            },
+          );
+        },
+      ),
+      favPage._toolIconButton(
+        context,
+        icon: HugeIcons.strokeRoundedSearch02,
+        tooltip: "Search".tl,
+        onPressed: () {
+          setState(() {
+            keyword = "";
+            searchMode = true;
+            updateSearchResult();
+          });
+        },
+      ),
+      if (!isAllFolder) favPage._toolMoreButton(context, _buildMoreEntries()),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 顶栏已并入 NaviPane 共享栏：三种模式（普通 / 多选 / 搜索）各自注入
+    // leading / 标题 / 工具，见 [_syncTopBar]。
+    _syncTopBar();
+    Widget body = SmoothCustomScrollView(
+      controller: widget.controller,
+      slivers: [
+        // 文件夹胶囊条：常驻顶栏下方（pinned），滚到列表深处也能直接换文件夹。
+        // 共享顶栏接管后它就是首个 sliver，自动贴在共享栏下面。
+        if (!searchMode && !multiSelectMode)
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
           ),
         if (_usePagination)
           PaginatedSliverGridComics(
