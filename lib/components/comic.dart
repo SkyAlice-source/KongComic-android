@@ -1697,6 +1697,28 @@ class ComicListState extends State<ComicList> {
     setState(() {});
   }
 
+  /// 下拉刷新（`RefreshIndicator.onRefresh`）回调。
+  ///
+  /// 与 [refresh] 的区别：本方法返回「首页加载完成」的 Future，让下拉刷新的
+  /// 转圈能正确等到首屏数据回来再收起；[refresh] 是同步清空，供外部按钮 /
+  /// 数据变更即时触发、由 build 里的 `_loadPage` 重新拉取。
+  ///
+  /// 清空后立刻 `await _loadPage(1)`：`setState` 只标记脏、不会同步重建，
+  /// 所以这一句的 `_loadPage(1)` 先跑、置上 `_loading[1]=true`；随后重建时
+  /// build 里再调 `_loadPage(1)` 会被守卫挡掉，不会双拉。
+  Future<void> _handleRefresh() async {
+    if (widget.loadPage == null && widget.loadNext == null) return;
+    _maxPage = null;
+    _data.clear();
+    _loading.clear();
+    _error = null;
+    _nextUrl = null;
+    _page = 1;
+    storeState();
+    setState(() {});
+    await _loadPage(1);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -2035,8 +2057,11 @@ class ComicListState extends State<ComicList> {
         ],
       );
     }
-    return SmoothCustomScrollView(
-      // 换页回到顶部。`enablePageStorage` 默认是 false，以前这里是 `null`，
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      color: kcBrandAdaptive(context),
+      child: SmoothCustomScrollView(
+        // 换页回到顶部。`enablePageStorage` 默认是 false，以前这里是 `null`，
       // key 不变 → 滚动位置被沿用，从上一页底部翻页会直接落在新页的半山腰，
       // 顶上前几部漫画被跳过。带上页码的 key 让滚动视图跟着页码重建。
       key: enablePageStorage
@@ -2056,6 +2081,7 @@ class ComicListState extends State<ComicList> {
         ),
         if (widget.trailingSliver != null) widget.trailingSliver!,
       ],
+      ),
     );
   }
 
@@ -2089,13 +2115,16 @@ class ComicListState extends State<ComicList> {
         ],
       );
     }
-    return SmoothCustomScrollView(
-      key: enablePageStorage ? PageStorageKey('scroll$_page') : null,
-      controller: widget.controller,
-      slivers: [
-        if (widget.leadingSliver != null) widget.leadingSliver!,
-        SliverGridComics(
-          comics: _data.values.expand((element) => element).toList(),
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      color: kcBrandAdaptive(context),
+      child: SmoothCustomScrollView(
+        key: enablePageStorage ? PageStorageKey('scroll$_page') : null,
+        controller: widget.controller,
+        slivers: [
+          if (widget.leadingSliver != null) widget.leadingSliver!,
+          SliverGridComics(
+            comics: _data.values.expand((element) => element).toList(),
           menuBuilder: widget.menuBuilder,
           allFavorite: widget.allFavorite,
           showSourceOnCover: widget.showSourceOnCover,
@@ -2137,6 +2166,7 @@ class ComicListState extends State<ComicList> {
           const SliverListLoadingIndicator(),
         if (widget.trailingSliver != null) widget.trailingSliver!,
       ],
+      ),
     );
   }
 }
