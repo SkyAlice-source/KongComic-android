@@ -101,12 +101,34 @@ class FavoritesPage extends StatefulWidget implements SelfTopBarPage {
   State<FavoritesPage> createState() => _FavoritesPageState();
 }
 
+/// 网络源收藏数探测结果。
+///
+/// [count] 为探测到的收藏总数：每页数量小于首页视为末页（各源分页大小
+/// 恒定的合理假设），最多探测 5 页，超出则 [capped]=true、徽标显示「N+」。
+/// [count] == -1 表示探测失败（网络错误 / 源脚本异常）——保留入口但不出
+/// 徽标，不用一次瞬时错误惩罚用户。
+class _NetworkFavProbe {
+  final int count;
+
+  final bool capped;
+
+  const _NetworkFavProbe(this.count, {this.capped = false});
+
+  static const _NetworkFavProbe error = _NetworkFavProbe(-1);
+
+  bool get failed => count < 0;
+}
+
 class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   String? folder;
 
   bool isNetwork = false;
 
   FolderList? folderList;
+
+  /// 网络源收藏数：key -> 探测结果；value 为 null 表示探测中。
+  /// 会话级缓存，只在首次构建总览时探测一次，翻页/切文件夹不会重复发请求。
+  final Map<String, _NetworkFavProbe?> _networkProbes = {};
 
   // 收藏页整体回顶按钮：复用与发现/历史页一致的 ScrollTopFab
   final ScrollController _scrollController = ScrollController();
@@ -452,7 +474,18 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   }
 
   /// 网络收藏源入口：不预加载内容（要发网络请求），只做分组入口。
+  ///
+  /// 附带一次性的收藏数探测：拉回 0 收藏的源直接从总览移除（用户反馈
+  /// 「一排点击就报错的死入口」），探测失败（网络错误）则保留不惩罚。
   Widget _buildNetworkSection(List<String> net) {
+    // 探测放在 post-frame：build 期间只读缓存，避免 setState 重入。
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _probeNetworkSources(net),
+    );
+    final visible = net
+        .where((k) => !(_networkProbes[k] != null && _networkProbes[k]!.count == 0))
+        .toList();
+    if (visible.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 24),
       child: Column(
@@ -463,20 +496,66 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
           _sectionHeader(
             context: context,
             title: "Network".tl,
-            total: net.length,
+            total: visible.length,
             topPadding: 0,
             bottomPadding: kcSpaceXs,
           ),
-          for (final k in net) _networkTile(k),
+          for (final k in visible) _networkTile(k),
         ],
       ),
     );
   }
 
-  /// 网络分组行：图标块 + 名称 + 箭头，做成卡片而不是裸行，
-  /// 否则整页只有「货架 + 几行灰字」，视觉上像没做完。
+  void _probeNetworkSources(List<String> keys) {
+    for (final k in keys) {
+      if (_networkProbes.containsKey(k)) continue;
+      _networkProbes[k] = null; // 占位：探测中
+      _probeOneNetworkSource(k);
+    }
+  }
+
+  /// 顺序拉取某源的收藏页估算总数：首页为空即 0；某页数量小于首页视为
+  /// 末页；到 5 页仍未触底则封顶为「N+」。失败时标记 error、保留入口。
+  Future<void> _probeOneNetworkSource(String key) async {
+    final loadComic = getFavoriteDataOrNull(key)?.loadComic;
+    var total = 0;
+    var capped = false;
+    var failed = loadComic == null;
+    if (!failed) {
+      int? pageSize;
+      for (var page = 1; page <= 5; page++) {
+        final res = await loadComic(page);
+        if (res.error) {
+          failed = true;
+          break;
+        }
+        final comics = res.data;
+        if (comics.isEmpty) break;
+        pageSize ??= comics.length;
+        total += comics.length;
+        if (comics.length < pageSize) break;
+        if (page == 5) capped = true;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _networkProbes[key] = failed
+          ? _NetworkFavProbe.error
+          : _NetworkFavProbe(total, capped: capped);
+    });
+  }
+
+  /// 网络分组行：源头像（key 哈希出的专属色相 + 源名首字）+ 名称 + 收藏数
+  /// 徽标 + 箭头。头像取代过去千篇一律的地球图标，多个源一眼可分；
+  /// 徽标探测完成才出现，探测中是转圈、失败则什么都不显示。
   Widget _networkTile(String key) {
     final cs = Theme.of(context).colorScheme;
+    final title = getFavoriteDataOrNull(key)?.title ?? key;
+    final probe = _networkProbes[key];
+    // key.hashCode 可能为负，先取绝对值再取模；首字直接取 UTF-16 码元即可
+    // 覆盖中文与拉丁字母（源名不含代理对字符）。
+    final hue = (key.hashCode.abs() % 360).toDouble();
+    final avatarFg = HSLColor.fromAHSL(1, hue, 0.55, 0.42).toColor();
     return Padding(
       padding: const EdgeInsets.fromLTRB(kcSpaceLg, 0, kcSpaceLg, kcSpaceSm),
       child: Material(
@@ -498,21 +577,24 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: kcAccentSurface(context, alpha: 0.12),
+                    color: avatarFg.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(kcRadius8),
                   ),
                   child: Center(
-                    child: HugeIcon(
-                      icon: HugeIcons.strokeRoundedGlobe02,
-                      size: 18,
-                      color: kcAccentColor(context),
+                    child: Text(
+                      title.isEmpty ? '?' : title[0].toUpperCase(),
+                      style: TextStyle(
+                        fontSize: kcBody,
+                        fontWeight: FontWeight.w700,
+                        color: avatarFg,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    getFavoriteDataOrNull(key)?.title ?? key,
+                    title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -521,6 +603,33 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
                     ),
                   ),
                 ),
+                if (probe == null)
+                  // 探测中：小转圈提示「数字在路上」，避免徽标位置跳动。
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 1.6),
+                  )
+                else if (!probe.failed)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      probe.capped ? '${probe.count}+' : '${probe.count}',
+                      style: TextStyle(
+                        fontSize: kcCaption,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
                 HugeIcon(
                   icon: HugeIcons.strokeRoundedArrowRight01,
                   size: 16,

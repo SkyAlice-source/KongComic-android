@@ -212,8 +212,16 @@ class ComicSourceParser {
       _parseClickTagEvent(),
       _parseTagSuggestionSelectFunc(),
       _parseLinkHandler(),
-      _getValue("search.enableTagsSuggestions") ?? false,
-      _getValue("comic.enableTagsTranslate") ?? false,
+      // search/comic 块可能整体缺失（极简源），直接 _getValue 点路径会
+      // TypeError，先做存在性下钻。
+      (_checkExists("search.enableTagsSuggestions")
+          ? _getValue("search.enableTagsSuggestions")
+          : null) ??
+          false,
+      (_checkExists("comic.enableTagsTranslate")
+          ? _getValue("comic.enableTagsTranslate")
+          : null) ??
+          false,
       _parseStarRatingFunc(),
       _parseArchiveDownloader(),
     );
@@ -237,10 +245,20 @@ class ComicSourceParser {
   }
 
   bool _checkExists(String index) {
-    return JsEngine().runCode(
-      "ComicSource.sources.$_key.$index !== null "
-      "&& ComicSource.sources.$_key.$index !== undefined",
+    // index 可能是点路径（comic.loadThumbnails、search.onTagSuggestionSelected…）。
+    // 两个坑都踩过：
+    // 1. 直接取属性：父块不存在时中间段 undefined，抛 TypeError 让整个源
+    //    被 doInit 静默丢弃 —— 只有 favorites 没有 search/comic 块的源就踩中；
+    // 2. 可选链 `?.`：引擎内置的老版 QuickJS 不支持，直接 SyntaxError，
+    //    连带把正常的源也炸掉。所以这里用显式逐段下钻。
+    final res = JsEngine().runCode(
+      "(()=>{let o=ComicSource.sources.$_key;"
+      "for(const p of ${jsonEncode(index)}.split('.')){"
+      "if(o===null||o===undefined){return undefined;}"
+      "o=o[p];}"
+      "return o;})()",
     );
+    return res != null;
   }
 
   dynamic _getValue(String index) {
