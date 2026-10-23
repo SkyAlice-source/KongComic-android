@@ -7,14 +7,13 @@ import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/listen_mixin.dart';
-import 'package:kong_comic/pages/search_page.dart';
-import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
-/// 历史页：自绘整条顶栏（标题 + 右上角图标按钮），故实现 [SelfTopBarPage]
-/// 请求共享顶栏整体让位。此前靠 `main_page` 里硬编码的 `[1, 4]` 索引，
-/// 底栏顺序一变就会指错页。
-class HistoryPage extends StatefulWidget implements SelfTopBarPage {
+/// 历史页：顶栏改用 NaviPane 共享顶栏（[NaviPane.buildTop]），不再自绘
+/// SliverAppbar。页面通过 [NaviPane.pageActionsNotifier] / [NaviPane.pageTitleNotifier]
+/// 注入本页专属操作（筛选 / 多选 / 更多）与动态标题（多选态「已选 N 项」），
+/// 全局操作（布局切换 / 搜索 / 设置）由共享 [paneActions] 提供，避免重复。
+class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
   @override
@@ -39,16 +38,6 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
 
   void _onSettingsChanged() {
     if (mounted) setState(() {});
-  }
-
-  /// 当前是否为详细列表模式（detailed）；否则为简洁网格（brief）。
-  bool get _isDetailedLayout => appdata.settings['comicDisplayMode'] != 'brief';
-
-  void _toggleLayout() {
-    appdata.settings['comicDisplayMode'] = _isDetailedLayout
-        ? 'brief'
-        : 'detailed';
-    appdata.saveData();
   }
 
   void onUpdate() {
@@ -253,6 +242,8 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
 
   @override
   Widget build(BuildContext context) {
+    // 把本页顶栏操作 / 标题同步进 NaviPane 共享顶栏（带签名守卫，避免成环）。
+    _syncTopBar();
     return PopScope(
       canPop: !multiSelectMode && !searchMode,
       onPopInvokedWithResult: (didPop, result) {
@@ -269,30 +260,6 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         body: SmoothCustomScrollView(
           controller: _scrollController,
           slivers: [
-            // 历史页顶栏（标题 + 右上角图标）由本页自绘，外观与共享顶栏
-            // （NaviPane.buildTop）逐项对齐：标题贴左 16dp、20pt 粗体；
-            // 右上角是平铺的独立图标按钮 + 8dp 收尾。
-            //
-            // 共享顶栏已通过 [SelfTopBarPage] 对历史页整条让位，标题只能在这里
-            // 承担，否则会出现「两排工具栏」。
-                        SliverAppbar(
-              // 与共享顶栏同高，切 tab 时标题不会上下跳 2dp。
-              // 与共享顶栏逐项对齐：
-              // - 同高（48，切 tab 标题不上下跳）；
-              // - 纯色不透明 + 不投影（共享顶栏就是纯色 Material，玻璃态会把
-              //   下方封面模糊进栏体、在下缘留下一条忽明忽暗的色带，看起来像
-              //   顶栏和内容分了两层）；
-              // - 标题 20pt 粗体、贴左 16dp。
-              height: kcRootTopBarHeight,
-              style: AppbarStyle.shadow,
-              shadowOnScroll: false,
-              // 根 tab 没有返回箭头：8 的间距让标题首字正好落在 16 的内容基准线上。
-              titleGap: kcSpaceSm,
-              title: _buildTitle(),
-              actions: multiSelectMode
-                  ? _multiSelectActions()
-                  : _normalActions(),
-            ),
             PaginatedSliverGridComics(
               key: _gridKey,
               pageLoader: _loadPage,
@@ -362,21 +329,49 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     );
   }
 
-  /// 顶栏标题：与共享顶栏 [NaviPane.buildTop] 同款（kcTitleMain + 粗体）。
+  /// 顶栏同步签名：仅当「模式 / 筛选 / 选中数」变化时写 notifier，避免每次
+  /// build 都触发 NaviPane 重建（NaviPane 重建又会让本页 rebuild，靠守卫切断成环）。
+  String? _topBarSig;
+
+  /// 把本页顶栏标题 / 操作同步进 NaviPane 共享顶栏（[NaviPane.buildTop]）。
   ///
-  /// [SliverAppbar] 默认给的是 kcAppbarTitle(20) + w600 —— 字号一样、字重偏细，
-  /// 和分类/主页/发现摆在一起切换能看出不是同一套字。
-  Widget _buildTitle() {
-    const style = TextStyle(
-      fontSize: kcTitleMain,
-      fontWeight: FontWeight.bold,
-    );
-    return multiSelectMode
-        ? Text(
-            "Selected @c comics".tlParams({"c": selectedComics.length}),
-            style: style,
-          )
-        : Text("History".tl, style: style);
+  /// 历史页不再自绘 SliverAppbar，改用共享顶栏后必须主动注入。正常态标题为
+  /// null（回退到共享栏的「History」静态标签）；多选态显示「已选 N 项」。
+  /// 操作正常态为 [筛选 / 多选 / 更多]，多选态为 [全选 / 删除 / 更多 / 退出]；
+  /// 布局切换 / 搜索 / 设置由共享 [paneActions] 提供，这里不再重复。
+  /// 本页在 NaviPane 底栏里的索引（首次 build 时记录）。用于判断本页是否处于
+  /// 前台：切到别的 tab 后要把签名清空，否则切回来时签名仍命中、不会重新注入，
+  /// 顶栏操作就丢了（[NaviPane.updatePage] 会在换页时把 notifier 重置为 null）。
+  int? _myPageIndex;
+
+  /// 把本页顶栏标题 / 操作同步进 NaviPane 共享顶栏（[NaviPane.buildTop]）。
+  ///
+  /// 关键：不能在 [build] 阶段直接写 notifier —— 写值会同步触发监听器的
+  /// `setState`，而此时 [NaviPane] 自身正在 build，等于「build 期间 setState」，
+  /// 框架会丢弃这次重建，导致顶栏操作永远不出现。所以实际写值延迟到本帧结束
+  /// 后（post-frame），那时再触发 [NaviPane] 重建就安全了。写之前再校验仍在本页，
+  /// 防止「刚切走、残留的回调」把历史页操作污染到别的 tab 顶栏。
+  void _syncTopBar() {
+    final pane = NaviPane.of(context);
+    _myPageIndex ??= pane.currentPage;
+    if (pane.currentPage != _myPageIndex) {
+      // 本页不在前台：清空签名，下次切回能重新注入。
+      _topBarSig = null;
+      return;
+    }
+    final sig =
+        '${multiSelectMode ? 'ms' : 'n'}_${_timeFilter}_${selectedComics.length}';
+    if (_topBarSig == sig) return;
+    _topBarSig = sig;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _myPageIndex == null) return;
+      if (pane.currentPage != _myPageIndex) return;
+      pane.pageTitleNotifier.value = multiSelectMode
+          ? "Selected @c comics".tlParams({'c': selectedComics.length})
+          : null;
+      pane.pageActionsNotifier.value =
+          multiSelectMode ? _multiSelectActions() : _normalActions();
+    });
   }
 
   /// 右上角「更多」：图标按钮样式与共享顶栏一致，菜单沿用全站 [showMenuX]。
@@ -393,24 +388,13 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     );
   }
 
-  /// 正常模式操作：布局 / 筛选 / 多选 / 更多（刷新全部·清空历史·搜索·设置）。
+  /// 正常模式操作：筛选 / 多选 / 更多（刷新全部·清空历史）。
   ///
   /// 外观与共享顶栏一致 —— 平铺的 [IconButton]，不再套「工具胶囊条」容器：
   /// 胶囊条是列表内的临时工具栏，出现在根 tab 的 20pt 粗体标题旁边，会让历史页
   /// 在几个 tab 之间显得不是一套。红只用于「状态」（筛选非默认时点亮）。
+  /// 布局切换 / 搜索 / 设置由共享 [paneActions] 提供，这里不再重复。
   List<Widget> _normalActions() => [
-    IconButton(
-      icon: HugeIcon(
-        icon: _isDetailedLayout
-            ? HugeIcons.strokeRoundedGridView
-            : HugeIcons.strokeRoundedListView,
-        size: 22,
-      ),
-      tooltip: _isDetailedLayout
-          ? "Switch to grid view".tl
-          : "Switch to list view".tl,
-      onPressed: _toggleLayout,
-    ),
     IconButton(
       icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 22),
       color: _timeFilter != 'all' ? kcAccentColor(context) : null,
@@ -434,21 +418,7 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         color: context.colorScheme.error,
         onClick: _confirmClearHistory,
       ),
-      // 共享顶栏对历史页让位后，「搜索 / 设置」这两个全局入口也得由这里兜住，
-      // 否则在历史页就彻底没了入口。
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18),
-        text: "Search".tl,
-        onClick: () => context.to(() => const SearchPage()),
-      ),
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
-        text: "Settings".tl,
-        onClick: () => context.to(() => const SettingsPage()),
-      ),
     ]),
-    // 共享顶栏右边距 16；SliverAppbar 自己已留 8，这里补 8。
-    const SizedBox(width: kcSpaceSm),
   ];
 
   /// 多选模式操作：全选 / 删除 / 更多(反选·取消) / 退出。
@@ -484,7 +454,6 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         selectedComics.clear();
       }),
     ),
-    const SizedBox(width: kcSpaceSm),
   ];
 
   /// Scroll-to-top FAB，样式与发现页完全一致（统一组件）。

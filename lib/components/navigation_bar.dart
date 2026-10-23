@@ -181,9 +181,13 @@ class NaviPaneState extends State<NaviPane>
 
   void Function()? mainViewUpdateHandler;
 
-  /// 当前页面可向全局顶栏注入的额外操作按钮（按页生效）。
-  /// 例如历史页的多选/清空/刷新。为 null 时仅显示全局 [paneActions]。
-  final pageActionsNotifier = ValueNotifier<List<PaneActionEntry>?>(null);
+  /// 当前页面可向全局顶栏注入的额外操作按钮（按页生效，精确 Widget，
+  /// 例如历史页的筛选/多选/更多）。为 null 时仅显示全局 [paneActions]。
+  final pageActionsNotifier = ValueNotifier<List<Widget>?>(null);
+
+  /// 当前页面可覆盖的顶栏标题（按页生效）。为 null 时回退到
+  /// [NaviPane.paneItems] 的静态标签。用于多选态显示「已选 N 项」等动态标题。
+  final pageTitleNotifier = ValueNotifier<String?>(null);
 
   void _onPageActionsChanged() {
     if (mounted) setState(() {});
@@ -268,6 +272,10 @@ class NaviPaneState extends State<NaviPane>
       // 也让「收起」这个状态不会跨页面残留。
       _bottomBarCollapsed = false;
     });
+    // 清掉上一页注入的顶栏操作 / 标题，避免跨 tab 污染（例如历史页的多选
+    // 操作残留在探索页）。新页面若在 build 里通过 _syncTopBar 重新注入会立即补回。
+    pageActionsNotifier.value = null;
+    pageTitleNotifier.value = null;
     mainViewUpdateHandler?.call();
   }
 
@@ -282,6 +290,7 @@ class NaviPaneState extends State<NaviPane>
     _pageNotifier.value = widget.initialPage;
     listen(widget.observer, onNavigatorStateChange);
     listen(pageActionsNotifier, _onPageActionsChanged);
+    listen(pageTitleNotifier, _onPageActionsChanged);
     super.initState();
   }
 
@@ -290,6 +299,8 @@ class NaviPaneState extends State<NaviPane>
     controller.dispose();
     _chromeController.dispose();
     _pageNotifier.dispose();
+    pageActionsNotifier.dispose();
+    pageTitleNotifier.dispose();
     super.dispose();
   }
 
@@ -511,10 +522,7 @@ class NaviPaneState extends State<NaviPane>
   Widget buildTop() {
     final hideTitle = widget.topBarTitleHiddenPages.contains(currentPage);
     final pageActions = pageActionsNotifier.value;
-    final actions = [
-      if (pageActions != null) ...pageActions,
-      ...widget.paneActions,
-    ];
+    final title = pageTitleNotifier.value ?? widget.paneItems[currentPage].label;
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Container(
@@ -526,7 +534,7 @@ class NaviPaneState extends State<NaviPane>
             if (!hideTitle)
               Expanded(
                 child: Text(
-                  widget.paneItems[currentPage].label,
+                  title,
                   style: TextStyle(
                     fontSize: kcTitleMain,
                     fontWeight: FontWeight.bold,
@@ -535,7 +543,11 @@ class NaviPaneState extends State<NaviPane>
                 ),
               ),
             const Spacer(),
-            for (var action in actions)
+            // 页面注入的精确操作（历史页的筛选/多选/更多等），保留其原有视觉
+            // （如筛选激活时变红、自定义 showMenuX 菜单），不再强转 PaneActionEntry。
+            if (pageActions != null) ...pageActions,
+            // 全局共享操作（布局切换 / 搜索 / 设置），按 PaneActionEntry 渲染。
+            for (var action in widget.paneActions)
               if (action.menu != null)
                 Tooltip(
                   message: action.label,
