@@ -365,6 +365,9 @@ class _ComicInfoSection extends StatelessWidget {
                       : const LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
+                          // 主页入口卡渐变底：上端用深色版品牌红提亮层次，
+                          // 下端落到标准品牌红 —— 两支都必须是品牌色本身，
+                          // 不换成 colorScheme 派生色（AMOLED 下整块渐变直接去掉）。
                           colors: [Color(0xFFE4553A), kcBrandColor],
                         ),
                   boxShadow: kcIsAmoled()

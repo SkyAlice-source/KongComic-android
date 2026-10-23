@@ -388,6 +388,8 @@ class ComicTile extends StatelessWidget {
               size: iconSize,
               color: kcOnAccentColor,
               shadows: const [
+                // 收藏角标白图标的投影：25% 黑 scrim，只为压住亮底保证可读，
+                // 不参与任何主题语义，不值得进令牌。
                 Shadow(
                   color: Color(0x40000000),
                   blurRadius: 1.5,
@@ -801,6 +803,8 @@ class ComicTile extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                               height: 1.2,
                               shadows: const [
+                                // 封面底部渐变上叠白字的投影：35% 黑 scrim，
+                                // 语义同上（可读性投影，非主题色）。
                                 Shadow(
                                   color: Color(0x59000000),
                                   blurRadius: 2,
