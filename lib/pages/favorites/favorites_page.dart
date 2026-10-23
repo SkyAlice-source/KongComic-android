@@ -92,9 +92,9 @@ class _ShelfLean {
   }
 }
 
-/// 收藏页：自绘整条顶栏（标题 + 工具胶囊条），故实现 [SelfTopBarPage]
-/// 请求共享顶栏整体让位，避免「两排工具栏」。
-class FavoritesPage extends StatefulWidget implements SelfTopBarPage {
+/// 收藏页：顶栏（标题 / leading / 工具）已全部并入 NaviPane 共享顶栏，
+/// 总览与各文件夹内页通过 [pushTopBar] 注入各自的顶栏内容。
+class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
 
   @override
@@ -140,6 +140,41 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
     invalidateRecommendBasis();
     // 回调可能来自 dispose 之后的异步路径。
     if (mounted) setState(() {});
+  }
+
+  /// 顶栏注入签名（本页各视图共用一个写入器；同一时刻只有一个视图前台）。
+  String? _topBarSig;
+
+  /// 本页在 NaviPane 底栏里的索引（首次 build 时记录）。语义与历史页
+  /// _syncTopBar 相同：不在前台时清签名，切回来能重新注入。
+  int? _myPageIndex;
+
+  /// 把本视图的顶栏 leading / 标题 / 操作同步进 NaviPane 共享顶栏。
+  ///
+  /// 写值机制与历史页 _syncTopBar 相同：不能在 build 期直接写 notifier
+  /// （「build 期间 setState」会被框架丢弃），必须 post-frame；sig 由调用方
+  /// 构造（含影响顶栏内容的全部因素），防重复注入。
+  void pushTopBar({
+    required String sig,
+    Widget? leading,
+    Widget? title,
+    List<Widget>? actions,
+  }) {
+    final pane = NaviPane.of(context);
+    _myPageIndex ??= pane.currentPage;
+    if (pane.currentPage != _myPageIndex) {
+      _topBarSig = null;
+      return;
+    }
+    if (_topBarSig == sig) return;
+    _topBarSig = sig;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _myPageIndex == null) return;
+      if (pane.currentPage != _myPageIndex) return;
+      pane.pageLeadingNotifier.value = leading;
+      pane.pageTitleNotifier.value = title;
+      pane.pageActionsNotifier.value = actions;
+    });
   }
 
   void setFolder(bool isNetwork, String? folder) {
@@ -346,6 +381,30 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
         .toList();
     final net = _computeNetworkFolders();
 
+    // 总览态顶栏：标题「收藏」；窄屏右上角「文件夹」入口（宽屏左栏常驻，
+    // 不重复提供）。sig 带宽度分档——文件夹按钮只在窄屏注入。
+    final narrow = context.width <= _kTwoPanelChangeWidth;
+    pushTopBar(
+      sig: 'ov_${narrow ? 'n' : 'w'}',
+      title: Text(
+        "Favorites".tl,
+        style: TextStyle(fontSize: kcTitleMain, fontWeight: FontWeight.bold),
+        overflow: TextOverflow.ellipsis,
+      ),
+      actions: narrow
+          ? [
+              IconButton(
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedFolder01,
+                  size: 22,
+                ),
+                tooltip: "Folders".tl,
+                onPressed: showFolderSelector,
+              ),
+            ]
+          : null,
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // 卡片宽度按内容区（而不是整屏）算：宽屏下左栏已占 256，
@@ -372,51 +431,9 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
           // 不加 key 时从深滚过的文件夹回到总览会落在半山腰。
           key: const PageStorageKey('favoritesOverview'),
           slivers: [
-            // 顶栏结构与分类/主页/发现对齐：标题贴左、动作放在右上角。
-            // 之前把「文件夹」做成 leading 的汉堡按钮，标题被整体右推一格，
-            // 和别的页面首字对不齐（用户反馈「破坏一体性」）。
-            SliverAppbar(
-              // 与共享顶栏同高，切 tab 时标题不会上下跳 2dp。
-              // 与共享顶栏逐项对齐：
-              // - 同高（48，切 tab 标题不上下跳）；
-              // - 纯色不透明 + 不投影（共享顶栏就是纯色 Material，玻璃态会把
-              //   下方封面模糊进栏体、在下缘留下一条忽明忽暗的色带，看起来像
-              //   顶栏和内容分了两层）；
-              // - 标题 20pt 粗体、贴左 16dp。
-              height: kcRootTopBarHeight,
-              style: AppbarStyle.shadow,
-              shadowOnScroll: false,
-              // 根 tab 没有返回箭头：左间距收成 8，标题正好落在 16 的全局
-              // 内容基准线上，与共享顶栏（左右各 16）首字对齐。
-              titleGap: kcSpaceSm,
-              title: Text(
-                "Favorites".tl,
-                // 与共享顶栏 NaviPane.buildTop 同款：kcTitleMain + 粗体。
-                // 之前靠 SliverAppbar 默认（kcAppbarTitle + w600），字号虽然
-                // 一样，字重偏细，和其它根 tab 摆在一起能看出不是一套。
-                style: const TextStyle(
-                  fontSize: kcTitleMain,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              // 宽屏（>720）左栏常驻，文件夹列表已经在页面左侧，不再重复入口。
-              actions: context.width <= _kTwoPanelChangeWidth
-                  ? [
-                      // 单个动作就用普通图标按钮（分类/主页/发现右上角就是这么
-                      // 放的）；文件夹内页动作多，才收进工具胶囊条。
-                      IconButton(
-                        icon: HugeIcon(
-                          icon: HugeIcons.strokeRoundedFolder01,
-                          size: 22,
-                        ),
-                        tooltip: "Folders".tl,
-                        onPressed: showFolderSelector,
-                      ),
-                      // 共享顶栏右边距 16；SliverAppbar 自己已留 8，这里补 8。
-                      const SizedBox(width: kcSpaceSm),
-                    ]
-                  : null,
-            ),
+            // 顶栏已并入 NaviPane 共享栏：标题「收藏」贴左，窄屏右上角
+            // 保留「文件夹」入口（宽屏左栏常驻，无需重复）。原自绘
+            // SliverAppbar 删除，样式由共享栏统一保证（同高/纯色/粗体标题）。
             if (empty)
               SliverFillRemaining(
                 hasScrollBody: false,
