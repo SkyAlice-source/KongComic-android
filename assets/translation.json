@@ -958,7 +958,10 @@
     "No recommendations": "暂无推荐",
     "Show recommendations on explore": "在发现页显示推荐",
     "Shuffle": "换一批",
-    "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫需要「安装未知应用」权限。请在接下来的页面里允许，然后重试。"
+    "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫需要「安装未知应用」权限。请在接下来的页面里允许，然后重试。",
+    "Manual order": "手动排序",
+    "Recently favorited": "最近收藏",
+    "By title": "按标题"
   },
   "zh_TW": {
     "Previous page": "上一頁",
@@ -1919,7 +1922,10 @@
     "No recommendations": "暫無推薦",
     "Show recommendations on explore": "在探索頁顯示推薦",
     "Shuffle": "換一批",
-    "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫需要「安裝未知應用程式」權限。請在下一個頁面允許後再試一次。"
+    "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫需要「安裝未知應用程式」權限。請在下一個頁面允許後再試一次。",
+    "Manual order": "手動排序",
+    "Recently favorited": "最近收藏",
+    "By title": "按標題"
   },
   "ja_JP": {
     "Previous page": "前のページ",
@@ -2880,6 +2886,9 @@
     "No recommendations": "おすすめはありません",
     "Show recommendations on explore": "探索ページにおすすめを表示",
     "Shuffle": "別のおすすめ",
-    "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫には「提供元不明のアプリのインストール」権限が必要です。次の画面で許可してから、もう一度お試しください。"
+    "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫には「提供元不明のアプリのインストール」権限が必要です。次の画面で許可してから、もう一度お試しください。",
+    "Manual order": "手動順",
+    "Recently favorited": "最近の追加",
+    "By title": "タイトル順"
   }
 }

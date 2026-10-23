@@ -171,6 +171,8 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
     // 不设默认文件夹：folder == null 就是「货架总览」，收藏 Tab 一进来先看
     // 各个文件夹的横排书架，而不是被硬塞进某个文件夹的网格里。
     listen(LocalFavoritesManager(), _onFavoritesChanged);
+    // 排序等设置变化时重刷货架（内页里切的排序，回总览即刻生效）。
+    listen(appdata.settings, _onFavoritesChanged);
     super.initState();
   }
 
@@ -457,6 +459,10 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
       folder,
       limit: _shelfLimit,
       offset: 0,
+      // 跟随全局收藏排序（内页胶囊条里切换，这里的货架即时同步）。
+      orderBy: LocalFavoritesManager.favoriteSortOrderBy(
+        appdata.settings['favoriteSort'] as String?,
+      ),
     );
     if (comics.isEmpty) return null;
 

@@ -148,18 +148,25 @@ class ToolsPillSegment extends StatelessWidget {
 /// `localToGlobal(Offset.zero)` 得到 (0,0)，菜单就会弹到屏幕左上角
 /// （实测过：点右侧「⋯」菜单跑到标题下方）。
 class ToolsPillMoreButton extends StatelessWidget {
-  const ToolsPillMoreButton({super.key, required this.entries, this.tooltip});
+  const ToolsPillMoreButton({super.key, required this.entries, this.tooltip, this.icon});
 
   final List<MenuEntry> entries;
 
   final String? tooltip;
+
+  /// 自定义图标（默认「⋯」）——排序这类「点开是菜单」的功能按钮复用
+  /// 同一套弹出定位逻辑，只换图标。
+  final dynamic icon;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final btn = Builder(
       builder: (ctx) => IconButton(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 18),
+        icon: HugeIcon(
+          icon: icon ?? HugeIcons.strokeRoundedMoreHorizontal,
+          size: 18,
+        ),
         color: cs.onSurfaceVariant,
         constraints: const BoxConstraints(minWidth: 38, minHeight: 36),
         padding: EdgeInsets.zero,

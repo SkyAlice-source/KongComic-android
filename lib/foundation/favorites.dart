@@ -466,20 +466,43 @@ class LocalFavoritesManager with ChangeNotifier {
       """).firstOrNull?["min_value"] ?? 0;
   }
 
-  List<FavoriteItem> getFolderComics(String folder) {
+  /// 收藏排序设置（appdata.settings['favoriteSort']）→ ORDER BY 片段。
+  ///
+  /// ORDER BY 无法参数化，这里做**白名单**：调用方只应传本函数的返回值，
+  /// 不允许把任意字符串拼进 SQL。
+  /// - manual：手动排序（display_order，长按拖动写入的顺序，默认）；
+  /// - recent：最近收藏在前（time 是 "YYYY-MM-DD HH:MM:SS" ISO 串，
+  ///   字典序即时间序）；同秒按加入顺序稳定。
+  /// - name：标题不分大小写。
+  static String favoriteSortOrderBy(String? sort) {
+    switch (sort) {
+      case 'recent':
+        return "time DESC, display_order";
+      case 'name':
+        return "name COLLATE NOCASE";
+      default:
+        return "display_order";
+    }
+  }
+
+  /// 当前设置对应的 ORDER BY 片段由调用方传：
+  /// `LocalFavoritesManager.favoriteSortOrderBy(appdata.settings['favoriteSort'])`
+  /// （本文件不依赖 appdata，避免环形引用）。
+
+  List<FavoriteItem> getFolderComics(String folder, {String? orderBy}) {
     var rows = _db.select("""
         select * from "$folder"
-        ORDER BY display_order;
+        ORDER BY ${orderBy ?? "display_order"};
       """);
     return rows.map((element) => FavoriteItem.fromRow(element)).toList();
   }
 
   /// Paginated version of [getFolderComics].
   List<FavoriteItem> getFolderComicsPaginated(String folder,
-      {required int limit, required int offset}) {
+      {required int limit, required int offset, String? orderBy}) {
     var rows = _db.select("""
         select * from "$folder"
-        ORDER BY display_order
+        ORDER BY ${orderBy ?? "display_order"}
         LIMIT ? OFFSET ?;
       """, [limit, offset]);
     return rows.map((element) => FavoriteItem.fromRow(element)).toList();

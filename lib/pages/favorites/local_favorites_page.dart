@@ -69,6 +69,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       widget.folder,
       limit: limit,
       offset: offset,
+      orderBy: LocalFavoritesManager.favoriteSortOrderBy(
+        appdata.settings['favoriteSort'] as String?,
+      ),
     );
   }
 
@@ -116,10 +119,79 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     }
     if (isAllFolder) {
       comics = manager.getAllComics();
+      // 「全部」是多表合并（无统一 display_order），排序设置在 Dart 侧做。
+      _applyFavoriteSort(comics);
     } else {
-      comics = manager.getFolderComics(widget.folder);
+      comics = manager.getFolderComics(
+        widget.folder,
+        orderBy: LocalFavoritesManager.favoriteSortOrderBy(
+          appdata.settings['favoriteSort'] as String?,
+        ),
+      );
     }
     setState(() {});
+  }
+
+  /// 「全部」视图的 Dart 侧排序（与 SQL 白名单同语义）。
+  void _applyFavoriteSort(List<FavoriteItem> list) {
+    switch (appdata.settings['favoriteSort'] as String?) {
+      case 'recent':
+        list.sort((a, b) => b.time.compareTo(a.time));
+      case 'name':
+        list.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+    }
+  }
+
+  /// 排序按钮：弹出三选一菜单（当前项打勾），写入全局 favoriteSort。
+  Widget _favSortButton(BuildContext context) {
+    final current = appdata.settings['favoriteSort'] as String?;
+    Widget check(bool on) => HugeIcon(
+          icon: on
+              ? HugeIcons.strokeRoundedCheckmarkCircle02
+              : HugeIcons.strokeRoundedCircle,
+          size: 15,
+          color: on
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.onSurfaceVariant,
+        );
+    return favPage._favToolsPill(
+      context,
+      [
+        ToolsPillMoreButton(
+          icon: HugeIcons.strokeRoundedSorting02,
+          tooltip: "Sort".tl,
+          entries: [
+            MenuEntry(
+              text: "Manual order".tl,
+              icon: check(current == 'manual'),
+              onClick: () => _onSortSelected('manual'),
+            ),
+            MenuEntry(
+              text: "Recently favorited".tl,
+              icon: check(current == 'recent'),
+              onClick: () => _onSortSelected('recent'),
+            ),
+            MenuEntry(
+              text: "By title".tl,
+              icon: check(current == 'name'),
+              onClick: () => _onSortSelected('name'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _onSortSelected(String sort) {
+    appdata.settings['favoriteSort'] = sort;
+    appdata.saveData();
+    if (_usePagination) {
+      _gridKey.currentState?.refresh();
+    } else {
+      updateComics();
+    }
   }
 
   List<FavoriteItem> filterComics(List<FavoriteItem> curComics) {
@@ -495,6 +567,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
                     setState(() {});
                   },
                 ),
+                // 排序：全局 favoriteSort 设置（manual/recent/name），菜单里
+                // 单选打勾。总览货架与「全部」视图读同一份设置，即时同步。
+                _favSortButton(context),
                 if (networkSource != null && !isAllFolder)
                   Tooltip(
                     message: "Sync".tl,

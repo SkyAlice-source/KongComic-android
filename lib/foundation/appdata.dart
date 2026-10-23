@@ -194,6 +194,7 @@ class Settings with ChangeNotifier {
     'theme_mode': 'system', // light, dark, system
     'newFavoriteAddTo': 'end', // start, end
     'moveFavoriteAfterRead': 'none', // none, end, start
+    'favoriteSort': 'manual', // manual(加入顺序), recent(最近收藏), name(标题)
     'proxy': 'system', // direct, system, proxy string
     'explore_pages': [],
     'categories': [],
