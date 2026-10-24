@@ -1217,6 +1217,13 @@ class LocalManager with ChangeNotifier {
     notifyListeners();
   }
 
+  /// 本地漫画总数（COUNT 聚合查询，收藏总览「本地」入口卡徽标用；
+  /// 比 [getComics] 全量拉行再数长度便宜得多）。
+  int get totalComics {
+    return _db.select('SELECT COUNT(*) FROM comics;').first.values.first
+        as int;
+  }
+
   List<LocalComic> getComics(LocalSortType sortType) {
     final orderBy = switch (sortType) {
       LocalSortType.name => 'title ASC',

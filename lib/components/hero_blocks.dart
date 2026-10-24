@@ -202,8 +202,9 @@ class KcContinueHero extends StatelessWidget {
   }
 }
 
-/// 入口胶囊卡 —— 主页 `_FlatBox` 同款语言（图标 + 标签 + 数量徽标），
-/// 收藏页顶部用作「收藏空间导航」。与主页组件合并收口留给第二批。
+/// 入口高卡 —— 84dp 圆角方块图标底座 + 大字标签 + 中性计数胶囊，
+/// 收藏总览顶部用作「收藏空间导航」（对齐用户设计稿）。[highlight] 把
+/// 图标底座点亮为品牌红（页面唯一彩色块），[icon] 需按 highlight 自配前景色。
 class KcEntryBox extends StatelessWidget {
   const KcEntryBox({
     super.key,
@@ -226,43 +227,61 @@ class KcEntryBox extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 48,
+        // 设计稿高卡：84dp，给图标底座与两行标题留足呼吸感（旧版 48dp 扁条
+        // 压不出层级，已废弃）。
+        height: 84,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(kcRadius22),
+          borderRadius: BorderRadius.circular(kcRadius16),
           color: cs.surfaceContainerLow,
         ),
         child: Row(
           children: [
-            icon,
-            const SizedBox(width: 8),
+            // 圆角方块图标底座：highlight（全部收藏）用品牌红实心块，是总览
+            // 页唯一的一块彩色；其余走中性面，避免同屏多色噪音。AMOLED 下
+            // 保留这一块品牌红 —— 它是页面级品牌标记（用户设计稿明确定色），
+            // 不属于「零彩色」约束要清掉的散点红。
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(kcCardRadius),
+                color: highlight ? kcBrandColor : cs.surfaceContainerHigh,
+              ),
+              child: Center(child: icon),
+            ),
+            const SizedBox(width: kcSpaceMd),
             Expanded(
               child: Text(
                 label,
-                style: TextStyle(fontSize: kcBody, color: cs.onSurface),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: kcFont15,
+                  fontWeight: FontWeight.w500,
+                  height: 1.25,
+                  color: cs.onSurface,
+                ),
               ),
             ),
             if (value != null)
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
+                  horizontal: 9,
                   vertical: 4,
                 ),
-                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                constraints: const BoxConstraints(minWidth: 24),
                 decoration: BoxDecoration(
-                  color: highlight
-                      ? kcAccentColor(context)
-                      : kcAccentSurface(context),
-                  shape: BoxShape.circle,
+                  color: cs.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(kcPillRadius),
                 ),
-                child: Center(
-                  child: Text(
-                    value!,
-                    style: TextStyle(
-                      fontSize: kcFont11,
-                      fontWeight: FontWeight.w600,
-                      color: highlight ? kcOnAccentColor : kcBrandAdaptive(context),
-                    ),
+                child: Text(
+                  value!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: kcFont11,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
                   ),
                 ),
               ),

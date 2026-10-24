@@ -24,7 +24,9 @@ import 'package:kong_comic/network/cache.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/comic_source_page.dart';
 import 'package:kong_comic/pages/image_favorites_page/image_favorites_page.dart';
+import 'package:kong_comic/pages/local_comics_page.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
+import 'package:kong_comic/pages/search_page.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/opencc.dart';
@@ -103,34 +105,12 @@ class FavoritesPage extends StatefulWidget {
   State<FavoritesPage> createState() => _FavoritesPageState();
 }
 
-/// 网络源收藏数探测结果。
-///
-/// [count] 为探测到的收藏总数：每页数量小于首页视为末页（各源分页大小
-/// 恒定的合理假设），最多探测 5 页，超出则 [capped]=true、徽标显示「N+」。
-/// [count] == -1 表示探测失败（网络错误 / 源脚本异常）——保留入口但不出
-/// 徽标，不用一次瞬时错误惩罚用户。
-class _NetworkFavProbe {
-  final int count;
-
-  final bool capped;
-
-  const _NetworkFavProbe(this.count, {this.capped = false});
-
-  static const _NetworkFavProbe error = _NetworkFavProbe(-1);
-
-  bool get failed => count < 0;
-}
-
 class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   String? folder;
 
   bool isNetwork = false;
 
   FolderList? folderList;
-
-  /// 网络源收藏数：key -> 探测结果；value 为 null 表示探测中。
-  /// 会话级缓存，只在首次构建总览时探测一次，翻页/切文件夹不会重复发请求。
-  final Map<String, _NetworkFavProbe?> _networkProbes = {};
 
   // 收藏页整体回顶按钮：复用与发现/历史页一致的 ScrollTopFab
   final ScrollController _scrollController = ScrollController();
@@ -349,8 +329,8 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   ///
   /// 只保留**已登录**的源：网络收藏挂在账号下，未登录的源不可能有收藏，
   /// 而装源时 [_addAllPagesWithComicSource] 会自动把 favoriteData.key 写进
-  /// settings['favorites']，不过滤的话装一堆源就会在总览底部排出一列
-  /// 同图标的死入口（用户反馈）。空列表时总览的整个 Network 区不渲染。
+  /// settings['favorites']，不过滤的话文件夹选择器/胶囊行就会排出一列
+  /// 点了只会报错的死入口（用户反馈）。
   List<String> _computeNetworkFolders() {
     final all = ComicSource.enabled()
         .where((e) => e.favoriteData != null && e.isLogged)
@@ -386,10 +366,10 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
     final folders = userFolderNames()
         .where((f) => !hidden.contains(f))
         .toList();
-    final net = _computeNetworkFolders();
 
-    // 总览态顶栏：标题「收藏」；窄屏右上角「文件夹」入口（宽屏左栏常驻，
-    // 不重复提供）。sig 带宽度分档——文件夹按钮只在窄屏注入。
+    // 总览态顶栏：标题「收藏」+ 统一工具胶囊（方向 A：全站根 tab 一种顶栏
+    // 语言）。窄屏 [文件夹 | 搜索 | ⋮]，宽屏左栏已有文件夹管理，收成
+    // [搜索 | ⋮]；设置收进 ⋮ 菜单，不再让全局裸图标散在标题旁。
     final narrow = context.width <= _kTwoPanelChangeWidth;
     pushTopBar(
       sig: 'ov_${narrow ? 'n' : 'w'}',
@@ -398,18 +378,60 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
         style: TextStyle(fontSize: kcTitleMain, fontWeight: FontWeight.bold),
         overflow: TextOverflow.ellipsis,
       ),
-      actions: narrow
-          ? [
-              IconButton(
-                icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedFolder01,
-                  size: 22,
-                ),
+      actions: [
+        ToolsPill(
+          children: [
+            if (narrow)
+              ToolsPillButton(
+                icon: HugeIcons.strokeRoundedFolder01,
                 tooltip: "Folders".tl,
                 onPressed: showFolderSelector,
               ),
-            ]
-          : null,
+            ToolsPillButton(
+              icon: HugeIcons.strokeRoundedSearch02,
+              tooltip: "Search".tl,
+              onPressed: () => context.to(() => const SearchPage()),
+            ),
+            ToolsPillMoreButton(
+              entries: [
+                // 原总览 2×2 入口卡的次频项收编于此（全部收藏保留为高卡，
+                // 网络收藏并进「文件夹」选择器）；设置用分隔线隔在最后。
+                MenuEntry(
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedBook02, size: 18),
+                  text: "Local".tl,
+                  onClick: () => context.to(() => const LocalComicsPage()),
+                ),
+                MenuEntry(
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedImage01,
+                    size: 18,
+                  ),
+                  text: "Image Favorites".tl,
+                  onClick: () => context.to(() => const ImageFavoritesPage()),
+                ),
+                MenuEntry(
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedGlobe02,
+                    size: 18,
+                  ),
+                  text: "Comic Source".tl,
+                  onClick: () => context.to(() => const ComicSourcePage()),
+                ),
+                MenuEntry.divider(),
+                MenuEntry(
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedSettings01,
+                    size: 18,
+                  ),
+                  text: "Settings".tl,
+                  onClick: () => context.to(() => const SettingsPage()),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+      hideGlobalActions: true,
     );
 
     return LayoutBuilder(
@@ -430,7 +452,8 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
           if (shelf != null) shelves.add(shelf);
         }
 
-        final empty = shelves.isEmpty && net.isEmpty;
+        final empty =
+            shelves.isEmpty && _computeNetworkFolders().isEmpty;
 
         return CustomScrollView(
           controller: _scrollController,
@@ -441,7 +464,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
             // 方案 A：总览顶部「收藏空间导航」——主页 _FlatBox 同款语言的
             // 入口卡 2×2（全部收藏 / 网络收藏 / 图片收藏 / 漫画源）。
             // 文件夹内容仍由下方货架承担，这里只做空间导航与统计。
-            if (!empty) ..._overviewEntryCards(net),
+            if (!empty) ..._overviewEntryCards(),
             // 顶栏已并入 NaviPane 共享栏：标题「收藏」贴左，窄屏右上角
             // 保留「文件夹」入口（宽屏左栏常驻，无需重复）。原自绘
             // SliverAppbar 删除，样式由共享栏统一保证（同高/纯色/粗体标题）。
@@ -461,8 +484,6 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
               )
             else ...[
               for (final s in shelves) SliverToBoxAdapter(child: s),
-              if (net.isNotEmpty)
-                SliverToBoxAdapter(child: _buildNetworkSection(net)),
             ],
             SliverToBoxAdapter(
               // 底栏是浮岛式、覆盖在页面之上的，必须按它的实际占位让出空间。
@@ -478,88 +499,29 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
     );
   }
 
-  /// 方案 A 总览入口卡 2×2：全部收藏 / 网络收藏 / 图片收藏 / 漫画源。
-  /// 主页 _FlatBox 同款语言（KcEntryBox），全部只走既有 token。
-  List<Widget> _overviewEntryCards(List<String> networkFolders) {
+  /// 总览入口卡：只留「全部收藏」一张高卡（KcEntryBox）。
+  ///
+  /// 原方案 A 的 2×2（本地/网络/图片收藏）与下方货架、文件夹选择器职责
+  /// 重复，已按反馈瘦身：次频入口收进顶栏 ⋮ 菜单，网络收藏并进顶栏
+  /// 「文件夹」选择器；总览正文只承担「货架」这一件事。
+  List<Widget> _overviewEntryCards() {
     final total = LocalFavoritesManager().totalComics;
-    final imgCount = ImageFavoriteManager().comics.length;
-    final sourceCount = ComicSource.all().length;
-
-    Widget entry({
-      required List<List<dynamic>> icon,
-      required String label,
-      String? value,
-      bool highlight = false,
-      VoidCallback? onTap,
-    }) {
-      return KcEntryBox(
-        icon: HugeIcon(
-          icon: icon,
-          size: 20,
-          color: highlight ? kcAccentColor(context) : context.colorScheme.onSurface,
-        ),
-        label: label,
-        value: value,
-        highlight: highlight,
-        onTap: onTap,
-      );
-    }
 
     return [
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: entry(
-                      icon: HugeIcons.strokeRoundedFavourite,
-                      label: "All Favorites".tl,
-                      value: "$total",
-                      highlight: true,
-                      onTap: () => setFolder(false, _localAllFolderLabel),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: entry(
-                      icon: HugeIcons.strokeRoundedGlobe02,
-                      label: "Network Favorites".tl,
-                      value: networkFolders.isEmpty
-                          ? null
-                          : "${networkFolders.length}",
-                      onTap: networkFolders.isEmpty
-                          ? null
-                          : () => setFolder(true, networkFolders.first),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: entry(
-                      icon: HugeIcons.strokeRoundedImage01,
-                      label: "Image Favorites".tl,
-                      value: imgCount > 0 ? "$imgCount" : null,
-                      onTap: () => context.to(() => const ImageFavoritesPage()),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: entry(
-                      icon: HugeIcons.strokeRoundedGlobe02,
-                      label: "Comic Source".tl,
-                      value: "$sourceCount",
-                      onTap: () => context.to(() => const ComicSourcePage()),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          child: KcEntryBox(
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedFavourite,
+              size: 20,
+              // 品牌红块底座配白前景，两种主题下都与 42dp 底座保持可读对比。
+              color: kcOnAccentColor,
+            ),
+            label: "All Favorites".tl,
+            value: "$total",
+            highlight: true,
+            onTap: () => setFolder(false, _localAllFolderLabel),
           ),
         ),
       ),
@@ -592,176 +554,6 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
       cardH: cardH,
       onOpenAll: () => setFolder(false, folder),
       onTap: _openComic,
-    );
-  }
-
-  /// 网络收藏源入口：不预加载内容（要发网络请求），只做分组入口。
-  ///
-  /// 附带一次性的收藏数探测：拉回 0 收藏的源直接从总览移除（用户反馈
-  /// 「一排点击就报错的死入口」），探测失败（网络错误）则保留不惩罚。
-  Widget _buildNetworkSection(List<String> net) {
-    // 探测放在 post-frame：build 期间只读缓存，避免 setState 重入。
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _probeNetworkSources(net),
-    );
-    final visible = net
-        .where((k) => !(_networkProbes[k] != null && _networkProbes[k]!.count == 0))
-        .toList();
-    if (visible.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 与文件夹货架共用同一套分区标题排版（只是没有箭头：网络源是
-          // 一张张独立卡片，各自可点，不需要「整组进入」）。
-          _sectionHeader(
-            context: context,
-            title: "Network".tl,
-            total: visible.length,
-            topPadding: 0,
-            bottomPadding: kcSpaceXs,
-          ),
-          for (final k in visible) _networkTile(k),
-        ],
-      ),
-    );
-  }
-
-  void _probeNetworkSources(List<String> keys) {
-    for (final k in keys) {
-      if (_networkProbes.containsKey(k)) continue;
-      _networkProbes[k] = null; // 占位：探测中
-      _probeOneNetworkSource(k);
-    }
-  }
-
-  /// 顺序拉取某源的收藏页估算总数：首页为空即 0；某页数量小于首页视为
-  /// 末页；到 5 页仍未触底则封顶为「N+」。失败时标记 error、保留入口。
-  Future<void> _probeOneNetworkSource(String key) async {
-    final loadComic = getFavoriteDataOrNull(key)?.loadComic;
-    var total = 0;
-    var capped = false;
-    var failed = loadComic == null;
-    if (!failed) {
-      int? pageSize;
-      for (var page = 1; page <= 5; page++) {
-        final res = await loadComic(page);
-        if (res.error) {
-          failed = true;
-          break;
-        }
-        final comics = res.data;
-        if (comics.isEmpty) break;
-        pageSize ??= comics.length;
-        total += comics.length;
-        if (comics.length < pageSize) break;
-        if (page == 5) capped = true;
-      }
-    }
-    if (!mounted) return;
-    setState(() {
-      _networkProbes[key] = failed
-          ? _NetworkFavProbe.error
-          : _NetworkFavProbe(total, capped: capped);
-    });
-  }
-
-  /// 网络分组行：源头像（key 哈希出的专属色相 + 源名首字）+ 名称 + 收藏数
-  /// 徽标 + 箭头。头像取代过去千篇一律的地球图标，多个源一眼可分；
-  /// 徽标探测完成才出现，探测中是转圈、失败则什么都不显示。
-  Widget _networkTile(String key) {
-    final cs = Theme.of(context).colorScheme;
-    final title = getFavoriteDataOrNull(key)?.title ?? key;
-    final probe = _networkProbes[key];
-    // key.hashCode 可能为负，先取绝对值再取模；首字直接取 UTF-16 码元即可
-    // 覆盖中文与拉丁字母（源名不含代理对字符）。
-    final hue = (key.hashCode.abs() % 360).toDouble();
-    final avatarFg = HSLColor.fromAHSL(1, hue, 0.55, 0.42).toColor();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(kcSpaceLg, 0, kcSpaceLg, kcSpaceSm),
-      child: Material(
-        color: cs.surfaceContainerLow,
-        // 描边 + 圆角：光靠底色不够「可点击」，加一圈边框让它看起来是
-        // 独立卡片入口（用户反馈），与设置页分类项的可点击样式一致。
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(kcCardRadius),
-          side: BorderSide(color: cs.outlineVariant, width: 1),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => setFolder(true, key),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: avatarFg.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(kcRadius8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      title.isEmpty ? '?' : title[0].toUpperCase(),
-                      style: TextStyle(
-                        fontSize: kcBody,
-                        fontWeight: FontWeight.w700,
-                        color: avatarFg,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: kcBody,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                if (probe == null)
-                  // 探测中：小转圈提示「数字在路上」，避免徽标位置跳动。
-                  const SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 1.6),
-                  )
-                else if (!probe.failed)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(kcPillRadius),
-                    ),
-                    child: Text(
-                      probe.capped ? '${probe.count}+' : '${probe.count}',
-                      style: TextStyle(
-                        fontSize: kcCaption,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                const SizedBox(width: 8),
-                HugeIcon(
-                  icon: HugeIcons.strokeRoundedArrowRight01,
-                  size: 16,
-                  color: cs.onSurfaceVariant,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 

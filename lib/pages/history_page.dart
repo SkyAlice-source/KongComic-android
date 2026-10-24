@@ -9,12 +9,14 @@ import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/favorites/favorites_page.dart';
+import 'package:kong_comic/pages/search_page.dart';
+import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 /// 历史页：顶栏改用 NaviPane 共享顶栏（[NaviPane.buildTop]），不再自绘
 /// SliverAppbar。页面通过 [NaviPane.pageActionsNotifier] / [NaviPane.pageTitleNotifier]
-/// 注入本页专属操作（筛选 / 多选 / 更多）与动态标题（多选态「已选 N 项」），
-/// 全局操作（布局切换 / 搜索 / 设置）由共享 [paneActions] 提供，避免重复。
+/// 注入本页专属操作与动态标题（多选态「已选 N 项」）；正常态是统一工具胶囊
+/// [筛选 | 布局 | 搜索 | ⋮]，全局 paneActions 隐藏（pageHideGlobalActions）。
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
@@ -494,8 +496,9 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
   ///
   /// 历史页不再自绘 SliverAppbar，改用共享顶栏后必须主动注入。正常态标题为
   /// null（回退到共享栏的「History」静态标签）；多选态显示「已选 N 项」。
-  /// 操作正常态为 [筛选 / 多选 / 更多]，多选态为 [全选 / 删除 / 更多 / 退出]；
-  /// 布局切换 / 搜索 / 设置由共享 [paneActions] 提供，这里不再重复。
+  /// 操作正常态为统一工具胶囊 [筛选 | 布局 | 搜索 | ⋮]，多选态为
+  /// [全选 / 删除 / 更多 / 退出]（危机态裸按钮，不用胶囊）；同时隐藏共享
+  /// [paneActions]，全局操作已分装进胶囊与其 ⋮ 菜单。
   /// 本页在 NaviPane 底栏里的索引（首次 build 时记录）。用于判断本页是否处于
   /// 前台：切到别的 tab 后要把签名清空，否则切回来时签名仍命中、不会重新注入，
   /// 顶栏操作就丢了（[NaviPane.updatePage] 会在换页时把 notifier 重置为 null）。
@@ -534,6 +537,10 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
               overflow: TextOverflow.ellipsis,
             )
           : null;
+      // 顶栏操作已整体收进统一工具胶囊（_normalActions），全局
+      // paneActions（布局/搜索/设置）随之隐藏，避免胶囊外再散一圈裸图标。
+      // 换 tab 时 updatePage 会把该开关复位为 false，无需清理。
+      pane.pageHideGlobalActionsNotifier.value = true;
       pane.pageActionsNotifier.value =
           multiSelectMode ? _multiSelectActions() : _normalActions();
     });
@@ -553,42 +560,65 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     );
   }
 
-  /// 正常模式操作：筛选 / 更多（多选·刷新全部·清空历史）。
+  /// 正常模式操作：统一工具胶囊 [筛选 | 布局 | 搜索 | ⋮]（方向 A：全站根
+  /// tab 一种顶栏语言，与收藏内页/总览的胶囊同款）。
   ///
-  /// 外观与共享顶栏一致 —— 平铺的 [IconButton]，不再套「工具胶囊条」容器：
-  /// 胶囊条是列表内的临时工具栏，出现在根 tab 的 20pt 粗体标题旁边，会让历史页
-  /// 在几个 tab 之间显得不是一套。红只用于「状态」（筛选非默认时点亮）。
-  /// 布局切换 / 搜索 / 设置由共享 [paneActions] 提供，这里不再重复。
-  /// 多选是低频动作，收进「更多」菜单，普通态只留两个图标。
+  /// 筛选激活时图标点亮（红只用于「状态」，AMOLED 下走 kcBrandAdaptive 的
+  /// 亮灰，不用会把图标隐进底色的面 token）。布局切换 / 搜索收进胶囊，
+  /// 设置 / 多选 / 刷新 / 清空收进 ⋮ 菜单——清空历史是破坏性操作，置底并用
+  /// 分隔线隔离。多选是低频动作，不占胶囊坑位。
   List<Widget> _normalActions() => [
-    IconButton(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 22),
-      // 激活态图标用 kcBrandAdaptive（AMOLED 下 kcAccentColor 是深灰面色，
-      // 当图标色会隐进顶栏底色里）。
-      color: _timeFilter != 'all' ? kcBrandAdaptive(context) : null,
-      tooltip: "Filter".tl,
-      onPressed: _showTimeFilterDialog,
+    ToolsPill(
+      children: [
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedFilter,
+          active: _timeFilter != 'all',
+          tooltip: "Filter".tl,
+          onPressed: _showTimeFilterDialog,
+        ),
+        const ToolsPillLayoutButton(),
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedSearch02,
+          tooltip: "Search".tl,
+          onPressed: () =>
+              context.to(() => const SearchPage()),
+        ),
+        ToolsPillMoreButton(
+          entries: [
+            MenuEntry(
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedCheckList,
+                size: 18,
+              ),
+              text: "Multi-Select".tl,
+              onClick: () => setState(() => multiSelectMode = true),
+            ),
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+              text: "Refresh All Histories".tl,
+              onClick: _refreshAllHistories,
+            ),
+            MenuEntry(
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedSettings01,
+                size: 18,
+              ),
+              text: "Settings".tl,
+              onClick: () =>
+                  context.to(() => const SettingsPage()),
+            ),
+            // 破坏性操作置底 + 分隔线隔离。
+            MenuEntry.divider(),
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+              text: "Clear History".tl,
+              color: context.colorScheme.error,
+              onClick: _confirmClearHistory,
+            ),
+          ],
+        ),
+      ],
     ),
-    _moreButton([
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 18),
-        text: "Multi-Select".tl,
-        onClick: () => setState(() => multiSelectMode = true),
-      ),
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-        text: "Refresh All Histories".tl,
-        onClick: _refreshAllHistories,
-      ),
-      // 破坏性操作用分隔线隔离。
-      MenuEntry.divider(),
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-        text: "Clear History".tl,
-        color: context.colorScheme.error,
-        onClick: _confirmClearHistory,
-      ),
-    ]),
   ];
 
   /// 多选模式操作：全选 / 删除 / 更多(反选·取消) / 退出。

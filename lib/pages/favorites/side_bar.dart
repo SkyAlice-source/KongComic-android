@@ -59,11 +59,15 @@ class _FolderSelectorDialog extends StatelessWidget {
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
-                      // 分组切换胶囊已移到收藏正文顶部；这里只留文件夹管理菜单，
-                      // 随当前分组在「本地管理 / 网络设置」之间切换。
-                      favPage.isNetwork
-                          ? _buildNetworkMenu(context)
-                          : _buildLocalMenu(context),
+                      // 列表已合并本地+网络两节，管理菜单随之并列常驻：
+                      // 本地管理（建夹/排序/分类）+ 网络收藏源设置。
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildLocalMenu(context),
+                          _buildNetworkMenu(context),
+                        ],
+                      ),
                       IconButton(
                         icon: HugeIcon(
                           icon: HugeIcons.strokeRoundedCancel01,
@@ -160,64 +164,71 @@ class _LeftBarState extends State<_LeftBar>
     final cats = BookshelfLayout.categories;
     final hidden = BookshelfLayout.hiddenFolders;
 
-    final isNetwork = favPage.isNetwork;
+    // 本地 + 网络一并平铺（网络带地球图标区分）：弹窗/侧栏是唯一的
+    // 「全量文件夹导航」，网络不再需要单独的分组切换或独立入口区。
+    final items = <Widget>[buildLocalFolder(_localAllFolderLabel)];
 
-    // 胶囊在顶部当分组切换器，列表只渲染当前分组的条目 ——
-    // 原来本地 / 网络两段一路排下来，只能靠缩进和图标分辨层级。
-    final items = <Widget>[];
-
-    if (isNetwork) {
-      for (var f in networkFolders) {
-        items.add(buildNetworkFolder(f));
-      }
-    } else {
-      items.add(buildLocalFolder(_localAllFolderLabel));
-
-      for (var cat in cats) {
-        final id = cat['id'];
-        final name = cat['name'];
-        if (id == null || name == null) continue;
-        final catFolders = folders
-            .where(
-              (f) =>
-                  !hidden.contains(f) &&
-                  f != kReadLaterFolder &&
-                  BookshelfLayout.categoryOf(f) == id,
-            )
-            .toList();
-        final count = catFolders.fold(
-          0,
-          (sum, f) => sum + LocalFavoritesManager().folderComics(f),
-        );
-        items.add(_buildCategoryHeader(name, count, id));
-        for (var f in catFolders) {
-          items.add(buildLocalFolder(f));
-        }
-      }
-
-      final uncat = folders
+    for (var cat in cats) {
+      final id = cat['id'];
+      final name = cat['name'];
+      if (id == null || name == null) continue;
+      final catFolders = folders
           .where(
             (f) =>
                 !hidden.contains(f) &&
                 f != kReadLaterFolder &&
-                BookshelfLayout.categoryOf(f) == null,
+                BookshelfLayout.categoryOf(f) == id,
           )
           .toList();
-      if (uncat.isNotEmpty) {
-        items.add(_buildGroupHeader('Uncategorized'.tl));
-        for (var f in uncat) {
-          items.add(buildLocalFolder(f));
+      final count = catFolders.fold(
+        0,
+        (sum, f) => sum + LocalFavoritesManager().folderComics(f),
+      );
+      items.add(_buildCategoryHeader(name, count, id));
+      for (var f in catFolders) {
+        items.add(buildLocalFolder(f));
+      }
+    }
+
+    final uncat = folders
+        .where(
+          (f) =>
+              !hidden.contains(f) &&
+              f != kReadLaterFolder &&
+              BookshelfLayout.categoryOf(f) == null,
+        )
+        .toList();
+    if (uncat.isNotEmpty) {
+      items.add(_buildGroupHeader('Uncategorized'.tl));
+      for (var f in uncat) {
+        items.add(buildLocalFolder(f));
+      }
+    }
+
+    if (hidden.isNotEmpty) {
+      items.add(_buildHiddenHeader());
+      if (_hiddenExpanded) {
+        for (var f in hidden) {
+          if (f == kReadLaterFolder) continue;
+          if (folders.contains(f)) items.add(_buildHiddenFolderRow(f));
         }
       }
+    }
 
-      if (hidden.isNotEmpty) {
-        items.add(_buildHiddenHeader());
-        if (_hiddenExpanded) {
-          for (var f in hidden) {
-            if (f == kReadLaterFolder) continue;
-            if (folders.contains(f)) items.add(_buildHiddenFolderRow(f));
-          }
-        }
+    // 网络分组：本地列表之后单独一节，地球图标与本地文件夹区分。
+    if (networkFolders.isNotEmpty) {
+      items.add(
+        _sectionHeader(
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedGlobe02,
+            size: 18,
+            color: context.colorScheme.onSurfaceVariant,
+          ),
+          'Network'.tl,
+        ),
+      );
+      for (var f in networkFolders) {
+        items.add(buildNetworkFolder(f));
       }
     }
 
@@ -236,8 +247,8 @@ class _LeftBarState extends State<_LeftBar>
                 ),
               ),
             ),
-      // 侧栏/弹窗只负责「当前分组下的文件夹列表」；分组切换胶囊已抽到
-      // 收藏正文顶部（_GroupPills），单栏窄屏也能直接切分组，不必先点弹窗。
+      // 侧栏/弹窗 = 全量文件夹导航：本地（全部 + 分类 + 未分类 + 隐藏）
+      // 与网络分组一并平铺，选中态各自独立判断。
       child: widget.inDialog
           ? ListView(
               shrinkWrap: true,
@@ -568,6 +579,9 @@ class _LeftBarState extends State<_LeftBar>
       label: data.title,
       isSelected: isSelected,
       count: 0,
+      // 地球图标：与本地文件夹（Folder01）区分，也与 _GroupPills 网络胶囊
+      // 同一语言。已并入本地列表尾部，不再依赖分组切换才能看到。
+      icon: HugeIcons.strokeRoundedGlobe02,
       onTap: () {
         favPage.setFolder(true, key);
         widget.onSelected?.call();
@@ -684,8 +698,9 @@ class _GroupPillsState extends State<_GroupPills> with AutoListenMixin {
 
   void _load() {
     final hidden = BookshelfLayout.hiddenFolders;
-    _localFolders =
-        userFolderNames().where((f) => !hidden.contains(f)).toList();
+    _localFolders = userFolderNames()
+        .where((f) => !hidden.contains(f))
+        .toList();
     _networkFolders = widget.favPage._computeNetworkFolders();
   }
 
@@ -752,8 +767,7 @@ class _GroupPillsState extends State<_GroupPills> with AutoListenMixin {
                   HugeIcon(
                     icon: HugeIcons.strokeRoundedGlobe02,
                     size: 13,
-                    color:
-                        selected ? kcOnAccentColor : scheme.onSurfaceVariant,
+                    color: selected ? kcOnAccentColor : scheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 5),
                 ],
@@ -828,10 +842,7 @@ class _GroupPillsState extends State<_GroupPills> with AutoListenMixin {
               count: LocalFavoritesManager().totalComics,
               onTap: () => fp.setFolder(false, _localAllFolderLabel),
             ),
-            for (final c in cells) ...[
-              const SizedBox(width: 8),
-              c,
-            ],
+            for (final c in cells) ...[const SizedBox(width: 8), c],
           ],
         ),
       ),

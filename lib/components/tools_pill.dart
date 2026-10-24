@@ -78,6 +78,41 @@ class ToolsPillButton extends StatelessWidget {
   }
 }
 
+/// 胶囊条内的「布局切换」按钮（根 tab 统一顶栏用）。
+///
+/// 图标与 tooltip 指向**要切换到的目标布局**（与原 NaviPane.paneActions 的
+/// 行为逐项一致：detailed 列表流 ↔ brief 网格流），点击翻转全局
+/// comicDisplayMode。自管状态：点击后本地 setState 刷新图标，不依赖页面
+/// 重建 —— 否则从发现页切来时胶囊图标会残留上一页缓存的样子。
+class ToolsPillLayoutButton extends StatefulWidget {
+  const ToolsPillLayoutButton({super.key, this.size = 18});
+
+  final double size;
+
+  @override
+  State<ToolsPillLayoutButton> createState() => _ToolsPillLayoutButtonState();
+}
+
+class _ToolsPillLayoutButtonState extends State<ToolsPillLayoutButton> {
+  bool get _detailed => appdata.settings['comicDisplayMode'] == 'detailed';
+
+  @override
+  Widget build(BuildContext context) {
+    return ToolsPillButton(
+      icon: _detailed
+          ? HugeIcons.strokeRoundedGridView
+          : HugeIcons.strokeRoundedListView,
+      tooltip: _detailed ? "Switch to grid view".tl : "Switch to list view".tl,
+      size: widget.size,
+      onPressed: () {
+        appdata.settings['comicDisplayMode'] = _detailed ? 'brief' : 'detailed';
+        appdata.saveData();
+        setState(() {});
+      },
+    );
+  }
+}
+
 /// 胶囊条内的「双态分段控件」：把互斥的两种视图并排摆出来。
 ///
 /// 取代原先「单图标按钮 + 图标随状态反转」的做法——那种写法只显示「点完之后会
