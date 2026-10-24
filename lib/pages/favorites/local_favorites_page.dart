@@ -819,6 +819,8 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             pinned: true,
             delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
           ),
+        // 方案 A 的「收藏空间导航」入口卡放在总览（favorites_page
+        // _buildOverview）顶部；「全部」等具体文件夹视图直接进内容。
         if (_usePagination)
           PaginatedSliverGridComics(
             key: _gridKey,

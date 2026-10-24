@@ -4,6 +4,7 @@ import 'badge.dart';
 export 'badge.dart';
 export 'list_tile.dart';
 export 'pill_chip.dart';
+export 'hero_blocks.dart';
 export 'card.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'dart:collection';

@@ -7,6 +7,7 @@ import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/listen_mixin.dart';
+import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 /// 历史页：顶栏改用 NaviPane 共享顶栏（[NaviPane.buildTop]），不再自绘
@@ -42,6 +43,8 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
 
   void onUpdate() {
     _gridKey.currentState?.refresh();
+    // 分组列表的数据在 build 里现算，数据变化靠 setState 重建。
+    if (mounted) setState(() {});
     if (multiSelectMode) {
       selectedComics.removeWhere((comic, _) => !_loadedComics.contains(comic));
       if (selectedComics.isEmpty) {
@@ -244,6 +247,10 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
   Widget build(BuildContext context) {
     // 把本页顶栏操作 / 标题同步进 NaviPane 共享顶栏（带签名守卫，避免成环）。
     _syncTopBar();
+    final useBriefGrid = appdata.settings['comicDisplayMode'] == 'brief';
+    final showHero =
+        !multiSelectMode && !searchMode && _timeFilter == 'all';
+    final continueHistory = showHero ? _fetchHistories().firstOrNull : null;
     return PopScope(
       canPop: !multiSelectMode && !searchMode,
       onPopInvokedWithResult: (didPop, result) {
@@ -260,73 +267,238 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         body: SmoothCustomScrollView(
           controller: _scrollController,
           slivers: [
-            PaginatedSliverGridComics(
-              key: _gridKey,
-              pageLoader: _loadPage,
-              selections: selectedComics,
-              showSourceOnCover: false,
-              badgeAsTopLeftSource: true,
-              onLoadedComicsChanged: (comics) {
-                _loadedComics = comics.cast<History>();
-              },
-              onLongPressed: null,
-              onTap: multiSelectMode
-                  ? (c, heroID) {
-                      setState(() {
-                        if (selectedComics.containsKey(c as History)) {
-                          selectedComics.remove(c);
-                        } else {
-                          selectedComics[c] = true;
-                        }
-                        if (selectedComics.isEmpty) {
-                          multiSelectMode = false;
-                        }
-                      });
-                    }
-                  : null,
-              badgeBuilder: (c) {
-                return ComicSource.find(c.sourceKey)?.name;
-              },
-              badgeColorBuilder: (c) {
-                final brightness = Theme.of(context).brightness;
-                final amoled = appdata.isAmoledMode;
-                return kcTagColor(
-                  kcStableHash(c.sourceKey),
-                  brightness,
-                  amoled: amoled,
-                );
-              },
-              menuBuilder: (c) {
-                return [
-                  MenuEntry(
-                    icon: HugeIcon(
-                      icon: HugeIcons.strokeRoundedRefresh,
-                      size: 18,
+            // 方案 A：续读英雄卡 —— 主页英雄卡语言的移植，取最近一条历史。
+            if (continueHistory != null)
+              SliverToBoxAdapter(
+                child: KcContinueHero(
+                  history: continueHistory,
+                  onOpen: () => _openComic(continueHistory, -1),
+                ),
+              ),
+            if (useBriefGrid)
+              PaginatedSliverGridComics(
+                key: _gridKey,
+                pageLoader: _loadPage,
+                selections: selectedComics,
+                showSourceOnCover: false,
+                badgeAsTopLeftSource: true,
+                onLoadedComicsChanged: (comics) {
+                  _loadedComics = comics.cast<History>();
+                },
+                onLongPressed: null,
+                onTap: multiSelectMode
+                    ? (c, heroID) {
+                        setState(() {
+                          if (selectedComics.containsKey(c as History)) {
+                            selectedComics.remove(c);
+                          } else {
+                            selectedComics[c] = true;
+                          }
+                          if (selectedComics.isEmpty) {
+                            multiSelectMode = false;
+                          }
+                        });
+                      }
+                    : null,
+                badgeBuilder: (c) {
+                  return ComicSource.find(c.sourceKey)?.name;
+                },
+                badgeColorBuilder: (c) {
+                  final brightness = Theme.of(context).brightness;
+                  final amoled = appdata.isAmoledMode;
+                  return kcTagColor(
+                    kcStableHash(c.sourceKey),
+                    brightness,
+                    amoled: amoled,
+                  );
+                },
+                menuBuilder: (c) {
+                  return [
+                    MenuEntry(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedRefresh,
+                        size: 18,
+                      ),
+                      text: 'Refresh Info'.tl,
+                      onClick: () {
+                        _refreshHistory(c as History);
+                      },
                     ),
-                    text: 'Refresh Info'.tl,
-                    onClick: () {
-                      _refreshHistory(c as History);
-                    },
-                  ),
-                  MenuEntry(
-                    icon: HugeIcon(
-                      icon: HugeIcons.strokeRoundedCancel01,
-                      size: 18,
+                    MenuEntry(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedCancel01,
+                        size: 18,
+                      ),
+                      text: 'Remove'.tl,
+                      color: context.colorScheme.error,
+                      onClick: () {
+                        _removeHistory(c as History);
+                      },
                     ),
-                    text: 'Remove'.tl,
-                    color: context.colorScheme.error,
-                    onClick: () {
-                      _removeHistory(c as History);
-                    },
-                  ),
-                ];
-              },
-            ),
+                  ];
+                },
+              )
+            else
+              ..._groupedSlivers(),
           ],
         ),
         floatingActionButton: _buildScrollTopFab(),
       ),
     );
+  }
+
+  /// 取当前筛选 / 搜索下的历史（time DESC），上限 300 条（分组列表一次性
+  /// 渲染，sqlite 全量查询毫秒级；上限防极端大库）。
+  List<History> _fetchHistories() {
+    List<History> res;
+    if (searchMode && searchKeyword.trim().isNotEmpty) {
+      res = HistoryManager().searchPaginated(
+        searchKeyword.trim(),
+        limit: 300,
+        offset: 0,
+      );
+    } else {
+      res = HistoryManager().getAllPaginated(
+        limit: 300,
+        offset: 0,
+        timeFilter: _timeFilter,
+      );
+    }
+    return res;
+  }
+
+  int _heroIDCounter = 0;
+
+  void _openComic(History h, int heroID) {
+    if (multiSelectMode) {
+      setState(() {
+        if (selectedComics.containsKey(h)) {
+          selectedComics.remove(h);
+        } else {
+          selectedComics[h] = true;
+        }
+        if (selectedComics.isEmpty) {
+          multiSelectMode = false;
+        }
+      });
+      return;
+    }
+    App.mainNavigatorKey?.currentContext?.to(
+      () => ComicPage(
+        id: h.id,
+        sourceKey: h.sourceKey,
+        cover: h.cover,
+        title: h.title,
+        heroID: heroID,
+      ),
+    );
+  }
+
+  List<MenuEntry> _tileMenu(History h) {
+    return [
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+        text: 'Refresh Info'.tl,
+        onClick: () => _refreshHistory(h),
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+        text: 'Remove'.tl,
+        color: context.colorScheme.error,
+        onClick: () => _removeHistory(h),
+      ),
+    ];
+  }
+
+  /// 时间分组：今天 / 昨天 / 本周（近 7 天，不含今昨）/ 更早。
+  List<(String, List<History>)> _groupHistories() {
+    final all = _fetchHistories();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final weekAgo = today.subtract(const Duration(days: 7));
+
+    final todayList = <History>[];
+    final yesterdayList = <History>[];
+    final weekList = <History>[];
+    final earlierList = <History>[];
+    for (final h in all) {
+      final day = DateTime(h.time.year, h.time.month, h.time.day);
+      if (!day.isBefore(today)) {
+        todayList.add(h);
+      } else if (!day.isBefore(yesterday)) {
+        yesterdayList.add(h);
+      } else if (!day.isBefore(weekAgo)) {
+        weekList.add(h);
+      } else {
+        earlierList.add(h);
+      }
+    }
+    return [
+      if (todayList.isNotEmpty) ("Today".tl, todayList),
+      if (yesterdayList.isNotEmpty) ("Yesterday".tl, yesterdayList),
+      if (weekList.isNotEmpty) ("This week".tl, weekList),
+      if (earlierList.isNotEmpty) ("Earlier".tl, earlierList),
+    ];
+  }
+
+  /// 相对时间标签：今天=时刻，昨天/更早=日期（无需 i18n）。
+  String _timeLabel(DateTime t) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(t.year, t.month, t.day);
+    if (!day.isBefore(today)) {
+      return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    }
+    final diffDays = today.difference(day).inDays;
+    if (diffDays == 1) return "Yesterday".tl;
+    if (t.year == now.year) {
+      return '${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+    }
+    return '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 方案 A：时间分组流 —— 每组「吸顶胶囊组头 + 紧凑历史行」。
+  List<Widget> _groupedSlivers() {
+    final groups = _groupHistories();
+    if (groups.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: EmptyState(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
+            title: 'No comics'.tl,
+            subtitle:
+                "No comics yet? Add a comic source or favorite some comics.".tl,
+          ),
+        ),
+      ];
+    }
+    _loadedComics = [for (final g in groups) ...g.$2];
+    return [
+      for (final g in groups)
+        SliverMainAxisGroup(
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: KcGroupHeaderDelegate(label: g.$1, count: g.$2.length),
+            ),
+            SliverList.builder(
+              itemCount: g.$2.length,
+              itemBuilder: (context, i) {
+                final h = g.$2[i];
+                return KcHistoryTile(
+                  history: h,
+                  selected: selectedComics[h] ?? false,
+                  timeLabel: _timeLabel(h.time),
+                  onTap: () => _openComic(h, _heroIDCounter++),
+                  menuOptions: multiSelectMode ? null : _tileMenu(h),
+                );
+              },
+            ),
+          ],
+        ),
+    ];
   }
 
   /// 顶栏同步签名：仅当「模式 / 筛选 / 选中数」变化时写 notifier，避免每次

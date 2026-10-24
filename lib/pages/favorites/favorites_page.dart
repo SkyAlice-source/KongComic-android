@@ -22,6 +22,8 @@ import 'package:kong_comic/foundation/res.dart';
 import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/network/cache.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
+import 'package:kong_comic/pages/comic_source_page.dart';
+import 'package:kong_comic/pages/image_favorites_page/image_favorites_page.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/io.dart';
@@ -436,6 +438,10 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
           // 不加 key 时从深滚过的文件夹回到总览会落在半山腰。
           key: const PageStorageKey('favoritesOverview'),
           slivers: [
+            // 方案 A：总览顶部「收藏空间导航」——主页 _FlatBox 同款语言的
+            // 入口卡 2×2（全部收藏 / 网络收藏 / 图片收藏 / 漫画源）。
+            // 文件夹内容仍由下方货架承担，这里只做空间导航与统计。
+            if (!empty) ..._overviewEntryCards(net),
             // 顶栏已并入 NaviPane 共享栏：标题「收藏」贴左，窄屏右上角
             // 保留「文件夹」入口（宽屏左栏常驻，无需重复）。原自绘
             // SliverAppbar 删除，样式由共享栏统一保证（同高/纯色/粗体标题）。
@@ -470,6 +476,94 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
         );
       },
     );
+  }
+
+  /// 方案 A 总览入口卡 2×2：全部收藏 / 网络收藏 / 图片收藏 / 漫画源。
+  /// 主页 _FlatBox 同款语言（KcEntryBox），全部只走既有 token。
+  List<Widget> _overviewEntryCards(List<String> networkFolders) {
+    final total = LocalFavoritesManager().totalComics;
+    final imgCount = ImageFavoriteManager().comics.length;
+    final sourceCount = ComicSource.all().length;
+
+    Widget entry({
+      required List<List<dynamic>> icon,
+      required String label,
+      String? value,
+      bool highlight = false,
+      VoidCallback? onTap,
+    }) {
+      return KcEntryBox(
+        icon: HugeIcon(
+          icon: icon,
+          size: 20,
+          color: highlight ? kcAccentColor(context) : context.colorScheme.onSurface,
+        ),
+        label: label,
+        value: value,
+        highlight: highlight,
+        onTap: onTap,
+      );
+    }
+
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: entry(
+                      icon: HugeIcons.strokeRoundedFavourite,
+                      label: "All Favorites".tl,
+                      value: "$total",
+                      highlight: true,
+                      onTap: () => setFolder(false, _localAllFolderLabel),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: entry(
+                      icon: HugeIcons.strokeRoundedGlobe02,
+                      label: "Network Favorites".tl,
+                      value: networkFolders.isEmpty
+                          ? null
+                          : "${networkFolders.length}",
+                      onTap: networkFolders.isEmpty
+                          ? null
+                          : () => setFolder(true, networkFolders.first),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: entry(
+                      icon: HugeIcons.strokeRoundedImage01,
+                      label: "Image Favorites".tl,
+                      value: imgCount > 0 ? "$imgCount" : null,
+                      onTap: () => context.to(() => const ImageFavoritesPage()),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: entry(
+                      icon: HugeIcons.strokeRoundedGlobe02,
+                      label: "Comic Source".tl,
+                      value: "$sourceCount",
+                      onTap: () => context.to(() => const ComicSourcePage()),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
   }
 
   /// 单个文件夹货架。空文件夹不占位——否则刚建的文件夹会把整页拉得空空荡荡，

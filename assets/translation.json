@@ -967,7 +967,12 @@
     "Update Info": "更新信息",
     "Open Link": "打开链接",
     "Send": "发送",
-    "Close Search": "关闭搜索"
+    "Close Search": "关闭搜索",
+    "All Favorites": "全部收藏",
+    "Yesterday": "昨天",
+    "This week": "本周",
+    "@c comics": "@c 本",
+    "Read @p percent": "已读 @p%"
   },
   "zh_TW": {
     "Previous page": "上一頁",
@@ -1937,7 +1942,12 @@
     "Update Info": "更新資訊",
     "Open Link": "開啟連結",
     "Send": "傳送",
-    "Close Search": "關閉搜尋"
+    "Close Search": "關閉搜尋",
+    "All Favorites": "全部收藏",
+    "Yesterday": "昨天",
+    "This week": "本週",
+    "@c comics": "@c 本",
+    "Read @p percent": "已讀 @p%"
   },
   "ja_JP": {
     "Previous page": "前のページ",
@@ -2907,6 +2917,11 @@
     "Update Info": "情報を更新",
     "Open Link": "リンクを開く",
     "Send": "送信",
-    "Close Search": "検索を閉じる"
+    "Close Search": "検索を閉じる",
+    "All Favorites": "すべての お気に入り",
+    "Yesterday": "昨日",
+    "This week": "今週",
+    "@c comics": "@c 作品",
+    "Read @p percent": "@p% 読了"
   }
 }
