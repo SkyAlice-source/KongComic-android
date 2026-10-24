@@ -397,15 +397,15 @@ class ComicTile extends StatelessWidget {
   double _favoriteBadgeSize(double coverWidth) =>
       (coverWidth * 0.19).clamp(18.0, 26.0);
 
-  /// 收藏角标：封面右上角悬浮的「墨镜圆片 + 品牌红书签」（K 案变体）。
+  /// 收藏角标：封面右上角悬浮的「白圆片 + 品牌红书签」。
   ///
-  /// 微信读书系的做法——状态标记一律是「往封面上贴一片墨镜」：
-  /// 黑 55% 圆片自带对比度兜底，花封面/暗封面都稳；实心书签是
-  /// 通用图标学的「已收藏」正统符号（空心=未收藏、实心=已收藏），
-  /// 与本 App 历史进度条（黑 55% 底）同一套视觉语言。书签用品牌红
-  /// 而非白色：把总览入口卡的「收藏=品牌红」标记一路带到封面上，
-  /// 语义闭环更强；圆片底是固定黑色，红在黑上 4.2:1，AMOLED 下
-  /// 沿用入口卡的「页面级品牌标记」豁免，不落面色 token 的灰坑。
+  /// 实心书签是通用图标学的「已收藏」正统符号（空心=未收藏、
+  /// 实心=已收藏）。底片用纯白而非墨镜黑：品牌红是低亮度色，
+  /// 红在黑上只有约 4:1 且小尺寸下发闷（实测「看不清」）；
+  /// 红在白上对比拉满，浅色封面靠 18% 黑细描边分离，深色主题下
+  /// 白片在整片暗色网格里反而成为最醒目的收藏标记——「已收藏」
+  /// 本来就该是浏览时最容易被注意到的状态。黑白红三色都不进
+  /// 主题语义（黑只用 alpha），不碰面色 token 的灰坑。
   Widget _buildFavoriteCornerBadge(BuildContext context, double side) {
     // 距右上边缘留呼吸缝：贴边会跟封面圆角打架，悬浮一点才像徽章。
     return Padding(
@@ -413,11 +413,12 @@ class ComicTile extends StatelessWidget {
       child: Container(
         width: side,
         height: side,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Color(0x8C000000),
+          color: Colors.white,
+          border: Border.all(color: Colors.black.withValues(alpha: 0.18)),
         ),
-        child: Icon(Icons.bookmark, size: side * 0.56, color: kcBrandColor),
+        child: Icon(Icons.bookmark, size: side * 0.58, color: kcBrandColor),
       ),
     );
   }
