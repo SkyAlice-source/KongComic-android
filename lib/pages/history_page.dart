@@ -563,7 +563,9 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
   List<Widget> _normalActions() => [
     IconButton(
       icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 22),
-      color: _timeFilter != 'all' ? kcAccentColor(context) : null,
+      // 激活态图标用 kcBrandAdaptive（AMOLED 下 kcAccentColor 是深灰面色，
+      // 当图标色会隐进顶栏底色里）。
+      color: _timeFilter != 'all' ? kcBrandAdaptive(context) : null,
       tooltip: "Filter".tl,
       onPressed: _showTimeFilterDialog,
     ),

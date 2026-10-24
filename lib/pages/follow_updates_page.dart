@@ -179,7 +179,9 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
                     child: HugeIcon(
                       icon: HugeIcons.strokeRoundedFolder01,
                       size: 17,
-                      color: kcAccentColor(context),
+                      // 图标标记走 kcBrandAdaptive：AMOLED 下 kcAccentColor
+                      // 是深灰面色，画图标会隐进浅染底里。
+                      color: kcBrandAdaptive(context),
                     ),
                   ),
                 ),

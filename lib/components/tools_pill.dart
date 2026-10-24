@@ -68,7 +68,7 @@ class ToolsPillButton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final btn = IconButton(
       icon: HugeIcon(icon: icon, size: size),
-      color: color ?? (active ? kcAccentColor(context) : cs.onSurfaceVariant),
+      color: color ?? (active ? kcBrandAdaptive(context) : cs.onSurfaceVariant),
       constraints: const BoxConstraints(minWidth: 38, minHeight: 36),
       padding: EdgeInsets.zero,
       splashRadius: 20,
@@ -121,7 +121,10 @@ class ToolsPillSegment extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: IconButton(
         icon: HugeIcon(icon: icons[i], size: size),
-        color: selected ? kcAccentColor(context) : cs.onSurfaceVariant,
+        // 选中图标走 kcBrandAdaptive（图标标记语义）：AMOLED 下 kcAccentColor
+        // 是 surfaceContainerHigh 深灰面色，当图标色会隐进淡染底里 —— 实测
+        // 分段控件选中段变成一颗「空胶囊」。
+        color: selected ? kcBrandAdaptive(context) : cs.onSurfaceVariant,
         style: IconButton.styleFrom(
           backgroundColor: selected
               ? kcAccentSurface(context, alpha: 0.14)
