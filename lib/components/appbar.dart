@@ -1005,6 +1005,7 @@ class _SliverSearchBarDelegate extends SliverPersistentHeaderDelegate {
                   ? const SizedBox()
                   : IconButton(
                       iconSize: 20,
+                      tooltip: "Clear".tl,
                       icon: HugeIcon(
                         icon: HugeIcons.strokeRoundedCancel01,
                         size: 18,
@@ -1112,6 +1113,7 @@ class _SearchBarState extends State<AppSearchBar> with _SearchBarMixin {
                   ? const SizedBox()
                   : IconButton(
                       iconSize: 20,
+                      tooltip: "Clear".tl,
                       icon: HugeIcon(
                         icon: HugeIcons.strokeRoundedCancel01,
                         size: 18,

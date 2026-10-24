@@ -436,7 +436,7 @@ class _ChapterOrderToggle extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(kcPillRadius),
-              border: Border.all(color: cs.outlineVariant, width: 0.8),
+              border: Border.all(color: cs.outlineVariant, width: kcHairline),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

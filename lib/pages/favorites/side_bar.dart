@@ -279,7 +279,7 @@ class _LeftBarState extends State<_LeftBar>
           borderRadius: BorderRadius.circular(kcPillRadius),
           side: isSelected
               ? BorderSide.none
-              : BorderSide(color: scheme.outlineVariant, width: 0.8),
+              : BorderSide(color: scheme.outlineVariant, width: kcHairline),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -476,7 +476,7 @@ class _LeftBarState extends State<_LeftBar>
         color: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kcPillRadius),
-          side: BorderSide(color: scheme.outlineVariant, width: 0.8),
+          side: BorderSide(color: scheme.outlineVariant, width: kcHairline),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -737,7 +737,7 @@ class _GroupPillsState extends State<_GroupPills> with AutoListenMixin {
           borderRadius: BorderRadius.circular(kcPillRadius),
           side: selected
               ? BorderSide.none
-              : BorderSide(color: scheme.outlineVariant, width: 0.8),
+              : BorderSide(color: scheme.outlineVariant, width: kcHairline),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

@@ -288,7 +288,9 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     // 自定义封面优先
     final sourceKey = comic.type.comicSource?.key ?? 'local';
     final customPath = CustomCoverManager.getCustomCoverPath(sourceKey, comic.id);
-    if (customPath != null && File(customPath).existsSync()) {
+    // 用带内存缓存的 coverFileExists：build 路径上直接 existsSync 每卡片
+    // 一次磁盘 stat，滚动时批量阻塞 UI 线程（审计 C5）。
+    if (customPath != null && CustomCoverManager.coverFileExists(customPath)) {
       return Image(
         image: FileImage(File(customPath)),
         fit: BoxFit.cover,
@@ -368,7 +370,8 @@ class _ComicInfoSection extends StatelessWidget {
                           // 主页入口卡渐变底：上端用深色版品牌红提亮层次，
                           // 下端落到标准品牌红 —— 两支都必须是品牌色本身，
                           // 不换成 colorScheme 派生色（AMOLED 下整块渐变直接去掉）。
-                          colors: [Color(0xFFE4553A), kcBrandColor],
+                          // 上端与 kcBrandColorOnDark 同值，直接引用 token。
+                          colors: [kcBrandColorOnDark, kcBrandColor],
                         ),
                   boxShadow: kcIsAmoled()
                       ? null

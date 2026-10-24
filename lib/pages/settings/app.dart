@@ -234,6 +234,7 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
           subtitle: LocalManager().path,
           subtitleMaxLines: 1,
           trailing: IconButton(
+            tooltip: "Copy".tl,
             icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: LocalManager().path));
@@ -423,6 +424,7 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
             subtitle: "Periodically back up your data to the Download folder".tl,
             onChanged: () async {
               await initAutoBackup();
+              if (!mounted) return;
               setState(() {});
             },
           ).toSliver(),
@@ -455,6 +457,7 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
                     int.parse(options[result]);
                 await appdata.saveData();
                 await initAutoBackup();
+                if (!mounted) return;
                 setState(() {});
               }
             },
@@ -482,6 +485,7 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
                 appdata.settings['autoBackupRetentionDays'] =
                     int.parse(options[result]);
                 await appdata.saveData();
+                if (!mounted) return;
                 setState(() {});
               }
             },
@@ -524,6 +528,7 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
                     await auth.canCheckBiometrics;
                 final bool canAuthenticate = canAuthenticateWithBiometrics ||
                     await auth.isDeviceSupported();
+                if (!mounted) return;
                 if (!canAuthenticate) {
                   context.showMessage(message: "Biometrics not supported".tl);
                   setState(() {
@@ -720,6 +725,7 @@ class _LogsPageState extends State<LogsPage> {
         title: Text("Logs".tl),
         actions: [
           IconButton(
+              tooltip: "Filter".tl,
               onPressed: () => setState(() {
                     final RelativeRect position = RelativeRect.fromLTRB(
                       MediaQuery.of(context).size.width,
@@ -749,6 +755,7 @@ class _LogsPageState extends State<LogsPage> {
               icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilterHorizontal, size: 18)
           ),
           IconButton(
+              tooltip: "More".tl,
               onPressed: () => setState(() {
                     final RelativeRect position = RelativeRect.fromLTRB(
                       MediaQuery.of(context).size.width,
@@ -780,7 +787,6 @@ class _LogsPageState extends State<LogsPage> {
       ),
       body: ListView.builder(
         reverse: true,
-        controller: ScrollController(),
         itemCount: logToShow.length,
         itemBuilder: (context, index) {
           index = logToShow.length - index - 1;
@@ -964,6 +970,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                 hintStyle: TextStyle(color: Theme.of(context).hintColor),
                 border: OutlineInputBorder(),
                 suffixIcon: IconButton(
+                  tooltip: "Help".tl,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),
                   onPressed: () {
                     showDialog(
@@ -989,6 +996,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                                 Align(
                                   alignment: Alignment.centerRight,
                                   child: IconButton(
+                                    tooltip: "Open Link".tl,
                                     icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 18),
                                     onPressed: () {
                                       launchUrlString("https://github.com/venera-app/venera/blob/b08f11f6ac49bd07d34b4fcde233ed07e86efbc9/lib/foundation/appdata.dart#L138");
@@ -1102,6 +1110,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                   var testResult = upload
                       ? await DataSync().uploadData()
                       : await DataSync().downloadData();
+                  if (!mounted) return;
                   if (testResult.error) {
                     setState(() {
                       isTesting = false;

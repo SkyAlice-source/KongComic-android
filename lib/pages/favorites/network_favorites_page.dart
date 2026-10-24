@@ -51,6 +51,7 @@ Future<bool> _deleteComic(
                   false,
                   favId,
                 );
+                if (!context.mounted) return;
                 if (res.success) {
                   // Invalidate network cache so next loads fetch fresh data
                   NetworkCacheManager().clear();
@@ -558,6 +559,7 @@ class _FolderTile extends StatelessWidget {
               ),
               if (deleteFolder != null)
                 IconButton(
+                  tooltip: "Delete".tl,
                   icon: HugeIcon(
                     icon: HugeIcons.strokeRoundedDelete01,
                     size: 18,
@@ -596,6 +598,7 @@ class _FolderTile extends StatelessWidget {
                     loading = true;
                   });
                   var res = await deleteFolder!();
+                  if (!context.mounted) return;
                   if (res.success) {
                     context.showMessage(message: "Deleted".tl);
                     context.pop();

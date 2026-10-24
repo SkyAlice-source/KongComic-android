@@ -97,6 +97,7 @@ class _ChaptersViewState extends State<_ChaptersView> {
             style: AppbarStyle.shadow,
             backgroundColor: cs.surfaceContainerHigh,
             leading: IconButton(
+              tooltip: _searching ? "Close Search".tl : "Back".tl,
               icon: HugeIcon(
                 icon: _searching
                     ? HugeIcons.strokeRoundedArrowLeft01

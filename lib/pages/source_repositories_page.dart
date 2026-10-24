@@ -211,6 +211,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
         name: result.$1,
         url: result.$2,
       );
+      if (!mounted) return;
       // Catalog URL may have changed; keep the opened page in sync.
       final current = _opened;
       if (current != null) {

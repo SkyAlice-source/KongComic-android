@@ -278,6 +278,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
               )
             else
               IconButton(
+                tooltip: "Send".tl,
                 onPressed: () async {
                   if (controller.text.isEmpty) {
                     return;
@@ -291,6 +292,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
                     controller.text,
                     widget.replyComment?.id,
                   );
+                  if (!mounted) return;
                   if (!b.error) {
                     controller.text = "";
                     setState(() {
@@ -902,6 +904,7 @@ class _EmbeddedChapterCommentsPageState
               )
             else
               IconButton(
+                tooltip: "Send".tl,
                 onPressed: () async {
                   if (textController.text.isEmpty) {
                     return;

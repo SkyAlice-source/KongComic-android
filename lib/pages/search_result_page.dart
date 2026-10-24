@@ -195,6 +195,7 @@ class _SearchResultPageState extends State<SearchResultPage> {
               return _SearchSettingsDialog(state: this);
             },
           );
+          if (!mounted) return;
           if (!previousOptions.isEqualTo(options) ||
               previousSourceKey != sourceKey) {
             text = checkAutoLanguage(controller.text);

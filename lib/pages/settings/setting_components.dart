@@ -859,6 +859,7 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
       child: IconButton(
         padding: EdgeInsets.zero,
         visualDensity: VisualDensity.compact,
+        tooltip: "Delete".tl,
         onPressed: () {
           setState(() {
             keys.remove(key);

@@ -217,6 +217,7 @@ class _JSCallbackButtonState extends State<_JSCallbackButton> {
         isLoading = true;
       });
       await res;
+      if (!mounted) return;
       setState(() {
         isLoading = false;
       });

@@ -236,7 +236,7 @@ class _ButtonState extends State<Button> {
                         kcIsAmoled()
                     ? Border.all(
                         color: Colors.white.withValues(alpha: 0.14),
-                        width: 0.8,
+                        width: kcHairline,
                       )
                     : null),
           ),

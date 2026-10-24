@@ -28,7 +28,7 @@ class ToolsPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(kcPillRadius),
-        border: Border.all(color: cs.outlineVariant, width: 0.8),
+        border: Border.all(color: cs.outlineVariant, width: kcHairline),
       ),
       clipBehavior: Clip.antiAlias,
       child: Row(mainAxisSize: MainAxisSize.min, children: kids),

@@ -107,6 +107,7 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           style: AppbarStyle.shadow,
           backgroundColor: widget.appbarColor,
           leading: IconButton(
+            tooltip: "Close".tl,
             icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
             onPressed: () => Navigator.maybePop(context),
           ),

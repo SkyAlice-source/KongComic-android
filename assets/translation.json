@@ -961,7 +961,13 @@
     "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫需要「安装未知应用」权限。请在接下来的页面里允许，然后重试。",
     "Manual order": "手动排序",
     "Recently favorited": "最近收藏",
-    "By title": "按标题"
+    "By title": "按标题",
+    "Scroll Left": "向左滚动",
+    "Scroll Right": "向右滚动",
+    "Update Info": "更新信息",
+    "Open Link": "打开链接",
+    "Send": "发送",
+    "Close Search": "关闭搜索"
   },
   "zh_TW": {
     "Previous page": "上一頁",
@@ -1925,7 +1931,13 @@
     "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫需要「安裝未知應用程式」權限。請在下一個頁面允許後再試一次。",
     "Manual order": "手動排序",
     "Recently favorited": "最近收藏",
-    "By title": "按標題"
+    "By title": "按標題",
+    "Scroll Left": "向左捲動",
+    "Scroll Right": "向右捲動",
+    "Update Info": "更新資訊",
+    "Open Link": "開啟連結",
+    "Send": "傳送",
+    "Close Search": "關閉搜尋"
   },
   "ja_JP": {
     "Previous page": "前のページ",
@@ -2889,6 +2901,12 @@
     "KongComic needs the \"Install unknown apps\" permission. Allow it on the next screen, then try again.": "空漫には「提供元不明のアプリのインストール」権限が必要です。次の画面で許可してから、もう一度お試しください。",
     "Manual order": "手動順",
     "Recently favorited": "最近の追加",
-    "By title": "タイトル順"
+    "By title": "タイトル順",
+    "Scroll Left": "左へスクロール",
+    "Scroll Right": "右へスクロール",
+    "Update Info": "情報を更新",
+    "Open Link": "リンクを開く",
+    "Send": "送信",
+    "Close Search": "検索を閉じる"
   }
 }

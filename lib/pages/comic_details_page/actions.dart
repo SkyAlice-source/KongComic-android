@@ -267,6 +267,7 @@ abstract mixin class _ComicPageActions {
                         comic.id,
                         archives![selected].id,
                       );
+                      if (!context.mounted) return;
                       if (res.error) {
                         App.rootContext.showMessage(message: friendlyError(res.errorMessage!));
                         setState(() {

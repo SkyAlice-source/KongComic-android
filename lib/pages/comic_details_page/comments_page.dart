@@ -260,6 +260,7 @@ class _CommentsPageState extends State<CommentsPage> {
               )
             else
               IconButton(
+                tooltip: "Send".tl,
                 onPressed: () async {
                   if (controller.text.isEmpty) {
                     return;
@@ -272,6 +273,7 @@ class _CommentsPageState extends State<CommentsPage> {
                       widget.data.subId,
                       controller.text,
                       widget.replyComment?.id);
+                  if (!mounted) return;
                   if (!b.error) {
                     controller.text = "";
                     setState(() {

@@ -134,6 +134,7 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
             showDivider: index < appdata.settings["blockedWords"].length - 1,
             title: Text(appdata.settings["blockedWords"][index]),
             trailing: IconButton(
+              tooltip: "Delete".tl,
               icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
               onPressed: () {
                 appdata.settings["blockedWords"].removeAt(index);
@@ -292,6 +293,7 @@ class _ManageBlockingCommentWordViewState
                 index < appdata.settings["blockedCommentWords"].length - 1,
             title: Text(appdata.settings["blockedCommentWords"][index]),
             trailing: IconButton(
+              tooltip: "Delete".tl,
               icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
               onPressed: () {
                 appdata.settings["blockedCommentWords"].removeAt(index);

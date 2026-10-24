@@ -255,6 +255,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     if (res.success) {
       data = res.data;
       await onDataLoaded();
+      // onDataLoaded 内部可能再 await（二次 gap），这里要重新检查。
+      if (!mounted) return;
       setState(() {});
     } else {
       context.showMessage(message: friendlyError(res.errorMessage ?? "Refresh Failed".tl));
@@ -970,16 +972,25 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       final imageStream = imageProvider.resolve(const ImageConfiguration());
       final completer = Completer<Uint8List>();
 
-      imageStream.addListener(
-        ImageStreamListener((ImageInfo info, bool _) async {
+      late ImageStreamListener listener;
+      listener = ImageStreamListener(
+        (ImageInfo info, bool _) async {
+          imageStream.removeListener(listener);
           final byteData = await info.image.toByteData(
             format: ImageByteFormat.png,
           );
           if (byteData != null) {
             completer.complete(byteData.buffer.asUint8List());
+          } else {
+            completer.completeError("encode cover failed");
           }
-        }),
+        },
+        onError: (e, st) {
+          imageStream.removeListener(listener);
+          completer.completeError(e, st);
+        },
       );
+      imageStream.addListener(listener);
 
       final data = await completer.future;
       final fileType = detectFileType(data);

@@ -163,6 +163,10 @@ List<BoxShadow> kcContourGlow(BuildContext context, {Color? color}) {
 /// ColorOS 17 风格：对话框 / 底部弹窗 / 悬浮容器的统一大圆角。
 const double kcSurfaceRadius = 24;
 
+/// 发丝描边宽度：全站胶囊 / 卡片细描边的事实标准（0.8）。
+/// 收口为 token，取代散落各处的 `width: 0.8` 魔数。
+const double kcHairline = 0.8;
+
 /// 可点击目标的最小高度 / 宽度（M3 & WCAG 无障碍下限 48dp）。
 ///
 /// 列表行按 `kcBody(14) × 1.35 + 12 × 2` 算出来只有 42.9dp，指腹落在两行

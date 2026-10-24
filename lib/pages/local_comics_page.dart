@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 import 'package:flutter/material.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
@@ -468,6 +470,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
             } else if (result == 'folder') {
               await const ImportComic().directory(false);
             }
+            if (!mounted) return;
             setState(() {});
           },
         ),
@@ -789,10 +792,15 @@ class _LocalComicsPageState extends State<LocalComicsPage>
     var cacheDir = FilePath.join(App.cachePath, 'comics_export');
     var outFile = FilePath.join(App.cachePath, 'comics_export.zip');
     bool canceled = false;
-    if (Directory(cacheDir).existsSync()) {
-      Directory(cacheDir).deleteSync(recursive: true);
-    }
-    Directory(cacheDir).createSync();
+    // 旧导出目录可能含多个大文件，递归删除/重建走 isolate，
+    // 避免在主 isolate 阻塞 UI 线程（审计 C5）。
+    await Isolate.run(() {
+      final dir = Directory(cacheDir);
+      if (dir.existsSync()) {
+        dir.deleteSync(recursive: true);
+      }
+      dir.createSync();
+    });
     var loadingController = showLoadingDialog(
       context,
       allowCancel: true,
@@ -841,7 +849,9 @@ class _LocalComicsPageState extends State<LocalComicsPage>
           file: File(fileName),
           filename: File(fileName).name,
         );
-        Directory(cacheDir).deleteSync(recursive: true);
+        await Isolate.run(
+          () => Directory(cacheDir).deleteSync(recursive: true),
+        );
         loadingController.close();
         return;
       }
@@ -968,6 +978,7 @@ class _DeleteChaptersDialogState extends State<_DeleteChaptersDialog> {
                     children: [
                       const SizedBox(width: kcSpaceXs),
                       IconButton(
+                        tooltip: "Cancel".tl,
                         icon: HugeIcon(
                           icon: HugeIcons.strokeRoundedCancel01,
                           size: 18,

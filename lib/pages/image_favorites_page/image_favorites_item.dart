@@ -252,7 +252,6 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
   Widget _buildThumb(BuildContext context, ImageFavorite image) {
     final isSelected = widget.selectedImageFavorites[image] ?? false;
     final cs = Theme.of(context).colorScheme;
-    final cached = ImageFavoritesProvider.localImageFile(image).existsSync();
     final curPage = image.page;
     final pageText = curPage == firstPage
         ? '@a Cover'.tlParams({"a": image.epName})
@@ -292,23 +291,30 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                 ),
               ),
             ),
-            if (cached)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: kcBrandAdaptive(context),
-                    shape: BoxShape.circle,
+            // 本地离线图存在性检查走 async IO：build 路径上每缩略图一次
+            // existsSync 会在滚动时批量阻塞 UI 线程（审计 C5）。
+            FutureBuilder<bool>(
+              future: ImageFavoritesProvider.localImageFile(image).exists(),
+              builder: (context, snapshot) {
+                if (snapshot.data != true) return const SizedBox.shrink();
+                return Align(
+                  alignment: Alignment.topRight,
+                  child: Container(
+                    margin: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: kcBrandAdaptive(context),
+                      shape: BoxShape.circle,
+                    ),
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                      size: 12,
+                      color: kcOnAccentColor,
+                    ),
                   ),
-                  child: HugeIcon(
-                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                    size: 12,
-                    color: kcOnAccentColor,
-                  ),
-                ),
-              ),
+                );
+              },
+            ),
             if (widget.multiSelectMode)
               Positioned.fill(
                 child: AnimatedContainer(
@@ -331,7 +337,11 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                           child: Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              color: kcBrandAdaptive(context),
+                              // 选中勾是「面」不是前景图标：AMOLED 下
+                              // kcBrandAdaptive 会返回亮灰 primary，叠白勾
+                              // 对比度不足（~1.3:1）；kcAccentColor 在
+                              // AMOLED 走 surfaceContainerHigh 深灰，白勾可辨。
+                              color: kcAccentColor(context),
                               shape: BoxShape.circle,
                             ),
                             child: HugeIcon(

@@ -767,6 +767,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             child: Builder(
               builder: (context) {
                 return IconButton(
+                  tooltip: "Update Info".tl,
                   icon: HugeIcon(
                     icon: HugeIcons.strokeRoundedRefresh,
                     size: 18,

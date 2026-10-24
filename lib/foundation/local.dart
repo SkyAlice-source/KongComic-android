@@ -1154,8 +1154,12 @@ class LocalManager with ChangeNotifier {
     // `local_path` 保留用户的选择，下次启动还能重试。
     if (_pendingFallback == null) {
       try {
-        File(FilePath.join(App.dataPath, 'local_path')).writeAsString(path);
-      } catch (_) {}
+        // 必须 await：不 await 的话 Future 的失败会绕过 catch 被完全吞掉，
+        // 用户设置的存储路径丢失后无处排查（对齐 1145 行同类错误的日志规范）。
+        await File(FilePath.join(App.dataPath, 'local_path')).writeAsString(path);
+      } catch (e, s) {
+        Log.error("IO", "Failed to persist local_path: $e", s);
+      }
     }
     await ComicSourceManager().ensureInit();
     restoreDownloadingTasks();

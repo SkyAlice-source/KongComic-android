@@ -473,7 +473,7 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
                                   firstDate: DateTime(2000),
                                   lastDate: end ?? DateTime.now(),
                                 );
-                                if (date != null) {
+                                if (date != null && mounted) {
                                   setState(() {
                                     start = date;
                                   });
@@ -496,7 +496,7 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
                                   firstDate: start ?? DateTime(2000),
                                   lastDate: DateTime.now(),
                                 );
-                                if (date != null) {
+                                if (date != null && mounted) {
                                   setState(() {
                                     end = date;
                                   });

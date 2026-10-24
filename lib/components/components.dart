@@ -3,6 +3,7 @@ export 'package:hugeicons/hugeicons.dart';
 import 'badge.dart';
 export 'badge.dart';
 export 'list_tile.dart';
+export 'pill_chip.dart';
 export 'card.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'dart:collection';

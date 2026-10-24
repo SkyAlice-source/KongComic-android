@@ -319,6 +319,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
             ),
           ),
           IconButton(
+            tooltip: "Delete".tl,
             icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
             onPressed: () => setState(() => _dnsOverrides.removeAt(index)),
           ),

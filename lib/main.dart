@@ -503,7 +503,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             color: isDark
                 ? scheme.outlineVariant
                 : scheme.outline.withValues(alpha: 0.45),
-            width: 0.8,
+            width: kcHairline,
           ),
         ),
         textStyle: TextStyle(

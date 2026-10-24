@@ -1909,7 +1909,7 @@ class ComicListState extends State<ComicList> {
       decoration: BoxDecoration(
         color: cs.surface,
         border: Border(
-          top: BorderSide(color: cs.outlineVariant, width: 0.8),
+          top: BorderSide(color: cs.outlineVariant, width: kcHairline),
         ),
       ),
       // 手势条 / 三键栏占的高度，避免分页条被系统条压住。

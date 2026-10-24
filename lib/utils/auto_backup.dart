@@ -240,7 +240,16 @@ Future<void> _cleanupOldBackups(String backupDirPath) async {
     while (remaining.length > autoBackupKeepCount) {
       try {
         remaining.first.deleteSync();
-      } catch (_) {}
+      } catch (e) {
+        // 删除失败必须停下并记日志：若继续 removeAt(0) 摘队首，
+        // 实际文件没删掉，备份目录会静默无限膨胀。
+        Log.warning(
+          "AutoBackup",
+          "Failed to delete old backup "
+          "${remaining.first.path}: $e",
+        );
+        break;
+      }
       remaining.removeAt(0);
     }
   } catch (e) {

@@ -646,7 +646,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
                     ),
                     decoration: BoxDecoration(
                       color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(kcPillRadius),
                     ),
                     child: Text(
                       probe.capped ? '${probe.count}+' : '${probe.count}',

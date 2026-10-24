@@ -781,6 +781,10 @@ Future<void> showInputDialog({
                   if (futureOr is Future) {
                     setState(() => isLoading = true);
                     result = await futureOr;
+                    // onConfirm 可能耗时较长（网络/磁盘）；期间对话框可能已被
+                    // 关闭，StatefulBuilder 的 State 已 dispose，此时不能
+                    // 再 setState / pop。
+                    if (!context.mounted) return;
                     setState(() => isLoading = false);
                   } else {
                     result = futureOr;

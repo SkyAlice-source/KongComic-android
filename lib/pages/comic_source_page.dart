@@ -578,39 +578,12 @@ class _BodyState extends State<_Body> with AutoListenMixin {
   /// 一部分扁平」。这里统一成 32 高的扁平胶囊：选中用品牌强调色实心，
   /// 未选中只有一圈发丝描边。
   Widget _filterPill(_SourceFilter f) {
-    final cs = Theme.of(context).colorScheme;
-    final selected = _filter == f;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _setFilter(f),
-        borderRadius: BorderRadius.circular(kcPillRadius),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          height: 32,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: selected ? kcAccentColor(context) : Colors.transparent,
-            borderRadius: BorderRadius.circular(kcPillRadius),
-            border: Border.all(
-              color: selected ? Colors.transparent : cs.outlineVariant,
-              width: 0.8,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              _filterLabel(f),
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: kcBody,
-                height: 1.2,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected ? kcOnAccentColor : cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ),
-      ),
+    // 收口到公共 KcPillChip（选中 accent 实心 / 未选中发丝描边），
+    // 与全站胶囊共用同一套选中语言。
+    return KcPillChip(
+      label: _filterLabel(f),
+      selected: _filter == f,
+      onTap: () => _setFilter(f),
     );
   }
 
@@ -684,6 +657,7 @@ class _BodyState extends State<_Body> with AutoListenMixin {
     context.to(
       () => _EditFilePage(source.filePath, () async {
         await ComicSourceManager().reload();
+        if (!mounted) return;
         setState(() {});
       }),
     );
@@ -1128,7 +1102,7 @@ class _BodyState extends State<_Body> with AutoListenMixin {
           // 浅色用纯白 + 描边（和卡片同层，不靠灰底区分）；暗色用 Low 一档。
           color: isDark ? cs.surfaceContainerLow : Colors.white,
           borderRadius: BorderRadius.circular(kcCardRadius + 2),
-          border: Border.all(color: cs.outlineVariant, width: 0.8),
+          border: Border.all(color: cs.outlineVariant, width: kcHairline),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1190,6 +1164,7 @@ class _BodyState extends State<_Body> with AutoListenMixin {
                   minHeight: 40,
                 ),
                 suffixIcon: IconButton(
+                  tooltip: "Add".tl,
                   onPressed: () => handleAddSource(url),
                   icon: HugeIcon(
                     icon: HugeIcons.strokeRoundedCheckmarkCircle01,
@@ -1267,7 +1242,7 @@ class _BodyState extends State<_Body> with AutoListenMixin {
               color: primary
                   ? accent.withValues(alpha: 0.28)
                   : cs.outlineVariant,
-              width: 0.8,
+              width: kcHairline,
             ),
           ),
           child: FittedBox(
@@ -1585,13 +1560,27 @@ class __EditFilePageState extends State<_EditFilePage> {
   @override
   void initState() {
     super.initState();
+    // 顺序读几十 KB 足够快，且 CodeEditor 仅在 initState 消费 initialValue，
+    // 需要同步初始化，故保持 readAsStringSync。
     current = File(widget.path).readAsStringSync();
+  }
+
+  /// 异步写回并在完成后触发 onExit（reload），保持「先落盘再重载」顺序。
+  /// 同步写回会阻塞 UI 线程（含 fsync 时可达几十 ms）；用 whenComplete
+  /// 保证写失败时 onExit 也必须被调用。
+  Future<void> _saveAndNotify() async {
+    try {
+      await File(widget.path).writeAsString(current);
+    } catch (e, s) {
+      Log.error("IO", "Failed to save source file: $e", s);
+    } finally {
+      widget.onExit();
+    }
   }
 
   @override
   void dispose() {
-    File(widget.path).writeAsStringSync(current);
-    widget.onExit();
+    _saveAndNotify();
     super.dispose();
   }
 
@@ -1644,9 +1633,11 @@ class _CallbackSettingState extends State<_CallbackSetting> {
       try {
         await result;
       } finally {
-        setState(() {
-          isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+        }
       }
     }
   }
@@ -1773,7 +1764,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
           // 卡片给一层极浅的底色，让「标题 / 信息 / 动作」三行成为一块整体；
           // 纯描边的空心框在长列表里会和背景糊成一片，层级全靠线，看着很散。
           color: isDark ? cs.surfaceContainerLow : Colors.white,
-          border: Border.all(color: cs.outlineVariant, width: 0.8),
+          border: Border.all(color: cs.outlineVariant, width: kcHairline),
           borderRadius: BorderRadius.circular(kcCardRadius + 2),
         ),
         clipBehavior: Clip.antiAlias,
@@ -2201,7 +2192,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             borderRadius: BorderRadius.circular(kcPillRadius),
             border: Border.all(
               color: primary ? Colors.transparent : scheme.outlineVariant,
-              width: 0.8,
+              width: kcHairline,
             ),
           ),
           child: Row(
@@ -2424,6 +2415,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
               overflow: TextOverflow.ellipsis,
             ),
             trailing: IconButton(
+              tooltip: "Edit".tl,
               icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
               onPressed: () {
                 showInputDialog(
@@ -2466,6 +2458,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             () => _LoginPage(config: source.account!, source: source),
           );
           source.saveData();
+          if (!mounted) return;
           setState(() {});
         },
       );
@@ -2504,6 +2497,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
               return;
             }
             var res = await source.account!.login!(account[0], account[1]);
+            if (!mounted) return;
             if (res.error) {
               context.showMessage(message: friendlyError(res.errorMessage!));
             } else {

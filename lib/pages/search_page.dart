@@ -802,6 +802,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
                     builder: (context, _) {
                       return _searchTextController.text.isNotEmpty
                           ? IconButton(
+                              tooltip: "Clear".tl,
                               icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 16, color: cs.onSurfaceVariant),
                               onPressed: () {
                                 _searchTextController.clear();

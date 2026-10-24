@@ -42,6 +42,7 @@ class _CommentsPartState extends State<_CommentsPart> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
+                  tooltip: "Scroll Left".tl,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
                   onPressed: () {
                     scrollController.animateTo(
@@ -52,6 +53,7 @@ class _CommentsPartState extends State<_CommentsPart> {
                   },
                 ),
                 IconButton(
+                  tooltip: "Scroll Right".tl,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
                   onPressed: () {
                     scrollController.animateTo(
