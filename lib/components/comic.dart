@@ -2,7 +2,10 @@ part of 'components.dart';
 
 ImageProvider? _findImageProvider(Comic comic) {
   // 自定义封面优先
-  final customPath = CustomCoverManager.getCustomCoverPath(comic.sourceKey, comic.id);
+  final customPath = CustomCoverManager.getCustomCoverPath(
+    comic.sourceKey,
+    comic.id,
+  );
   if (customPath != null && CustomCoverManager.coverFileExists(customPath)) {
     return FileImage(File(customPath));
   }
@@ -33,7 +36,8 @@ ImageProvider? _findImageProvider(Comic comic) {
 /// （例如追更页的紧凑行，它不能用 [ComicTile] 作 SliverList 子项）。
 ///
 /// 解析顺序与 [ComicTile] 完全一致：自定义封面 > 本地漫画 > 历史 > 网络缓存。
-ImageProvider? comicCoverImageProvider(Comic comic) => _findImageProvider(comic);
+ImageProvider? comicCoverImageProvider(Comic comic) =>
+    _findImageProvider(comic);
 
 /// brief 模式卡片里「封面下方标题行」的垂直开销（不含封面本身）。
 ///
@@ -45,8 +49,8 @@ double comicTileTitleBlock(double cardWidth, TextScaler scaler) {
   final fontSize = cardWidth < 120
       ? kcCaption
       : cardWidth < 150
-          ? kcBody
-          : kcFont15;
+      ? kcBody
+      : kcFont15;
   // 上内边距 4 + 一行文字。
   return 4 + scaler.scale(fontSize) * 1.3;
 }
@@ -173,47 +177,43 @@ class ComicTile extends StatelessWidget {
   }
 
   void showMenu(Offset location, BuildContext context) {
-    showMenuX(
-      App.rootContext,
-      location,
-      [
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
-          text: 'Details'.tl,
-          onClick: () {
-            App.mainNavigatorKey?.currentContext?.to(
-              () => ComicPage(
-                id: comic.id,
-                sourceKey: comic.sourceKey,
-                cover: comic.cover,
-                title: comic.title,
-              ),
-            );
-          },
-        ),
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
-          text: 'Copy Title'.tl,
-          onClick: () {
-            Clipboard.setData(ClipboardData(text: comic.title));
-            App.rootContext.showMessage(message: 'Title copied'.tl);
-          },
-        ),
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
-          text: 'Add to favorites'.tl,
-          onClick: () {
-            addFavorite([comic]);
-          },
-        ),
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-          text: 'Block'.tl,
-          onClick: () => block(context),
-        ),
-        ...?menuOptions,
-      ],
-    );
+    showMenuX(App.rootContext, location, [
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
+        text: 'Details'.tl,
+        onClick: () {
+          App.mainNavigatorKey?.currentContext?.to(
+            () => ComicPage(
+              id: comic.id,
+              sourceKey: comic.sourceKey,
+              cover: comic.cover,
+              title: comic.title,
+            ),
+          );
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+        text: 'Copy Title'.tl,
+        onClick: () {
+          Clipboard.setData(ClipboardData(text: comic.title));
+          App.rootContext.showMessage(message: 'Title copied'.tl);
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
+        text: 'Add to favorites'.tl,
+        onClick: () {
+          addFavorite([comic]);
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+        text: 'Block'.tl,
+        onClick: () => block(context),
+      ),
+      ...?menuOptions,
+    ]);
   }
 
   @override
@@ -221,8 +221,10 @@ class ComicTile extends StatelessWidget {
     var type = displayMode ?? appdata.settings['comicDisplayMode'];
 
     var isFavorite = appdata.settings['showFavoriteStatusOnTile']
-        ? LocalFavoritesManager()
-            .isExist(comic.id, ComicType.fromKey(comic.sourceKey))
+        ? LocalFavoritesManager().isExist(
+            comic.id,
+            ComicType.fromKey(comic.sourceKey),
+          )
         : false;
     var history = appdata.settings['showHistoryStatusOnTile']
         ? HistoryManager().find(comic.id, ComicType.fromKey(comic.sourceKey))
@@ -315,7 +317,10 @@ class ComicTile extends StatelessWidget {
       return const SizedBox();
     }
     // 自定义封面变化时强制重建 AnimatedImage
-    final customKey = CustomCoverManager.getCustomCoverPath(comic.sourceKey, comic.id);
+    final customKey = CustomCoverManager.getCustomCoverPath(
+      comic.sourceKey,
+      comic.id,
+    );
     // Decode covers at (at most) the on-screen size * devicePixelRatio so a
     // 1200px-wide network cover doesn't get fully decoded for a ~160px grid
     // cell. This cuts per-cover RAM and decode time on the busiest screens
@@ -352,15 +357,12 @@ class ComicTile extends StatelessWidget {
   double _favoriteBadgeSize(double coverWidth) =>
       (coverWidth * 0.19).clamp(18.0, 26.0);
 
-  /// 收藏角标：封面右上角悬浮的「红圆角方块 + 白心」tile。
+  /// 收藏角标：封面右上角悬浮的「白环 + 红心」圆形徽章（iOS Live Photo 风）。
   ///
-  /// 与收藏总览「全部收藏」入口卡的图标底座是**同一个视觉原子**
-  /// （KcEntryBox highlight：kcBrandColor 实心块 + 白心），用户在总览
-  /// 学会的符号在封面上原样复现，全站收藏语义闭环。前两版（书角折角、
-  /// 书签丝带）都偏「飘」——线状形态在花封面上存在感弱、小尺寸下糊；
-  /// 实心 tile 是「钉」在封面上的，任何封面亮度下对比度恒定
-  /// （红底白心 4.8:1），AMOLED 下沿用入口卡的「页面级品牌标记」豁免
-  /// 保持品牌红，不落入面色 token 的灰坑。
+  /// 与实心 tile（上一版）同位同尺寸，形态换成描边环：细白环负责「结构对比」，
+  /// 环内衬一层黑色 scrim 兜住亮封面（白环不消失），红心负责品牌语义——
+  /// 三层各司其职，任何封面上对比度都恒定。AMOLED 下沿用入口卡的
+  /// 「页面级品牌标记」豁免保持品牌红，不落入面色 token 的灰坑。
   Widget _buildFavoriteCornerBadge(BuildContext context, double side) {
     // 距右上边缘留呼吸缝：贴边会跟封面圆角打架，悬浮一点才像徽章。
     return Padding(
@@ -369,10 +371,13 @@ class ComicTile extends StatelessWidget {
         width: side,
         height: side,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(side * 0.3),
-          color: kcBrandColor,
+          shape: BoxShape.circle,
+          // 环内 scrim：亮封面上白环与红心的底座，深封面上自然隐形。
+          color: Colors.black.withValues(alpha: 0.30),
+          // 白描边环：徽章的「骨」，宽度随 side 缩放保持细环比例。
+          border: Border.all(color: Colors.white, width: side * 0.08),
           boxShadow: [
-            // 徽章投影：把 tile 从封面「抬」起来，只用黑白 alpha，
+            // 徽章投影：把徽章从封面「抬」起来，只用黑白 alpha，
             // 不参与主题语义，不进令牌。
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.25),
@@ -381,11 +386,7 @@ class ComicTile extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(
-          Icons.favorite,
-          size: side * 0.58,
-          color: kcOnAccentColor,
-        ),
+        child: Icon(Icons.favorite, size: side * 0.5, color: kcBrandColor),
       ),
     );
   }
@@ -394,14 +395,15 @@ class ComicTile extends StatelessWidget {
   /// mode for favorites. The text is taken from [comic.description] (which
   /// favorites set to "source | date") with a fallback to the source name.
   Widget _buildBottomMetadataPill(
-      BuildContext context, BoxConstraints constraints) {
+    BuildContext context,
+    BoxConstraints constraints,
+  ) {
     String? text;
     if (comic.description.isNotEmpty) {
       text = comic.description;
     } else {
       final source = ComicSource.find(comic.sourceKey);
-      text = source?.name ??
-          (comic.sourceKey.isEmpty ? null : comic.sourceKey);
+      text = source?.name ?? (comic.sourceKey.isEmpty ? null : comic.sourceKey);
     }
     text = text
         ?.split('|')
@@ -414,8 +416,8 @@ class ComicTile extends StatelessWidget {
     final fontSize = constraints.maxWidth < 80
         ? 11.0
         : constraints.maxWidth < 150
-            ? 12.0
-            : 13.0;
+        ? 12.0
+        : 13.0;
 
     if (text == null || text.isEmpty) {
       return const SizedBox();
@@ -428,9 +430,7 @@ class ComicTile extends StatelessWidget {
       ),
       child: Container(
         height: 16,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-        ),
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55)),
         child: Center(
           child: Text(
             text,
@@ -454,111 +454,118 @@ class ComicTile extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailedMode(BuildContext context, Widget? histBadge, bool isFavorite) {
-    return LayoutBuilder(builder: (context, constrains) {
-      final height = constrains.maxHeight - 16;
+  Widget _buildDetailedMode(
+    BuildContext context,
+    Widget? histBadge,
+    bool isFavorite,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constrains) {
+        final height = constrains.maxHeight - 16;
 
-      // 列表模式封面宽度 = 行高 * 0.68，角标按它取档，与网格模式同一套比例。
-      final coverWidth = height * 0.68;
-      final badgeSize = _favoriteBadgeSize(coverWidth);
-      final favBadge = isFavorite
-          ? Positioned.fill(
-              child: IgnorePointer(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(kcCardInnerRadius),
-                  child: Align(
-                    alignment: Alignment.topRight,
-                    child: _buildFavoriteCornerBadge(context, badgeSize),
+        // 列表模式封面宽度 = 行高 * 0.68，角标按它取档，与网格模式同一套比例。
+        final coverWidth = height * 0.68;
+        final badgeSize = _favoriteBadgeSize(coverWidth);
+        final favBadge = isFavorite
+            ? Positioned.fill(
+                child: IgnorePointer(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(kcCardInnerRadius),
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: _buildFavoriteCornerBadge(context, badgeSize),
+                    ),
                   ),
                 ),
-              ),
-            )
-          : null;
+              )
+            : null;
 
-      Widget image = Container(
-        width: height * 0.68,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(kcCardInnerRadius),
-          boxShadow: [
-            BoxShadow(
-              color: context.colorScheme.outlineVariant,
-              blurRadius: 1,
-              offset: const Offset(0, 1),
-            ),
-            ...kcContourGlow(context),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: buildImage(context),
-      );
-
-      if (histBadge != null || favBadge != null) {
-        image = SizedBox(
+        Widget image = Container(
           width: height * 0.68,
-          child: Stack(
-            children: [
-              Positioned.fill(child: image),
-              if (favBadge != null) favBadge,
-              if (histBadge != null)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: 16,
-                  child: histBadge,
-                ),
+          height: double.infinity,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(kcCardInnerRadius),
+            boxShadow: [
+              BoxShadow(
+                color: context.colorScheme.outlineVariant,
+                blurRadius: 1,
+                offset: const Offset(0, 1),
+              ),
+              ...kcContourGlow(context),
             ],
           ),
+          clipBehavior: Clip.antiAlias,
+          child: buildImage(context),
         );
-      }
 
-      if (heroID != null) {
-        image = Hero(
-          tag: "cover$heroID",
-          child: image,
-        );
-      }
+        if (histBadge != null || favBadge != null) {
+          image = SizedBox(
+            width: height * 0.68,
+            child: Stack(
+              children: [
+                Positioned.fill(child: image),
+                if (favBadge != null) favBadge,
+                if (histBadge != null)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 16,
+                    child: histBadge,
+                  ),
+              ],
+            ),
+          );
+        }
 
-      return InkWell(
-        borderRadius: BorderRadius.circular(kcCardRadius),
-        onTap: _onTap,
-        onLongPress: enableLongPressed ? () => _onLongPressed(context) : null,
-        onSecondaryTapDown: (detail) => onSecondaryTap(detail, context),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
-          child: Row(
-            children: [
-              image,
-              SizedBox.fromSize(
-                size: const Size(16, 5),
-              ),
-              Expanded(
-                child: _ComicDescription(
-                  title: comic.maxPage == null
-                      ? comic.title.replaceAll("\n", "")
-                      : "[${comic.maxPage}P]${comic.title.replaceAll("\n", "")}",
-                  subtitle: comic.subtitle ?? '',
-                  description: comic.description,
-                  badge: badge ?? comic.language,
-                  badgeColor: badgeColor,
-                  tags: comic.tags,
-                  maxLines: 2,
-                  enableTranslate:
-                      ComicSource.find(comic.sourceKey)?.enableTagsTranslate ??
-                          false,
-                  rating: comic.stars,
+        if (heroID != null) {
+          image = Hero(tag: "cover$heroID", child: image);
+        }
+
+        return InkWell(
+          borderRadius: BorderRadius.circular(kcCardRadius),
+          onTap: _onTap,
+          onLongPress: enableLongPressed ? () => _onLongPressed(context) : null,
+          onSecondaryTapDown: (detail) => onSecondaryTap(detail, context),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
+            child: Row(
+              children: [
+                image,
+                SizedBox.fromSize(size: const Size(16, 5)),
+                Expanded(
+                  child: _ComicDescription(
+                    title: comic.maxPage == null
+                        ? comic.title.replaceAll("\n", "")
+                        : "[${comic.maxPage}P]${comic.title.replaceAll("\n", "")}",
+                    subtitle: comic.subtitle ?? '',
+                    description: comic.description,
+                    badge: badge ?? comic.language,
+                    badgeColor: badgeColor,
+                    tags: comic.tags,
+                    maxLines: 2,
+                    enableTranslate:
+                        ComicSource.find(
+                          comic.sourceKey,
+                        )?.enableTagsTranslate ??
+                        false,
+                    rating: comic.stars,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
-  Widget _buildBriefMode(BuildContext context, Widget? histBadge, bool isFavorite) {
+  Widget _buildBriefMode(
+    BuildContext context,
+    Widget? histBadge,
+    bool isFavorite,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         // 折角随封面宽度缩放（网格卡座的 padding 左右各 6，实际封面更窄，
@@ -569,8 +576,8 @@ class ComicTile extends StatelessWidget {
         final titleFont = constraints.maxWidth < 120
             ? kcCaption
             : constraints.maxWidth < 150
-                ? kcBody
-                : kcFont15;
+            ? kcBody
+            : kcFont15;
         final favBadge = isFavorite
             ? Positioned.fill(
                 // 角标要「长在」封面上：按封面同款圆角裁一刀，折角的尖
@@ -599,10 +606,7 @@ class ComicTile extends StatelessWidget {
         );
 
         if (heroID != null) {
-          image = Hero(
-            tag: "cover$heroID",
-            child: image,
-          );
+          image = Hero(tag: "cover$heroID", child: image);
         }
 
         return InkWell(
@@ -615,9 +619,7 @@ class ComicTile extends StatelessWidget {
               Expanded(
                 child: Stack(
                   children: [
-                    Positioned.fill(
-                      child: image,
-                    ),
+                    Positioned.fill(child: image),
                     Align(
                       alignment: Alignment.topLeft,
                       child: (() {
@@ -635,15 +637,15 @@ class ComicTile extends StatelessWidget {
                         final fontSize = constraints.maxWidth < 80
                             ? 8.0
                             : constraints.maxWidth < 150
-                                ? 10.0
-                                : 12.0;
+                            ? 10.0
+                            : 12.0;
                         return Container(
                           margin: const EdgeInsets.fromLTRB(2, 0, 2, 2),
                           padding: constraints.maxWidth < 80
                               ? const EdgeInsets.fromLTRB(3, 1, 3, 1)
                               : constraints.maxWidth < 150
-                                  ? const EdgeInsets.fromLTRB(4, 2, 4, 2)
-                                  : const EdgeInsets.fromLTRB(5, 2, 5, 2),
+                              ? const EdgeInsets.fromLTRB(4, 2, 4, 2)
+                              : const EdgeInsets.fromLTRB(5, 2, 5, 2),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(kcRadius8),
                             color: Colors.black.withValues(alpha: 0.5),
@@ -681,7 +683,8 @@ class ComicTile extends StatelessWidget {
                         // so `comic is History` does not work; use history.
                         if (history != null) {
                           final desc = comic.description.toLowerCase();
-                          final isChapterLike = desc.contains('第') ||
+                          final isChapterLike =
+                              desc.contains('第') ||
                               desc.contains('话') ||
                               desc.contains('章') ||
                               desc.contains('页') ||
@@ -701,8 +704,11 @@ class ComicTile extends StatelessWidget {
                           text = comic.description;
                         } else {
                           final source = ComicSource.find(comic.sourceKey);
-                          text = source?.name ??
-                              (comic.sourceKey.isEmpty ? null : comic.sourceKey);
+                          text =
+                              source?.name ??
+                              (comic.sourceKey.isEmpty
+                                  ? null
+                                  : comic.sourceKey);
                         }
                         text = text
                             ?.split('|')
@@ -713,8 +719,8 @@ class ComicTile extends StatelessWidget {
                         final fortSize = constraints.maxWidth < 80
                             ? 8.0
                             : constraints.maxWidth < 150
-                                ? 10.0
-                                : 12.0;
+                            ? 10.0
+                            : 12.0;
 
                         if (text == null || text.isEmpty) {
                           return const SizedBox();
@@ -731,8 +737,8 @@ class ComicTile extends StatelessWidget {
                             padding: constraints.maxWidth < 80
                                 ? const EdgeInsets.fromLTRB(3, 1, 3, 1)
                                 : constraints.maxWidth < 150
-                                    ? const EdgeInsets.fromLTRB(4, 2, 4, 2)
-                                    : const EdgeInsets.fromLTRB(5, 2, 5, 2),
+                                ? const EdgeInsets.fromLTRB(4, 2, 4, 2)
+                                : const EdgeInsets.fromLTRB(5, 2, 5, 2),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(kcRadius8),
                               color: Colors.black.withValues(alpha: 0.5),
@@ -765,7 +771,12 @@ class ComicTile extends StatelessWidget {
                         right: 0,
                         bottom: 0,
                         child: Container(
-                          padding: EdgeInsets.fromLTRB(6, 12, 6, histBadge != null ? 18.0 : 4.0),
+                          padding: EdgeInsets.fromLTRB(
+                            6,
+                            12,
+                            6,
+                            histBadge != null ? 18.0 : 4.0,
+                          ),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.bottomCenter,
@@ -792,10 +803,7 @@ class ComicTile extends StatelessWidget {
                               shadows: const [
                                 // 封面底部渐变上叠白字的投影：35% 黑 scrim，
                                 // 语义同上（可读性投影，非主题色）。
-                                Shadow(
-                                  color: Color(0x59000000),
-                                  blurRadius: 2,
-                                ),
+                                Shadow(color: Color(0x59000000), blurRadius: 2),
                               ],
                             ),
                           ),
@@ -906,56 +914,58 @@ class ComicTile extends StatelessWidget {
           all.add(comic.subtitle!);
         }
         all.addAll(comic.tags ?? []);
-        return StatefulBuilder(builder: (context, setState) {
-          return ContentDialog(
-            title: 'Block'.tl,
-            content: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: math.min(400, context.height - 136),
-              ),
-              child: SingleChildScrollView(
-                child: Wrap(
-                  runSpacing: 8,
-                  spacing: 8,
-                  children: [
-                    for (var word in all)
-                      OptionChip(
-                        text: (comic.tags?.contains(word) ?? false)
-                            ? word.translateTagIfNeed
-                            : word,
-                        isSelected: words.contains(word),
-                        onTap: () {
-                          setState(() {
-                            if (!words.contains(word)) {
-                              words.add(word);
-                            } else {
-                              words.remove(word);
-                            }
-                          });
-                        },
-                      ),
-                  ],
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return ContentDialog(
+              title: 'Block'.tl,
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: math.min(400, context.height - 136),
                 ),
-              ).paddingHorizontal(16),
-            ),
-            actions: [
-              Button.filled(
-                onPressed: () {
-                  context.pop();
-                  for (var word in words) {
-                    appdata.settings['blockedWords'].add(word);
-                  }
-                  appdata.saveData();
-                  context.showMessage(message: 'Blocked'.tl);
-                  comicTileContext
-                      .findAncestorStateOfType<_SliverGridComicsState>()
-                      ?.update();
-                },
-                child: Text('Block'.tl),
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    runSpacing: 8,
+                    spacing: 8,
+                    children: [
+                      for (var word in all)
+                        OptionChip(
+                          text: (comic.tags?.contains(word) ?? false)
+                              ? word.translateTagIfNeed
+                              : word,
+                          isSelected: words.contains(word),
+                          onTap: () {
+                            setState(() {
+                              if (!words.contains(word)) {
+                                words.add(word);
+                              } else {
+                                words.remove(word);
+                              }
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                ).paddingHorizontal(16),
               ),
-            ],
-          );
-        });
+              actions: [
+                Button.filled(
+                  onPressed: () {
+                    context.pop();
+                    for (var word in words) {
+                      appdata.settings['blockedWords'].add(word);
+                    }
+                    appdata.saveData();
+                    context.showMessage(message: 'Blocked'.tl);
+                    comicTileContext
+                        .findAncestorStateOfType<_SliverGridComicsState>()
+                        ?.update();
+                  },
+                  child: Text('Block'.tl),
+                ),
+              ],
+            );
+          },
+        );
       },
     );
   }
@@ -998,10 +1008,7 @@ class _ComicDescription extends StatelessWidget {
       children: <Widget>[
         Text(
           title.trim(),
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: kcBody,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: kcBody),
           maxLines: maxLines,
           overflow: TextOverflow.ellipsis,
           softWrap: true,
@@ -1010,8 +1017,9 @@ class _ComicDescription extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(
-                fontSize: kcCaption,
-                color: context.colorScheme.onSurface.withValues(alpha: 0.7)),
+              fontSize: kcCaption,
+              color: context.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
             maxLines: 1,
             softWrap: true,
             overflow: TextOverflow.ellipsis,
@@ -1019,75 +1027,83 @@ class _ComicDescription extends StatelessWidget {
         const SizedBox(height: 4),
         if (processedTags != null && processedTags.isNotEmpty)
           Expanded(
-            child: LayoutBuilder(builder: (context, constraints) {
-              // 一行的实际高度 = 标签 21 + 行间距 8 = 29。高度只按「能完整放下的
-              // 行数」给，多出来的空间留白 —— 以前用 21 + cnt * 25 估算（把
-              // runSpacing 当成 4），容器比内容矮 4px/行，于是最后一行总是被
-              // 裁掉一截：标题折成两行、可用高度变小的时候，第二排标签的底部
-              // 就缺一块。宁可少显示一行，也不要显示半截。
-              const double tagHeight = 21;
-              const double tagRunSpacing = 8;
-              final rows = ((constraints.maxHeight + tagRunSpacing) /
-                      (tagHeight + tagRunSpacing))
-                  .floor();
-              if (rows <= 0) {
-                return Container();
-              }
-              return Container(
-                clipBehavior: Clip.antiAlias,
-                height: rows * tagHeight + (rows - 1) * tagRunSpacing,
-                width: double.infinity,
-                decoration: const BoxDecoration(),
-                child: Wrap(
-                  runAlignment: WrapAlignment.start,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // 一行的实际高度 = 标签 21 + 行间距 8 = 29。高度只按「能完整放下的
+                // 行数」给，多出来的空间留白 —— 以前用 21 + cnt * 25 估算（把
+                // runSpacing 当成 4），容器比内容矮 4px/行，于是最后一行总是被
+                // 裁掉一截：标题折成两行、可用高度变小的时候，第二排标签的底部
+                // 就缺一块。宁可少显示一行，也不要显示半截。
+                const double tagHeight = 21;
+                const double tagRunSpacing = 8;
+                final rows =
+                    ((constraints.maxHeight + tagRunSpacing) /
+                            (tagHeight + tagRunSpacing))
+                        .floor();
+                if (rows <= 0) {
+                  return Container();
+                }
+                return Container(
                   clipBehavior: Clip.antiAlias,
-                  crossAxisAlignment: WrapCrossAlignment.end,
-                  spacing: 8,
-                  runSpacing: tagRunSpacing,
-                  children: [
-                    for (var s in processedTags)
-                      Builder(builder: (context) {
-                        final brightness = Theme.of(context).brightness;
-                        final amoled = appdata.isAmoledMode;
-                        final bg = s == "Unavailable"
-                            ? context.colorScheme.surfaceContainerHighest
-                            : kcTagColor(kcStableHash(s.split(':').last),
-                                brightness,
-                                amoled: amoled);
-                        return Container(
-                          height: tagHeight,
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 8),
-                          constraints: BoxConstraints(
-                            maxWidth: constraints.maxWidth * 0.45,
-                          ),
-                          decoration: BoxDecoration(
-                            color: bg,
-                            borderRadius: BorderRadius.circular(kcRadius10),
-                          ),
-                          child: Center(
-                            widthFactor: 1,
-                            child: Text(
-                              enableTranslate
-                                  ? TagsTranslation.translateTag(s)
-                                  : s.split(':').last,
-                              style: TextStyle(
-                                fontSize: kcCaption,
-                                color: s == "Unavailable"
-                                    ? context.colorScheme.onSurfaceVariant
-                                    : kcTagTextColor(bg),
+                  height: rows * tagHeight + (rows - 1) * tagRunSpacing,
+                  width: double.infinity,
+                  decoration: const BoxDecoration(),
+                  child: Wrap(
+                    runAlignment: WrapAlignment.start,
+                    clipBehavior: Clip.antiAlias,
+                    crossAxisAlignment: WrapCrossAlignment.end,
+                    spacing: 8,
+                    runSpacing: tagRunSpacing,
+                    children: [
+                      for (var s in processedTags)
+                        Builder(
+                          builder: (context) {
+                            final brightness = Theme.of(context).brightness;
+                            final amoled = appdata.isAmoledMode;
+                            final bg = s == "Unavailable"
+                                ? context.colorScheme.surfaceContainerHighest
+                                : kcTagColor(
+                                    kcStableHash(s.split(':').last),
+                                    brightness,
+                                    amoled: amoled,
+                                  );
+                            return Container(
+                              height: tagHeight,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
                               ),
-                              softWrap: true,
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ),
-                        );
-                      }),
-                  ],
-                ),
-              ).toAlign(Alignment.topCenter);
-            }),
+                              constraints: BoxConstraints(
+                                maxWidth: constraints.maxWidth * 0.45,
+                              ),
+                              decoration: BoxDecoration(
+                                color: bg,
+                                borderRadius: BorderRadius.circular(kcRadius10),
+                              ),
+                              child: Center(
+                                widthFactor: 1,
+                                child: Text(
+                                  enableTranslate
+                                      ? TagsTranslation.translateTag(s)
+                                      : s.split(':').last,
+                                  style: TextStyle(
+                                    fontSize: kcCaption,
+                                    color: s == "Unavailable"
+                                        ? context.colorScheme.onSurfaceVariant
+                                        : kcTagTextColor(bg),
+                                  ),
+                                  softWrap: true,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ).toAlign(Alignment.topCenter);
+              },
+            ),
           )
         else
           const Spacer(),
@@ -1101,9 +1117,7 @@ class _ComicDescription extends StatelessWidget {
                   if (rating != null) StarRating(value: rating!, size: 18),
                   Text(
                     description,
-                    style: const TextStyle(
-                      fontSize: kcCaption,
-                    ),
+                    style: const TextStyle(fontSize: kcCaption),
                     maxLines: (tags == null || tags!.isEmpty) ? 3 : 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1118,27 +1132,28 @@ class _ComicDescription extends StatelessWidget {
                 fontSize: kcCaption,
               ),
           ],
-        )
+        ),
       ],
     );
   }
 }
 
 class SliverGridComics extends StatefulWidget {
-  const SliverGridComics(
-      {super.key,
-      required this.comics,
-      this.onLastItemBuild,
-      this.badgeBuilder,
-      this.menuBuilder,
-      this.onTap,
-      this.onLongPressed,
-      this.selections,
-      this.allFavorite = false,
-      this.showSourceOnCover = true,
-      this.showBottomSourceDate = false,
-      this.badgeAsTopLeftSource = false,
-      this.openLocalIfAvailable = false});
+  const SliverGridComics({
+    super.key,
+    required this.comics,
+    this.onLastItemBuild,
+    this.badgeBuilder,
+    this.menuBuilder,
+    this.onTap,
+    this.onLongPressed,
+    this.selections,
+    this.allFavorite = false,
+    this.showSourceOnCover = true,
+    this.showBottomSourceDate = false,
+    this.badgeAsTopLeftSource = false,
+    this.openLocalIfAvailable = false,
+  });
 
   final List<Comic> comics;
 
@@ -1211,9 +1226,12 @@ class _SliverGridComicsState extends State<SliverGridComics>
 
     if (showFavorite) {
       for (var comic in comics) {
-        _favoriteStatus[comic.id] = widget.allFavorite ||
-            LocalFavoritesManager()
-                .isExist(comic.id, ComicType.fromKey(comic.sourceKey));
+        _favoriteStatus[comic.id] =
+            widget.allFavorite ||
+            LocalFavoritesManager().isExist(
+              comic.id,
+              ComicType.fromKey(comic.sourceKey),
+            );
       }
     }
 
@@ -1304,7 +1322,6 @@ class _SliverGridComics extends StatelessWidget {
     this.openLocalIfAvailable = false,
   });
 
-
   final List<Comic> comics;
 
   final List<int> heroIDs;
@@ -1340,51 +1357,51 @@ class _SliverGridComics extends StatelessWidget {
     return AnimatedBuilder(
       animation: appdata.settings,
       builder: (context, _) => SliverGrid(
-      delegate: SliverChildBuilderDelegate((context, index) {
-        if (index == comics.length - 1) {
-          onLastItemBuild?.call();
-        }
-        var badge = badgeBuilder?.call(comics[index]);
-        var isSelected = selection == null
-            ? false
-            : selection![comics[index]] ?? false;
-        var comic = ComicTile(
-          comic: comics[index],
-          badge: badge,
-          menuOptions: menuBuilder?.call(comics[index]),
-          onTap: onTap != null
-              ? () => onTap!(comics[index], heroIDs[index])
-              : null,
-          onLongPressed: onLongPressed != null
-              ? () => onLongPressed!(comics[index], heroIDs[index])
-              : null,
-          heroID: heroIDs[index],
-          isFavorite: favoriteStatus?[comics[index].id],
-          history: historyStatus?[comics[index].id],
-          showSourceOnCover: showSourceOnCover,
-          showBottomSourceDate: showBottomSourceDate,
-          badgeAsTopLeftSource: badgeAsTopLeftSource,
-          openLocalIfAvailable: openLocalIfAvailable,
-        );
-        if (selection == null) {
-          return RepaintBoundary(child: comic);
-        }
-        return AnimatedContainer(
-          key: ValueKey(comics[index].id),
-          duration: const Duration(milliseconds: 150),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(
-                    context,
-                  ).colorScheme.secondaryContainer.withValues(alpha: 0.72)
+        delegate: SliverChildBuilderDelegate((context, index) {
+          if (index == comics.length - 1) {
+            onLastItemBuild?.call();
+          }
+          var badge = badgeBuilder?.call(comics[index]);
+          var isSelected = selection == null
+              ? false
+              : selection![comics[index]] ?? false;
+          var comic = ComicTile(
+            comic: comics[index],
+            badge: badge,
+            menuOptions: menuBuilder?.call(comics[index]),
+            onTap: onTap != null
+                ? () => onTap!(comics[index], heroIDs[index])
                 : null,
-            borderRadius: BorderRadius.circular(kcCardRadius),
-          ),
-          margin: const EdgeInsets.all(kcSpaceXs),
-          child: RepaintBoundary(child: comic),
-        );
-      }, childCount: comics.length),
-      gridDelegate: SliverGridDelegateWithComics(),
+            onLongPressed: onLongPressed != null
+                ? () => onLongPressed!(comics[index], heroIDs[index])
+                : null,
+            heroID: heroIDs[index],
+            isFavorite: favoriteStatus?[comics[index].id],
+            history: historyStatus?[comics[index].id],
+            showSourceOnCover: showSourceOnCover,
+            showBottomSourceDate: showBottomSourceDate,
+            badgeAsTopLeftSource: badgeAsTopLeftSource,
+            openLocalIfAvailable: openLocalIfAvailable,
+          );
+          if (selection == null) {
+            return RepaintBoundary(child: comic);
+          }
+          return AnimatedContainer(
+            key: ValueKey(comics[index].id),
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Theme.of(
+                      context,
+                    ).colorScheme.secondaryContainer.withValues(alpha: 0.72)
+                  : null,
+              borderRadius: BorderRadius.circular(kcCardRadius),
+            ),
+            margin: const EdgeInsets.all(kcSpaceXs),
+            child: RepaintBoundary(child: comic),
+          );
+        }, childCount: comics.length),
+        gridDelegate: SliverGridDelegateWithComics(),
       ),
     );
   }
@@ -1567,13 +1584,13 @@ class ComicListState extends State<ComicList> {
   late bool enablePageStorage = widget.enablePageStorage;
 
   Map<String, dynamic> get state => {
-        'maxPage': _maxPage,
-        'data': _data,
-        'page': _page,
-        'error': _error,
-        'loading': _loading,
-        'nextUrl': _nextUrl,
-      };
+    'maxPage': _maxPage,
+    'data': _data,
+    'page': _page,
+    'error': _error,
+    'loading': _loading,
+    'nextUrl': _nextUrl,
+  };
 
   void restoreState(Map<String, dynamic>? state) {
     if (state == null || !enablePageStorage) {
@@ -1692,8 +1709,10 @@ class ComicListState extends State<ComicList> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "Page @page / @maxPage"
-                  .tlParams({"page": _page, "maxPage": maxPage ?? '?'}),
+              "Page @page / @maxPage".tlParams({
+                "page": _page,
+                "maxPage": maxPage ?? '?',
+              }),
               style: TextStyle(
                 fontSize: kcBody,
                 fontWeight: FontWeight.w600,
@@ -1784,9 +1803,7 @@ class ComicListState extends State<ComicList> {
               decoration: InputDecoration(labelText: "Page".tl),
               onSubmitted: (_) => submit(),
             ).paddingHorizontal(16),
-            actions: [
-              Button.filled(onPressed: submit, child: Text("Jump".tl)),
-            ],
+            actions: [Button.filled(onPressed: submit, child: Text("Jump".tl))],
           );
         },
       );
@@ -1836,8 +1853,9 @@ class ComicListState extends State<ComicList> {
 
   Future<void> _loadPage(int page, {bool silent = false}) async {
     if (widget.loadPage == null && widget.loadNext == null) {
-      _error = "This source is misconfigured: loadPage and loadNext cannot both be null"
-          .tl;
+      _error =
+          "This source is misconfigured: loadPage and loadNext cannot both be null"
+              .tl;
       Future.microtask(() {
         setState(() {});
       });
@@ -1971,25 +1989,25 @@ class ComicListState extends State<ComicList> {
       color: kcBrandAdaptive(context),
       child: SmoothCustomScrollView(
         // 换页回到顶部。`enablePageStorage` 默认是 false，以前这里是 `null`，
-      // key 不变 → 滚动位置被沿用，从上一页底部翻页会直接落在新页的半山腰，
-      // 顶上前几部漫画被跳过。带上页码的 key 让滚动视图跟着页码重建。
-      key: enablePageStorage
-          ? PageStorageKey('scroll$_page')
-          : ValueKey('scroll$_page'),
-      controller: widget.controller,
-      slivers: [
-        if (widget.leadingSliver != null) widget.leadingSliver!,
-        SliverGridComics(
-          comics: _data[_page] ?? const [],
-          menuBuilder: widget.menuBuilder,
-          allFavorite: widget.allFavorite,
-          showSourceOnCover: widget.showSourceOnCover,
-          showBottomSourceDate: widget.showBottomSourceDate,
-          badgeAsTopLeftSource: widget.badgeAsTopLeftSource,
-          openLocalIfAvailable: widget.openLocalIfAvailable,
-        ),
-        if (widget.trailingSliver != null) widget.trailingSliver!,
-      ],
+        // key 不变 → 滚动位置被沿用，从上一页底部翻页会直接落在新页的半山腰，
+        // 顶上前几部漫画被跳过。带上页码的 key 让滚动视图跟着页码重建。
+        key: enablePageStorage
+            ? PageStorageKey('scroll$_page')
+            : ValueKey('scroll$_page'),
+        controller: widget.controller,
+        slivers: [
+          if (widget.leadingSliver != null) widget.leadingSliver!,
+          SliverGridComics(
+            comics: _data[_page] ?? const [],
+            menuBuilder: widget.menuBuilder,
+            allFavorite: widget.allFavorite,
+            showSourceOnCover: widget.showSourceOnCover,
+            showBottomSourceDate: widget.showBottomSourceDate,
+            badgeAsTopLeftSource: widget.badgeAsTopLeftSource,
+            openLocalIfAvailable: widget.openLocalIfAvailable,
+          ),
+          if (widget.trailingSliver != null) widget.trailingSliver!,
+        ],
       ),
     );
   }
@@ -2034,47 +2052,51 @@ class ComicListState extends State<ComicList> {
           if (widget.leadingSliver != null) widget.leadingSliver!,
           SliverGridComics(
             comics: _data.values.expand((element) => element).toList(),
-          menuBuilder: widget.menuBuilder,
-          allFavorite: widget.allFavorite,
-          showSourceOnCover: widget.showSourceOnCover,
-          showBottomSourceDate: widget.showBottomSourceDate,
-          badgeAsTopLeftSource: widget.badgeAsTopLeftSource,
-          openLocalIfAvailable: widget.openLocalIfAvailable,
-          onLastItemBuild: () {
-            if (_error == null && (_maxPage == null || _data.length < _maxPage!)) {
-              _loadPage(_data.length + 1);
-            }
-          },
-        ),
-        if (_error != null)
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_error!, maxLines: 3)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: Button.outlined(
-                    onPressed: () {
-                      setState(() {
-                        _error = null;
-                      });
-                    },
-                    child: Text("Retry".tl),
+            menuBuilder: widget.menuBuilder,
+            allFavorite: widget.allFavorite,
+            showSourceOnCover: widget.showSourceOnCover,
+            showBottomSourceDate: widget.showBottomSourceDate,
+            badgeAsTopLeftSource: widget.badgeAsTopLeftSource,
+            openLocalIfAvailable: widget.openLocalIfAvailable,
+            onLastItemBuild: () {
+              if (_error == null &&
+                  (_maxPage == null || _data.length < _maxPage!)) {
+                _loadPage(_data.length + 1);
+              }
+            },
+          ),
+          if (_error != null)
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedAlertCircle,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_error!, maxLines: 3)),
+                    ],
                   ),
-                ),
-              ],
-            ).paddingHorizontal(16).paddingVertical(8),
-          )
-        else if (_maxPage == null || _data.length < _maxPage!)
-          const SliverListLoadingIndicator(),
-        if (widget.trailingSliver != null) widget.trailingSliver!,
-      ],
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Button.outlined(
+                      onPressed: () {
+                        setState(() {
+                          _error = null;
+                        });
+                      },
+                      child: Text("Retry".tl),
+                    ),
+                  ),
+                ],
+              ).paddingHorizontal(16).paddingVertical(8),
+            )
+          else if (_maxPage == null || _data.length < _maxPage!)
+            const SliverListLoadingIndicator(),
+          if (widget.trailingSliver != null) widget.trailingSliver!,
+        ],
       ),
     );
   }
@@ -2103,8 +2125,9 @@ class _PagePickerDialogState extends State<_PagePickerDialog> {
   /// 与 [ContentDialog] 的正文左右内边距一致，格子才不会贴到弹窗边缘。
   static const _hPadding = 16.0;
 
-  late final ScrollController _controller =
-      ScrollController(initialScrollOffset: _initialOffset());
+  late final ScrollController _controller = ScrollController(
+    initialScrollOffset: _initialOffset(),
+  );
 
   /// 让当前页落在可视区偏上，而不是贴在最顶端或最底端。
   double _initialOffset() {
@@ -2228,12 +2251,7 @@ class StarRating extends StatelessWidget {
         ],
       ),
     );
-    return onTap == null
-        ? child
-        : GestureDetector(
-            onTap: onTap,
-            child: child,
-          );
+    return onTap == null ? child : GestureDetector(onTap: onTap, child: child);
   }
 }
 
@@ -2251,10 +2269,18 @@ class _Star extends StatelessWidget {
       height: size,
       child: Stack(
         children: [
-          HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18, color: context.colorScheme.secondary),
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedStar,
+            size: 18,
+            color: context.colorScheme.secondary,
+          ),
           ClipRect(
             clipper: _StarClipper(value),
-            child: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18, color: context.colorScheme.secondary),
+            child: HugeIcon(
+              icon: HugeIcons.strokeRoundedStar,
+              size: 18,
+              color: context.colorScheme.secondary,
+            ),
           ),
         ],
       ),
@@ -2300,15 +2326,16 @@ class RatingWidget extends StatefulWidget {
   /// Callbacks when ratings change
   final ValueChanged<double> onRatingUpdate;
 
-  const RatingWidget(
-      {super.key,
-      this.maxRating = 10.0,
-      this.count = 5,
-      this.value = 10.0,
-      this.size = 20,
-      required this.padding,
-      this.selectable = false,
-      required this.onRatingUpdate});
+  const RatingWidget({
+    super.key,
+    this.maxRating = 10.0,
+    this.count = 5,
+    this.value = 10.0,
+    this.size = 20,
+    required this.padding,
+    this.selectable = false,
+    required this.onRatingUpdate,
+  });
 
   @override
   State<RatingWidget> createState() => _RatingWidgetState();
@@ -2351,7 +2378,8 @@ class _RatingWidgetState extends State<RatingWidget> {
           break;
         } else if (dx > widget.size * (i - 1) + widget.padding * (i - 1) &&
             dx < widget.size * i + widget.padding * i) {
-          value = (dx - widget.padding * (i - 1)) /
+          value =
+              (dx - widget.padding * (i - 1)) /
               (widget.size * widget.count) *
               widget.maxRating;
           break;
@@ -2389,20 +2417,28 @@ class _RatingWidgetState extends State<RatingWidget> {
     int full = fullStars();
     List<Widget> children = [];
     for (int i = 0; i < full; i++) {
-      children.add(HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18, color: context.colorScheme.secondary));
+      children.add(
+        HugeIcon(
+          icon: HugeIcons.strokeRoundedStar,
+          size: 18,
+          color: context.colorScheme.secondary,
+        ),
+      );
       if (i < widget.count - 1) {
-        children.add(
-          SizedBox(
-            width: widget.padding,
-          ),
-        );
+        children.add(SizedBox(width: widget.padding));
       }
     }
     if (full < widget.count) {
-      children.add(ClipRect(
-        clipper: _SMClipper(rating: star() * widget.size),
-        child: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18, color: context.colorScheme.secondary),
-      ));
+      children.add(
+        ClipRect(
+          clipper: _SMClipper(rating: star() * widget.size),
+          child: HugeIcon(
+            icon: HugeIcons.strokeRoundedStar,
+            size: 18,
+            color: context.colorScheme.secondary,
+          ),
+        ),
+      );
     }
 
     return children;
@@ -2411,11 +2447,15 @@ class _RatingWidgetState extends State<RatingWidget> {
   List<Widget> buildNormalRow() {
     List<Widget> children = [];
     for (int i = 0; i < widget.count; i++) {
-      children.add(HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18, color: context.colorScheme.secondary));
+      children.add(
+        HugeIcon(
+          icon: HugeIcons.strokeRoundedStar,
+          size: 18,
+          color: context.colorScheme.secondary,
+        ),
+      );
       if (i < widget.count - 1) {
-        children.add(SizedBox(
-          width: widget.padding,
-        ));
+        children.add(SizedBox(width: widget.padding));
       }
     }
     return children;
@@ -2424,12 +2464,8 @@ class _RatingWidgetState extends State<RatingWidget> {
   Widget buildRowRating() {
     return Stack(
       children: <Widget>[
-        Row(
-          children: buildNormalRow(),
-        ),
-        Row(
-          children: buildRow(),
-        )
+        Row(children: buildNormalRow()),
+        Row(children: buildRow()),
       ],
     );
   }
@@ -2458,8 +2494,14 @@ class _SMClipper extends CustomClipper<Rect> {
 }
 
 class SimpleComicTile extends StatelessWidget {
-  const SimpleComicTile(
-      {super.key, required this.comic, this.onTap, this.withTitle = false, this.heroID, this.heroRadius = 8});
+  const SimpleComicTile({
+    super.key,
+    required this.comic,
+    this.onTap,
+    this.withTitle = false,
+    this.heroID,
+    this.heroRadius = 8,
+  });
 
   final Comic comic;
 
@@ -2504,15 +2546,13 @@ class SimpleComicTile extends StatelessWidget {
     );
 
     if (heroID != null) {
-      child = Hero(
-        tag: "cover$heroID",
-        child: child,
-      );
+      child = Hero(tag: "cover$heroID", child: child);
     }
 
     child = AnimatedTapRegion(
       borderRadius: 8,
-      onTap: onTap ??
+      onTap:
+          onTap ??
           () {
             context.to(
               () => ComicPage(
@@ -2633,8 +2673,7 @@ class PaginatedSliverGridComics extends StatefulWidget {
       PaginatedSliverGridComicsState();
 }
 
-class PaginatedSliverGridComicsState
-    extends State<PaginatedSliverGridComics>
+class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
     with AutoListenMixin {
   final List<Comic> _comics = [];
   final List<int> _heroIDs = [];
@@ -2677,8 +2716,10 @@ class PaginatedSliverGridComicsState
       setState(() {});
     }
     try {
-      final newComics =
-          await widget.pageLoader(_comics.length, widget.pageSize);
+      final newComics = await widget.pageLoader(
+        _comics.length,
+        widget.pageSize,
+      );
       if (!mounted) return;
       if (newComics.isEmpty) {
         _hasMore = false;
@@ -2694,7 +2735,7 @@ class PaginatedSliverGridComicsState
       }
       _initialized = true;
     } catch (e) {
-        _error = friendlyError(e);
+      _error = friendlyError(e);
     } finally {
       _isLoading = false;
       if (mounted) {
@@ -2704,24 +2745,24 @@ class PaginatedSliverGridComicsState
   }
 
   void _precomputeStatusForNew(List<Comic> newComics) {
-    final showFavorite =
-        appdata.settings['showFavoriteStatusOnTile'] == true;
-    final showHistory =
-        appdata.settings['showHistoryStatusOnTile'] == true;
+    final showFavorite = appdata.settings['showFavoriteStatusOnTile'] == true;
+    final showHistory = appdata.settings['showHistoryStatusOnTile'] == true;
 
     if (showFavorite) {
       for (var comic in newComics) {
         if (isBlocked(comic) == null) {
-          _favoriteStatus[comic.id] = widget.allFavorite ||
-              LocalFavoritesManager()
-                  .isExist(comic.id, ComicType.fromKey(comic.sourceKey));
+          _favoriteStatus[comic.id] =
+              widget.allFavorite ||
+              LocalFavoritesManager().isExist(
+                comic.id,
+                ComicType.fromKey(comic.sourceKey),
+              );
         }
       }
     }
 
     if (showHistory) {
-      final batch =
-          HistoryManager().findBatch(newComics.map((c) => c.id));
+      final batch = HistoryManager().findBatch(newComics.map((c) => c.id));
       _historyStatus.addAll(batch);
     }
   }
@@ -2781,9 +2822,10 @@ class PaginatedSliverGridComicsState
         child: EmptyState(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
           title: 'No comics'.tl,
-          subtitle: (widget.emptySubtitle ??
-                  "No comics yet? Add a comic source or favorite some comics.")
-              .tl,
+          subtitle:
+              (widget.emptySubtitle ??
+                      "No comics yet? Add a comic source or favorite some comics.")
+                  .tl,
         ),
       );
     }
@@ -2794,8 +2836,7 @@ class PaginatedSliverGridComicsState
     return AnimatedBuilder(
       animation: appdata.settings,
       builder: (context, _) => SliverGrid(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
+        delegate: SliverChildBuilderDelegate((context, index) {
           // Footer slot
           if (index == _comics.length) {
             // A failed page must be *visible*, otherwise the user only sees a
@@ -2807,15 +2848,9 @@ class PaginatedSliverGridComicsState
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        _error.toString(),
-                        textAlign: TextAlign.center,
-                      ),
+                      Text(_error.toString(), textAlign: TextAlign.center),
                       const SizedBox(height: kcSpaceSm),
-                      Button.text(
-                        onPressed: retry,
-                        child: Text("Retry".tl),
-                      ),
+                      Button.text(onPressed: retry, child: Text("Retry".tl)),
                     ],
                   ),
                 ),
@@ -2876,23 +2911,18 @@ class PaginatedSliverGridComicsState
             duration: const Duration(milliseconds: 150),
             decoration: BoxDecoration(
               color: isSelected
-                  ? Theme.of(context)
-                      .colorScheme
-                      .secondaryContainer
-                      .withValues(alpha: 0.72)
+                  ? Theme.of(
+                      context,
+                    ).colorScheme.secondaryContainer.withValues(alpha: 0.72)
                   : null,
               borderRadius: BorderRadius.circular(kcCardRadius),
             ),
             margin: const EdgeInsets.all(kcSpaceXs),
             child: RepaintBoundary(child: tile),
           );
-        },
-        childCount: _comics.length + (showFooter ? 1 : 0),
-      ),
-      gridDelegate: SliverGridDelegateWithComics(),
+        }, childCount: _comics.length + (showFooter ? 1 : 0)),
+        gridDelegate: SliverGridDelegateWithComics(),
       ),
     );
   }
 }
-
-

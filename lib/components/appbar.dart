@@ -325,6 +325,13 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
       // 同 Appbar：tint 以页面底色为基色，否则会与内容区形成一条色带分层。
       final base = Theme.of(context).scaffoldBackgroundColor;
       final tint = base.withValues(alpha: isDark ? 0.54 : 0.66);
+      // 静止（shrinkOffset==0）时没有任何内容滚到栏下，玻璃毫无意义；而
+      // BackdropFilter 的采样核会把紧贴栏底边下方的内容（如详情页封面距
+      // 栏底仅 8dp）吸进栏内，透过半透明 tint 在纯黑 AMOLED 上糊出一块
+      // 灰色光斑。静止时改用不透明底色并跳过模糊——tint 本就以页面底色为
+      // 基色，AMOLED 下 α0.54 黑叠黑、浅色下白叠白，两种状态切换视觉无缝。
+      // 滚动后（shrinkOffset>0，内容真的垫在栏下）才恢复玻璃态。
+      final atRest = shrinkOffset == 0;
       return SizedBox.expand(
         child: ValueListenableBuilder<bool>(
           valueListenable: KcGlassActivity.scrolling,
@@ -334,12 +341,12 @@ class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
                 ? base.withValues(alpha: isDark ? 0.74 : 0.88)
                 : tint;
             Widget bar = Material(
-              color: effectiveTint,
+              color: atRest ? base : effectiveTint,
               elevation: 0,
               borderRadius: BorderRadius.circular(radius),
               child: body,
             );
-            if (!scrolling) {
+            if (!scrolling && !atRest) {
               bar = BackdropFilter(
                 filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: bar,
