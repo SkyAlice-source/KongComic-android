@@ -22,20 +22,35 @@ class _MenuRoute<T> extends PopupRoute<T> {
 
   double get entryHeight => App.isMobile ? 42 : 36;
 
+  /// 每项高度：分隔线更矮、自定义行（如排序分段控件）按内容估高，
+  /// 用于弹层定位时预估总高。
+  double _entryHeight(MenuEntry e) {
+    if (e.isDivider) return 9;
+    if (e.child != null) return 40;
+    return entryHeight;
+  }
+
   @override
   Widget buildPage(BuildContext context, Animation<double> animation,
       Animation<double> secondaryAnimation) {
-    var width = entries.first.icon == null ? 160.0 : 180.0;
+    // 宽度按内容定：有自定义行（分段控件）最宽；有图标行次之；纯文字最窄。
+    // 240 保证日语排序标签（如「最近の追加」5 字）在三等分分段里不省略。
+    var width = entries.any((e) => e.child != null)
+        ? 240.0
+        : entries.any((e) => e.icon != null)
+            ? 180.0
+            : 160.0;
     final size = MediaQuery.of(context).size;
     var left = location.dx;
     if (left < 10) {
       left = 10;
-    } 
+    }
     if (left + width > size.width - 10) {
       left = size.width - width - 10;
     }
     var top = location.dy;
-    var height = 16 + entryHeight * entries.length;
+    var height =
+        16 + entries.fold<double>(0, (sum, e) => sum + _entryHeight(e));
     if (top + height > size.height - 15) {
       top = size.height - height - 15;
     }
@@ -82,6 +97,32 @@ class _MenuRoute<T> extends PopupRoute<T> {
   }
 
   Widget buildEntry(MenuEntry entry, BuildContext context) {
+    // 分组分隔线：不响应点击，只画一条发丝线把不同性质的操作隔开。
+    if (entry.isDivider) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        child: Divider(
+          height: 1,
+          thickness: 0.6,
+          color: context.colorScheme.outlineVariant,
+        ),
+      );
+    }
+    // 自定义整行（如菜单顶部的排序分段控件）：内容由调用方提供，
+    // 行内子控件自己处理手势；包裹层负责点击后关闭菜单并触发回调。
+    if (entry.child != null) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(kcRadius20),
+        onTap: () {
+          Navigator.of(context).pop();
+          entry.onCustomTap?.call();
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
+          child: entry.child,
+        ),
+      );
+    }
     return InkWell(
       borderRadius: BorderRadius.circular(kcRadius20),
       onTap: () {
@@ -130,5 +171,39 @@ class MenuEntry {
   final Color? color;
   final void Function() onClick;
 
-  MenuEntry({required this.text, this.icon, this.color, required this.onClick});
+  /// 分组分隔线：只画线，不渲染文字。
+  final bool isDivider;
+
+  /// 自定义整行内容（如排序分段控件），点击后关闭菜单并触发 [onCustomTap]。
+  final Widget? child;
+  final void Function()? onCustomTap;
+
+  /// 分隔线 / 自定义行没有菜单动作。用静态方法引用代替内联 `() {}`：
+  /// 初始化列表里的空函数体 `{}` 会被解析器误认为构造函数体。
+  static void _noOp() {}
+
+  MenuEntry({required this.text, this.icon, this.color, required this.onClick})
+      : isDivider = false,
+        child = null,
+        onCustomTap = null;
+
+  /// 菜单内的分组分隔线。
+  MenuEntry.divider()
+      : text = "",
+        icon = null,
+        color = null,
+        onClick = _noOp,
+        isDivider = true,
+        child = null,
+        onCustomTap = null;
+
+  /// 自定义整行（分段控件、预览块等）。
+  MenuEntry.custom(Widget rowChild, {void Function()? rowAction})
+      : text = "",
+        icon = null,
+        color = null,
+        onClick = _noOp,
+        isDivider = false,
+        child = rowChild,
+        onCustomTap = rowAction;
 }

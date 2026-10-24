@@ -1047,38 +1047,65 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     _cancel();
   }
 
+  /// 「更多」菜单顶部的排序分段控件：一行三段替代原先 3 行「圆圈打勾」项。
+  /// 排序是单选状态而非动作，分段控件才是它的正确形态；选中段用品牌色实底。
+  Widget _sortSegmentRow(String current) {
+    final cs = Theme.of(context).colorScheme;
+    Widget seg(String value, String label) {
+      final selected = current == value;
+      return Expanded(
+        child: Material(
+          color: selected ? kcBrandAdaptive(context) : cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(kcRadius8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(kcRadius8),
+            onTap: () {
+              // 分段控件吃掉了手势，包裹层 MenuEntry.custom 的关闭逻辑不会触发；
+              // 手动关掉菜单再应用排序（与其他菜单项行为一致）。
+              Navigator.of(context, rootNavigator: true).pop();
+              _onSortSelected(value);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: kcCaption,
+                  fontWeight: FontWeight.w500,
+                  height: 1.0,
+                  color: selected
+                      ? kcOnAccentColor
+                      : cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        seg('manual', "Manual order".tl),
+        const SizedBox(width: 4),
+        seg('recent', "Recently favorited".tl),
+        const SizedBox(width: 4),
+        seg('name', "By title".tl),
+      ],
+    );
+  }
+
   /// 「更多」菜单项：从原 MenuButton 的 entries 抽出，供工具胶囊条的更多按钮复用。
-  /// 「更多」菜单项：排序组 + 筛选 + 文件夹管理（仅具体文件夹）+ 设置。
-  /// 排序/筛选从独立胶囊按钮收编进来，给共享顶栏的标题腾宽度。
+  /// 顶部为排序分段控件（单选状态，不再混进动作列表）；其后按「视图 → 文件夹
+  /// 管理 → 危险操作」分组，组间用分隔线隔开，删除文件夹前后都有线隔离。
   List<MenuEntry> _buildMoreEntries() {
     final current = appdata.settings['favoriteSort'] as String?;
-    Widget check(bool on) => HugeIcon(
-      icon: on
-          ? HugeIcons.strokeRoundedCheckmarkCircle02
-          : HugeIcons.strokeRoundedCircle,
-      size: 15,
-      color: on
-          ? Theme.of(context).colorScheme.primary
-          : Theme.of(context).colorScheme.onSurfaceVariant,
-    );
     return [
-      // 排序：全局 favoriteSort 设置（manual/recent/name），单选打勾。
-      // 总览货架与「全部」视图读同一份设置，即时同步。
-      MenuEntry(
-        text: "Manual order".tl,
-        icon: check(current == 'manual'),
-        onClick: () => _onSortSelected('manual'),
-      ),
-      MenuEntry(
-        text: "Recently favorited".tl,
-        icon: check(current == 'recent'),
-        onClick: () => _onSortSelected('recent'),
-      ),
-      MenuEntry(
-        text: "By title".tl,
-        icon: check(current == 'name'),
-        onClick: () => _onSortSelected('name'),
-      ),
+      MenuEntry.custom(_sortSegmentRow(current ?? 'recent')),
+      MenuEntry.divider(),
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 18),
         text: "Filter".tl,
@@ -1161,6 +1188,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             });
           },
         ),
+        MenuEntry.divider(),
         MenuEntry(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
           text: "Delete Folder".tl,

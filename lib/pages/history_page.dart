@@ -8,6 +8,7 @@ import 'package:kong_comic/foundation/comic_type.dart';
 import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
+import 'package:kong_comic/pages/favorites/favorites_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 /// 历史页：顶栏改用 NaviPane 共享顶栏（[NaviPane.buildTop]），不再自绘
@@ -312,31 +313,7 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
                     amoled: amoled,
                   );
                 },
-                menuBuilder: (c) {
-                  return [
-                    MenuEntry(
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedRefresh,
-                        size: 18,
-                      ),
-                      text: 'Refresh Info'.tl,
-                      onClick: () {
-                        _refreshHistory(c as History);
-                      },
-                    ),
-                    MenuEntry(
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedCancel01,
-                        size: 18,
-                      ),
-                      text: 'Remove'.tl,
-                      color: context.colorScheme.error,
-                      onClick: () {
-                        _removeHistory(c as History);
-                      },
-                    ),
-                  ];
-                },
+                menuBuilder: (c) => _tileMenu(c as History),
               )
             else
               ..._groupedSlivers(),
@@ -396,11 +373,19 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
 
   List<MenuEntry> _tileMenu(History h) {
     return [
+      // 高频动作置顶：看到想收的漫画直接收藏，不用绕进详情页。
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
+        text: "Add to favorites".tl,
+        onClick: () => addFavorite([h]),
+      ),
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
         text: 'Refresh Info'.tl,
         onClick: () => _refreshHistory(h),
       ),
+      // 破坏性操作用分隔线隔离，避免和普通动作连排误触。
+      MenuEntry.divider(),
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
         text: 'Remove'.tl,
@@ -593,6 +578,8 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         text: "Refresh All Histories".tl,
         onClick: _refreshAllHistories,
       ),
+      // 破坏性操作用分隔线隔离。
+      MenuEntry.divider(),
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
         text: "Clear History".tl,
