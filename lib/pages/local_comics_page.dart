@@ -50,11 +50,17 @@ class _LocalComicsPageState extends State<LocalComicsPage>
   /// Page loader for PaginatedSliverGridComics.
   Future<List<Comic>> _loadPage(int offset, int limit) async {
     if (keyword.isEmpty) {
-      return LocalManager().getComicsPaginated(sortType,
-          limit: limit, offset: offset);
+      return LocalManager().getComicsPaginated(
+        sortType,
+        limit: limit,
+        offset: offset,
+      );
     } else {
-      return LocalManager().searchPaginated(keyword,
-          limit: limit, offset: offset);
+      return LocalManager().searchPaginated(
+        keyword,
+        limit: limit,
+        offset: offset,
+      );
     }
   }
 
@@ -70,7 +76,6 @@ class _LocalComicsPageState extends State<LocalComicsPage>
     listen(LocalManager(), _onDownloadListChanged);
     super.initState();
   }
-
 
   /// Refreshes the "下载管理" entry's live task count without reloading the
   /// comic grid.
@@ -122,7 +127,9 @@ class _LocalComicsPageState extends State<LocalComicsPage>
                 if (count > 0) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     constraints: const BoxConstraints(minWidth: 22),
                     decoration: BoxDecoration(
                       color: kcAccentSurface(context),
@@ -162,95 +169,95 @@ class _LocalComicsPageState extends State<LocalComicsPage>
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.42),
-      transitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+      transitionDuration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
       pageBuilder: (dialogContext, _, __) {
-        return StatefulBuilder(builder: (ctx, setState) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 320),
-                child: Material(
-                  color: scheme.surfaceContainerHigh,
-                  elevation: 3,
-                  shadowColor: scheme.shadow.withValues(alpha: 0.18),
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(kcSurfaceRadius),
-                    side: BorderSide(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : Colors.black.withValues(alpha: 0.06),
-                      width: 0.5,
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 320),
+                  child: Material(
+                    color: scheme.surfaceContainerHigh,
+                    elevation: 3,
+                    shadowColor: scheme.shadow.withValues(alpha: 0.18),
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(kcSurfaceRadius),
+                      side: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.black.withValues(alpha: 0.06),
+                        width: 0.5,
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 16, 6),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            "Sort".tl,
-                            style: Theme.of(ctx)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 16, 6),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              "Sort".tl,
+                              style: Theme.of(ctx).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
                           ),
                         ),
-                      ),
-                      RadioGroup<LocalSortType>(
-                        groupValue: sortType,
-                        onChanged: (v) {
-                          setState(() {
-                            sortType = v ?? sortType;
-                          });
-                        },
-                        child: Column(
-                          children: [
-                            RadioListTile<LocalSortType>(
-                              title: Text("Name".tl),
-                              value: LocalSortType.name,
-                            ),
-                            RadioListTile<LocalSortType>(
-                              title: Text("Date".tl),
-                              value: LocalSortType.timeAsc,
-                            ),
-                            RadioListTile<LocalSortType>(
-                              title: Text("Date Desc".tl),
-                              value: LocalSortType.timeDesc,
-                            ),
-                          ],
+                        RadioGroup<LocalSortType>(
+                          groupValue: sortType,
+                          onChanged: (v) {
+                            setState(() {
+                              sortType = v ?? sortType;
+                            });
+                          },
+                          child: Column(
+                            children: [
+                              RadioListTile<LocalSortType>(
+                                title: Text("Name".tl),
+                                value: LocalSortType.name,
+                              ),
+                              RadioListTile<LocalSortType>(
+                                title: Text("Date".tl),
+                                value: LocalSortType.timeAsc,
+                              ),
+                              RadioListTile<LocalSortType>(
+                                title: Text("Date Desc".tl),
+                                value: LocalSortType.timeDesc,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Button.filled(
-                              onPressed: () {
-                                appdata.implicitData["local_sort"] =
-                                    sortType.value;
-                                appdata.writeImplicitData();
-                                ctx.pop();
-                                update();
-                              },
-                              child: Text("Confirm".tl),
-                            ),
-                          ],
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Button.filled(
+                                onPressed: () {
+                                  appdata.implicitData["local_sort"] =
+                                      sortType.value;
+                                  appdata.writeImplicitData();
+                                  ctx.pop();
+                                  update();
+                                },
+                                child: Text("Confirm".tl),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        });
+            );
+          },
+        );
       },
       transitionBuilder: (context, animation, _, child) {
         if (reduceMotion) return child;
@@ -271,50 +278,54 @@ class _LocalComicsPageState extends State<LocalComicsPage>
   }
 
   Widget buildMultiSelectMenu() {
-    return MenuButton(entries: [
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-        text: "Delete".tl,
-        onClick: () {
-          deleteComics(selectedComics.keys.toList()).then((value) {
-            if (value) {
-              setState(() {
-                multiSelectMode = false;
-                selectedComics.clear();
-              });
-            }
-          });
-        },
-      ),
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
-        text: "Add to favorites".tl,
-        onClick: () {
-          addFavorite(selectedComics.keys.toList());
-        },
-      ),
-      if (selectedComics.length == 1)
+    return MenuButton(
+      entries: [
         MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: 18),
-          text: "Open Folder".tl,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+          text: "Delete".tl,
           onClick: () {
-            openComicFolder(selectedComics.keys.first);
+            deleteComics(selectedComics.keys.toList()).then((value) {
+              if (value) {
+                setState(() {
+                  multiSelectMode = false;
+                  selectedComics.clear();
+                });
+              }
+            });
           },
         ),
-      if (selectedComics.length == 1)
         MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
-          text: "View Detail".tl,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
+          text: "Add to favorites".tl,
           onClick: () {
-            context.to(() => ComicPage(
+            addFavorite(selectedComics.keys.toList());
+          },
+        ),
+        if (selectedComics.length == 1)
+          MenuEntry(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: 18),
+            text: "Open Folder".tl,
+            onClick: () {
+              openComicFolder(selectedComics.keys.first);
+            },
+          ),
+        if (selectedComics.length == 1)
+          MenuEntry(
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
+            text: "View Detail".tl,
+            onClick: () {
+              context.to(
+                () => ComicPage(
                   id: selectedComics.keys.first.id,
                   sourceKey: selectedComics.keys.first.sourceKey,
-                ));
-          },
-        ),
-      if (selectedComics.isNotEmpty)
-        ...exportActions(selectedComics.keys.toList()),
-    ]);
+                ),
+              );
+            },
+          ),
+        if (selectedComics.isNotEmpty)
+          ...exportActions(selectedComics.keys.toList()),
+      ],
+    );
   }
 
   void selectAll() {
@@ -323,14 +334,12 @@ class _LocalComicsPageState extends State<LocalComicsPage>
     if (keyword.isEmpty) {
       final allComics = LocalManager().getComics(sortType);
       setState(() {
-        selectedComics =
-            allComics.asMap().map((k, v) => MapEntry(v, true));
+        selectedComics = allComics.asMap().map((k, v) => MapEntry(v, true));
       });
     } else {
       final allComics = LocalManager().search(keyword);
       setState(() {
-        selectedComics =
-            allComics.asMap().map((k, v) => MapEntry(v, true));
+        selectedComics = allComics.asMap().map((k, v) => MapEntry(v, true));
       });
     }
   }
@@ -401,10 +410,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
           ],
         ),
         actions: [
-          Button.text(
-            onPressed: () => ctx.pop(null),
-            child: Text("Cancel".tl),
-          ),
+          Button.text(onPressed: () => ctx.pop(null), child: Text("Cancel".tl)),
         ],
       ),
     );
@@ -414,17 +420,23 @@ class _LocalComicsPageState extends State<LocalComicsPage>
   Widget build(BuildContext context) {
     List<Widget> selectActions = [
       IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
-          tooltip: "Select All".tl,
-          onPressed: selectAll),
+        icon: HugeIcon(
+          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+          size: 18,
+        ),
+        tooltip: "Select All".tl,
+        onPressed: selectAll,
+      ),
       IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-          tooltip: "Deselect".tl,
-          onPressed: deSelect),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+        tooltip: "Deselect".tl,
+        onPressed: deSelect,
+      ),
       IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedFlipHorizontal, size: 18),
-          tooltip: "Invert Selection".tl,
-          onPressed: invertSelection),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedFlipHorizontal, size: 18),
+        tooltip: "Invert Selection".tl,
+        onPressed: invertSelection,
+      ),
       buildMultiSelectMenu(),
     ];
 
@@ -496,8 +508,14 @@ class _LocalComicsPageState extends State<LocalComicsPage>
                     }
                   },
                   icon: multiSelectMode
-                      ? HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18)
-                      : HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+                      ? HugeIcon(
+                          icon: HugeIcons.strokeRoundedCancel01,
+                          size: 18,
+                        )
+                      : HugeIcon(
+                          icon: HugeIcons.strokeRoundedArrowLeft01,
+                          size: 18,
+                        ),
                 ),
               ),
               title: multiSelectMode
@@ -511,8 +529,14 @@ class _LocalComicsPageState extends State<LocalComicsPage>
                 message: multiSelectMode ? "Cancel".tl : "Cancel".tl,
                 child: IconButton(
                   icon: multiSelectMode
-                      ? HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18)
-                      : HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+                      ? HugeIcon(
+                          icon: HugeIcons.strokeRoundedCancel01,
+                          size: 18,
+                        )
+                      : HugeIcon(
+                          icon: HugeIcons.strokeRoundedCancel01,
+                          size: 18,
+                        ),
                   onPressed: () {
                     if (multiSelectMode) {
                       setState(() {
@@ -544,14 +568,13 @@ class _LocalComicsPageState extends State<LocalComicsPage>
                     ),
               actions: multiSelectMode ? selectActions : null,
             ),
-          if (!searchMode)
-            SliverToBoxAdapter(
-              child: _buildDownloadEntry(),
-            ),
+          if (!searchMode) SliverToBoxAdapter(child: _buildDownloadEntry()),
           PaginatedSliverGridComics(
             key: _gridKey,
             pageLoader: _loadPage,
-            emptySubtitle: 'No local comics yet? Tap + at the top right to add a folder.'.tl,
+            emptySubtitle:
+                'No local comics yet? Tap + at the top right to add a folder.'
+                    .tl,
             selections: selectedComics,
             onLoadedComicsChanged: (comics) {
               _loadedComics = comics.cast<LocalComic>();
@@ -576,8 +599,10 @@ class _LocalComicsPageState extends State<LocalComicsPage>
                 });
               } else {
                 // prevent dirty data
-                var comic =
-                    LocalManager().find(c.id, ComicType.fromKey(c.sourceKey));
+                var comic = LocalManager().find(
+                  c.id,
+                  ComicType.fromKey(c.sourceKey),
+                );
                 if (comic != null) {
                   comic.read();
                 }
@@ -586,14 +611,20 @@ class _LocalComicsPageState extends State<LocalComicsPage>
             menuBuilder: (c) {
               return [
                 MenuEntry(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedFolderOpen, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedFolderOpen,
+                    size: 18,
+                  ),
                   text: "Open Folder".tl,
                   onClick: () {
                     openComicFolder(c as LocalComic);
                   },
                 ),
                 MenuEntry(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedDelete01,
+                    size: 18,
+                  ),
                   text: "Delete".tl,
                   onClick: () {
                     deleteComics([c as LocalComic]).then((value) {
@@ -614,24 +645,27 @@ class _LocalComicsPageState extends State<LocalComicsPage>
       ),
     );
 
-    return PopScope(
-      canPop: !multiSelectMode && !searchMode,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        if (multiSelectMode) {
-          setState(() {
-            multiSelectMode = false;
-            selectedComics.clear();
-          });
-        } else if (searchMode) {
-          setState(() {
-            searchMode = false;
-            keyword = "";
-            update();
-          });
-        }
-      },
-      child: body,
+    // 库页面不显示「已收藏」角标（见 FavoriteBadgeScope 文档）。
+    return FavoriteBadgeScope.disabled(
+      child: PopScope(
+        canPop: !multiSelectMode && !searchMode,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          if (multiSelectMode) {
+            setState(() {
+              multiSelectMode = false;
+              selectedComics.clear();
+            });
+          } else if (searchMode) {
+            setState(() {
+              searchMode = false;
+              keyword = "";
+              update();
+            });
+          }
+        },
+        child: body,
+      ),
     );
   }
 
@@ -641,104 +675,110 @@ class _LocalComicsPageState extends State<LocalComicsPage>
       context: App.rootContext,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.42),
-      transitionDuration:
-          kcReduceMotion(App.rootContext) ? Duration.zero : const Duration(milliseconds: 220),
+      transitionDuration: kcReduceMotion(App.rootContext)
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
       pageBuilder: (dialogContext, _, __) {
         bool removeComicFile = false;
         bool removeFavoriteAndHistory = false;
-        return StatefulBuilder(builder: (ctx, state) {
-          final scheme = Theme.of(ctx).colorScheme;
-          final isDark = Theme.of(ctx).brightness == Brightness.dark;
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 340),
-                child: Material(
-                  color: scheme.surfaceContainerHigh,
-                  elevation: 3,
-                  shadowColor: scheme.shadow.withValues(alpha: 0.18),
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(kcSurfaceRadius),
-                    side: BorderSide(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : Colors.black.withValues(alpha: 0.06),
-                      width: 0.5,
+        return StatefulBuilder(
+          builder: (ctx, state) {
+            final scheme = Theme.of(ctx).colorScheme;
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  child: Material(
+                    color: scheme.surfaceContainerHigh,
+                    elevation: 3,
+                    shadowColor: scheme.shadow.withValues(alpha: 0.18),
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(kcSurfaceRadius),
+                      side: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.black.withValues(alpha: 0.06),
+                        width: 0.5,
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 16, 4),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            "Delete".tl,
-                            style: Theme.of(ctx)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 16, 4),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              "Delete".tl,
+                              style: Theme.of(ctx).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
                           ),
                         ),
-                      ),
-                      CheckboxListTile(
-                        title: Text("Remove local favorite and history".tl),
-                        value: removeFavoriteAndHistory,
-                        onChanged: (v) {
-                          state(() {
-                            removeFavoriteAndHistory = !removeFavoriteAndHistory;
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                      ),
-                      CheckboxListTile(
-                        title: Text("Also remove files on disk".tl),
-                        value: removeComicFile,
-                        onChanged: (v) {
-                          state(() {
-                            removeComicFile = !removeComicFile;
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            if (comics.length == 1 && comics.first.hasChapters)
-                              Button.text(
+                        CheckboxListTile(
+                          title: Text("Remove local favorite and history".tl),
+                          value: removeFavoriteAndHistory,
+                          onChanged: (v) {
+                            state(() {
+                              removeFavoriteAndHistory =
+                                  !removeFavoriteAndHistory;
+                            });
+                          },
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                        CheckboxListTile(
+                          title: Text("Also remove files on disk".tl),
+                          value: removeComicFile,
+                          onChanged: (v) {
+                            state(() {
+                              removeComicFile = !removeComicFile;
+                            });
+                          },
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (comics.length == 1 &&
+                                  comics.first.hasChapters)
+                                Button.text(
+                                  onPressed: () {
+                                    ctx.pop();
+                                    showDeleteChaptersPopWindow(
+                                      App.rootContext,
+                                      comics.first,
+                                    );
+                                  },
+                                  child: Text("Delete Chapters".tl),
+                                ),
+                              Button.filled(
                                 onPressed: () {
                                   ctx.pop();
-                                  showDeleteChaptersPopWindow(App.rootContext, comics.first);
+                                  LocalManager().batchDeleteComics(
+                                    comics,
+                                    removeComicFile,
+                                    removeFavoriteAndHistory,
+                                  );
+                                  isDeleted = true;
                                 },
-                                child: Text("Delete Chapters".tl),
+                                child: Text("Confirm".tl),
                               ),
-                            Button.filled(
-                              onPressed: () {
-                                ctx.pop();
-                                LocalManager().batchDeleteComics(
-                                  comics,
-                                  removeComicFile,
-                                  removeFavoriteAndHistory,
-                                );
-                                isDeleted = true;
-                              },
-                              child: Text("Confirm".tl),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        });
+            );
+          },
+        );
       },
       transitionBuilder: (context, animation, _, child) {
         if (kcReduceMotion(App.rootContext)) return child;
@@ -781,13 +821,16 @@ class _LocalComicsPageState extends State<LocalComicsPage>
         onClick: () async {
           exportComics(comics, createEpubWithLocalComic, ".epub");
         },
-      )
+      ),
     ];
   }
 
   /// Export given comics to a file
   void exportComics(
-      List<LocalComic> comics, ExportComicFunc export, String ext) async {
+    List<LocalComic> comics,
+    ExportComicFunc export,
+    String ext,
+  ) async {
     var current = 0;
     var cacheDir = FilePath.join(App.cachePath, 'comics_export');
     var outFile = FilePath.join(App.cachePath, 'comics_export.zip');
@@ -820,24 +863,34 @@ class _LocalComicsPageState extends State<LocalComicsPage>
           cacheDir,
           sanitizeFileName(comic.title, maxLength: 100) + ext,
         );
-        await export(comic, fileName, onProgress: (imgCurrent, imgTotal) {
-          if (comics.length == 1) {
-            loadingController.setProgress(imgCurrent / imgTotal);
-            loadingController.setMessage("${"Exporting".tl}: $imgCurrent/$imgTotal");
-          } else {
-            var overall = (current + imgCurrent / imgTotal) / comics.length;
-            loadingController.setProgress(overall);
-            loadingController.setMessage(
-                "${"Exporting".tl} ${current + 1}/${comics.length}: $imgCurrent/$imgTotal");
-          }
-        }).timeout(
+        await export(
+          comic,
+          fileName,
+          onProgress: (imgCurrent, imgTotal) {
+            if (comics.length == 1) {
+              loadingController.setProgress(imgCurrent / imgTotal);
+              loadingController.setMessage(
+                "${"Exporting".tl}: $imgCurrent/$imgTotal",
+              );
+            } else {
+              var overall = (current + imgCurrent / imgTotal) / comics.length;
+              loadingController.setProgress(overall);
+              loadingController.setMessage(
+                "${"Exporting".tl} ${current + 1}/${comics.length}: $imgCurrent/$imgTotal",
+              );
+            }
+          },
+        ).timeout(
           const Duration(minutes: 5),
-          onTimeout: () => throw Exception("Export timed out for: ${comic.title}"),
+          onTimeout: () =>
+              throw Exception("Export timed out for: ${comic.title}"),
         );
         current++;
         if (comics.length > 1) {
           loadingController.setProgress(current / comics.length);
-          loadingController.setMessage("${"Exporting".tl} $current/${comics.length}");
+          loadingController.setMessage(
+            "${"Exporting".tl} $current/${comics.length}",
+          );
         }
         if (canceled) {
           return;
@@ -845,10 +898,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
       }
       // For single comic, just save the file
       if (comics.length == 1) {
-        await saveFile(
-          file: File(fileName),
-          filename: File(fileName).name,
-        );
+        await saveFile(file: File(fileName), filename: File(fileName).name);
         await Isolate.run(
           () => Directory(cacheDir).deleteSync(recursive: true),
         );
@@ -871,18 +921,18 @@ class _LocalComicsPageState extends State<LocalComicsPage>
     } finally {
       Directory(cacheDir).deleteIgnoreError(recursive: true);
     }
-    await saveFile(
-      file: File(outFile),
-      filename: "comics_export.zip",
-    );
+    await saveFile(file: File(outFile), filename: "comics_export.zip");
     loadingController.close();
     File(outFile).deleteIgnoreError();
   }
 }
 
-typedef ExportComicFunc = Future<File> Function(
-    LocalComic comic, String outFilePath,
-    {void Function(int current, int total)? onProgress});
+typedef ExportComicFunc =
+    Future<File> Function(
+      LocalComic comic,
+      String outFilePath, {
+      void Function(int current, int total)? onProgress,
+    });
 
 /// Opens the folder containing the comic in the system file explorer
 Future<void> openComicFolder(LocalComic comic) async {
@@ -925,7 +975,9 @@ Future<void> openComicFolder(LocalComic comic) async {
     Log.error("Open Folder", "Failed to open comic folder: $e", s);
     // Show error message to user
     if (App.rootContext.mounted) {
-      App.rootContext.showMessage(message: "Failed to open folder: @e".tlParams({"e": e}));
+      App.rootContext.showMessage(
+        message: "Failed to open folder: @e".tlParams({"e": e}),
+      );
     }
   }
 }
@@ -1038,7 +1090,9 @@ class _DeleteChaptersDialogState extends State<_DeleteChaptersDialog> {
                         onPressed: () {
                           Future.delayed(const Duration(milliseconds: 200), () {
                             LocalManager().deleteComicChapters(
-                                widget.comic, _chapters);
+                              widget.comic,
+                              _chapters,
+                            );
                           });
                           context.pop();
                         },
@@ -1062,8 +1116,9 @@ void showDeleteChaptersPopWindow(BuildContext context, LocalComic comic) {
     context: context,
     barrierDismissible: true,
     barrierColor: Colors.black.withValues(alpha: 0.42),
-    transitionDuration:
-        reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+    transitionDuration: reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 220),
     pageBuilder: (dialogContext, _, __) => _DeleteChaptersDialog(comic: comic),
     transitionBuilder: (context, animation, _, child) {
       if (reduceMotion) return child;

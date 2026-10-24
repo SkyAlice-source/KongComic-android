@@ -15,7 +15,6 @@ Widget _withBackToOverview(_FavoritesPageState favPage, Widget child) {
   );
 }
 
-
 Future<bool> _deleteComic(
   String cid,
   String? fid,
@@ -33,43 +32,49 @@ Future<bool> _deleteComic(
     context: App.rootContext,
     builder: (context) {
       bool loading = false;
-      return StatefulBuilder(builder: (context, setState) {
-        return ContentDialog(
-          title: "Remove".tl,
-          content: Text("Remove comic from favorite?".tl).paddingHorizontal(16),
-          actions: [
-            Button.filled(
-              isLoading: loading,
-              color: context.colorScheme.error,
-              onPressed: () async {
-                setState(() {
-                  loading = true;
-                });
-                var res = await source.favoriteData!.addOrDelFavorite!(
-                  cid,
-                  fid ?? '',
-                  false,
-                  favId,
-                );
-                if (!context.mounted) return;
-                if (res.success) {
-                  // Invalidate network cache so next loads fetch fresh data
-                  NetworkCacheManager().clear();
-                  context.showMessage(message: "Deleted".tl);
-                  result = true;
-                  context.pop();
-                } else {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return ContentDialog(
+            title: "Remove".tl,
+            content: Text(
+              "Remove comic from favorite?".tl,
+            ).paddingHorizontal(16),
+            actions: [
+              Button.filled(
+                isLoading: loading,
+                color: context.colorScheme.error,
+                onPressed: () async {
                   setState(() {
-                    loading = false;
+                    loading = true;
                   });
-                  context.showMessage(message: friendlyError(res.errorMessage!));
-                }
-              },
-              child: Text("Confirm".tl),
-            ),
-          ],
-        );
-      });
+                  var res = await source.favoriteData!.addOrDelFavorite!(
+                    cid,
+                    fid ?? '',
+                    false,
+                    favId,
+                  );
+                  if (!context.mounted) return;
+                  if (res.success) {
+                    // Invalidate network cache so next loads fetch fresh data
+                    NetworkCacheManager().clear();
+                    context.showMessage(message: "Deleted".tl);
+                    result = true;
+                    context.pop();
+                  } else {
+                    setState(() {
+                      loading = false;
+                    });
+                    context.showMessage(
+                      message: friendlyError(res.errorMessage!),
+                    );
+                  }
+                },
+                child: Text("Confirm".tl),
+              ),
+            ],
+          );
+        },
+      );
     },
   );
 
@@ -113,8 +118,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
 
   @override
   Widget build(BuildContext context) {
-    final favPage =
-        context.findAncestorStateOfType<_FavoritesPageState>()!;
+    final favPage = context.findAncestorStateOfType<_FavoritesPageState>()!;
     // 顶栏已并入 NaviPane 共享栏：正常 / 错误 / 未登录态共用同一注入
     //（build 是三态的共同入口）。
     favPage.pushTopBar(
@@ -131,13 +135,14 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
         style: TextStyle(fontSize: kcTitleMain, fontWeight: FontWeight.bold),
         overflow: TextOverflow.ellipsis,
       ),
-      actions: [
-        favPage._favToolsPill(context, _pillChildren(favPage)),
-      ],
+      actions: [favPage._favToolsPill(context, _pillChildren(favPage))],
       // 内层工具胶囊已有夹内搜索，右上角不重复全局搜索/设置入口。
       hideGlobalActions: true,
     );
-    return _withBackToOverview(favPage, _buildList(favPage));
+    // 库页面不显示「已收藏」角标（见 FavoriteBadgeScope 文档）。
+    return FavoriteBadgeScope.disabled(
+      child: _withBackToOverview(favPage, _buildList(favPage)),
+    );
   }
 
   /// 网络收藏页工具胶囊条内容（原 SliverAppbar 的 actions 原样迁移）。
@@ -150,10 +155,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
           HugeIcons.strokeRoundedGridView,
           HugeIcons.strokeRoundedListView,
         ],
-        tooltips: [
-          "Switch to grid view".tl,
-          "Switch to list view".tl,
-        ],
+        tooltips: ["Switch to grid view".tl, "Switch to list view".tl],
         selectedIndex: appdata.settings['comicDisplayMode'] != 'brief' ? 1 : 0,
         onSelected: (_) {
           appdata.settings['comicDisplayMode'] =
@@ -176,10 +178,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
       ),
       favPage._toolMoreButton(context, [
         MenuEntry(
-          icon: HugeIcon(
-            icon: HugeIcons.strokeRoundedRefresh,
-            size: 18,
-          ),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
           text: "Convert to local".tl,
           onClick: () {
             importNetworkFolder(widget.data.key, 9999999, null, null);
@@ -211,9 +210,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
         mainAxisSize: MainAxisSize.min,
         // stretch 让胶囊与正常态一样左对齐、占满整行，而不是被 Column 居中。
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _GroupPills(favPage: favPage),
-        ],
+        children: [_GroupPills(favPage: favPage)],
       ),
       loadPage: widget.data.loadComic == null
           ? null
@@ -238,15 +235,19 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
                 return;
               }
               if (LocalManager().isDownloaded(
-                  comic.id, ComicType.fromKey(comic.sourceKey))) {
+                comic.id,
+                ComicType.fromKey(comic.sourceKey),
+              )) {
                 context.showMessage(message: "Already downloaded".tl);
                 return;
               }
-              LocalManager().addTask(ImagesDownloadTask(
-                source: source,
-                comicId: comic.id,
-                comicTitle: comic.title,
-              ));
+              LocalManager().addTask(
+                ImagesDownloadTask(
+                  source: source,
+                  comicId: comic.id,
+                  comicTitle: comic.title,
+                ),
+              );
               context.showMessage(message: "Download started".tl);
             },
           ),
@@ -343,22 +344,20 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final favPage =
-        context.findAncestorStateOfType<_FavoritesPageState>()!;
+    final favPage = context.findAncestorStateOfType<_FavoritesPageState>()!;
     return _withBackToOverview(favPage, _buildBody(context));
   }
 
   Widget _buildBody(BuildContext context) {
-    final favPage =
-        context.findAncestorStateOfType<_FavoritesPageState>()!;
+    final favPage = context.findAncestorStateOfType<_FavoritesPageState>()!;
     var sliverAppBar = SliverAppbar(
-      style:
-          context.width < changePoint ? AppbarStyle.shadow : AppbarStyle.blur,
+      style: context.width < changePoint
+          ? AppbarStyle.shadow
+          : AppbarStyle.blur,
       leading: Tooltip(
         message: "Favorites".tl,
         child: IconButton(
-          icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
           color: context.colorScheme.onSurfaceVariant,
           onPressed: () => context
               .findAncestorStateOfType<_FavoritesPageState>()
@@ -375,8 +374,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
       leading: Tooltip(
         message: "Favorites".tl,
         child: IconButton(
-          icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
           color: context.colorScheme.onSurfaceVariant,
           onPressed: () => context
               .findAncestorStateOfType<_FavoritesPageState>()
@@ -395,11 +393,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         children: [
           appBar,
           _GroupPills(favPage: favPage),
-          const Expanded(
-            child: Center(
-              child: CircularProgressIndicator(),
-            ),
-          ),
+          const Expanded(child: Center(child: CircularProgressIndicator())),
         ],
       );
     } else if (_errorMessage != null) {
@@ -414,7 +408,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
               withAppbar: false,
               retry: retry,
             ),
-          )
+          ),
         ],
       );
     } else if (folders != null) {
@@ -432,14 +426,17 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
             delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
           ),
           SliverGridViewWithFixedItemHeight(
-            delegate:
-                SliverChildBuilderDelegate(childCount: length, (context, i) {
+            delegate: SliverChildBuilderDelegate(childCount: length, (
+              context,
+              i,
+            ) {
               if (widget.data.allFavoritesId != null) {
                 if (i == 0) {
                   return _FolderTile(
-                      name: "All".tl,
-                      onTap: () =>
-                          openFolder(widget.data.allFavoritesId!, "All".tl));
+                    name: "All".tl,
+                    onTap: () =>
+                        openFolder(widget.data.allFavoritesId!, "All".tl),
+                  );
                 } else {
                   i--;
                   return _FolderTile(
@@ -476,8 +473,8 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text("Create a folder".tl),
-                        HugeIcon(icon: 
-                          HugeIcons.strokeRoundedAddCircle,
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedAddCircle,
                           size: 18,
                         ),
                       ],
@@ -486,17 +483,14 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
                       showDialog(
                         context: context,
                         builder: (context) {
-                          return _CreateFolderDialog(
-                            widget.data,
-                            retry,
-                          );
+                          return _CreateFolderDialog(widget.data, retry);
                         },
                       );
                     },
                   ),
                 ),
               ),
-            )
+            ),
         ],
       );
     } else {
@@ -507,9 +501,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         children: [
           appBar,
           _GroupPills(favPage: favPage),
-          Expanded(
-            child: Center(child: Text("No folders".tl)),
-          ),
+          Expanded(child: Center(child: Text("No folders".tl))),
         ],
       );
     }
@@ -517,11 +509,12 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
 }
 
 class _FolderTile extends StatelessWidget {
-  const _FolderTile(
-      {required this.name,
-      required this.onTap,
-      this.deleteFolder,
-      this.updateState});
+  const _FolderTile({
+    required this.name,
+    required this.onTap,
+    this.deleteFolder,
+    this.updateState,
+  });
 
   final String name;
 
@@ -553,7 +546,9 @@ class _FolderTile extends StatelessWidget {
                 child: Text(
                   name,
                   style: const TextStyle(
-                      fontSize: kcSubtitle, fontWeight: FontWeight.w500),
+                    fontSize: kcSubtitle,
+                    fontWeight: FontWeight.w500,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -585,36 +580,40 @@ class _FolderTile extends StatelessWidget {
       context: context,
       builder: (context) {
         bool loading = false;
-        return StatefulBuilder(builder: (context, setState) {
-          return ContentDialog(
-            title: "Delete".tl,
-            content: Text("Delete folder?".tl).paddingHorizontal(16),
-            actions: [
-              Button.filled(
-                isLoading: loading,
-                color: context.colorScheme.error,
-                onPressed: () async {
-                  setState(() {
-                    loading = true;
-                  });
-                  var res = await deleteFolder!();
-                  if (!context.mounted) return;
-                  if (res.success) {
-                    context.showMessage(message: "Deleted".tl);
-                    context.pop();
-                    updateState?.call();
-                  } else {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return ContentDialog(
+              title: "Delete".tl,
+              content: Text("Delete folder?".tl).paddingHorizontal(16),
+              actions: [
+                Button.filled(
+                  isLoading: loading,
+                  color: context.colorScheme.error,
+                  onPressed: () async {
                     setState(() {
-                      loading = false;
+                      loading = true;
                     });
-                    context.showMessage(message: friendlyError(res.errorMessage!));
-                  }
-                },
-                child: Text("Confirm".tl),
-              ),
-            ],
-          );
-        });
+                    var res = await deleteFolder!();
+                    if (!context.mounted) return;
+                    if (res.success) {
+                      context.showMessage(message: "Deleted".tl);
+                      context.pop();
+                      updateState?.call();
+                    } else {
+                      setState(() {
+                        loading = false;
+                      });
+                      context.showMessage(
+                        message: friendlyError(res.errorMessage!),
+                      );
+                    }
+                  },
+                  child: Text("Confirm".tl),
+                ),
+              ],
+            );
+          },
+        );
       },
     );
   }
@@ -657,9 +656,7 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
               ),
             ),
           ),
-          const SizedBox(
-            height: 16
-          ),
+          const SizedBox(height: 16),
         ],
       ),
       actions: [
@@ -683,7 +680,7 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
             });
           },
           child: Text("Submit".tl),
-        )
+        ),
       ],
     );
   }
@@ -712,22 +709,23 @@ class _FavoriteFolder extends StatelessWidget {
       leadingSliver: SliverAppbar(
         title: Text(title),
         actions: [
-          MenuButton(entries: [
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-              text: "Convert to local".tl,
-              onClick: () {
-                importNetworkFolder(data.key, 9999999, title, folderID);
-              },
-            )
-          ]),
+          MenuButton(
+            entries: [
+              MenuEntry(
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+                text: "Convert to local".tl,
+                onClick: () {
+                  importNetworkFolder(data.key, 9999999, title, folderID);
+                },
+              ),
+            ],
+          ),
         ],
       ),
-      errorLeading: Appbar(
-        title: Text(title),
-      ),
-      loadPage:
-          data.loadComic == null ? null : (i) => data.loadComic!(i, folderID),
+      errorLeading: Appbar(title: Text(title)),
+      loadPage: data.loadComic == null
+          ? null
+          : (i) => data.loadComic!(i, folderID),
       loadNext: data.loadNext == null
           ? null
           : (next) => data.loadNext!(next, folderID),
@@ -748,15 +746,19 @@ class _FavoriteFolder extends StatelessWidget {
                 return;
               }
               if (LocalManager().isDownloaded(
-                  comic.id, ComicType.fromKey(comic.sourceKey))) {
+                comic.id,
+                ComicType.fromKey(comic.sourceKey),
+              )) {
                 context.showMessage(message: "Already downloaded".tl);
                 return;
               }
-              LocalManager().addTask(ImagesDownloadTask(
-                source: source,
-                comicId: comic.id,
-                comicTitle: comic.title,
-              ));
+              LocalManager().addTask(
+                ImagesDownloadTask(
+                  source: source,
+                  comicId: comic.id,
+                  comicTitle: comic.title,
+                ),
+              );
               context.showMessage(message: "Download started".tl);
             },
           ),

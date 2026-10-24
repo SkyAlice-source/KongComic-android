@@ -863,28 +863,31 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
         child: body,
       ),
     );
-    return PopScope(
-      // 收藏页是「货架总览 → 文件夹」两层：文件夹视图里返回键先退回总览，
-      // 而不是直接弹「确认退出」（总览是 tab 根页，那才是该退出的位置）。
-      // 多选 / 搜索优先吃掉返回，与之前一致。
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (multiSelectMode) {
-          setState(() {
-            multiSelectMode = false;
-            selectedComics.clear();
-          });
-        } else if (searchMode) {
-          setState(() {
-            searchMode = false;
-            keyword = "";
-            updateComics();
-          });
-        } else {
-          favPage.setFolder(false, null);
-        }
-      },
-      child: body,
+    // 库页面不显示「已收藏」角标（见 FavoriteBadgeScope 文档）。
+    return FavoriteBadgeScope.disabled(
+      child: PopScope(
+        // 收藏页是「货架总览 → 文件夹」两层：文件夹视图里返回键先退回总览，
+        // 而不是直接弹「确认退出」（总览是 tab 根页，那才是该退出的位置）。
+        // 多选 / 搜索优先吃掉返回，与之前一致。
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (multiSelectMode) {
+            setState(() {
+              multiSelectMode = false;
+              selectedComics.clear();
+            });
+          } else if (searchMode) {
+            setState(() {
+              searchMode = false;
+              keyword = "";
+              updateComics();
+            });
+          } else {
+            favPage.setFolder(false, null);
+          }
+        },
+        child: body,
+      ),
     );
   }
 
@@ -1055,7 +1058,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       final selected = current == value;
       return Expanded(
         child: Material(
-          color: selected ? kcBrandAdaptive(context) : cs.surfaceContainerHighest,
+          color: selected
+              ? kcBrandAdaptive(context)
+              : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(kcRadius8),
           child: InkWell(
             borderRadius: BorderRadius.circular(kcRadius8),
@@ -1076,9 +1081,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
                   fontSize: kcCaption,
                   fontWeight: FontWeight.w500,
                   height: 1.0,
-                  color: selected
-                      ? kcOnAccentColor
-                      : cs.onSurfaceVariant,
+                  color: selected ? kcOnAccentColor : cs.onSurfaceVariant,
                 ),
               ),
             ),
@@ -1142,7 +1145,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
                   return err;
                 }
                 LocalFavoritesManager().rename(widget.folder, value.toString());
-                BookshelfLayout.onFolderRenamed(widget.folder, value.toString());
+                BookshelfLayout.onFolderRenamed(
+                  widget.folder,
+                  value.toString(),
+                );
                 favPage.folderList?.updateFolders();
                 favPage.setFolder(false, value.toString());
                 return null;
@@ -1172,7 +1178,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
           text: "Export".tl,
           onClick: () {
             var json = LocalFavoritesManager().folderToJson(widget.folder);
-            saveFile(data: utf8.encode(json), filename: "${widget.folder}.json");
+            saveFile(
+              data: utf8.encode(json),
+              filename: "${widget.folder}.json",
+            );
           },
         ),
         MenuEntry(

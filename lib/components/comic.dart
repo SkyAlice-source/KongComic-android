@@ -1,5 +1,40 @@
 part of 'components.dart';
 
+/// 「已收藏」封面角标的可见范围开关。
+///
+/// 默认开启：发现页、搜索结果、排行/分类、详情页推荐等**浏览场景**里，
+/// 角标能提醒用户「这本已经收过了」，是有效信息。
+///
+/// 收藏、历史、本地等**库页面**用 [FavoriteBadgeScope.disabled] 包一层
+/// 把它关掉——在自家货架上给自己的书贴「已收藏」标签纯属噪音，
+/// 还会在每个封面上多一个视觉焦点。角标样式与位置见
+/// [ComicTileState._buildFavoriteCornerBadge]。
+class FavoriteBadgeScope extends InheritedWidget {
+  const FavoriteBadgeScope({
+    super.key,
+    required this.enabled,
+    required super.child,
+  });
+
+  /// 便捷包装：关闭角标的子树。
+  static Widget disabled({Key? key, required Widget child}) =>
+      FavoriteBadgeScope(key: key, enabled: false, child: child);
+
+  /// 向上查找最近的作用域；没有作用域时视为开启（默认浏览场景）。
+  ///
+  /// 用 [getInheritedWidgetOfExactType] 而非 dependOn：角标开关不随
+  /// 作用域变化做精准重建，页面本身的 setState 已经足够。
+  static bool of(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<FavoriteBadgeScope>()?.enabled ??
+      true;
+
+  final bool enabled;
+
+  @override
+  bool updateShouldNotify(FavoriteBadgeScope oldWidget) =>
+      oldWidget.enabled != enabled;
+}
+
 ImageProvider? _findImageProvider(Comic comic) {
   // 自定义封面优先
   final customPath = CustomCoverManager.getCustomCoverPath(
@@ -234,6 +269,11 @@ class ComicTile extends StatelessWidget {
       isFavorite = this.isFavorite!;
       history = this.history;
     }
+    // 收藏/历史/本地等库页面（FavoriteBadgeScope.disabled 包裹）不显示
+    // 「已收藏」角标；阅读进度角标不受影响，历史页需要它。
+    if (!FavoriteBadgeScope.of(context)) {
+      isFavorite = false;
+    }
     if (history?.page == 0) {
       history!.page = 1;
     }
@@ -357,12 +397,13 @@ class ComicTile extends StatelessWidget {
   double _favoriteBadgeSize(double coverWidth) =>
       (coverWidth * 0.19).clamp(18.0, 26.0);
 
-  /// 收藏角标：封面右上角悬浮的「白环 + 红心」圆形徽章（iOS Live Photo 风）。
+  /// 收藏角标：封面右上角悬浮的「红圆 + 白心」徽章。
   ///
-  /// 与实心 tile（上一版）同位同尺寸，形态换成描边环：细白环负责「结构对比」，
-  /// 环内衬一层黑色 scrim 兜住亮封面（白环不消失），红心负责品牌语义——
-  /// 三层各司其职，任何封面上对比度都恒定。AMOLED 下沿用入口卡的
-  /// 「页面级品牌标记」豁免保持品牌红，不落入面色 token 的灰坑。
+  /// 点赞徽章的全球通用语法（Instagram/小红书同构）：红色承载品牌与
+  /// 「已收藏」语义，白心是全站收藏入口卡同一颗心。前两版——实心
+  /// 方 tile（棱角太硬）、白描边环（线状元素在花封面上发虚）——都
+  /// 不如实心圆耐看：圆形没有方向性，任何封面构图下都不打架。
+  /// AMOLED 下沿用入口卡的「页面级品牌标记」豁免保持品牌红。
   Widget _buildFavoriteCornerBadge(BuildContext context, double side) {
     // 距右上边缘留呼吸缝：贴边会跟封面圆角打架，悬浮一点才像徽章。
     return Padding(
@@ -372,10 +413,7 @@ class ComicTile extends StatelessWidget {
         height: side,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          // 环内 scrim：亮封面上白环与红心的底座，深封面上自然隐形。
-          color: Colors.black.withValues(alpha: 0.30),
-          // 白描边环：徽章的「骨」，宽度随 side 缩放保持细环比例。
-          border: Border.all(color: Colors.white, width: side * 0.08),
+          color: kcBrandColor,
           boxShadow: [
             // 徽章投影：把徽章从封面「抬」起来，只用黑白 alpha，
             // 不参与主题语义，不进令牌。
@@ -386,7 +424,7 @@ class ComicTile extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(Icons.favorite, size: side * 0.5, color: kcBrandColor),
+        child: Icon(Icons.favorite, size: side * 0.54, color: kcOnAccentColor),
       ),
     );
   }

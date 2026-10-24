@@ -251,77 +251,80 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     // 把本页顶栏操作 / 标题同步进 NaviPane 共享顶栏（带签名守卫，避免成环）。
     _syncTopBar();
     final useBriefGrid = appdata.settings['comicDisplayMode'] == 'brief';
-    final showHero =
-        !multiSelectMode && !searchMode && _timeFilter == 'all';
+    final showHero = !multiSelectMode && !searchMode && _timeFilter == 'all';
     final continueHistory = showHero ? _fetchHistories().firstOrNull : null;
-    return PopScope(
-      canPop: !multiSelectMode && !searchMode,
-      onPopInvokedWithResult: (didPop, result) {
-        if (multiSelectMode) {
-          setState(() {
-            multiSelectMode = false;
-            selectedComics.clear();
-          });
-        } else if (searchMode) {
-          _exitSearch();
-        }
-      },
-      child: Scaffold(
-        body: SmoothCustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            // 方案 A：续读英雄卡 —— 主页英雄卡语言的移植，取最近一条历史。
-            if (continueHistory != null)
-              SliverToBoxAdapter(
-                child: KcContinueHero(
-                  history: continueHistory,
-                  onOpen: () => _openComic(continueHistory, -1),
+    // 库页面不显示「已收藏」角标（见 FavoriteBadgeScope 文档）；
+    // 阅读进度角标保留——历史页正需要它。
+    return FavoriteBadgeScope.disabled(
+      child: PopScope(
+        canPop: !multiSelectMode && !searchMode,
+        onPopInvokedWithResult: (didPop, result) {
+          if (multiSelectMode) {
+            setState(() {
+              multiSelectMode = false;
+              selectedComics.clear();
+            });
+          } else if (searchMode) {
+            _exitSearch();
+          }
+        },
+        child: Scaffold(
+          body: SmoothCustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              // 方案 A：续读英雄卡 —— 主页英雄卡语言的移植，取最近一条历史。
+              if (continueHistory != null)
+                SliverToBoxAdapter(
+                  child: KcContinueHero(
+                    history: continueHistory,
+                    onOpen: () => _openComic(continueHistory, -1),
+                  ),
                 ),
-              ),
-            if (useBriefGrid)
-              PaginatedSliverGridComics(
-                key: _gridKey,
-                pageLoader: _loadPage,
-                selections: selectedComics,
-                showSourceOnCover: false,
-                badgeAsTopLeftSource: true,
-                onLoadedComicsChanged: (comics) {
-                  _loadedComics = comics.cast<History>();
-                },
-                onLongPressed: null,
-                onTap: multiSelectMode
-                    ? (c, heroID) {
-                        setState(() {
-                          if (selectedComics.containsKey(c as History)) {
-                            selectedComics.remove(c);
-                          } else {
-                            selectedComics[c] = true;
-                          }
-                          if (selectedComics.isEmpty) {
-                            multiSelectMode = false;
-                          }
-                        });
-                      }
-                    : null,
-                badgeBuilder: (c) {
-                  return ComicSource.find(c.sourceKey)?.name;
-                },
-                badgeColorBuilder: (c) {
-                  final brightness = Theme.of(context).brightness;
-                  final amoled = appdata.isAmoledMode;
-                  return kcTagColor(
-                    kcStableHash(c.sourceKey),
-                    brightness,
-                    amoled: amoled,
-                  );
-                },
-                menuBuilder: (c) => _tileMenu(c as History),
-              )
-            else
-              ..._groupedSlivers(),
-          ],
+              if (useBriefGrid)
+                PaginatedSliverGridComics(
+                  key: _gridKey,
+                  pageLoader: _loadPage,
+                  selections: selectedComics,
+                  showSourceOnCover: false,
+                  badgeAsTopLeftSource: true,
+                  onLoadedComicsChanged: (comics) {
+                    _loadedComics = comics.cast<History>();
+                  },
+                  onLongPressed: null,
+                  onTap: multiSelectMode
+                      ? (c, heroID) {
+                          setState(() {
+                            if (selectedComics.containsKey(c as History)) {
+                              selectedComics.remove(c);
+                            } else {
+                              selectedComics[c] = true;
+                            }
+                            if (selectedComics.isEmpty) {
+                              multiSelectMode = false;
+                            }
+                          });
+                        }
+                      : null,
+                  badgeBuilder: (c) {
+                    return ComicSource.find(c.sourceKey)?.name;
+                  },
+                  badgeColorBuilder: (c) {
+                    final brightness = Theme.of(context).brightness;
+                    final amoled = appdata.isAmoledMode;
+                    return kcTagColor(
+                      kcStableHash(c.sourceKey),
+                      brightness,
+                      amoled: amoled,
+                    );
+                  },
+                  menuBuilder: (c) => _tileMenu(c as History),
+                )
+              else
+                ..._groupedSlivers(),
+            ],
+          ),
+          floatingActionButton: _buildScrollTopFab(),
         ),
-        floatingActionButton: _buildScrollTopFab(),
       ),
     );
   }
@@ -541,8 +544,9 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
       // paneActions（布局/搜索/设置）随之隐藏，避免胶囊外再散一圈裸图标。
       // 换 tab 时 updatePage 会把该开关复位为 false，无需清理。
       pane.pageHideGlobalActionsNotifier.value = true;
-      pane.pageActionsNotifier.value =
-          multiSelectMode ? _multiSelectActions() : _normalActions();
+      pane.pageActionsNotifier.value = multiSelectMode
+          ? _multiSelectActions()
+          : _normalActions();
     });
   }
 
@@ -580,16 +584,12 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         ToolsPillButton(
           icon: HugeIcons.strokeRoundedSearch02,
           tooltip: "Search".tl,
-          onPressed: () =>
-              context.to(() => const SearchPage()),
+          onPressed: () => context.to(() => const SearchPage()),
         ),
         ToolsPillMoreButton(
           entries: [
             MenuEntry(
-              icon: HugeIcon(
-                icon: HugeIcons.strokeRoundedCheckList,
-                size: 18,
-              ),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 18),
               text: "Multi-Select".tl,
               onClick: () => setState(() => multiSelectMode = true),
             ),
@@ -599,13 +599,9 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
               onClick: _refreshAllHistories,
             ),
             MenuEntry(
-              icon: HugeIcon(
-                icon: HugeIcons.strokeRoundedSettings01,
-                size: 18,
-              ),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
               text: "Settings".tl,
-              onClick: () =>
-                  context.to(() => const SettingsPage()),
+              onClick: () => context.to(() => const SettingsPage()),
             ),
             // 破坏性操作置底 + 分隔线隔离。
             MenuEntry.divider(),

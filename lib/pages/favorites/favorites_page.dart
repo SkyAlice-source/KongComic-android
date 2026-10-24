@@ -207,58 +207,62 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        AnimatedPositioned(
-          left: context.width <= _kTwoPanelChangeWidth ? -_kLeftBarWidth : 0,
-          top: 0,
-          bottom: 0,
-          duration: const Duration(milliseconds: 200),
-          child: Container(
-            width: _kLeftBarWidth,
-            color: Theme.of(context).colorScheme.surface,
-            child: const _LeftBar(),
-          ),
-        ),
-        Positioned(
-          top: 0,
-          left: context.width <= _kTwoPanelChangeWidth ? 0 : _kLeftBarWidth,
-          right: 0,
-          bottom: 0,
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _onScroll,
-            child: buildBody(),
-          ),
-        ),
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: ValueListenableBuilder<bool>(
-            valueListenable: _showFab,
-            builder: (context, visible, _) => AnimatedSwitcher(
-              duration: kcReduceMotion(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 150),
-              reverseDuration: kcReduceMotion(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 150),
-              child: (visible && folder != null)
-                  ? _buildScrollTopFab()
-                  : const SizedBox(),
-              transitionBuilder: (widget, animation) {
-                final tween = Tween<Offset>(
-                  begin: const Offset(0, 1),
-                  end: const Offset(0, 0),
-                );
-                return SlideTransition(
-                  position: tween.animate(animation),
-                  child: widget,
-                );
-              },
+    // 收藏页是角标的「家」：书架上每本本来就是收藏，再贴「已收藏」
+    // 标签纯属噪音。整页关掉角标（发现/搜索等浏览场景照常显示）。
+    return FavoriteBadgeScope.disabled(
+      child: Stack(
+        children: [
+          AnimatedPositioned(
+            left: context.width <= _kTwoPanelChangeWidth ? -_kLeftBarWidth : 0,
+            top: 0,
+            bottom: 0,
+            duration: const Duration(milliseconds: 200),
+            child: Container(
+              width: _kLeftBarWidth,
+              color: Theme.of(context).colorScheme.surface,
+              child: const _LeftBar(),
             ),
           ),
-        ),
-      ],
+          Positioned(
+            top: 0,
+            left: context.width <= _kTwoPanelChangeWidth ? 0 : _kLeftBarWidth,
+            right: 0,
+            bottom: 0,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _onScroll,
+              child: buildBody(),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _showFab,
+              builder: (context, visible, _) => AnimatedSwitcher(
+                duration: kcReduceMotion(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 150),
+                reverseDuration: kcReduceMotion(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 150),
+                child: (visible && folder != null)
+                    ? _buildScrollTopFab()
+                    : const SizedBox(),
+                transitionBuilder: (widget, animation) {
+                  final tween = Tween<Offset>(
+                    begin: const Offset(0, 1),
+                    end: const Offset(0, 0),
+                  );
+                  return SlideTransition(
+                    position: tween.animate(animation),
+                    child: widget,
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -452,8 +456,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
           if (shelf != null) shelves.add(shelf);
         }
 
-        final empty =
-            shelves.isEmpty && _computeNetworkFolders().isEmpty;
+        final empty = shelves.isEmpty && _computeNetworkFolders().isEmpty;
 
         return CustomScrollView(
           controller: _scrollController,
