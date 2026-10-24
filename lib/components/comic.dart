@@ -344,36 +344,47 @@ class ComicTile extends StatelessWidget {
     );
   }
 
-  /// 丝带宽度随封面宽度线性缩放。
+  /// 角标 tile 边长随封面宽度线性缩放。
   ///
-  /// 夹在 13–20 之间：小于 13 时燕尾缺口在 3x 屏上糊成一锯齿；大于 20 时
-  /// 垂带长过封面三分之一，开始吃封面信息。列表模式封面只有 60 上下，
-  /// 走同一个公式就不会出现「小封面上垂着一条宽带子」。
+  /// 夹在 18–26 之间：小于 18 时白心在 3x 屏上糊成一个点；大于 26 时
+  /// tile 会压进封面标题区。列表模式封面只有 60 上下，走同一个公式
+  /// 也不会出现「小封面上顶着一颗大方块」。
   double _favoriteBadgeSize(double coverWidth) =>
-      (coverWidth * 0.15).clamp(13.0, 20.0);
+      (coverWidth * 0.19).clamp(18.0, 26.0);
 
-  /// 收藏角标：封面右上角垂下来的「书签丝带」。
+  /// 收藏角标：封面右上角悬浮的「红圆角方块 + 白心」tile。
   ///
-  /// 旧实现是折角三角 + 白心——折页感偏「标记」而非「收藏」，且 AMOLED 下
-  /// 折角面取 kcAccentColor（深灰面色），红角变灰角全靠白心硬撑。
-  /// 书签丝带是唯一把「放进书架」这件事画出来的形态（Google Play 图书 /
-  /// Pocket 同款语言）：窄垂带从顶边垂下、末端燕尾剪口，遮挡面积极小；
-  /// 颜色走 [kcBrandAdaptive]——浅色/深色下品牌红、AMOLED 下亮灰，
-  /// 不再有色义错位。与右边缘留一道缝，读作「夹在书页里的书签」而不是
-  /// 「包住书角的缎带」。外层按封面圆角裁一刀（见调用处），丝带从顶边
-  /// 「长」出来的观感不变。
-  Widget _buildFavoriteCornerBadge(BuildContext context, double ribbonWidth) {
-    final length = ribbonWidth * 2.9;
-    final inset = ribbonWidth * 0.55;
+  /// 与收藏总览「全部收藏」入口卡的图标底座是**同一个视觉原子**
+  /// （KcEntryBox highlight：kcBrandColor 实心块 + 白心），用户在总览
+  /// 学会的符号在封面上原样复现，全站收藏语义闭环。前两版（书角折角、
+  /// 书签丝带）都偏「飘」——线状形态在花封面上存在感弱、小尺寸下糊；
+  /// 实心 tile 是「钉」在封面上的，任何封面亮度下对比度恒定
+  /// （红底白心 4.8:1），AMOLED 下沿用入口卡的「页面级品牌标记」豁免
+  /// 保持品牌红，不落入面色 token 的灰坑。
+  Widget _buildFavoriteCornerBadge(BuildContext context, double side) {
+    // 距右上边缘留呼吸缝：贴边会跟封面圆角打架，悬浮一点才像徽章。
     return Padding(
-      padding: EdgeInsets.only(right: inset),
-      child: SizedBox(
-        width: ribbonWidth,
-        height: length,
-        child: CustomPaint(
-          painter: _BookmarkRibbonPainter(
-            color: kcBrandAdaptive(context),
-          ),
+      padding: EdgeInsets.only(top: side * 0.36, right: side * 0.22),
+      child: Container(
+        width: side,
+        height: side,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(side * 0.3),
+          color: kcBrandColor,
+          boxShadow: [
+            // 徽章投影：把 tile 从封面「抬」起来，只用黑白 alpha，
+            // 不参与主题语义，不进令牌。
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.favorite,
+          size: side * 0.58,
+          color: kcOnAccentColor,
         ),
       ),
     );
@@ -949,93 +960,6 @@ class ComicTile extends StatelessWidget {
     );
   }
 }
-
-  /// 画右上角的「书签丝带」：一条从顶边垂下的窄带，末端燕尾剪口。
-  /// 表面竖向渐变 + 左右棱线做出「缎带圆柱」体积感，燕尾内凹处一道深色
-  /// 折线交代「剪口是翻进去的」，整体像夹进书页的书签绳而不是贴纸。
-  class _BookmarkRibbonPainter extends CustomPainter {
-    const _BookmarkRibbonPainter({required this.color});
-
-    final Color color;
-
-    @override
-    void paint(Canvas canvas, Size size) {
-      final w = size.width;
-      final h = size.height;
-      final notch = w * 0.5;
-      final tail = Path()
-        ..moveTo(0, 0)
-        ..lineTo(w, 0)
-        ..lineTo(w, h)
-        ..lineTo(w / 2, h - notch)
-        ..lineTo(0, h)
-        ..close();
-
-      // 1) 落在封面上的投影：整体往左下偏移再模糊，丝带像从顶边翻下来
-      //    盖在封面上；亮封面上这层 scrim 保证丝带轮廓始终可读。
-      canvas.drawPath(
-        tail.shift(const Offset(-1.5, 2.0)),
-        Paint()
-          ..color = Colors.black.withValues(alpha: 0.22)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
-      );
-
-      // 2) 主体：竖向三档渐变——顶部受光最亮，往下沉入品牌色与垂影，
-      //    「布料垂坠」的体积感来自这里。
-      final light = Color.lerp(color, Colors.white, 0.28)!;
-      final deep = Color.lerp(color, Colors.black, 0.24)!;
-      canvas.drawPath(
-        tail,
-        Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [light, color, deep],
-            stops: const [0.0, 0.45, 1.0],
-          ).createShader(Rect.fromLTWH(0, 0, w, h)),
-      );
-
-      // 3) 燕尾剪口的内折：沿 V 形描一道深色线，剪口读成「翻进去的尾巴」
-      //    而不是平面上的缺口。
-      final deepEdge = Color.lerp(color, Colors.black, 0.38)!;
-      canvas.drawLine(
-        Offset(w, h - 0.5),
-        Offset(w / 2, h - notch),
-        Paint()
-          ..color = deepEdge
-          ..strokeWidth = 1.1
-          ..strokeCap = StrokeCap.round,
-      );
-      canvas.drawLine(
-        Offset(w / 2, h - notch),
-        Offset(0, h - 0.5),
-        Paint()
-          ..color = deepEdge
-          ..strokeWidth = 1.1
-          ..strokeCap = StrokeCap.round,
-      );
-
-      // 4) 左右棱线：左亮右暗，窄带立刻有了圆柱截面。
-      canvas.drawLine(
-        Offset(0.8, 0),
-        Offset(0.8, h - notch * 0.4),
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.30)
-          ..strokeWidth = 0.9,
-      );
-      canvas.drawLine(
-        Offset(w - 0.8, 0),
-        Offset(w - 0.8, h - notch * 0.4),
-        Paint()
-          ..color = Colors.black.withValues(alpha: 0.18)
-          ..strokeWidth = 0.9,
-      );
-    }
-
-    @override
-    bool shouldRepaint(_BookmarkRibbonPainter oldDelegate) =>
-        oldDelegate.color != color;
-  }
 
 class _ComicDescription extends StatelessWidget {
   const _ComicDescription({
