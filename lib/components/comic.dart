@@ -397,28 +397,50 @@ class ComicTile extends StatelessWidget {
   double _favoriteBadgeSize(double coverWidth) =>
       (coverWidth * 0.19).clamp(18.0, 26.0);
 
-  /// 收藏角标：封面右上角悬浮的「白圆片 + 品牌红书签」。
+  /// 收藏角标：封面右上角悬浮的「胶囊『已收藏』」（C 案）。
   ///
-  /// 实心书签是通用图标学的「已收藏」正统符号（空心=未收藏、
-  /// 实心=已收藏）。底片用纯白而非墨镜黑：品牌红是低亮度色，
-  /// 红在黑上只有约 4:1 且小尺寸下发闷（实测「看不清」）；
-  /// 红在白上对比拉满，浅色封面靠 18% 黑细描边分离，深色主题下
-  /// 白片在整片暗色网格里反而成为最醒目的收藏标记——「已收藏」
-  /// 本来就该是浏览时最容易被注意到的状态。黑白红三色都不进
-  /// 主题语义（黑只用 alpha），不碰面色 token 的灰坑。
+  /// 白心 + 「已收藏」文字 + 品牌红胶囊底——B站「追」/Apple Books
+  /// 「阅读中」的文字角标签。信息零学习成本：图标负责瞬间识别，
+  /// 文字负责确认语义，红色胶囊从任何封面上跳出来。胶囊是这一轮
+  /// 实测七版（丝带/方tile/白环/红圆/黑片书签/白片书签）之后
+  /// 用户回选的设计稿原始方向——「有文字的状态标签」比任何纯
+  /// 图形徽章都更直白。高度固定 19dp 不随封面缩放：文字可读性
+  /// 有下限，窄列表封面（60dp）上胶囊占比高但仍在设计稿比例内。
+  /// AMOLED 下沿用入口卡的「页面级品牌标记」豁免保持品牌红。
   Widget _buildFavoriteCornerBadge(BuildContext context, double side) {
     // 距右上边缘留呼吸缝：贴边会跟封面圆角打架，悬浮一点才像徽章。
     return Padding(
       padding: EdgeInsets.only(top: side * 0.36, right: side * 0.22),
       child: Container(
-        width: side,
-        height: side,
+        height: 19,
+        padding: const EdgeInsets.symmetric(horizontal: 7),
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-          border: Border.all(color: Colors.black.withValues(alpha: 0.18)),
+          borderRadius: BorderRadius.circular(9.5),
+          color: kcBrandColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
-        child: Icon(Icons.bookmark, size: side * 0.58, color: kcBrandColor),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.favorite, size: 11, color: kcOnAccentColor),
+            const SizedBox(width: 3),
+            Text(
+              'Favorited'.tl,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                height: 1.0,
+                color: kcOnAccentColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
