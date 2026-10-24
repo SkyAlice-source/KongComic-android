@@ -344,61 +344,37 @@ class ComicTile extends StatelessWidget {
     );
   }
 
-  /// 折角尺寸随封面宽度线性缩放。
+  /// 丝带宽度随封面宽度线性缩放。
   ///
-  /// 夹在 18–36 之间：小于 18 时白心在 3x 屏上糊成一个点；大于 36 时
-  /// 折角会越过封面中部，开始吃封面信息。列表模式封面只有 60 上下，
-  /// 走同一个公式就不会出现「小封面上顶着一颗大折角」。
+  /// 夹在 13–20 之间：小于 13 时燕尾缺口在 3x 屏上糊成一锯齿；大于 20 时
+  /// 垂带长过封面三分之一，开始吃封面信息。列表模式封面只有 60 上下，
+  /// 走同一个公式就不会出现「小封面上垂着一条宽带子」。
   double _favoriteBadgeSize(double coverWidth) =>
-      (coverWidth * 0.20).clamp(18.0, 36.0);
+      (coverWidth * 0.15).clamp(13.0, 20.0);
 
-  /// 收藏角标：封面右上角的「书角」三角折角。
+  /// 收藏角标：封面右上角垂下来的「书签丝带」。
   ///
-  /// 旧实现是白色圆形 + 红心，悬浮在圆角封面上——四个角里只有它不是圆角，
-  /// 圆形的直角边和卡片圆角互相打架，看着像贴了张创可贴，还压住了封面内容。
-  /// 三角折角的两条直角边直接与封面两条边重合，斜边天生就是「折线」；
-  /// 外层再按封面圆角裁一刀（见调用处），尖角被吃掉，角标就真正长在
-  /// 封面上了，而不是浮在上面。面积也只有旧圆点的约一半，不抢封面。
-  ///
-  /// 折角面用三档渐变 + 折痕高光 + 投影做出「翻起的纸角」体积感；白心带
-  /// 一点投影，红底白字在任意封面亮度下都读得清。
-  Widget _buildFavoriteCornerBadge(BuildContext context, double size) {
-    // 封面右上角的「丝带包角」：一段品牌色缎带三角包住书角（两直边贴封面
-    // 的顶边与右边、斜边即折痕），表面带缎面反光条纹与缝边，像缎带包住了
-    // 书角；白心落在三角内。
-    final iconSize = size * 0.42;
-    final inset = size * 0.27 - iconSize / 2;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _CornerFoldPainter(
-                color: kcAccentColor(context),
-              ),
-            ),
+  /// 旧实现是折角三角 + 白心——折页感偏「标记」而非「收藏」，且 AMOLED 下
+  /// 折角面取 kcAccentColor（深灰面色），红角变灰角全靠白心硬撑。
+  /// 书签丝带是唯一把「放进书架」这件事画出来的形态（Google Play 图书 /
+  /// Pocket 同款语言）：窄垂带从顶边垂下、末端燕尾剪口，遮挡面积极小；
+  /// 颜色走 [kcBrandAdaptive]——浅色/深色下品牌红、AMOLED 下亮灰，
+  /// 不再有色义错位。与右边缘留一道缝，读作「夹在书页里的书签」而不是
+  /// 「包住书角的缎带」。外层按封面圆角裁一刀（见调用处），丝带从顶边
+  /// 「长」出来的观感不变。
+  Widget _buildFavoriteCornerBadge(BuildContext context, double ribbonWidth) {
+    final length = ribbonWidth * 2.9;
+    final inset = ribbonWidth * 0.55;
+    return Padding(
+      padding: EdgeInsets.only(right: inset),
+      child: SizedBox(
+        width: ribbonWidth,
+        height: length,
+        child: CustomPaint(
+          painter: _BookmarkRibbonPainter(
+            color: kcBrandAdaptive(context),
           ),
-          Positioned(
-            top: inset,
-            right: inset,
-            child: Icon(
-              Icons.favorite,
-              size: iconSize,
-              color: kcOnAccentColor,
-              shadows: const [
-                // 收藏角标白图标的投影：25% 黑 scrim，只为压住亮底保证可读，
-                // 不参与任何主题语义，不值得进令牌。
-                Shadow(
-                  color: Color(0x40000000),
-                  blurRadius: 1.5,
-                  offset: Offset(0, 0.5),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -974,11 +950,11 @@ class ComicTile extends StatelessWidget {
   }
 }
 
-  /// 画右上角的「丝带包角」：一段品牌色缎带三角包住书角——两直边贴封面顶边
-  /// 与右边、斜边（对角线）即折痕。表面叠缎面反光条纹 + 三档渐变 + 沿边缝边，
-  /// 让三角读成「翻卷的缎带」而非硬折的纸角；折痕高光是缎带的反光棱。
-  class _CornerFoldPainter extends CustomPainter {
-    const _CornerFoldPainter({required this.color});
+  /// 画右上角的「书签丝带」：一条从顶边垂下的窄带，末端燕尾剪口。
+  /// 表面竖向渐变 + 左右棱线做出「缎带圆柱」体积感，燕尾内凹处一道深色
+  /// 折线交代「剪口是翻进去的」，整体像夹进书页的书签绳而不是贴纸。
+  class _BookmarkRibbonPainter extends CustomPainter {
+    const _BookmarkRibbonPainter({required this.color});
 
     final Color color;
 
@@ -986,82 +962,79 @@ class ComicTile extends StatelessWidget {
     void paint(Canvas canvas, Size size) {
       final w = size.width;
       final h = size.height;
-      final flap = Path()
-        ..moveTo(w, 0)
-        ..lineTo(0, 0)
+      final notch = w * 0.5;
+      final tail = Path()
+        ..moveTo(0, 0)
+        ..lineTo(w, 0)
         ..lineTo(w, h)
+        ..lineTo(w / 2, h - notch)
+        ..lineTo(0, h)
         ..close();
 
-      // 1) 折角在封面侧的投影：沿折痕 (0,0)->(w,h) 往封面内（右下）偏移，
-      //    像缎带从封面「掀起」。
-      canvas.drawLine(
-        const Offset(1.8, 1.8),
-        Offset(w + 1.8, h + 1.8),
+      // 1) 落在封面上的投影：整体往左下偏移再模糊，丝带像从顶边翻下来
+      //    盖在封面上；亮封面上这层 scrim 保证丝带轮廓始终可读。
+      canvas.drawPath(
+        tail.shift(const Offset(-1.5, 2.0)),
         Paint()
-          ..color = Colors.black.withValues(alpha: 0.20)
-          ..strokeWidth = 4.0
-          ..strokeCap = StrokeCap.round
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0),
+          ..color = Colors.black.withValues(alpha: 0.22)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
       );
 
-      // 2) 缎面渐变：右上受光更亮 → 品牌红 → 左下垂影，折角体积感。
-      final light = Color.lerp(color, Colors.white, 0.30)!;
-      final deep = Color.lerp(color, Colors.black, 0.22)!;
+      // 2) 主体：竖向三档渐变——顶部受光最亮，往下沉入品牌色与垂影，
+      //    「布料垂坠」的体积感来自这里。
+      final light = Color.lerp(color, Colors.white, 0.28)!;
+      final deep = Color.lerp(color, Colors.black, 0.24)!;
       canvas.drawPath(
-        flap,
+        tail,
         Paint()
           ..shader = LinearGradient(
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [light, color, deep],
-            stops: const [0.0, 0.5, 1.0],
+            stops: const [0.0, 0.45, 1.0],
           ).createShader(Rect.fromLTWH(0, 0, w, h)),
       );
 
-      // 3) 缎面反光条纹：裁到三角内，沿「垂直折痕」方向叠一条亮带与一条暗带，
-      //    模拟缎子横向反光的质感（这是纸折角没有、缎带才有的特征）。
-      canvas.save();
-      canvas.clipPath(flap);
+      // 3) 燕尾剪口的内折：沿 V 形描一道深色线，剪口读成「翻进去的尾巴」
+      //    而不是平面上的缺口。
+      final deepEdge = Color.lerp(color, Colors.black, 0.38)!;
       canvas.drawLine(
-        Offset(w * 0.10, h * 0.62),
-        Offset(w * 0.62, h * 0.10),
+        Offset(w, h - 0.5),
+        Offset(w / 2, h - notch),
         Paint()
-          ..color = Colors.white.withValues(alpha: 0.22)
-          ..strokeWidth = 3.0
+          ..color = deepEdge
+          ..strokeWidth = 1.1
           ..strokeCap = StrokeCap.round,
       );
       canvas.drawLine(
-        Offset(w * 0.20, h * 0.74),
-        Offset(w * 0.74, h * 0.20),
+        Offset(w / 2, h - notch),
+        Offset(0, h - 0.5),
         Paint()
-          ..color = Colors.black.withValues(alpha: 0.12)
-          ..strokeWidth = 3.0
+          ..color = deepEdge
+          ..strokeWidth = 1.1
           ..strokeCap = StrokeCap.round,
-      );
-      canvas.restore();
-
-      // 4) 缝边：沿三条边描一道浅色细线，是缎带包边的车缝线。
-      canvas.drawPath(
-        flap,
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.5)
-          ..strokeWidth = 1.0
-          ..style = PaintingStyle.stroke,
       );
 
-      // 5) 折痕高光：沿对角线的一道亮棱，缎带反光的硬边。
+      // 4) 左右棱线：左亮右暗，窄带立刻有了圆柱截面。
       canvas.drawLine(
-        const Offset(1.0, 1.0),
-        Offset(w - 1.0, h - 1.0),
+        Offset(0.8, 0),
+        Offset(0.8, h - notch * 0.4),
         Paint()
-          ..color = Colors.white.withValues(alpha: 0.5)
-          ..strokeWidth = 1.2
-          ..strokeCap = StrokeCap.round,
+          ..color = Colors.white.withValues(alpha: 0.30)
+          ..strokeWidth = 0.9,
+      );
+      canvas.drawLine(
+        Offset(w - 0.8, 0),
+        Offset(w - 0.8, h - notch * 0.4),
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.18)
+          ..strokeWidth = 0.9,
       );
     }
 
     @override
-    bool shouldRepaint(_CornerFoldPainter oldDelegate) => oldDelegate.color != color;
+    bool shouldRepaint(_BookmarkRibbonPainter oldDelegate) =>
+        oldDelegate.color != color;
   }
 
 class _ComicDescription extends StatelessWidget {
