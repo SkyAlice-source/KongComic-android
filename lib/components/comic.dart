@@ -397,13 +397,14 @@ class ComicTile extends StatelessWidget {
   double _favoriteBadgeSize(double coverWidth) =>
       (coverWidth * 0.19).clamp(18.0, 26.0);
 
-  /// 收藏角标：封面右上角悬浮的「红圆 + 白心」徽章。
+  /// 收藏角标：封面右上角悬浮的「墨镜圆片 + 白色实心书签」（K 案）。
   ///
-  /// 点赞徽章的全球通用语法（Instagram/小红书同构）：红色承载品牌与
-  /// 「已收藏」语义，白心是全站收藏入口卡同一颗心。前两版——实心
-  /// 方 tile（棱角太硬）、白描边环（线状元素在花封面上发虚）——都
-  /// 不如实心圆耐看：圆形没有方向性，任何封面构图下都不打架。
-  /// AMOLED 下沿用入口卡的「页面级品牌标记」豁免保持品牌红。
+  /// 微信读书系的做法——状态标记一律是「往封面上贴一片墨镜」：
+  /// 黑 55% 圆片自带对比度兜底，花封面/暗封面都稳；白色实心书签是
+  /// 通用图标学的「已收藏」正统符号（空心=未收藏、实心=已收藏），
+  /// 与本 App 历史进度条（黑 55% 底）同一套视觉语言。前四版——
+  /// 丝带、方 tile、白环、红圆——都是往封面贴色块，全部被否；
+  /// 中性墨镜不与任何封面构图抢戏。
   Widget _buildFavoriteCornerBadge(BuildContext context, double side) {
     // 距右上边缘留呼吸缝：贴边会跟封面圆角打架，悬浮一点才像徽章。
     return Padding(
@@ -411,20 +412,11 @@ class ComicTile extends StatelessWidget {
       child: Container(
         width: side,
         height: side,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          color: kcBrandColor,
-          boxShadow: [
-            // 徽章投影：把徽章从封面「抬」起来，只用黑白 alpha，
-            // 不参与主题语义，不进令牌。
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
-            ),
-          ],
+          color: Color(0x8C000000),
         ),
-        child: Icon(Icons.favorite, size: side * 0.54, color: kcOnAccentColor),
+        child: Icon(Icons.bookmark, size: side * 0.56, color: Colors.white),
       ),
     );
   }
