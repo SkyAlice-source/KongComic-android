@@ -144,43 +144,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     }
   }
 
-  /// 排序按钮：弹出三选一菜单（当前项打勾），写入全局 favoriteSort。
-  Widget _favSortButton(BuildContext context) {
-    final current = appdata.settings['favoriteSort'] as String?;
-    Widget check(bool on) => HugeIcon(
-      icon: on
-          ? HugeIcons.strokeRoundedCheckmarkCircle02
-          : HugeIcons.strokeRoundedCircle,
-      size: 15,
-      color: on
-          ? Theme.of(context).colorScheme.primary
-          : Theme.of(context).colorScheme.onSurfaceVariant,
-    );
-    return favPage._favToolsPill(context, [
-      ToolsPillMoreButton(
-        icon: HugeIcons.strokeRoundedSorting02,
-        tooltip: "Sort".tl,
-        entries: [
-          MenuEntry(
-            text: "Manual order".tl,
-            icon: check(current == 'manual'),
-            onClick: () => _onSortSelected('manual'),
-          ),
-          MenuEntry(
-            text: "Recently favorited".tl,
-            icon: check(current == 'recent'),
-            onClick: () => _onSortSelected('recent'),
-          ),
-          MenuEntry(
-            text: "By title".tl,
-            icon: check(current == 'name'),
-            onClick: () => _onSortSelected('name'),
-          ),
-        ],
-      ),
-    ]);
-  }
-
   void _onSortSelected(String sort) {
     appdata.settings['favoriteSort'] = sort;
     appdata.saveData();
@@ -744,6 +707,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
   }
 
   /// 普通态工具胶囊条内容（原普通 SliverAppbar 的 actions 原样迁移）。
+  ///
+  /// 精简后只保留高频直操：布局切换、（网络文件夹的）同步、搜索；
+  /// 排序/筛选与文件夹管理一起收进「更多」菜单 —— 六个槽位在窄屏上
+  /// 会把共享顶栏的标题挤没（448dp 实测）。
   List<Widget> _normalPillChildren() {
     return [
       // 布局切换双态分段：左「网格(简明)」/ 右「列表(详细)」，当前态高亮
@@ -766,9 +733,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
           setState(() {});
         },
       ),
-      // 排序：全局 favoriteSort 设置（manual/recent/name），菜单里
-      // 单选打勾。总览货架与「全部」视图读同一份设置，即时同步。
-      _favSortButton(context),
       if (networkSource != null && !isAllFolder)
         Tooltip(
           message: "Sync".tl,
@@ -824,28 +788,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
         ),
       favPage._toolIconButton(
         context,
-        icon: HugeIcons.strokeRoundedSortDescending,
-        active: readFilterSelect != readFilterList[0],
-        tooltip: "Filter".tl,
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) {
-              return _LocalFavoritesFilterDialog(
-                initReadFilterSelect: readFilterSelect,
-                updateConfig: (readFilter) {
-                  setState(() {
-                    readFilterSelect = readFilter;
-                  });
-                  updateComics();
-                },
-              );
-            },
-          );
-        },
-      ),
-      favPage._toolIconButton(
-        context,
         icon: HugeIcons.strokeRoundedSearch02,
         tooltip: "Search".tl,
         onPressed: () {
@@ -856,7 +798,8 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
           });
         },
       ),
-      if (!isAllFolder) favPage._toolMoreButton(context, _buildMoreEntries()),
+      // 「更多」始终显示：排序/筛选也住在里面（原独立按钮已收编）。
+      favPage._toolMoreButton(context, _buildMoreEntries()),
     ];
   }
 
@@ -1102,86 +1045,138 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
   }
 
   /// 「更多」菜单项：从原 MenuButton 的 entries 抽出，供工具胶囊条的更多按钮复用。
+  /// 「更多」菜单项：排序组 + 筛选 + 文件夹管理（仅具体文件夹）+ 设置。
+  /// 排序/筛选从独立胶囊按钮收编进来，给共享顶栏的标题腾宽度。
   List<MenuEntry> _buildMoreEntries() {
+    final current = appdata.settings['favoriteSort'] as String?;
+    Widget check(bool on) => HugeIcon(
+      icon: on
+          ? HugeIcons.strokeRoundedCheckmarkCircle02
+          : HugeIcons.strokeRoundedCircle,
+      size: 15,
+      color: on
+          ? Theme.of(context).colorScheme.primary
+          : Theme.of(context).colorScheme.onSurfaceVariant,
+    );
     return [
+      // 排序：全局 favoriteSort 设置（manual/recent/name），单选打勾。
+      // 总览货架与「全部」视图读同一份设置，即时同步。
       MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
-        text: "Rename".tl,
+        text: "Manual order".tl,
+        icon: check(current == 'manual'),
+        onClick: () => _onSortSelected('manual'),
+      ),
+      MenuEntry(
+        text: "Recently favorited".tl,
+        icon: check(current == 'recent'),
+        onClick: () => _onSortSelected('recent'),
+      ),
+      MenuEntry(
+        text: "By title".tl,
+        icon: check(current == 'name'),
+        onClick: () => _onSortSelected('name'),
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 18),
+        text: "Filter".tl,
         onClick: () {
-          showInputDialog(
-            context: App.rootContext,
-            title: "Rename".tl,
-            hintText: "New Name".tl,
-            onConfirm: (value) {
-              var err = validateFolderName(value.toString());
-              if (err != null) {
-                return err;
-              }
-              LocalFavoritesManager().rename(widget.folder, value.toString());
-              BookshelfLayout.onFolderRenamed(widget.folder, value.toString());
-              favPage.folderList?.updateFolders();
-              favPage.setFolder(false, value.toString());
-              return null;
+          showDialog(
+            context: context,
+            builder: (context) {
+              return _LocalFavoritesFilterDialog(
+                initReadFilterSelect: readFilterSelect,
+                updateConfig: (readFilter) {
+                  setState(() {
+                    readFilterSelect = readFilter;
+                  });
+                  updateComics();
+                },
+              );
             },
           );
         },
       ),
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
-        text: "Reorder".tl,
-        onClick: () {
-          context
-              .to(
-                () => _ReorderComicsPage(widget.folder, (comics) {
-                  this.comics = comics;
-                }),
-              )
-              .then((value) {
-                if (mounted) {
-                  setState(() {});
+      // 文件夹管理只在具体文件夹视图有意义；「全部」是跨表虚拟视图。
+      if (!isAllFolder) ...[
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
+          text: "Rename".tl,
+          onClick: () {
+            showInputDialog(
+              context: App.rootContext,
+              title: "Rename".tl,
+              hintText: "New Name".tl,
+              onConfirm: (value) {
+                var err = validateFolderName(value.toString());
+                if (err != null) {
+                  return err;
                 }
-              });
-        },
-      ),
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 18),
-        text: "Export".tl,
-        onClick: () {
-          var json = LocalFavoritesManager().folderToJson(widget.folder);
-          saveFile(data: utf8.encode(json), filename: "${widget.folder}.json");
-        },
-      ),
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-        text: "Update Comics Info".tl,
-        onClick: () {
-          updateComicsInfo(widget.folder).then((newComics) {
-            if (mounted) {
-              setState(() {
-                comics = newComics;
-              });
-            }
-          });
-        },
-      ),
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-        text: "Delete Folder".tl,
-        color: context.colorScheme.error,
-        onClick: () {
-          showConfirmDialog(
-            context: App.rootContext,
-            title: "Delete".tl,
-            content: "Delete folder '@f' ?".tlParams({"f": widget.folder}),
-            btnColor: context.colorScheme.error,
-            onConfirm: () {
-              favPage.setFolder(false, null);
-              LocalFavoritesManager().deleteFolder(widget.folder);
-              favPage.folderList?.updateFolders();
-            },
-          );
-        },
-      ),
+                LocalFavoritesManager().rename(widget.folder, value.toString());
+                BookshelfLayout.onFolderRenamed(widget.folder, value.toString());
+                favPage.folderList?.updateFolders();
+                favPage.setFolder(false, value.toString());
+                return null;
+              },
+            );
+          },
+        ),
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
+          text: "Reorder".tl,
+          onClick: () {
+            context
+                .to(
+                  () => _ReorderComicsPage(widget.folder, (comics) {
+                    this.comics = comics;
+                  }),
+                )
+                .then((value) {
+                  if (mounted) {
+                    setState(() {});
+                  }
+                });
+          },
+        ),
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 18),
+          text: "Export".tl,
+          onClick: () {
+            var json = LocalFavoritesManager().folderToJson(widget.folder);
+            saveFile(data: utf8.encode(json), filename: "${widget.folder}.json");
+          },
+        ),
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+          text: "Update Comics Info".tl,
+          onClick: () {
+            updateComicsInfo(widget.folder).then((newComics) {
+              if (mounted) {
+                setState(() {
+                  comics = newComics;
+                });
+              }
+            });
+          },
+        ),
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+          text: "Delete Folder".tl,
+          color: context.colorScheme.error,
+          onClick: () {
+            showConfirmDialog(
+              context: App.rootContext,
+              title: "Delete".tl,
+              content: "Delete folder '@f' ?".tlParams({"f": widget.folder}),
+              btnColor: context.colorScheme.error,
+              onConfirm: () {
+                favPage.setFolder(false, null);
+                LocalFavoritesManager().deleteFolder(widget.folder);
+                favPage.folderList?.updateFolders();
+              },
+            );
+          },
+        ),
+      ],
       // 收藏页自绘顶栏后，全局共享顶栏的「设置」入口随之让位；
       // 设置是全局功能，不该在收藏页彻底消失，收进「更多」兜底。
       MenuEntry(

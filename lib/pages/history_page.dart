@@ -396,12 +396,13 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     );
   }
 
-  /// 正常模式操作：筛选 / 多选 / 更多（刷新全部·清空历史）。
+  /// 正常模式操作：筛选 / 更多（多选·刷新全部·清空历史）。
   ///
   /// 外观与共享顶栏一致 —— 平铺的 [IconButton]，不再套「工具胶囊条」容器：
   /// 胶囊条是列表内的临时工具栏，出现在根 tab 的 20pt 粗体标题旁边，会让历史页
   /// 在几个 tab 之间显得不是一套。红只用于「状态」（筛选非默认时点亮）。
   /// 布局切换 / 搜索 / 设置由共享 [paneActions] 提供，这里不再重复。
+  /// 多选是低频动作，收进「更多」菜单，普通态只留两个图标。
   List<Widget> _normalActions() => [
     IconButton(
       icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 22),
@@ -409,12 +410,12 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
       tooltip: "Filter".tl,
       onPressed: _showTimeFilterDialog,
     ),
-    IconButton(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 22),
-      tooltip: "Multi-Select".tl,
-      onPressed: () => setState(() => multiSelectMode = true),
-    ),
     _moreButton([
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 18),
+        text: "Multi-Select".tl,
+        onClick: () => setState(() => multiSelectMode = true),
+      ),
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
         text: "Refresh All Histories".tl,

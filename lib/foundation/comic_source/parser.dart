@@ -245,18 +245,18 @@ class ComicSourceParser {
   }
 
   bool _checkExists(String index) {
-    // index 可能是点路径（comic.loadThumbnails、search.onTagSuggestionSelected…）。
-    // 两个坑都踩过：
-    // 1. 直接取属性：父块不存在时中间段 undefined，抛 TypeError 让整个源
-    //    被 doInit 静默丢弃 —— 只有 favorites 没有 search/comic 块的源就踩中；
-    // 2. 可选链 `?.`：引擎内置的老版 QuickJS 不支持，直接 SyntaxError，
-    //    连带把正常的源也炸掉。所以这里用显式逐段下钻。
+    // index 是原样嵌进 JS 的路径，可能是点路径、也可能是带下标的复杂路径
+    // （explore[0].load、account.loginWithCookies?.validate）——必须交给 JS
+    // 原生求值，不能在 Dart 侧按 '.' 切段下钻：切段会把 "explore[0]" 当成
+    // 属性名，对数组永远判不存在，探索页直接空数据（v1.5.9 实测回归）。
+    // 两个坑的防御：
+    // 1. 中间段 undefined 时点访问抛 TypeError，让整个源被 doInit 静默丢弃
+    //    —— 用 JS try/catch 兜住，返回 undefined（= 不存在）；
+    // 2. 不能用 Dart 侧字符串拼接可选链的方式重写路径——老版 QuickJS 对
+    //    部分新语法直接 SyntaxError，整段脚本都编译不过。
     final res = JsEngine().runCode(
-      "(()=>{let o=ComicSource.sources.$_key;"
-      "for(const p of ${jsonEncode(index)}.split('.')){"
-      "if(o===null||o===undefined){return undefined;}"
-      "o=o[p];}"
-      "return o;})()",
+      "(()=>{try{return ComicSource.sources.$_key.$index;}"
+      "catch(e){return undefined;}})()",
     );
     return res != null;
   }
