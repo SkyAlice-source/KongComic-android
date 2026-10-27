@@ -107,7 +107,7 @@ class _CoverViewerState extends State<_CoverViewer> {
       );
     } catch (e) {
       if (mounted) {
-        context.showMessage(message: "Error".tl);
+        context.showMessage(message: friendlyError(e));
       }
     } finally {
       if (imageStream != null && listener != null) {

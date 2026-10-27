@@ -26,7 +26,8 @@ class ImportComic {
     if (file == null) {
       return false;
     }
-    var controller = showLoadingDialog(App.rootContext, allowCancel: false);
+    var controller =
+        showLoadingDialog(App.rootContext, allowCancel: false, timeout: null);
     try {
       var comic = await CBZ.import(File(file.path));
       imported[selectedFolder] = [comic];
@@ -44,7 +45,8 @@ class ImportComic {
     if (dir != null) {
       var entries = await dir.list().toList();
       Map<String?, List<LocalComic>> imported = {};
-      var controller = showLoadingDialog(App.rootContext, allowCancel: false);
+      var controller = showLoadingDialog(App.rootContext,
+          allowCancel: false, timeout: null);
       var comics = <LocalComic>[];
       for (var entry in entries) {
         if (entry is! File) {
@@ -83,7 +85,8 @@ class ImportComic {
     }
 
     bool cancelled = false;
-    var controller = showLoadingDialog(App.rootContext, onCancel: () {
+    var controller = showLoadingDialog(App.rootContext, timeout: null,
+        onCancel: () {
       cancelled = true;
     });
 
@@ -180,7 +183,10 @@ class ImportComic {
     }
     Map<String?, List<LocalComic>> imported = {selectedFolder: []};
     var controller = showLoadingDialog(App.rootContext,
-        message: "Scanning comics...".tl, allowCancel: false, withProgress: true);
+        message: "Scanning comics...".tl,
+        allowCancel: false,
+        withProgress: true,
+        timeout: null);
     try {
       if (single) {
         var result = await _checkSingleComic(path);
@@ -242,7 +248,8 @@ class ImportComic {
     var localDir = LocalManager().directory;
     Map<String?, List<LocalComic>> imported = {null: []};
     bool cancelled = false;
-    var controller = showLoadingDialog(App.rootContext, onCancel: () {
+    var controller = showLoadingDialog(App.rootContext, timeout: null,
+        onCancel: () {
       cancelled = true;
     });
     try {

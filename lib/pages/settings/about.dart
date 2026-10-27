@@ -460,7 +460,7 @@ Future<void> _showUpdateDialog(AppUpdateInfo info) async {
       await AppUpdate.openReleasePageInBrowser();
     } catch (_) {
       if (App.rootContext.mounted) {
-        App.rootContext.showMessage(message: "Network error".tl);
+        App.rootContext.showMessage(message: "Unable to open browser".tl);
       }
     }
   }
@@ -551,7 +551,7 @@ Future<void> _showNetworkErrorDialog() async {
               Navigator.of(context).pop();
               AppUpdate.openReleasePageInBrowser().catchError((e) {
                 if (App.rootContext.mounted) {
-                  App.rootContext.showMessage(message: "Network error".tl);
+                  App.rootContext.showMessage(message: "Unable to open browser".tl);
                 }
               });
             },
@@ -681,7 +681,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
   void _openInBrowser() {
     AppUpdate.openReleasePageInBrowser().catchError((e) {
       if (mounted) {
-        App.rootContext.showMessage(message: "Network error".tl);
+        App.rootContext.showMessage(message: "Unable to open browser".tl);
       }
     });
   }

@@ -20,9 +20,11 @@
         android:allowBackup="false">
         <!-- Impeller（Flutter 3.27+ Android 默认开启）在部分模拟器/低端 GPU 上
              大图纹理上传失败，封面会渲染成黄黑警示斜纹（DUMMY COVERAGE
-             PATTERN）。回退 Skia 渲染，真机与模拟器都稳定。 -->
+             PATTERN）。回退 Skia 渲染，真机与模拟器都稳定。
+             注意：旧 key io.flutter.embedding.android.EnableImpeller 在 3.22+
+             已失效，必须用统一的 flutter.impeller.enable。 -->
         <meta-data
-            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:name="flutter.impeller.enable"
             android:value="false" />
         <activity
             android:name=".MainActivity"

@@ -336,11 +336,32 @@ class LoadingDialogController {
 
   bool closed = false;
 
+  Timer? _timeoutTimer;
+
+  /// 启动一个超时看门狗：超过 [duration] 后自动关闭对话框并触发 [onTimeout]。
+  ///
+  /// 用于兜底「业务代码忘记调用 [close]」或「后台请求永久挂起」导致加载框
+  /// 永远不消失的情况。正常完成时 [close] 会自动取消计时器，不会误触发。
+  void startTimeout(Duration duration, {void Function()? onTimeout}) {
+    _cancelTimeout();
+    _timeoutTimer = Timer(duration, () {
+      if (closed) return;
+      close();
+      onTimeout?.call();
+    });
+  }
+
+  void _cancelTimeout() {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
+  }
+
   void close() {
     if (closed) {
       return;
     }
     closed = true;
+    _cancelTimeout();
     final closeDialog = _closeDialog;
     if (closeDialog != null) {
       closeDialog();
@@ -379,6 +400,8 @@ LoadingDialogController showLoadingDialog(
   String? message,
   String cancelButtonText = "Cancel",
   bool withProgress = false,
+  Duration? timeout = const Duration(seconds: 120),
+  void Function()? onTimeout,
 }) {
   var controller = LoadingDialogController();
   controller._message = message;
@@ -495,6 +518,21 @@ LoadingDialogController showLoadingDialog(
   controller._closeDialog = () {
     navigator.removeRoute(loadingDialogRoute);
   };
+
+  // 全局加载框超时看门狗：默认 120s 兜底，防止「业务忘记 close / 请求永久
+  // 挂起」导致加载框永久不消失。长任务（本地漫画导入、批量导出）请在调用处
+  // 显式传 `timeout: null` 豁免，避免误伤仍在进行的后台任务。
+  if (timeout != null) {
+    controller.startTimeout(timeout, onTimeout: () {
+      onTimeout?.call();
+      if (onTimeout == null && context.mounted) {
+        showToast(
+          message: "Operation timed out, please retry".tl,
+          context: context,
+        );
+      }
+    });
+  }
 
   return controller;
 }

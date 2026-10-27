@@ -2,7 +2,7 @@ name: kong_comic
 description: "A comic app."
 publish_to: 'none'
 
-version: 1.5.12+191
+version: 1.5.13+192
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
@@ -90,4 +90,5 @@ flutter:
     - assets/tags.json
     - assets/tags_tw.json
     - assets/opencc.txt
+    - assets/loading/
 # fonts:

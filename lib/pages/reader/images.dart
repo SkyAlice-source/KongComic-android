@@ -192,7 +192,8 @@ class _ReaderImagesState extends State<_ReaderImages> {
   @override
   Widget build(BuildContext context) {
     if (reader.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      // 整章图片列表加载：空间充裕，用横构图的爬行人物（位置即进度）。
+      return const Center(child: KcChibiCrawlLoading(charWidth: 150));
     } else if (error != null) {
       return GestureDetector(
         onTap: () {
@@ -490,15 +491,11 @@ class _GalleryModeState extends State<_GalleryMode>
               color: context.colorScheme.surface,
             ),
             child: Center(
-              child: SizedBox(
-                width: 20.0,
-                height: 20.0,
-                child: CircularProgressIndicator(
-                  backgroundColor: context.colorScheme.surfaceContainerHigh,
-                  value: event == null || event.expectedTotalBytes == null
-                      ? null
-                      : event.cumulativeBytesLoaded / event.expectedTotalBytes!,
-                ),
+              child: KcChibiCrawlLoading(
+                charWidth: 52,
+                progress: event == null || event.expectedTotalBytes == null
+                    ? null
+                    : event.cumulativeBytesLoaded / event.expectedTotalBytes!,
               ),
             ),
           );

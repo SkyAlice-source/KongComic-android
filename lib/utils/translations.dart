@@ -124,9 +124,6 @@ bool isAuthError(String message) {
       m.contains('login failed') ||
       m.contains('log in failed') ||
       m.contains('login error') ||
-      m.contains('access denied') ||
-      m.contains('access_denied') ||
-      m.contains('forbidden') ||
       m.contains('token expired') ||
       m.contains('session expired') ||
       m.contains('login expired') ||
@@ -134,7 +131,6 @@ bool isAuthError(String message) {
       m.contains('invalid credentials') ||
       m.contains('logged out') ||
       m.contains('401') ||
-      m.contains('403') ||
       m.contains('未登录') ||
       m.contains('请登录') ||
       m.contains('需要登录') ||
@@ -144,6 +140,23 @@ bool isAuthError(String message) {
       m.contains('登录失效') ||
       m.contains('会话过期') ||
       m.contains('登录');
+}
+
+/// 判断错误是否由「网络 / IP 被源站拦截」引起（限流、地区限制、Cloudflare 等），
+/// 而不是真的登录失效。
+///
+/// 源站或它前面的 CDN（Cloudflare）在把出口 IP 判定为可疑 / 限流 / 机房 IP
+/// 时，会返回 403 或 "Forbidden" / "Access Denied"，而不是真正的登录页。这类
+/// 情况若提示「需要登录」是误报——用户换网络 / 线路往往就好。所以单列一类，
+/// 引导切线路而不是去登录。
+///
+/// 注意：本函数只匹配裸的 403/forbidden/access denied，不含任何登录关键词。
+/// [isAuthError] 已先于此判定，因此命中本函数的都是「纯拦截」而非「真要登录」。
+bool isNetworkBlocked(String message) {
+  final m = message.toLowerCase();
+  return m.contains('403') ||
+      m.contains('forbidden') ||
+      m.contains('access denied');
 }
 
 final RegExp _localizedTextRe = RegExp(r'[\u4e00-\u9fff\u3040-\u30ff]');
@@ -201,6 +214,15 @@ String friendlyErrorMessage(String raw) {
 
   if (isAuthError(msg)) {
     return "Login required".tl;
+  }
+  // 源站 / CDN 按 IP 限流、地区封锁时返回 403 / Forbidden / Access Denied，
+  // 并不是真的登录失效。这类提示「要登录」是误报，用户换网络往往就好，所以
+  // 单独归一类，引导切线路而不是去登录。
+  if (isNetworkBlocked(msg)) {
+    return "Request blocked by the source — likely rate limited, region "
+        "restricted, or behind Cloudflare. Switch your network/line "
+        "(e.g. mobile data or another proxy) and retry."
+        .tl;
   }
 
   // 统一处理 "Invalid Status Code: 410" / "Invalid status code: 410"

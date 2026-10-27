@@ -1810,7 +1810,10 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
           if (_isLoadingFull)
             Container(
               color: Colors.black38,
-              child: const Center(child: CircularProgressIndicator()),
+              // 首页整章预加载遮罩：黑底上用白条，比主题色更清楚。
+              child: const Center(
+                child: KcChibiCrawlLoading(charWidth: 110, color: Colors.white),
+              ),
             ),
         ],
       ),

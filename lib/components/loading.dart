@@ -550,6 +550,7 @@ abstract class MultiPageLoadingState<T extends StatefulWidget, S extends Object>
   }
 }
 
+
 class FiveDotLoadingAnimation extends StatefulWidget {
   const FiveDotLoadingAnimation({super.key});
 
@@ -624,4 +625,269 @@ class _FiveDotLoadingAnimationState extends State<FiveDotLoadingAnimation>
       ),
     );
   }
+}
+
+/// Q 版爬行人物加载动画 —— 阅读器所有加载态的统一实现。
+///
+/// 尺寸由 [charWidth] 一档控制（素材 483×300，横构图）：
+/// - 整章图片列表、选图遮罩这类全屏加载用 96–110dp，五官与服饰都清晰；
+/// - 单张图片的小格子用 52–60dp，人物细节会糊但剪影仍可辨认，视觉语言统一。
+///
+/// 交互逻辑：
+/// - [progress] 为 null：不确定态。人物原地爬（跑步机感），下方进度条改为流光。
+/// - [progress] 为 0..1：确定态。**人物沿轨道从左爬到右，位置即进度**，爬到
+///   头刚好加载完；下方进度条同步填充。
+/// 进度已经由「人物位置 + 进度条」双重编码，所以不再显示百分比数字 —— 第三种
+/// 表达既占高度又要额外视线跳转，在 52–60dp 的小格子里尤其局促。
+/// 进度来自离散的字节上报，直接绑定会一顿一顿地弹，所以位置和条都走
+/// 420ms 的缓动追赶目标值，视觉上是连续爬行。
+///
+/// 尊重系统「减少动态效果」：开启时人物静止、进度瞬间到位，只保留造型。
+class KcChibiCrawlLoading extends StatefulWidget {
+  const KcChibiCrawlLoading({
+    super.key,
+    this.charWidth = 96,
+    this.progress,
+    this.color,
+  });
+
+  /// 人物的显示宽度，轨道宽度按 1.5 倍自动推导。
+  final double charWidth;
+
+  /// 进度，0..1。null（或 NaN）表示不确定态。
+  final double? progress;
+
+  /// 进度条颜色，默认用主题 primary。
+  final Color? color;
+
+  @override
+  State<KcChibiCrawlLoading> createState() => _KcChibiCrawlLoadingState();
+}
+
+class _KcChibiCrawlLoadingState extends State<KcChibiCrawlLoading>
+    with TickerProviderStateMixin {
+  /// 素材（assets/loading/chibi_crawl.webp）的高宽比，483×300。
+  static const double _aspect = 300 / 483;
+
+  /// 爬行周期：一次手脚交替 + 身体起伏。
+  late final AnimationController _bob;
+  late final AnimationController _shift;
+
+  /// 复用的图片 widget —— 放在动画 builder 之外，避免每帧重建 element。
+  Widget? _cachedChar;
+  double _cachedCharWidth = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _bob = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+    _shift = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+    _syncProgress(initial: true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) {
+      _bob.stop();
+      // 减少动效时不做追赶，进度直接落位。
+      _snapProgress();
+    } else if (!_bob.isAnimating) {
+      _bob.repeat();
+      _syncProgress();
+    }
+  }
+
+  @override
+  void didUpdateWidget(KcChibiCrawlLoading old) {
+    super.didUpdateWidget(old);
+    if (old.progress != widget.progress) _syncProgress();
+  }
+
+  @override
+  void dispose() {
+    _bob.dispose();
+    _shift.dispose();
+    super.dispose();
+  }
+
+  /// 把 [_shift] 推向当前进度（带缓动）；不确定态则归零。
+  void _syncProgress({bool initial = false}) {
+    final target = _target;
+    if (target == null) {
+      _shift.stop();
+      _shift.value = 0;
+      return;
+    }
+    if (initial || MediaQuery.of(context).disableAnimations) {
+      _shift.value = target;
+    } else {
+      _shift.animateTo(target, curve: Curves.easeOutCubic);
+    }
+  }
+
+  void _snapProgress() {
+    final target = _target;
+    if (target != null) {
+      _shift.stop();
+      _shift.value = target;
+    }
+  }
+
+  double? get _target {
+    final p = widget.progress;
+    if (p == null || p.isNaN) return null;
+    return p.clamp(0.0, 1.0);
+  }
+
+  Widget _character(double width, double height) {
+    if (_cachedChar == null || _cachedCharWidth != width) {
+      _cachedCharWidth = width;
+      _cachedChar = Image.asset(
+        'assets/loading/chibi_crawl.webp',
+        width: width,
+        height: height,
+        // 必须显式指定 fit：fit 为 null 时 RenderImage 按图片原始像素尺寸绘制，
+        // 483×300 的素材塞进 110×68 会被裁成「只剩一个脑袋」。
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.medium,
+        gaplessPlayback: true,
+      );
+    }
+    return _cachedChar!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final accent = widget.color ?? cs.primary;
+    final charW = widget.charWidth;
+    final charH = charW * _aspect;
+    final trackW = charW * 1.5;
+    final determinate = _target != null;
+
+    return AnimatedBuilder(
+      animation: Listenable.merge([_bob, _shift]),
+      builder: (context, _) {
+        final phase = _bob.isAnimating ? _bob.value : 0.0;
+        final wave = math.sin(phase * 2 * math.pi);
+        // 平滑后的进度：位置与进度条同源，永不失步。
+        final t = _shift.value;
+        final travel = trackW - charW;
+
+        // 确定态从左爬到右；不确定态在中段原地爬，前后小幅挪动。
+        final x = determinate ? travel * t : travel * 0.5 + wave * charW * 0.06;
+        // 爬行时身体轻微上下颠簸。
+        final dy = wave * (determinate ? 1.6 : 2.2);
+        final tilt = math.sin(phase * 2 * math.pi + 0.6) * 0.035;
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: trackW,
+              height: charH + 4,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: x,
+                    bottom: 2,
+                    width: charW,
+                    height: charH,
+                    child: Transform.translate(
+                      offset: Offset(0, -dy),
+                      child: Transform.rotate(
+                        angle: tilt,
+                        alignment: Alignment.bottomCenter,
+                        child: _character(charW, charH),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: trackW,
+              height: 3,
+              child: CustomPaint(
+                painter: _CrawlTrackPainter(
+                  value: determinate ? t : null,
+                  phase: phase,
+                  color: accent,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// 爬行轨道下方的细进度条：确定态左对齐填充，不确定态一段流光循环。
+class _CrawlTrackPainter extends CustomPainter {
+  const _CrawlTrackPainter({
+    required this.value,
+    required this.phase,
+    required this.color,
+  });
+
+  /// 0..1；null 表示不确定态。
+  final double? value;
+
+  /// 循环相位，驱动不确定态的流光位置。
+  final double phase;
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rr = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(size.height / 2));
+    canvas.drawRRect(rr, Paint()..color = color.withValues(alpha: 0.16));
+
+    canvas.save();
+    canvas.clipRRect(rr);
+
+    final v = value;
+    if (v != null) {
+      final w = size.width * v;
+      // 低于 1px 时也画出来，避免刚起步的进度「看不见」。
+      if (w > 0) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(0, 0, math.max(w, size.height), size.height),
+            Radius.circular(size.height / 2),
+          ),
+          Paint()..color = color,
+        );
+      }
+    } else {
+      // 流光：一段高亮带从左侧滑出、右侧淡出。
+      final bandW = size.width * 0.34;
+      final dx = (size.width + bandW) * phase - bandW;
+      final rect = Rect.fromLTWH(dx, 0, bandW, size.height);
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = LinearGradient(
+            colors: [
+              color.withValues(alpha: 0),
+              color.withValues(alpha: 0.95),
+              color.withValues(alpha: 0),
+            ],
+          ).createShader(rect),
+      );
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_CrawlTrackPainter old) =>
+      old.value != value || old.phase != phase || old.color != color;
 }

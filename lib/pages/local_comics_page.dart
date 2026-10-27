@@ -847,6 +847,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
     var loadingController = showLoadingDialog(
       context,
       allowCancel: true,
+      timeout: null,
       message: comics.length == 1
           ? "${"Exporting".tl}: ${comics.first.title}"
           : "${"Exporting".tl} 0/${comics.length}",
