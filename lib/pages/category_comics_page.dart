@@ -122,7 +122,7 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
     Widget body;
 
     if (options == null && optionsLoader != null) {
-      body = Center(child: CircularProgressIndicator());
+      body = const KcPageLoading();
     } else if (error != null) {
       body = NetworkError(
         message: error!,

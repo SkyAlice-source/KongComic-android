@@ -23,14 +23,13 @@ import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/network/cache.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/comic_source_page.dart';
+import 'package:kong_comic/pages/explore_page.dart';
 import 'package:kong_comic/pages/image_favorites_page/image_favorites_page.dart';
 import 'package:kong_comic/pages/local_comics_page.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
-import 'package:kong_comic/pages/search_page.dart';
+import 'package:kong_comic/components/quick_search.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/io.dart';
-import 'package:kong_comic/utils/opencc.dart';
-import 'package:kong_comic/utils/tags_translation.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'package:kong_comic/pages/favorites/recommend_basis.dart';
 
@@ -131,6 +130,45 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   /// _syncTopBar 相同：不在前台时清签名，切回来能重新注入。
   int? _myPageIndex;
 
+  /// 上一次真正写进顶栏的组件实例。
+  ///
+  /// 只靠 [sig] 早退是不够的：换 tab 时 [NaviPane.updatePage] 会把三个
+  /// notifier 重置为 null，而本页若没被销毁（LaidBack 保活），签名字段仍在、
+  /// 切回来时 `_topBarSig == sig` 直接 return —— 顶栏操作就永久补不回来，
+  /// 表现为「更多菜单没了 / 点了没反应」。所以除签名外还要确认顶栏里此刻
+  /// 放的仍是我们上次写入的那几个实例。
+  Widget? _injectedLeading;
+  Widget? _injectedTitle;
+  List<Widget>? _injectedActions;
+  bool _injectedHideGlobal = false;
+
+  /// NaviPane 当前页索引通知（本页据此在「切回前台」时补注入顶栏）。
+  NaviPaneState? _pane;
+  ValueNotifier<int>? _paneIndex;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final pane = NaviPane.of(context);
+    if (!identical(_pane, pane)) {
+      _paneIndex?.removeListener(_onPaneIndexChanged);
+      _pane = pane;
+      _paneIndex = pane.pageIndexListenable;
+      _paneIndex!.addListener(_onPaneIndexChanged);
+    }
+  }
+
+  /// 换 tab 时 [NaviPaneState.updatePage] 会清空顶栏 notifier，而本页实例
+  /// 没被销毁；由于根 Tab 的页面 widget 是同一个 const 实例，框架会跳过
+  /// 重建，[build] 不跑 → [pushTopBar] 没机会补回，顶栏工具胶囊/⋮ 就永久
+  /// 消失。这里监听页索引，在被切回前台时强制重建一次，由 [pushTopBar]
+  /// 的「顶栏里是否仍是上次写入的实例」校验触发重新注入。
+  void _onPaneIndexChanged() {
+    if (!mounted || _pane == null) return;
+    if (_pane!.currentPage != _myPageIndex) return;
+    setState(() {});
+  }
+
   /// 把本视图的顶栏 leading / 标题 / 操作同步进 NaviPane 共享顶栏。
   ///
   /// 写值机制与历史页 _syncTopBar 相同：不能在 build 期直接写 notifier
@@ -149,11 +187,21 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
       _topBarSig = null;
       return;
     }
-    if (_topBarSig == sig) return;
+    // 顶栏是否仍保留着上次注入的内容（没被换 tab / 别页清掉）。
+    final stillInjected =
+        identical(pane.pageLeadingNotifier.value, _injectedLeading) &&
+        identical(pane.pageTitleNotifier.value, _injectedTitle) &&
+        identical(pane.pageActionsNotifier.value, _injectedActions) &&
+        pane.pageHideGlobalActionsNotifier.value == _injectedHideGlobal;
+    if (_topBarSig == sig && stillInjected) return;
     _topBarSig = sig;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _myPageIndex == null) return;
       if (pane.currentPage != _myPageIndex) return;
+      _injectedLeading = leading;
+      _injectedTitle = title;
+      _injectedActions = actions;
+      _injectedHideGlobal = hideGlobalActions;
       pane.pageLeadingNotifier.value = leading;
       pane.pageTitleNotifier.value = title;
       pane.pageActionsNotifier.value = actions;
@@ -200,6 +248,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
 
   @override
   void dispose() {
+    _paneIndex?.removeListener(_onPaneIndexChanged);
     _scrollController.dispose();
     _showFab.dispose();
     super.dispose();
@@ -394,7 +443,8 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
             ToolsPillButton(
               icon: HugeIcons.strokeRoundedSearch02,
               tooltip: "Search".tl,
-              onPressed: () => context.to(() => const SearchPage()),
+              // 速搜浮层：一处搜遍全部收藏 + 历史；网络搜索在浮层底部兜底。
+              onPressed: () => showQuickSearch(context),
             ),
             ToolsPillMoreButton(
               entries: [
@@ -420,15 +470,6 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
                   ),
                   text: "Comic Source".tl,
                   onClick: () => context.to(() => const ComicSourcePage()),
-                ),
-                MenuEntry.divider(),
-                MenuEntry(
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedSettings01,
-                    size: 18,
-                  ),
-                  text: "Settings".tl,
-                  onClick: () => context.to(() => const SettingsPage()),
                 ),
               ],
             ),
@@ -475,14 +516,18 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: EmptyState(
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedFolder01,
-                    size: 18,
-                  ),
                   title: 'No favorites yet'.tl,
                   subtitle:
                       'Favorite a comic from any source and it shows up here.'
                           .tl,
+                  // 空态是「什么都还没做」的唯一引导位，必须给出可执行的下一步：
+                  // 主 CTA 直接进发现页，次按钮先建一个文件夹把结构搭起来。
+                  actionLabel: 'Browse Discover'.tl,
+                  onAction: () => context.to(() => const ExplorePage()),
+                  secondaryLabel: 'New Folder'.tl,
+                  onSecondary: () => newFolder().then((_) {
+                    if (mounted) setState(() {});
+                  }),
                 ),
               )
             else ...[
@@ -534,18 +579,18 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   /// 单个文件夹货架。空文件夹不占位——否则刚建的文件夹会把整页拉得空空荡荡，
   /// 要管理空文件夹走左上角文件夹弹窗。
   Widget? _buildShelf(String folder, double cardW, double cardH) {
-    final total = LocalFavoritesManager().getFolderComicCount(folder);
-    if (total == 0) return null;
-    final comics = LocalFavoritesManager().getFolderComicsPaginated(
+    // 一次查询同时拿到总数与前 12 本（原先是 count + select 两次同步 SQL）。
+    final shelfData = LocalFavoritesManager().getFolderShelf(
       folder,
       limit: _shelfLimit,
-      offset: 0,
       // 跟随全局收藏排序（内页胶囊条里切换，这里的货架即时同步）。
       orderBy: LocalFavoritesManager.favoriteSortOrderBy(
         appdata.settings['favoriteSort'] as String?,
       ),
     );
-    if (comics.isEmpty) return null;
+    final total = shelfData.total;
+    final comics = shelfData.comics;
+    if (total == 0 || comics.isEmpty) return null;
 
     final name = getFavoriteDataOrNull(folder)?.title ?? folder;
     return _shelf(

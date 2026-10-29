@@ -974,7 +974,17 @@
     "Yesterday": "昨天",
     "This week": "本周",
     "@c comics": "@c 本",
-    "Read @p percent": "已读 @p%"
+    "Read @p percent": "已读 @p%",
+    "Recent": "最近",
+    "Remove this comic from favorites?": "要将这本漫画取消收藏吗？",
+    "Remove @c comics from favorites?": "要将 @c 本漫画取消收藏吗？",
+    "Browse Discover": "去发现页看看",
+    "Filtered: @v": "筛选：@v",
+    "Search favorites & history": "搜索收藏与历史",
+    "Search \"@k\" on the web": "在网络上搜索「@k」",
+    "Try different keywords": "换个关键词试试",
+    "Works offline": "支持离线",
+    "Search comics, authors or links": "搜索漫画、作者或链接"
   },
   "zh_TW": {
     "Previous page": "上一頁",
@@ -1951,7 +1961,17 @@
     "Yesterday": "昨天",
     "This week": "本週",
     "@c comics": "@c 本",
-    "Read @p percent": "已讀 @p%"
+    "Read @p percent": "已讀 @p%",
+    "Recent": "最近",
+    "Remove this comic from favorites?": "要將這本漫畫取消收藏嗎？",
+    "Remove @c comics from favorites?": "要將 @c 本漫畫取消收藏嗎？",
+    "Browse Discover": "去探索頁看看",
+    "Filtered: @v": "篩選：@v",
+    "Search favorites & history": "搜尋收藏與歷史",
+    "Search \"@k\" on the web": "在網路上搜尋「@k」",
+    "Try different keywords": "換個關鍵字試試",
+    "Works offline": "支援離線",
+    "Search comics, authors or links": "搜尋漫畫、作者或連結"
   },
   "ja_JP": {
     "Previous page": "前のページ",
@@ -2928,6 +2948,16 @@
     "Yesterday": "昨日",
     "This week": "今週",
     "@c comics": "@c 作品",
-    "Read @p percent": "@p% 読了"
+    "Read @p percent": "@p% 読了",
+    "Recent": "最近",
+    "Remove this comic from favorites?": "この漫画をお気に入りから削除しますか？",
+    "Remove @c comics from favorites?": "@c 件の漫画をお気に入りから削除しますか？",
+    "Browse Discover": "発見ページを見る",
+    "Filtered: @v": "フィルター：@v",
+    "Search favorites & history": "お気に入りと履歴を検索",
+    "Search \"@k\" on the web": "「@k」をウェブで検索",
+    "Try different keywords": "別のキーワードをお試しください",
+    "Works offline": "オフラインでも使えます",
+    "Search comics, authors or links": "漫画・作者・リンクを検索"
   }
 }

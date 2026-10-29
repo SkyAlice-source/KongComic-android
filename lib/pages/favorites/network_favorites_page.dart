@@ -148,24 +148,8 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
   /// 网络收藏页工具胶囊条内容（原 SliverAppbar 的 actions 原样迁移）。
   List<Widget> _pillChildren(_FavoritesPageState favPage) {
     return [
-      // 布局切换双态分段：与「本地」收藏同一套写法，翻全局
-      // comicDisplayMode；ComicList 经 AnimatedBuilder 自动重建。
-      ToolsPillSegment(
-        icons: const [
-          HugeIcons.strokeRoundedGridView,
-          HugeIcons.strokeRoundedListView,
-        ],
-        tooltips: ["Switch to grid view".tl, "Switch to list view".tl],
-        selectedIndex: appdata.settings['comicDisplayMode'] != 'brief' ? 1 : 0,
-        onSelected: (_) {
-          appdata.settings['comicDisplayMode'] =
-              appdata.settings['comicDisplayMode'] != 'brief'
-              ? 'brief'
-              : 'detailed';
-          appdata.saveData();
-          setState(() {});
-        },
-      ),
+      // 布局切换单图标：与「本地」收藏、历史页同一套（形状即当前布局）。
+      const ToolsPillLayoutButton(),
       favPage._toolIconButton(
         context,
         icon: HugeIcons.strokeRoundedRefresh,
@@ -393,7 +377,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         children: [
           appBar,
           _GroupPills(favPage: favPage),
-          const Expanded(child: Center(child: CircularProgressIndicator())),
+          const Expanded(child: KcPageLoading()),
         ],
       );
     } else if (_errorMessage != null) {

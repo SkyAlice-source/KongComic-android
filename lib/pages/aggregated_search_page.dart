@@ -319,8 +319,9 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
       return SliverToBoxAdapter(
         child: SizedBox(
           height: 240,
-          child: Center(
-            child: CircularProgressIndicator(color: kcAccentColor(context)),
+          child: KcPageLoading(
+            charWidth: 88,
+            color: kcAccentColor(context),
           ),
         ),
       );

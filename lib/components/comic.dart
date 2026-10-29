@@ -62,6 +62,8 @@ ImageProvider? _findImageProvider(Comic comic) {
       sourceKey: comic.sourceKey,
       cid: comic.id,
       fallbackToLocalCover: comic is FavoriteItem,
+      // 卡片封面：失败即报错，交给占位 + 重试按钮，不在这里干等退避。
+      failFast: true,
     );
   }
   return image;
@@ -353,9 +355,6 @@ class ComicTile extends StatelessWidget {
 
   Widget buildImage(BuildContext context) {
     var image = _findImageProvider(comic);
-    if (image == null) {
-      return const SizedBox();
-    }
     // 自定义封面变化时强制重建 AnimatedImage
     final customKey = CustomCoverManager.getCustomCoverPath(
       comic.sourceKey,
@@ -376,14 +375,20 @@ class ComicTile extends StatelessWidget {
         if (constraints.hasBoundedHeight && constraints.maxHeight.isFinite) {
           cacheHeight = (constraints.maxHeight * dpr).ceil().clamp(24, 512);
         }
-        return AnimatedImage(
+        // 统一走 CoverBox：加载中显示书名首字、失败给重试，不再是一块白。
+        // 首字字号按封面宽度走（列表 60dp 封面 ≈20，网格 120dp ≈40），
+        // 小缩略图（<90）不给重试按钮——那么小的胶囊点不准，收益也低。
+        final coverWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : 120.0;
+        return CoverBox(
           key: ValueKey(customKey ?? '${comic.sourceKey}_${comic.id}'),
           image: image,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
+          label: comic.title,
           cacheWidth: cacheWidth,
           cacheHeight: cacheHeight,
+          retryable: coverWidth >= 90,
+          initialFontSize: (coverWidth * 0.32).clamp(16.0, 52.0),
         );
       },
     );
@@ -433,7 +438,8 @@ class ComicTile extends StatelessWidget {
             Text(
               'Favorited'.tl,
               style: TextStyle(
-                fontSize: 10,
+                // 图片上的徽标下限是 kcFont11：10 在 3x 屏上中文只有约 3mm 高。
+                fontSize: kcFont11,
                 fontWeight: FontWeight.w600,
                 height: 1.0,
                 color: kcOnAccentColor,
@@ -2848,7 +2854,7 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
     if (!_initialized && _isLoading) {
       return const SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(child: CircularProgressIndicator()),
+        child: KcPageLoading(),
       );
     }
 
@@ -2874,7 +2880,6 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
       return SliverFillRemaining(
         hasScrollBody: false,
         child: EmptyState(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
           title: 'No comics'.tl,
           subtitle:
               (widget.emptySubtitle ??

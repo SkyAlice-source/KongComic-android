@@ -24,10 +24,14 @@ LIB = ROOT / "lib"
 # 基线（2026-10-22 迁移完成后实测）。只允许下降，回升即失败。
 BASELINE_LISTTILE = 0   # 原生 ListTile 已全部迁到 KcListTile
 BASELINE_CARD = 1       # 仅 KcCard 自身封装里的 1 处 Card(，新增原生 M3 Card 即违例
-BASELINE_ADDLISTENER = 29  # 余下均为「动态换绑 / ImageStream / WindowListener / 单例 service」自管理，不再收敛
+BASELINE_ADDLISTENER = 31  # 余下均为「动态换绑 / ImageStream / WindowListener / 单例 service」自管理，不再收敛
 # 27 → 29（2026-10-23）：发现页把 TabController 的换绑收敛成 _bindController，
 # 但「重建 controller 后重新挂 _onTabChanged」仍是两处必须手写的 addListener
 # （controller 换了实例，AutoListenMixin 的 listen() 只在 initState 绑一次，撑不住）。
+# 29 → 31（2026-10-30）：历史页 / 收藏页在 didChangeDependencies 里跟随 NaviPane
+# 换实例重绑 _onPaneIndexChanged（切回本 tab 时补注入顶栏），同样属于「listenable
+# 实例会变」的场景：NaviPane.of(context) 拿到的是依赖树上的状态，重建后 notifier
+# 是另一个对象，initState 里绑一次会绑在废弃实例上。
 
 
 def count_lib(pattern: str) -> int:

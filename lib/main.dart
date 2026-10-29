@@ -191,6 +191,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     setState(() {});
   }
 
+  bool _precachedLoadingAsset = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_precachedLoadingAsset) return;
+    _precachedLoadingAsset = true;
+    // 加载动画的素材几乎每个页面都会用到。不预热的话，第一次进详情页 /
+    // 评论页时那一小块是空的，等解码完才「突然出现」；预热一次之后，
+    // 后续所有加载态都从图片缓存同步取到，首帧就有画面。
+    precacheImage(
+      const AssetImage('assets/loading/chibi_crawl.webp'),
+      context,
+    );
+  }
+
   void forceRebuild() {
     setState(() {});
   }

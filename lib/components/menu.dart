@@ -1,7 +1,15 @@
 part of "components.dart";
 
-void showMenuX(BuildContext context, Offset location, List<MenuEntry> entries) {
-  Navigator.of(context, rootNavigator: true).push(_MenuRoute(entries, location));
+void showMenuX(
+  BuildContext context,
+  Offset location,
+  List<MenuEntry> entries, {
+  Size? anchorSize,
+}) {
+  Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push(_MenuRoute(entries, location, anchorSize));
 }
 
 class _MenuRoute<T> extends PopupRoute<T> {
@@ -9,7 +17,11 @@ class _MenuRoute<T> extends PopupRoute<T> {
 
   final Offset location;
 
-  _MenuRoute(this.entries, this.location);
+  /// 触发按钮的尺寸。传了才按「贴按钮下方、右边缘对齐」弹出；
+  /// 不传（长按 / 右键这类以触点为锚的场景）保持左上角对齐的原行为。
+  final Size? anchorSize;
+
+  _MenuRoute(this.entries, this.location, this.anchorSize);
 
   @override
   Color? get barrierColor => Colors.transparent;
@@ -41,18 +53,30 @@ class _MenuRoute<T> extends PopupRoute<T> {
             ? 180.0
             : 160.0;
     final size = MediaQuery.of(context).size;
-    var left = location.dx;
-    if (left < 10) {
-      left = 10;
+    const margin = 10.0;
+    const gap = 6.0;
+    // 总高只用于定位估算；真正渲染时由 ConstrainedBox + 滚动兜底，
+    // 大字号/长菜单在矮屏上不会再溢出到屏幕外。
+    final estimated = 16 + entries.fold<double>(0, (sum, e) => sum + _entryHeight(e));
+    final maxHeight = math.max(120.0, size.height - margin * 2);
+    final height = math.min(estimated, maxHeight);
+
+    var left = anchorSize == null
+        ? location.dx
+        // 右边缘与按钮右边缘对齐：菜单展开后不盖住触发按钮本身。
+        : location.dx + anchorSize!.width - width;
+    if (left + width > size.width - margin) {
+      left = size.width - width - margin;
     }
-    if (left + width > size.width - 10) {
-      left = size.width - width - 10;
-    }
-    var top = location.dy;
-    var height =
-        16 + entries.fold<double>(0, (sum, e) => sum + _entryHeight(e));
-    if (top + height > size.height - 15) {
-      top = size.height - height - 15;
+    if (left < margin) left = margin;
+
+    var top = anchorSize == null ? location.dy : location.dy + anchorSize!.height + gap;
+    if (top + height > size.height - margin) {
+      // 下方放不下：翻到按钮上方；上方也放不下就贴底并交给滚动。
+      final above = location.dy - height - gap;
+      top = above >= margin
+          ? above
+          : math.max(margin, size.height - height - margin);
     }
     return Stack(
       children: [
@@ -78,20 +102,31 @@ class _MenuRoute<T> extends PopupRoute<T> {
               child: Material(
                 color: context.colorScheme.surface.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(kcRadius20),
-                child: Container(
-                  width: width,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children:
-                        entries.map((e) => buildEntry(e, context)).toList(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: width,
+                    maxHeight: maxHeight,
+                  ),
+                  child: Container(
+                    width: width,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 6,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: entries
+                            .map((e) => buildEntry(e, context))
+                            .toList(),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        )
+        ),
       ],
     );
   }

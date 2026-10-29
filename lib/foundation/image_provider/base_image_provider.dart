@@ -75,6 +75,9 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
         } on _ImageLoadingStopException {
           rethrow;
         } catch (e) {
+          // 封面类请求（卡片缩略图）不重试：断网时退避 1+2+4+8 秒才报错，
+          // 期间占着 8 个并发槽，用户看到的就是「一直转、一直白」。
+          if (!enableRetry) rethrow;
           if (e.toString().contains("Invalid Status Code: 404")) {
             rethrow;
           }
@@ -156,6 +159,9 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
   }
 
   bool get enableResize => false;
+
+  /// 失败后是否按 1/2/4/8 秒退避重试。见 [CachedImageProvider.failFast]。
+  bool get enableRetry => true;
 }
 
 typedef FileDecoderCallback = Future<ui.Codec> Function(Uint8List);

@@ -125,12 +125,9 @@ class _MainPageState extends State<MainPage> with AutoListenMixin {
       paneActions: [
         if (_showLayoutToggle)
           PaneActionEntry(
-            icon: HugeIcon(
-              icon: _isDetailedLayout
-                  ? HugeIcons.strokeRoundedGridView
-                  : HugeIcons.strokeRoundedListView,
-              size: 22,
-            ),
+            // 与收藏 / 历史页同一颗图标：形状即当前布局，点击淡入切换成另一种。
+            // 旧的「换图标」写法只画出目标态，用户看不出现在是什么布局。
+            icon: LayoutGlyphIcon(detailed: _isDetailedLayout, size: 22),
             label: _isDetailedLayout
                 ? "Switch to grid view".tl
                 : "Switch to list view".tl,

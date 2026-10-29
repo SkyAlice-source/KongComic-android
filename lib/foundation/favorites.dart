@@ -238,7 +238,16 @@ class LocalFavoritesManager with ChangeNotifier {
 
   late Map<String, int> counts;
 
-  var _hashedIds = <int, int>{};
+  /// 已收藏条目索引：key = `(id, type)`，value = 该条目被收藏到几个文件夹。
+  ///
+  /// 原先 key 是 `id.hashCode ^ type`（32 位 int）。hashCode 空间有限，收藏
+  /// 一多必然出现两本不同漫画撞同一个 key：
+  /// - [totalComics] 直接取 `length`，于是「全部」的数量少一个（实测 9 本
+  ///   显示 8，和文件夹胶囊的数字对不上）；
+  /// - [isExist] 用 `containsKey` 判重，碰撞时会把**没收藏**的书标成已收藏。
+  /// Dart 3 的 record 有结构化判等与哈希，直接拿 `(id, type)` 当 key，
+  /// 既不碰撞也不用拼字符串。
+  var _hashedIds = <(String, int), int>{};
 
   int get totalComics {
     return _hashedIds.length;
@@ -337,8 +346,8 @@ class LocalFavoritesManager with ChangeNotifier {
   /// be GC'd, calling sqlite3_close_v2 and invalidating the main isolate's
   /// connection. This caused all subsequent queries to return empty/zero
   /// results, which is why folder counts showed as 0 after restart.
-  Map<int, int> _computeHashedIds(List<String> folders) {
-    var hashedIds = <int, int>{};
+  Map<(String, int), int> _computeHashedIds(List<String> folders) {
+    var hashedIds = <(String, int), int>{};
     for (var folder in folders) {
       // 历史「稍后阅读」表已废弃：跳过，避免旧队列里的漫画仍被判为「已收藏」，
       // 却又在收藏面板里找不到可取消的文件夹（死锁态）。
@@ -353,8 +362,8 @@ class LocalFavoritesManager with ChangeNotifier {
       for (var row in rows) {
         var id = row["id"] as String;
         var type = row["type"] as int;
-        var hash = id.hashCode ^ type;
-        hashedIds[hash] = (hashedIds[hash] ?? 0) + 1;
+        var key = (id, type);
+        hashedIds[key] = (hashedIds[key] ?? 0) + 1;
       }
     }
     if (hashedIds.isEmpty) {
@@ -365,12 +374,12 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   void reduceHashedId(String id, int type) {
-    var hash = id.hashCode ^ type;
-    if (_hashedIds.containsKey(hash)) {
-      if (_hashedIds[hash]! > 1) {
-        _hashedIds[hash] = _hashedIds[hash]! - 1;
+    var key = (id, type);
+    if (_hashedIds.containsKey(key)) {
+      if (_hashedIds[key]! > 1) {
+        _hashedIds[key] = _hashedIds[key]! - 1;
       } else {
-        _hashedIds.remove(hash);
+        _hashedIds.remove(key);
       }
     }
   }
@@ -415,20 +424,18 @@ class LocalFavoritesManager with ChangeNotifier {
     final folders = _getTablesWithDB();
     folders.remove('folder_sync');
     folders.remove('folder_order');
-    var folderToOrder = <String, int>{};
-    for (var folder in folders) {
-      var res = _db.select("""
-        select * from folder_order
-        where folder_name == ?;
-      """, [folder]);
-      if (res.isNotEmpty) {
-        folderToOrder[folder] = res.first["order_value"];
-      } else {
-        folderToOrder[folder] = 0;
-      }
+    // 一次取出全部排序值。原实现按文件夹逐个 select folder_order，文件夹
+    // 一多就是 N 次同步查询（总览每次 build 都会走到这里）。
+    final folderToOrder = <String, int>{};
+    for (final row in _db.select("select * from folder_order")) {
+      folderToOrder[row["folder_name"] as String] = row["order_value"] as int;
     }
+    // 同序时按原始（建表）顺序兜底：Dart 的 sort 不稳定，没有兜底键时相同
+    // order_value 的文件夹每次排列可能不同。
+    final origin = {for (var i = 0; i < folders.length; i++) folders[i]: i};
     folders.sort((a, b) {
-      return folderToOrder[a]! - folderToOrder[b]!;
+      final d = (folderToOrder[a] ?? 0) - (folderToOrder[b] ?? 0);
+      return d != 0 ? d : origin[a]!.compareTo(origin[b]!);
     });
     return folders;
   }
@@ -516,6 +523,33 @@ class LocalFavoritesManager with ChangeNotifier {
     return rows.first['cnt'] as int;
   }
 
+  /// 货架专用：一次查询同时拿回「本页条目」和「文件夹总数」。
+  ///
+  /// 总览的每个文件夹原本先 [getFolderComicCount] 再 [getFolderComicsPaginated]，
+  /// 即两次同步 SQL（文件夹多时是 2N 次，全在 UI 线程）。`count(*) over ()`
+  /// 是窗口聚合，在 LIMIT 之前就算出全表行数并随结果集一起返回，一次搞定。
+  ///
+  /// 空文件夹没有行可返回（窗口函数跟着结果行走），此时 total 记 0。
+  ({List<FavoriteItem> comics, int total}) getFolderShelf(
+    String folder, {
+    required int limit,
+    String? orderBy,
+  }) {
+    var rows = _db.select("""
+        select *, count(*) over () as __total from "$folder"
+        ORDER BY ${orderBy ?? "display_order"}
+        LIMIT ?;
+      """, [limit]);
+    if (rows.isEmpty) {
+      return (comics: <FavoriteItem>[], total: 0);
+    }
+    final total = rows.first["__total"] as int;
+    return (
+      comics: rows.map((element) => FavoriteItem.fromRow(element)).toList(),
+      total: total,
+    );
+  }
+
   static Future<List<FavoriteItem>> _getFolderComicsAsync(String folder) {
     // Runs synchronously: Isolate.run with _db.handle is unsafe because the
     // Isolate's GC can call sqlite3_close_v2 on the shared pointer,
@@ -547,6 +581,11 @@ class LocalFavoritesManager with ChangeNotifier {
   List<FavoriteItem> getAllComics() {
     var res = <FavoriteItem>{};
     for (final folder in folderNames) {
+      // 与 [_computeHashedIds] 保持一致：废弃的「稍后阅读」表不进「全部」。
+      // 之前这里漏了过滤，「全部」视图会比总数多出 read_later 里的残留条目
+      // （实测卡片写 8、「已选择 9 本」，全选后数量对不上，多选批量操作
+      // 也会把不该动的书带上）。
+      if (folder == kReadLaterFolder) continue;
       var comics = _db.select("""
         select * from "$folder";
       """);
@@ -792,8 +831,8 @@ class LocalFavoritesManager with ChangeNotifier {
     } else {
       counts[folder] = counts[folder]! + 1;
     }
-    var hash = comic.id.hashCode ^ comic.type.value;
-    _hashedIds[hash] = (_hashedIds[hash] ?? 0) + 1;
+    var key = (comic.id, comic.type.value);
+    _hashedIds[key] = (_hashedIds[key] ?? 0) + 1;
     if (notify) notifyListeners();
     return true;
   }
@@ -1000,8 +1039,7 @@ class LocalFavoritesManager with ChangeNotifier {
     initCounts();
     _db.execute("COMMIT");
     for (var comic in comics) {
-      var hash = comic.id.hashCode ^ comic.type.value;
-      _hashedIds.remove(hash);
+      _hashedIds.remove((comic.id, comic.type.value));
     }
     notifyListeners();
   }
@@ -1210,8 +1248,7 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   bool isExist(String id, ComicType type) {
-    var hash = id.hashCode ^ type.value;
-    return _hashedIds.containsKey(hash);
+    return _hashedIds.containsKey((id, type.value));
   }
 
   void updateInfo(String folder, FavoriteItem comic, [bool notify = true]) {

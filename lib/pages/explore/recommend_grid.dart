@@ -161,16 +161,12 @@ class ExploreRecommendPageState
           if (comics == null)
             const SliverFillRemaining(
               hasScrollBody: false,
-              child: AppLoadingIndicator(),
+              child: KcPageLoading(),
             )
           else if (comics.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
               child: EmptyState(
-                icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedInbox,
-                  size: 18,
-                ),
                 title: "No recommendations".tl,
                 actionLabel: "Shuffle".tl,
                 onAction: () => _load(next: true),

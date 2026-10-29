@@ -176,6 +176,43 @@ class History implements Comic {
   }
 }
 
+/// [HistoryManager.getAllBrief] 用的轻量行。
+///
+/// 为什么不直接复用 [History]：[History.fromRow] 会把 `readEpisode` 这个逗号串
+/// 拆成 `Set<String>`（一部连载几百话就是几百个字符串），整表映射下来全是 UI
+/// 线程上的分配。速搜（收藏 + 历史浮层）只需要标题/作者/封面/时间/章节号，
+/// 既不读已读集合也不算分页进度，用这个结构可以跳过那部分开销。
+class HistoryBrief {
+  const HistoryBrief({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.subtitle,
+    required this.cover,
+    required this.time,
+    required this.ep,
+  });
+
+  final String id;
+
+  final HistoryType type;
+
+  final String title;
+
+  final String subtitle;
+
+  final String cover;
+
+  final DateTime time;
+
+  /// 章节索引，1-based；未知时为 0。
+  final int ep;
+
+  String get sourceKey => type == ComicType.local
+      ? 'local'
+      : type.comicSource?.key ?? "Unknown:${type.value}";
+}
+
 class HistoryManager with ChangeNotifier {
   static HistoryManager? cache;
 
@@ -501,6 +538,29 @@ void clearUnfavoritedHistory() {
       order by time DESC;
     """);
     return res.map((element) => History.fromRow(element)).toList();
+  }
+
+  /// 轻量版 [getAll]：只取速搜用得到的列，不做 `readEpisode` 解析。
+  ///
+  /// 排序仍走 `time` 索引，与 [getAll] 语义一致（最近阅读在前）。
+  List<HistoryBrief> getAllBrief() {
+    var res = _db.select("""
+      select id, title, subtitle, cover, time, type, ep from history
+      order by time DESC;
+    """);
+    return res
+        .map(
+          (e) => HistoryBrief(
+            id: e['id'] as String,
+            type: HistoryType(e['type'] as int),
+            title: (e['title'] as String?) ?? '',
+            subtitle: (e['subtitle'] as String?) ?? '',
+            cover: (e['cover'] as String?) ?? '',
+            time: DateTime.fromMillisecondsSinceEpoch(e['time'] as int),
+            ep: (e['ep'] as int?) ?? 0,
+          ),
+        )
+        .toList();
   }
 
   /// Paginated version of [getAll].

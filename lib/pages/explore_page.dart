@@ -200,7 +200,6 @@ class _ExplorePageState extends State<ExplorePage>
   Widget buildEmpty() {
     if (ComicSource.isEmpty) {
       return EmptyState(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedCompass01, size: 18),
         title: "No Explore Pages".tl,
         subtitle: "Please add some comic sources first".tl,
         actionLabel: "Manage".tl,
@@ -208,7 +207,6 @@ class _ExplorePageState extends State<ExplorePage>
       );
     }
     return EmptyState(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedInbox, size: 18),
       title: "No Explore Pages".tl,
       subtitle: "Please check your source settings".tl,
       actionLabel: "Manage".tl,
@@ -386,7 +384,6 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
     super.build(context);
     if (_notFound) {
       return EmptyState(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedCompass01, size: 18),
         title: "Explore Page Not Found".tl,
         subtitle: "The comic source may have been removed.".tl,
       );
@@ -674,7 +671,7 @@ class _MultiPartExplorePageState extends State<_MultiPartExplorePage> {
   Widget build(BuildContext context) {
     if (loading) {
       load();
-      return const Center(child: CircularProgressIndicator());
+      return const KcPageLoading();
     } else if (message != null) {
       final msg = message!;
       final source = ComicSource.find(widget.comicSourceKey);

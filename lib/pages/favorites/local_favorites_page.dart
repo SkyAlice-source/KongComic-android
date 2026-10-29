@@ -32,11 +32,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
 
   late List<String> added = [];
 
-  String keyword = "";
-  bool searchHasUpper = false;
-
-  bool searchMode = false;
-
   bool multiSelectMode = false;
 
   int? lastSelectedIndex;
@@ -50,18 +45,37 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
 
   late String readFilterSelect;
 
-  var searchResults = <FavoriteItem>[];
-
   /// GlobalKey for the paginated grid.
   final _gridKey = GlobalKey<PaginatedSliverGridComicsState>();
 
   /// Comics currently loaded by the paginated grid.
   List<FavoriteItem> _loadedComics = [];
 
+  /// 过滤结果缓存。
+  ///
+  /// [filterComics] 会**批量查历史 + 逐本查下载状态**（后者每本一次 SQL /
+  /// 文件系统检查），而多选态每点一下卡片都会 `setState` 整页 —— 不缓存的话
+  /// 每次点选都在 UI 线程重跑一遍全量过滤。build 里原先还要判空一次、取列表
+  /// 一次，等于每帧算两遍。这里只在数据源变化时重算。
+  List<FavoriteItem> _visibleCache = const [];
+  bool _visibleDirty = true;
+
+  /// 当前应当展示的列表（已应用阅读状态筛选）。
+  List<FavoriteItem> get _visibleComics {
+    if (_visibleDirty) {
+      _visibleCache = filterComics(comics);
+      _visibleDirty = false;
+    }
+    return _visibleCache;
+  }
+
+  /// 数据源（comics / 筛选条件）变化后调用。
+  void _invalidateVisible() => _visibleDirty = true;
+
   /// Whether to use pagination for the current view.
-  /// Only paginates single-folder browsing with no search/filter.
+  /// Only paginates single-folder browsing with no filter.
   bool get _usePagination =>
-      !searchMode && !isAllFolder && readFilterSelect == readFilterList[0];
+      !isAllFolder && readFilterSelect == readFilterList[0];
 
   /// Page loader for PaginatedSliverGridComics.
   Future<List<Comic>> _loadPage(int offset, int limit) async {
@@ -77,28 +91,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
 
   /// The list of comics currently active for selection/indexing.
   /// In pagination mode, this is the loaded comics.
-  /// In search mode, this is the search results.
-  /// Otherwise, this is the filtered comics list.
-  List<FavoriteItem> get _activeComics => _usePagination
-      ? _loadedComics
-      : (searchMode ? searchResults : filterComics(comics));
-
-  void updateSearchResult() {
-    setState(() {
-      if (keyword.trim().isEmpty) {
-        searchResults = comics;
-      } else {
-        searchResults = [];
-        for (var comic in comics) {
-          if (matchKeyword(keyword, comic) ||
-              matchKeywordT(keyword, comic) ||
-              matchKeywordS(keyword, comic)) {
-            searchResults.add(comic);
-          }
-        }
-      }
-    });
-  }
+  /// Otherwise, this is the filtered list.
+  List<FavoriteItem> get _activeComics =>
+      _usePagination ? _loadedComics : _visibleComics;
 
   void updateComics() {
     // We are a listener of `LocalFavoritesManager`. When the currently open
@@ -129,6 +124,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
         ),
       );
     }
+    _invalidateVisible();
     setState(() {});
   }
 
@@ -191,66 +187,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     }).toList();
   }
 
-  bool matchKeyword(String keyword, FavoriteItem comic) {
-    var list = keyword.split(" ");
-    for (var k in list) {
-      if (k.isEmpty) continue;
-      if (checkKeyWordMatch(k, comic.title, false)) {
-        continue;
-      } else if (comic.subtitle != null &&
-          checkKeyWordMatch(k, comic.subtitle!, false)) {
-        continue;
-      } else if (comic.tags.any((tag) {
-        if (checkKeyWordMatch(k, tag, true)) {
-          return true;
-        } else if (tag.contains(':') &&
-            checkKeyWordMatch(k, tag.split(':')[1], true)) {
-          return true;
-        } else if (App.locale.languageCode == 'zh' &&
-            checkKeyWordMatch(k, tag.translateTagsToCN, true)) {
-          return true;
-        }
-        return false;
-      })) {
-        continue;
-      } else if (checkKeyWordMatch(k, comic.author, true)) {
-        continue;
-      }
-      return false;
-    }
-    return true;
-  }
-
-  bool checkKeyWordMatch(String keyword, String compare, bool needEqual) {
-    String temp = compare;
-    // 没有大写的话, 就转成小写比较, 避免搜索需要注意大小写
-    if (!searchHasUpper) {
-      temp = temp.toLowerCase();
-    }
-    if (needEqual) {
-      return keyword == temp;
-    }
-    return temp.contains(keyword);
-  }
-
-  // Convert keyword to traditional Chinese to match comics
-  bool matchKeywordT(String keyword, FavoriteItem comic) {
-    if (!OpenCC.hasChineseSimplified(keyword)) {
-      return false;
-    }
-    keyword = OpenCC.simplifiedToTraditional(keyword);
-    return matchKeyword(keyword, comic);
-  }
-
-  // Convert keyword to simplified Chinese to match comics
-  bool matchKeywordS(String keyword, FavoriteItem comic) {
-    if (!OpenCC.hasChineseTraditional(keyword)) {
-      return false;
-    }
-    keyword = OpenCC.traditionalToSimplified(keyword);
-    return matchKeyword(keyword, comic);
-  }
-
   @override
   void initState() {
     readFilterSelect =
@@ -273,43 +209,27 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
 
   void selectAll() {
     setState(() {
-      if (searchMode) {
-        selectedComics = searchResults.asMap().map((k, v) => MapEntry(v, true));
-      } else if (_usePagination) {
+      if (_usePagination) {
         // Load all comics from the folder for selection (one-time).
         final allComics = manager.getFolderComics(widget.folder);
         selectedComics = allComics.asMap().map((k, v) => MapEntry(v, true));
       } else {
-        selectedComics = comics.asMap().map((k, v) => MapEntry(v, true));
+        // 只选「当前可见」的：筛选/搜索生效时用户看到的是子集，
+        // 全选却把不可见的也勾上会让人莫名其妙。
+        selectedComics = _visibleComics.asMap().map(
+          (k, v) => MapEntry(v, true),
+        );
       }
     });
   }
 
   void invertSelection() {
     setState(() {
-      if (searchMode) {
-        for (var c in searchResults) {
-          if (selectedComics.containsKey(c)) {
-            selectedComics.remove(c);
-          } else {
-            selectedComics[c] = true;
-          }
-        }
-      } else if (_usePagination) {
-        for (var c in _loadedComics) {
-          if (selectedComics.containsKey(c)) {
-            selectedComics.remove(c);
-          } else {
-            selectedComics[c] = true;
-          }
-        }
-      } else {
-        for (var c in comics) {
-          if (selectedComics.containsKey(c)) {
-            selectedComics.remove(c);
-          } else {
-            selectedComics[c] = true;
-          }
+      for (var c in (_usePagination ? _loadedComics : _visibleComics)) {
+        if (selectedComics.containsKey(c)) {
+          selectedComics.remove(c);
+        } else {
+          selectedComics[c] = true;
         }
       }
     });
@@ -347,18 +267,28 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
   /// Build menu entries for a comic tile.
   List<MenuEntry> _buildMenuEntries(Comic c) {
     return [
-      if (!isAllFolder)
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-          text: "Delete".tl,
-          onClick: () {
-            LocalFavoritesManager().deleteComicWithId(
-              widget.folder,
+      // 取消收藏：危险操作一律带确认，避免误触把收藏删掉。
+      // 文案用「取消收藏」而不是「删除」—— 这里只删收藏条目，不动已下载的文件，
+      // 旧文案「Delete」会让人以为本地漫画也被删了。
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
+        text: "Remove from favorites".tl,
+        color: context.colorScheme.error,
+        onClick: () {
+          showConfirmDialog(
+            context: context,
+            title: "Remove from favorites".tl,
+            content: "Remove this comic from favorites?".tl,
+            btnColor: context.colorScheme.error,
+            onConfirm: () => LocalFavoritesManager().deleteComicWithId(
+              // 「全部」视图下条目是 FavoriteItemWithFolderInfo，自带所属文件夹。
+              c is FavoriteItemWithFolderInfo ? c.folder : widget.folder,
               c.id,
               (c as FavoriteItem).type,
-            );
-          },
-        ),
+            ),
+          );
+        },
+      ),
       MenuEntry(
         icon: HugeIcon(
           icon: HugeIcons.strokeRoundedCheckmarkCircle01,
@@ -483,6 +413,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
           ),
           ToolsPillMoreButton(
             entries: [
+              // ── 整理：换文件夹 / 调整选择 ──
               if (!isAllFolder)
                 MenuEntry(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedMove01, size: 18),
@@ -503,88 +434,8 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
                 text: "Invert Selection".tl,
                 onClick: invertSelection,
               ),
-              MenuEntry(
-                icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedFavourite,
-                  size: 18,
-                ),
-                text: "Remove from favorites".tl,
-                onClick: () {
-                  for (var c in selectedComics.keys) {
-                    var fav = c as FavoriteItem;
-                    if (isAllFolder) {
-                      // In All view, find which folder the comic belongs to
-                      for (var f in LocalFavoritesManager().folderNames) {
-                        var folderComics = LocalFavoritesManager()
-                            .getFolderComics(f);
-                        if (folderComics.any(
-                          (fc) =>
-                              fc.id == fav.id &&
-                              fc.type.value == fav.type.value,
-                        )) {
-                          LocalFavoritesManager().deleteComicWithId(
-                            f,
-                            fav.id,
-                            fav.type,
-                          );
-                          break;
-                        }
-                      }
-                    } else {
-                      LocalFavoritesManager().deleteComicWithId(
-                        widget.folder,
-                        fav.id,
-                        fav.type,
-                      );
-                    }
-                  }
-                  setState(() {
-                    multiSelectMode = false;
-                    selectedComics.clear();
-                  });
-                },
-              ),
-              if (!isAllFolder)
-                MenuEntry(
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedDelete01,
-                    size: 18,
-                  ),
-                  text: "Delete Comic".tl,
-                  color: context.colorScheme.error,
-                  onClick: () {
-                    showConfirmDialog(
-                      context: context,
-                      title: "Delete".tl,
-                      content: "Delete @c comics?".tlParams({
-                        "c": selectedComics.length,
-                      }),
-                      btnColor: context.colorScheme.error,
-                      onConfirm: () {
-                        _deleteComicWithId();
-                      },
-                    );
-                  },
-                ),
-              MenuEntry(
-                icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedDownload04,
-                  size: 18,
-                ),
-                text: "Download".tl,
-                onClick: downloadSelected,
-              ),
-              if (selectedComics.length == 1)
-                MenuEntry(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
-                  text: "Copy Title".tl,
-                  onClick: () {
-                    Clipboard.setData(
-                      ClipboardData(text: selectedComics.keys.first.title),
-                    );
-                    context.showMessage(message: "Copied".tl);
-                  },
-                ),
+              MenuEntry.divider(),
+              // ── 单项动作：只在选中 1 本时才有意义，多选时整组隐去 ──
               if (selectedComics.length == 1)
                 MenuEntry(
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
@@ -612,6 +463,49 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
                     );
                   },
                 ),
+              if (selectedComics.length == 1)
+                MenuEntry(
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+                  text: "Copy Title".tl,
+                  onClick: () {
+                    Clipboard.setData(
+                      ClipboardData(text: selectedComics.keys.first.title),
+                    );
+                    context.showMessage(message: "Copied".tl);
+                  },
+                ),
+              MenuEntry(
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedDownload04,
+                  size: 18,
+                ),
+                text: "Download".tl,
+                onClick: downloadSelected,
+              ),
+              MenuEntry.divider(),
+              // ── 危险操作：取消收藏 ──
+              // 原「Delete Comic」与「Remove from favorites」底层都是删收藏表里
+              // 的行，只是后者不带确认 —— 合并成一项并统一加确认，同时避免
+              // 「Delete Comic」被误解成连本地下载的文件一起删。
+              MenuEntry(
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedFavourite,
+                  size: 18,
+                ),
+                text: "Remove from favorites".tl,
+                color: context.colorScheme.error,
+                onClick: () {
+                  showConfirmDialog(
+                    context: context,
+                    title: "Remove from favorites".tl,
+                    content: "Remove @c comics from favorites?".tlParams({
+                      "c": selectedComics.length,
+                    }),
+                    btnColor: context.colorScheme.error,
+                    onConfirm: _removeSelectedFromFavorites,
+                  );
+                },
+              ),
             ],
           ),
         ],
@@ -619,40 +513,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     ];
   }
 
-  /// 搜索态注入共享顶栏：leading 取消 + 标题位直接放输入框
-  ///（这就是 pageTitleNotifier 升级为 Widget 的原因）。
-  List<Widget> _searchLeading() {
-    return [
-      Tooltip(
-        message: "Cancel".tl,
-        child: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
-          onPressed: () {
-            setState(() {
-              searchMode = false;
-            });
-          },
-        ),
-      ),
-    ];
-  }
-
-  Widget _searchTitleField() {
-    return TextField(
-      autofocus: true,
-      decoration: InputDecoration(
-        hintText: "Search".tl,
-        border: UnderlineInputBorder(),
-      ),
-      onChanged: (v) {
-        keyword = v;
-        searchHasUpper = keyword.contains(RegExp(r'[A-Z]'));
-        updateSearchResult();
-      },
-    ).paddingBottom(8).paddingRight(8);
-  }
-
-  /// 把本页（普通 / 多选 / 搜索三态）的顶栏内容同步进 NaviPane 共享栏。
+  /// 把本页（普通 / 多选两态）的顶栏内容同步进 NaviPane 共享栏。
   /// 写值机制与历史页 _syncTopBar 相同：post-frame + 签名守卫 + 前台校验。
   void _syncTopBar() {
     String sig;
@@ -675,12 +536,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       );
       title = Text("Selected @c comics".tlParams({"c": selectedComics.length}));
       actions = _multiSelectActions();
-    } else if (searchMode) {
-      sig = 'search';
-      leading = _searchLeading().first;
-      title = _searchTitleField();
     } else {
-      sig = 'n_${readFilterSelect}_${networkSource ?? 'l'}';
+      // 签名必须包含排序键：工具条上的「手动/最近/标题」是状态显示，
+      // 漏掉它就会出现「列表已按新排序重排、标签还停在旧值」。
+      sig = 'n_${readFilterSelect}_${networkSource ?? 'l'}_$_sortKey';
       leading = Tooltip(
         message: "Favorites".tl,
         child: IconButton(
@@ -713,25 +572,17 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
   /// 会把共享顶栏的标题挤没（448dp 实测）。
   List<Widget> _normalPillChildren() {
     return [
-      // 布局切换双态分段：左「网格(简明)」/ 右「列表(详细)」，当前态高亮
-      // accent 红。与历史页同一套写法，翻的是全局 comicDisplayMode，
-      // 下方 PaginatedSliverGridComics/SliverGridComics 经 AnimatedBuilder
-      // 自动重建，无需手动刷新。
-      ToolsPillSegment(
-        icons: const [
-          HugeIcons.strokeRoundedGridView,
-          HugeIcons.strokeRoundedListView,
-        ],
-        tooltips: ["Switch to grid view".tl, "Switch to list view".tl],
-        selectedIndex: appdata.settings['comicDisplayMode'] != 'brief' ? 1 : 0,
-        onSelected: (_) {
-          appdata.settings['comicDisplayMode'] =
-              appdata.settings['comicDisplayMode'] != 'brief'
-              ? 'brief'
-              : 'detailed';
-          appdata.saveData();
-          setState(() {});
-        },
+      // 布局切换单图标：形状即当前布局（2×2 方块 = 网格 / 左封面+三行 = 列表），
+      // 点击在原位淡入切换成另一种，翻的是全局 comicDisplayMode。
+      // 旧的双态分段要占两个槽位，窄屏上会和标题抢宽度。
+      const ToolsPillLayoutButton(),
+      // 排序直显：只写当前值（手动 / 最近 / 标题）+ 下拉箭头，点开三段切换。
+      // 不再在前面塞排序图标 —— 那个图标是几根横线，跟左边布局图标的横线
+      // 挨在一起像同一族；文字 + 箭头反而更像「当前状态」。
+      ToolsPillValueChip(
+        label: _sortLabel,
+        tooltip: "Sort".tl,
+        entries: [MenuEntry.custom(_sortSegmentRow(_sortKey))],
       ),
       if (networkSource != null && !isAllFolder)
         Tooltip(
@@ -787,17 +638,13 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             ),
           ),
         ),
+      // 搜索不再进「本页内联筛选」：改成居中速搜浮层，一次搜全部收藏 +
+      // 历史（原先只能搜当前文件夹，换个文件夹就得退出去重搜）。
       favPage._toolIconButton(
         context,
         icon: HugeIcons.strokeRoundedSearch02,
         tooltip: "Search".tl,
-        onPressed: () {
-          setState(() {
-            keyword = "";
-            searchMode = true;
-            updateSearchResult();
-          });
-        },
+        onPressed: () => showQuickSearch(context),
       ),
       // 「更多」始终显示：排序/筛选也住在里面（原独立按钮已收编）。
       favPage._toolMoreButton(context, _buildMoreEntries()),
@@ -806,19 +653,27 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
 
   @override
   Widget build(BuildContext context) {
-    // 顶栏已并入 NaviPane 共享栏：三种模式（普通 / 多选 / 搜索）各自注入
+    // 顶栏已并入 NaviPane 共享栏：两种模式（普通 / 多选）各自注入
     // leading / 标题 / 工具，见 [_syncTopBar]。
     _syncTopBar();
+    // 空态判定与网格共用同一份列表：原实现在 build 里调了两次 filterComics，
+    // 每次都批量查历史 + 逐本查下载状态（多选点一下 = 两轮全量 DB）。
+    final visible = _usePagination ? const <FavoriteItem>[] : _visibleComics;
     Widget body = SmoothCustomScrollView(
       controller: widget.controller,
       slivers: [
         // 文件夹胶囊条：常驻顶栏下方（pinned），滚到列表深处也能直接换文件夹。
         // 共享顶栏接管后它就是首个 sliver，自动贴在共享栏下面。
-        if (!searchMode && !multiSelectMode)
+        if (!multiSelectMode)
           SliverPersistentHeader(
             pinned: true,
             delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
           ),
+        // 筛选提示条：筛选条件会持久化，下次进来依然生效，而侧栏文件夹上的
+        // 数字是总数、不受筛选影响。没有这条提示时「明明有 20 本却只看到 3 本」
+        // 会被当成丢数据。
+        if (!multiSelectMode && readFilterSelect != readFilterList[0])
+          SliverToBoxAdapter(child: _filterBanner()),
         // 方案 A 的「收藏空间导航」入口卡放在总览（favorites_page
         // _buildOverview）顶部；「全部」等具体文件夹视图直接进内容。
         if (_usePagination)
@@ -837,13 +692,11 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             onTap: (c, heroID) => _handleTap(c, heroID),
             onLongPressed: (c, heroID) => _handleLongPress(c, heroID),
           )
-        else if (!searchMode &&
-            !multiSelectMode &&
-            filterComics(comics).isEmpty)
+        else if (!multiSelectMode && visible.isEmpty)
           SliverFillRemaining(child: _buildEmptyState())
         else
           SliverGridComics(
-            comics: searchMode ? searchResults : filterComics(comics),
+            comics: visible,
             selections: selectedComics,
             showSourceOnCover: false,
             showBottomSourceDate: true,
@@ -868,19 +721,13 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       child: PopScope(
         // 收藏页是「货架总览 → 文件夹」两层：文件夹视图里返回键先退回总览，
         // 而不是直接弹「确认退出」（总览是 tab 根页，那才是该退出的位置）。
-        // 多选 / 搜索优先吃掉返回，与之前一致。
+        // 多选优先吃掉返回，与之前一致。
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
           if (multiSelectMode) {
             setState(() {
               multiSelectMode = false;
               selectedComics.clear();
-            });
-          } else if (searchMode) {
-            setState(() {
-              searchMode = false;
-              keyword = "";
-              updateComics();
             });
           } else {
             favPage.setFolder(false, null);
@@ -1042,11 +889,23 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     });
   }
 
-  void _deleteComicWithId() {
-    var toBeDeleted = selectedComics.keys
-        .map((e) => e as FavoriteItem)
-        .toList();
-    LocalFavoritesManager().batchDeleteComics(widget.folder, toBeDeleted);
+  /// 取消收藏当前选中的全部条目。
+  ///
+  /// 「全部」是跨表虚拟视图，条目可能同时存在于多个文件夹（同一本书被收藏
+  /// 到两个文件夹），取消收藏理应从所有文件夹移除。
+  void _removeSelectedFromFavorites() {
+    final items = selectedComics.keys.map((e) => e as FavoriteItem).toList();
+    final manager = LocalFavoritesManager();
+    if (isAllFolder) {
+      // 原本逐条 [deleteComicWithId]：每本各自 notifyListeners 一次，于是
+      // N 本 = N 轮全量 getAllComics()（O(N²)，删 20 本会明显卡顿）。
+      // batchDeleteComicsInAllFolders 单事务删完只通知一次。
+      manager.batchDeleteComicsInAllFolders(
+        items.map((e) => ComicID(e.type, e.id)).toList(),
+      );
+    } else {
+      manager.batchDeleteComics(widget.folder, items);
+    }
     _cancel();
   }
 
@@ -1101,14 +960,27 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     );
   }
 
-  /// 「更多」菜单项：从原 MenuButton 的 entries 抽出，供工具胶囊条的更多按钮复用。
-  /// 顶部为排序分段控件（单选状态，不再混进动作列表）；其后按「视图 → 文件夹
-  /// 管理 → 危险操作」分组，组间用分隔线隔开，删除文件夹前后都有线隔离。
+  /// 当前收藏排序键（manual / recent / name）。
+  String get _sortKey => (appdata.settings['favoriteSort'] as String?) ?? 'recent';
+
+  /// 工具条上的排序短标签：只显示当前值，避免长文案把胶囊撑宽。
+  String get _sortLabel {
+    switch (_sortKey) {
+      case 'manual':
+        return "Manual".tl;
+      case 'name':
+        return "Title".tl;
+      default:
+        return "Recent".tl;
+    }
+  }
+
+  /// 「更多」菜单项：分组为「视图 → 文件夹管理 → 危险操作」，组间用分隔线隔开，
+  /// 删除文件夹前后都有线隔离。
+  ///
+  /// 排序（单选状态）已从菜单移到工具条上的直显按钮，菜单里不再重复。
   List<MenuEntry> _buildMoreEntries() {
-    final current = appdata.settings['favoriteSort'] as String?;
     return [
-      MenuEntry.custom(_sortSegmentRow(current ?? 'recent')),
-      MenuEntry.divider(),
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 18),
         text: "Filter".tl,
@@ -1164,6 +1036,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
                 .to(
                   () => _ReorderComicsPage(widget.folder, (comics) {
                     this.comics = comics;
+                    // 手动排序改了数据源，筛选缓存必须失效，
+                    // 否则带筛选时看到的还是旧顺序。
+                    _invalidateVisible();
                   }),
                 )
                 .then((value) {
@@ -1192,6 +1067,8 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
               if (mounted) {
                 setState(() {
                   comics = newComics;
+                  // 同上：数据源整体换了一份，筛选缓存要跟着重算。
+                  _invalidateVisible();
                 });
               }
             });
@@ -1217,19 +1094,57 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
           },
         ),
       ],
-      // 收藏页自绘顶栏后，全局共享顶栏的「设置」入口随之让位；
-      // 设置是全局功能，不该在收藏页彻底消失，收进「更多」兜底。
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
-        text: "Settings".tl,
-        onClick: () => context.to(() => const SettingsPage()),
-      ),
     ];
   }
 
-  /// 空状态：当前文件夹没有收藏时，用文件夹插画 + 引导文案取代空白。
-  Widget _buildEmptyState() {
+  /// 清除阅读状态筛选（提示条 / 空态按钮共用）。
+  void _clearFilter() {
+    setState(() {
+      readFilterSelect = readFilterList[0];
+    });
+    appdata.implicitData["local_favorites_read_filter"] = readFilterSelect;
+    appdata.writeImplicitData();
+    _invalidateVisible();
+  }
+
+  /// 筛选生效时贴在文件夹胶囊条下方的常驻提示条。
+  ///
+  /// 筛选条件会持久化（implicitData），下次进来依然生效；而胶囊条上的文件夹
+  /// 数字是总数、不受筛选影响。只在空态解释「是筛掉了」不够——有结果时用户
+  /// 同样不知道自己看到的是被裁剪过的子集。这条给出「当前筛选 = X」+ 一键清除。
+  Widget _filterBanner() {
     final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(kcSpaceLg, 4, kcSpaceSm, 0),
+      child: Row(
+        children: [
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedFilter,
+            size: 14,
+            color: cs.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              "Filtered: @v".tlParams({"v": readFilterSelect.tl}),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant),
+            ),
+          ),
+          Button.text(
+            onPressed: _clearFilter,
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text("Clear".tl, style: TextStyle(fontSize: kcCaption)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 空状态：当前文件夹没有收藏时，用统一角色插画 + 引导文案取代空白。
+  Widget _buildEmptyState() {
     // 过滤器生效时空态必须说清「是筛选没命中」。
     //
     // 阅读状态筛选会被持久化到 implicitData，下次进来依然生效；而侧栏文件夹上
@@ -1237,57 +1152,17 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     // 收藏丢了 —— 之前这里只说「这个文件夹是空的，去发现页添加漫画」，
     // 完全没提筛选，用户根本想不到要点筛选按钮。
     final filterActive = readFilterSelect != readFilterList[0];
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            HugeIcon(
-              icon: HugeIcons.strokeRoundedFolder01,
-              size: 72,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              filterActive
-                  ? "No comics match the current filter".tl
-                  : "This folder is empty".tl,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: kcSubtitle,
-                fontWeight: FontWeight.w600,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              filterActive
-                  ? "Clear the filter to see every comic in this folder".tl
-                  : "Add comics from the Discover page".tl,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: kcCaption,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-              ),
-            ),
-            if (filterActive) ...[
-              const SizedBox(height: 16),
-              Button.filled(
-                onPressed: () {
-                  setState(() {
-                    readFilterSelect = readFilterList[0];
-                  });
-                  appdata.implicitData["local_favorites_read_filter"] =
-                      readFilterSelect;
-                  appdata.writeImplicitData();
-                },
-                child: Text("Clear filter".tl),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return EmptyState(
+      title: filterActive
+          ? "No comics match the current filter".tl
+          : "This folder is empty".tl,
+      subtitle: filterActive
+          ? "Clear the filter to see every comic in this folder".tl
+          : "Add comics from the Discover page".tl,
+      actionLabel: filterActive ? "Clear filter".tl : "Browse Discover".tl,
+      onAction: filterActive
+          ? _clearFilter
+          : () => context.to(() => const ExplorePage()),
     );
   }
 }

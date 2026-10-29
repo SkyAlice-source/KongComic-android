@@ -224,6 +224,15 @@ class NaviPaneState extends State<NaviPane>
   /// 当前页 notifier：直接驱动底栏「液体选中框」滑动，不依赖父级重建。
   final _pageNotifier = ValueNotifier<int>(0);
 
+  /// 当前页索引的只读通知，供页面在被换回前台时重新注入顶栏。
+  ///
+  /// 必要性：根 Tab 的页面实例由 `pageBuilder` 返回同一个 const Widget，
+  /// 换 tab 时 `Element.updateChild` 会因 widget 相同而跳过重建 —— 页面
+  /// `build` 根本不会跑，`pushTopBar` / `_syncTopBar` 也就没机会补回
+  /// 被 [updatePage] 清空的 notifier。表现为「切走再切回，顶栏的 ⋮ 和
+  /// 工具胶囊不见了」。页面监听这个 notifier 即可在回到前台时主动重注入。
+  ValueNotifier<int> get pageIndexListenable => _pageNotifier;
+
   final _naviItemTapListeners = <NaviItemTapListener>[];
 
   void addNaviItemTapListener(NaviItemTapListener listener) {

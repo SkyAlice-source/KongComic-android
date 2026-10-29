@@ -18,6 +18,7 @@ class CachedImageProvider
     this.sourceKey,
     this.cid,
     this.fallbackToLocalCover = false,
+    this.failFast = false,
   });
 
   final String url;
@@ -30,6 +31,15 @@ class CachedImageProvider
 
   // Use local cover if network image fails to load.
   final bool fallbackToLocalCover;
+
+  /// 失败即报错，不做 1/2/4/8 秒退避重试。
+  ///
+  /// 卡片封面用 true：这些请求量大、重复（滚动/轮播会反复 resolve），
+  /// 慢网下重试只会把并发槽占满；而它们都挂着占位，失败一次比转十秒好。
+  final bool failFast;
+
+  @override
+  bool get enableRetry => !failFast;
 
   static int loadingCount = 0;
 

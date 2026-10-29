@@ -219,9 +219,10 @@ String friendlyErrorMessage(String raw) {
   // 并不是真的登录失效。这类提示「要登录」是误报，用户换网络往往就好，所以
   // 单独归一类，引导切线路而不是去登录。
   if (isNetworkBlocked(msg)) {
-    return "Request blocked by the source — likely rate limited, region "
-        "restricted, or behind Cloudflare. Switch your network/line "
-        "(e.g. mobile data or another proxy) and retry."
+    // 整句必须写成**一个**字符串字面量：相邻字面量拼接在运行时等价，但
+    // tools/check_translations.py 是按行提取 `.tl` 键的，拆行会让每一段被当成
+    // 独立键去查（前两段查不到 → 门禁报缺口），也容易让人误以为要逐段翻译。
+    return "Request blocked by the source — likely rate limited, region restricted, or behind Cloudflare. Switch your network/line (e.g. mobile data or another proxy) and retry."
         .tl;
   }
 

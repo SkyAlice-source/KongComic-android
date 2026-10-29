@@ -257,10 +257,14 @@ class ListLoadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 和整页加载态同一套语言，只是缩小到 52dp：列表滚动到尾部时
+    // 出现的是一只在爬的小人，而不是另一种风格的五个彩点。
     return const SizedBox(
       width: double.infinity,
       height: 80,
-      child: Center(child: FiveDotLoadingAnimation()),
+      child: Center(
+        child: KcChibiCrawlLoading(charWidth: 52),
+      ),
     );
   }
 }
@@ -334,12 +338,7 @@ abstract class LoadingState<T extends StatefulWidget, S extends Object>
   Widget? buildFrame(BuildContext context, Widget child) => null;
 
   Widget buildLoading() {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [AppLoadingIndicator(), SlowLoadingHint()],
-      ),
-    );
+    return const KcPageLoading();
   }
 
   void retry() {
@@ -513,12 +512,7 @@ abstract class MultiPageLoadingState<T extends StatefulWidget, S extends Object>
   }
 
   Widget buildLoading(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [AppLoadingIndicator(), SlowLoadingHint()],
-      ),
-    );
+    return const KcPageLoading();
   }
 
   Widget buildError(BuildContext context, String error) {
@@ -550,88 +544,14 @@ abstract class MultiPageLoadingState<T extends StatefulWidget, S extends Object>
   }
 }
 
-
-class FiveDotLoadingAnimation extends StatefulWidget {
-  const FiveDotLoadingAnimation({super.key});
-
-  @override
-  State<FiveDotLoadingAnimation> createState() =>
-      _FiveDotLoadingAnimationState();
-}
-
-class _FiveDotLoadingAnimationState extends State<FiveDotLoadingAnimation>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-      upperBound: 6,
-    )..repeat(min: 0, max: 5.2, period: const Duration(milliseconds: 1200));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  static const _colors = [
-    Colors.red,
-    Colors.green,
-    Colors.blue,
-    Colors.yellow,
-    Colors.purple,
-  ];
-
-  static const _padding = 12.0;
-
-  static const _dotSize = 12.0;
-
-  static const _height = 24.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return SizedBox(
-          width: _dotSize * 5 + _padding * 6,
-          height: _height,
-          child: Stack(children: List.generate(5, (index) => buildDot(index))),
-        );
-      },
-    );
-  }
-
-  Widget buildDot(int index) {
-    var value = _controller.value;
-    var startValue = index * 0.8;
-    return Positioned(
-      left: index * _dotSize + (index + 1) * _padding,
-      bottom:
-          (math.sin(math.pi / 2 * (value - startValue).clamp(0, 2))) *
-          (_height - _dotSize),
-      child: Container(
-        width: _dotSize,
-        height: _dotSize,
-        decoration: BoxDecoration(
-          color: _colors[index],
-          shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
-}
-
-/// Q 版爬行人物加载动画 —— 阅读器所有加载态的统一实现。
+/// Q 版人物加载动画 —— 全应用加载态的统一实现。
 ///
-/// 尺寸由 [charWidth] 一档控制（素材 483×300，横构图）：
+/// 尺寸由 [charWidth] 一档控制（素材 720×420，横构图，四周已裁到画面边缘）：
 /// - 整章图片列表、选图遮罩这类全屏加载用 96–110dp，五官与服饰都清晰；
 /// - 单张图片的小格子用 52–60dp，人物细节会糊但剪影仍可辨认，视觉语言统一。
+///
+/// 素材是透明背景的 webp：底色由调用方的背景决定，深色阅读器与浅色列表
+/// 共用同一份，不需要两套图。
 ///
 /// 交互逻辑：
 /// - [progress] 为 null：不确定态。人物原地爬（跑步机感），下方进度条改为流光。
@@ -666,8 +586,8 @@ class KcChibiCrawlLoading extends StatefulWidget {
 
 class _KcChibiCrawlLoadingState extends State<KcChibiCrawlLoading>
     with TickerProviderStateMixin {
-  /// 素材（assets/loading/chibi_crawl.webp）的高宽比，483×300。
-  static const double _aspect = 300 / 483;
+  /// 素材（assets/loading/chibi_crawl.webp）的高宽比，720×420。
+  static const double _aspect = 420 / 720;
 
   /// 爬行周期：一次手脚交替 + 身体起伏。
   late final AnimationController _bob;
@@ -746,15 +666,21 @@ class _KcChibiCrawlLoadingState extends State<KcChibiCrawlLoading>
   Widget _character(double width, double height) {
     if (_cachedChar == null || _cachedCharWidth != width) {
       _cachedCharWidth = width;
-      _cachedChar = Image.asset(
-        'assets/loading/chibi_crawl.webp',
-        width: width,
-        height: height,
-        // 必须显式指定 fit：fit 为 null 时 RenderImage 按图片原始像素尺寸绘制，
-        // 483×300 的素材塞进 110×68 会被裁成「只剩一个脑袋」。
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.medium,
-        gaplessPlayback: true,
+      // 素材已裁到画面边缘，BoxFit.contain 下宽高比一致、不会留白，
+      // 所以「人物框」= 「可见轮廓」，跨轨移动的距离就是视觉上的位移。
+      _cachedChar = RepaintBoundary(
+        child: Image.asset(
+          'assets/loading/chibi_crawl.webp',
+          width: width,
+          height: height,
+          // 必须显式指定 fit：fit 为 null 时 RenderImage 按图片原始像素尺寸绘制，
+          // 720×420 的素材塞进 110×64 会被裁成「只剩一个脑袋」。
+          fit: BoxFit.contain,
+          // high（三次插值）在缩小采样时比 bilinear 锐利，人物五官和发丝
+          // 不会糊成一团；这只影响采样，不影响每帧的绘制次数。
+          filterQuality: FilterQuality.high,
+          gaplessPlayback: true,
+        ),
       );
     }
     return _cachedChar!;
@@ -890,4 +816,45 @@ class _CrawlTrackPainter extends CustomPainter {
   @override
   bool shouldRepaint(_CrawlTrackPainter old) =>
       old.value != value || old.phase != phase || old.color != color;
+}
+
+/// 页面 / 大区块的加载态：爬行人物 + 慢网络提示。
+///
+/// 全应用「整块内容在载入」只保留这一种画法。此前二十多处各写一个
+/// `Center(child: CircularProgressIndicator())`：尺寸（24/32/48）、颜色
+/// （默认 / 品牌红）、有没有慢网络提示，全凭当时的心情，页面之间跳来跳去
+/// 加载样式一直在变。收口到这里之后，换素材、调节奏只改一处。
+///
+/// 尺寸分三档，按容器高度选，别硬塞：
+/// - 110：整页 / 整屏（详情页、评论页、探索页、收藏同步）；
+/// - 88：半屏区块（聚合搜索结果、240 高的 sliver 占位）；
+/// - 52：列表底部「加载更多」（见 [ListLoadingIndicator]）。
+class KcPageLoading extends StatelessWidget {
+  const KcPageLoading({
+    super.key,
+    this.charWidth = 110,
+    this.showSlowHint = true,
+    this.color,
+  });
+
+  final double charWidth;
+
+  /// 超过 7s 仍未结束时的「网络较慢」说明。列表底部、按钮内联等
+  /// 空间局促的场景关掉。
+  final bool showSlowHint;
+
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          KcChibiCrawlLoading(charWidth: charWidth, color: color),
+          if (showSlowHint) const SlowLoadingHint(),
+        ],
+      ),
+    );
+  }
 }

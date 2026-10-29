@@ -121,9 +121,7 @@ class _CommentsPageState extends State<CommentsPage> {
   Widget buildBody(BuildContext context) {
     if (_loading) {
       firstLoad();
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const KcPageLoading();
     } else if (_error != null) {
       return NetworkError(
         message: friendlyError(_error!),

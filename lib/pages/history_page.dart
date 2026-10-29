@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kong_comic/components/components.dart';
+import 'package:kong_comic/components/quick_search.dart';
 import 'package:kong_comic/components/scroll_top_fab.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
@@ -9,7 +10,6 @@ import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/favorites/favorites_page.dart';
-import 'package:kong_comic/pages/search_page.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
@@ -35,8 +35,8 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
 
   @override
   void dispose() {
+    _paneIndex?.removeListener(_onPaneIndexChanged);
     _scrollController.dispose();
-    searchController.dispose();
     super.dispose();
   }
 
@@ -46,6 +46,7 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
 
   void onUpdate() {
     _gridKey.currentState?.refresh();
+    _invalidateGroups();
     // 分组列表的数据在 build 里现算，数据变化靠 setState 重建。
     if (mounted) setState(() {});
     if (multiSelectMode) {
@@ -56,16 +57,6 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         });
       }
     }
-  }
-
-  /// 退出搜索模式，恢复完整历史列表。
-  void _exitSearch() {
-    setState(() {
-      searchMode = false;
-      searchKeyword = '';
-      searchController.clear();
-    });
-    _gridKey.currentState?.refresh();
   }
 
   /// 时间筛选选项与翻译标签
@@ -95,6 +86,7 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
                 current: _timeFilterLabel(_timeFilter),
                 values: [for (var f in _timeFilterList) _timeFilterLabel(f)],
                 onTap: (i) {
+                  _invalidateGroups();
                   setState(() => _timeFilter = _timeFilterList[i]);
                   _gridKey.currentState?.refresh();
                   Navigator.pop(context);
@@ -118,13 +110,6 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
 
   /// Page loader for PaginatedSliverGridComics.
   Future<List<Comic>> _loadPage(int offset, int limit) async {
-    if (searchMode && searchKeyword.trim().isNotEmpty) {
-      return HistoryManager().searchPaginated(
-        searchKeyword.trim(),
-        limit: limit,
-        offset: offset,
-      );
-    }
     return HistoryManager().getAllPaginated(
       limit: limit,
       offset: offset,
@@ -135,14 +120,12 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
   /// 历史时间筛选：all/today/7d/30d/earlier
   String _timeFilter = 'all';
 
+  /// 分组列表缓存（见 [_groupHistories]）。数据或筛选变化时必须清空。
+  List<(String, List<History>)>? _groupCache;
+
+  void _invalidateGroups() => _groupCache = null;
+
   bool multiSelectMode = false;
-
-  /// 搜索模式与关键词
-  bool searchMode = false;
-
-  String searchKeyword = '';
-
-  final searchController = TextEditingController();
 
   Map<History, bool> selectedComics = {};
 
@@ -251,21 +234,22 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     // 把本页顶栏操作 / 标题同步进 NaviPane 共享顶栏（带签名守卫，避免成环）。
     _syncTopBar();
     final useBriefGrid = appdata.settings['comicDisplayMode'] == 'brief';
-    final showHero = !multiSelectMode && !searchMode && _timeFilter == 'all';
-    final continueHistory = showHero ? _fetchHistories().firstOrNull : null;
+    final showHero = !multiSelectMode && _timeFilter == 'all';
+    // 续读卡只要最近一条：limit 1 直接查，别为取头部去翻 300 行。
+    final continueHistory = showHero
+        ? _fetchHistories(limit: 1).firstOrNull
+        : null;
     // 库页面不显示「已收藏」角标（见 FavoriteBadgeScope 文档）；
     // 阅读进度角标保留——历史页正需要它。
     return FavoriteBadgeScope.disabled(
       child: PopScope(
-        canPop: !multiSelectMode && !searchMode,
+        canPop: !multiSelectMode,
         onPopInvokedWithResult: (didPop, result) {
           if (multiSelectMode) {
             setState(() {
               multiSelectMode = false;
               selectedComics.clear();
             });
-          } else if (searchMode) {
-            _exitSearch();
           }
         },
         child: Scaffold(
@@ -329,23 +313,19 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     );
   }
 
-  /// 取当前筛选 / 搜索下的历史（time DESC），上限 300 条（分组列表一次性
-  /// 渲染，sqlite 全量查询毫秒级；上限防极端大库）。
-  List<History> _fetchHistories() {
-    List<History> res;
-    if (searchMode && searchKeyword.trim().isNotEmpty) {
-      res = HistoryManager().searchPaginated(
-        searchKeyword.trim(),
-        limit: 300,
-        offset: 0,
-      );
-    } else {
-      res = HistoryManager().getAllPaginated(
-        limit: 300,
-        offset: 0,
-        timeFilter: _timeFilter,
-      );
-    }
+  /// 取当前时间筛选下的历史（time DESC）。
+  ///
+  /// 默认上限 300 条（分组列表一次性渲染，sqlite 全量查询毫秒级；上限防极端大库）。
+  /// 只要「最近一条」时必须显式传 `limit: 1` —— 否则每次 build 都会把 300 条
+  /// 全查出来再 `firstOrNull`，而 [History.fromRow] 还要逐条解析 readEpisode。
+  ///
+  /// 页内关键词搜索已由速搜浮层取代（见 [showQuickSearch]），这里只剩时间筛选。
+  List<History> _fetchHistories({int limit = 300}) {
+    final res = HistoryManager().getAllPaginated(
+      limit: limit,
+      offset: 0,
+      timeFilter: _timeFilter,
+    );
     return res;
   }
 
@@ -401,7 +381,14 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
   }
 
   /// 时间分组：今天 / 昨天 / 本周（近 7 天，不含今昨）/ 更早。
-  List<(String, List<History>)> _groupHistories() {
+  ///
+  /// 结果缓存在 [_groupCache]：本方法每次 build 都要读 300 条历史并逐条解析
+  /// readEpisode（见 [History.fromRow]），而多选态每点一张卡片就是一次 setState
+  /// → 点一下等于一次 300 行全量查询。数据/筛选变化时由 [_invalidateGroups] 清掉。
+  List<(String, List<History>)> _groupHistories() =>
+      _groupCache ??= _computeGroups();
+
+  List<(String, List<History>)> _computeGroups() {
     final all = _fetchHistories();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -456,7 +443,6 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         SliverFillRemaining(
           hasScrollBody: false,
           child: EmptyState(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
             title: 'No comics'.tl,
             subtitle:
                 "No comics yet? Add a comic source or favorite some comics.".tl,
@@ -507,6 +493,38 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
   /// 顶栏操作就丢了（[NaviPane.updatePage] 会在换页时把 notifier 重置为 null）。
   int? _myPageIndex;
 
+  /// 上一次真正写进顶栏的组件实例。换 tab 时 [NaviPane.updatePage] 会把
+  /// notifier 重置为 null，而本页未被销毁时签名仍在，仅靠签名早退会让
+  /// 切回来的顶栏操作补不回来。除签名外再确认顶栏里仍是上次写入的实例。
+  Widget? _injectedTitle;
+  List<Widget>? _injectedActions;
+
+  /// NaviPane 当前页索引通知（本页据此在「切回前台」时补注入顶栏）。
+  NaviPaneState? _pane;
+  ValueNotifier<int>? _paneIndex;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final pane = NaviPane.of(context);
+    if (!identical(_pane, pane)) {
+      _paneIndex?.removeListener(_onPaneIndexChanged);
+      _pane = pane;
+      _paneIndex = pane.pageIndexListenable;
+      _paneIndex!.addListener(_onPaneIndexChanged);
+    }
+  }
+
+  /// 换 tab 时 [NaviPaneState.updatePage] 会清空顶栏 notifier，而本页实例
+  /// 未被销毁；根 Tab 的页面 widget 是同一个 const 实例，框架会跳过重建，
+  /// [build] 不跑 → [_syncTopBar] 没机会补回，顶栏操作就永久消失。
+  /// 切回前台时强制重建一次，让 [_syncTopBar] 的实例校验触发重新注入。
+  void _onPaneIndexChanged() {
+    if (!mounted || _pane == null) return;
+    if (_pane!.currentPage != _myPageIndex) return;
+    setState(() {});
+  }
+
   /// 把本页顶栏标题 / 操作同步进 NaviPane 共享顶栏（[NaviPane.buildTop]）。
   ///
   /// 关键：不能在 [build] 阶段直接写 notifier —— 写值会同步触发监听器的
@@ -524,13 +542,16 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     }
     final sig =
         '${multiSelectMode ? 'ms' : 'n'}_${_timeFilter}_${selectedComics.length}';
-    if (_topBarSig == sig) return;
+    final stillInjected =
+        identical(pane.pageActionsNotifier.value, _injectedActions) &&
+        identical(pane.pageTitleNotifier.value, _injectedTitle);
+    if (_topBarSig == sig && stillInjected) return;
     _topBarSig = sig;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _myPageIndex == null) return;
       if (pane.currentPage != _myPageIndex) return;
       // 标题已升级为 Widget：多选态注入与共享栏样式一致的粗体文本。
-      pane.pageTitleNotifier.value = multiSelectMode
+      final title = multiSelectMode
           ? Text(
               "Selected @c comics".tlParams({'c': selectedComics.length}),
               style: TextStyle(
@@ -540,13 +561,17 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
               overflow: TextOverflow.ellipsis,
             )
           : null;
+      final actions = multiSelectMode
+          ? _multiSelectActions()
+          : _normalActions();
+      _injectedTitle = title;
+      _injectedActions = actions;
+      pane.pageTitleNotifier.value = title;
       // 顶栏操作已整体收进统一工具胶囊（_normalActions），全局
       // paneActions（布局/搜索/设置）随之隐藏，避免胶囊外再散一圈裸图标。
       // 换 tab 时 updatePage 会把该开关复位为 false，无需清理。
       pane.pageHideGlobalActionsNotifier.value = true;
-      pane.pageActionsNotifier.value = multiSelectMode
-          ? _multiSelectActions()
-          : _normalActions();
+      pane.pageActionsNotifier.value = actions;
     });
   }
 
@@ -584,7 +609,9 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         ToolsPillButton(
           icon: HugeIcons.strokeRoundedSearch02,
           tooltip: "Search".tl,
-          onPressed: () => context.to(() => const SearchPage()),
+          // 与收藏共用一个速搜浮层：搜的是「收藏 + 历史」整体，
+          // 不再只覆盖当前这一页；网络搜索在浮层底部兜底。
+          onPressed: () => showQuickSearch(context),
         ),
         ToolsPillMoreButton(
           entries: [

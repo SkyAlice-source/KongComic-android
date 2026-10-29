@@ -288,7 +288,6 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage>
           SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyState(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
               title: "No image favorites".tl,
               subtitle:
                   'Long-press a comic image to favorite it; images are saved here.'

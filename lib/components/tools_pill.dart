@@ -66,24 +66,161 @@ class ToolsPillButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final btn = IconButton(
+    // tooltip 必须交给 IconButton 自己：外层 Tooltip 的 message 只进 tooltipText
+    // 通道，读屏与 uiautomator 都拿不到 content-desc（见 navigation_bar.buildTop
+    // 的同款注释），胶囊条里的按钮会整体变成「无标签」。
+    return IconButton(
       icon: HugeIcon(icon: icon, size: size),
       color: color ?? (active ? kcBrandAdaptive(context) : cs.onSurfaceVariant),
+      tooltip: tooltip,
       constraints: const BoxConstraints(minWidth: 38, minHeight: 36),
       padding: EdgeInsets.zero,
       splashRadius: 20,
       onPressed: onPressed,
     );
-    return tooltip != null ? Tooltip(message: tooltip!, child: btn) : btn;
   }
 }
 
-/// 胶囊条内的「布局切换」按钮（根 tab 统一顶栏用）。
+/// 布局模式图标：把**当前布局本身**画成一张缩略图。
 ///
-/// 图标与 tooltip 指向**要切换到的目标布局**（与原 NaviPane.paneActions 的
-/// 行为逐项一致：detailed 列表流 ↔ brief 网格流），点击翻转全局
-/// comicDisplayMode。自管状态：点击后本地 setState 刷新图标，不依赖页面
-/// 重建 —— 否则从发现页切来时胶囊图标会残留上一页缓存的样子。
+/// 网格（brief）= 2×2 封面格；列表（detailed）= 左边封面缩略 + 右边三行信息
+/// —— 和列表页「左封面右文字」的实际排版一一对应，比抽象的四条横杠好读。
+///
+/// 为什么不用现成的两个图标换着显示：那样单图标只能表达「点完会变成什么」，
+/// 用户看不出当前是什么布局；并排两个图标（旧的双态分段）又占掉双倍宽度，
+/// 窄屏上会把共享顶栏的标题挤掉。画成缩略图则一件事说清两件事——形状即现状，
+/// 点一下即切换，tooltip 说明动作目标。
+///
+/// 切换用「淡出 + 轻缩」而不是几何形变：四块格子和「一块竖条 + 三行」的图元
+/// 对不上号，硬做位置插值中途会互相穿插（实测出现阶梯状错位，很难看）。
+class LayoutGlyphIcon extends StatelessWidget {
+  const LayoutGlyphIcon({
+    super.key,
+    required this.detailed,
+    this.size = 18,
+    this.color,
+  });
+
+  /// true = 当前是详细列表；false = 简洁网格。
+  final bool detailed;
+
+  final double size;
+
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    // 没显式给色时跟随 IconTheme —— 放进 IconButton / 顶栏动作位时能和
+    // 旁边的图标同色，不用调用方逐处传。
+    final color =
+        this.color ??
+        IconTheme.of(context).color ??
+        Theme.of(context).colorScheme.onSurfaceVariant;
+    final glyph = SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _LayoutGlyphPainter(detailed: detailed, color: color),
+      ),
+    );
+    // 减弱动效时直接换图，不做过渡。
+    if (kcReduceMotion(context)) return glyph;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.86, end: 1).animate(anim),
+          child: child,
+        ),
+      ),
+      // 两个形态尺寸相同，AnimatedSwitcher 的默认 Stack 不会引起跳动。
+      child: KeyedSubtree(key: ValueKey<bool>(detailed), child: glyph),
+    );
+  }
+}
+
+/// [LayoutGlyphIcon] 的画法。
+///
+/// 几何一律按**视觉边界**给参数：描边居中于路径、会向外溢出半个线宽，
+/// 所以每个矩形都先扣掉 stroke，外轮廓才正好落在 size 的正方形里。
+class _LayoutGlyphPainter extends CustomPainter {
+  const _LayoutGlyphPainter({required this.detailed, required this.color});
+
+  final bool detailed;
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = math.min(size.width, size.height);
+    final stroke = s * 0.085;
+    // 原点向内移半个线宽，描边外溢后视觉外轮廓正好等于 s。
+    final ox = (size.width - s) / 2 + stroke / 2;
+    final oy = (size.height - s) / 2 + stroke / 2;
+
+    final rects = <Rect>[];
+    final radii = <double>[];
+
+    if (detailed) {
+      // 左边封面缩略（占宽 0.38s），右边三行信息。
+      final coverW = s * 0.38;
+      rects.add(Rect.fromLTWH(0, 0, coverW - stroke, s - stroke));
+      radii.add(math.max(s * 0.10 - stroke / 2, 0));
+      final lineH = s * 0.115 - stroke;
+      for (final top in const [0.1225, 0.4425, 0.7625]) {
+        rects.add(Rect.fromLTWH(s * 0.52, s * top, s * 0.48 - stroke, lineH));
+        radii.add(lineH / 2);
+      }
+    } else {
+      // 2×2 封面格。
+      final gapVis = s * 0.16;
+      final cellVis = (s - gapVis) / 2;
+      final cell = cellVis - stroke;
+      final gap = gapVis + stroke;
+      final r = math.max(cellVis * 0.26 - stroke / 2, 0.0);
+      for (var i = 0; i < 4; i++) {
+        rects.add(
+          Rect.fromLTWH(
+            (i % 2) * (cell + gap),
+            (i ~/ 2) * (cell + gap),
+            cell,
+            cell,
+          ),
+        );
+        radii.add(r);
+      }
+    }
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeJoin = StrokeJoin.round
+      ..color = color;
+
+    for (var i = 0; i < rects.length; i++) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          rects[i].shift(Offset(ox, oy)),
+          Radius.circular(radii[i]),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LayoutGlyphPainter oldDelegate) =>
+      oldDelegate.detailed != detailed || oldDelegate.color != color;
+}
+
+/// 胶囊条内的「布局切换」按钮（收藏 / 历史等列表页共用）。
+///
+/// 单图标，形态即当前布局（见 [LayoutGlyphIcon]），点击翻转全局
+/// comicDisplayMode。监听 `appdata.settings`：从别的页面（根 tab 顶栏、
+/// 设置页）改了模式，回到这里图标自动跟上，不依赖宿主页面重建。
 class ToolsPillLayoutButton extends StatefulWidget {
   const ToolsPillLayoutButton({super.key, this.size = 18});
 
@@ -93,88 +230,36 @@ class ToolsPillLayoutButton extends StatefulWidget {
   State<ToolsPillLayoutButton> createState() => _ToolsPillLayoutButtonState();
 }
 
-class _ToolsPillLayoutButtonState extends State<ToolsPillLayoutButton> {
-  bool get _detailed => appdata.settings['comicDisplayMode'] == 'detailed';
+class _ToolsPillLayoutButtonState extends State<ToolsPillLayoutButton>
+    with AutoListenMixin {
+  bool get _detailed => appdata.settings['comicDisplayMode'] != 'brief';
+
+  @override
+  void initState() {
+    super.initState();
+    listen(appdata.settings, () {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ToolsPillButton(
-      icon: _detailed
-          ? HugeIcons.strokeRoundedGridView
-          : HugeIcons.strokeRoundedListView,
+    return IconButton(
+      icon: LayoutGlyphIcon(
+        detailed: _detailed,
+        size: widget.size,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      // tooltip 描述**动作**（点完会切到哪种），图标描述**现状**。
       tooltip: _detailed ? "Switch to grid view".tl : "Switch to list view".tl,
-      size: widget.size,
+      constraints: const BoxConstraints(minWidth: 38, minHeight: 36),
+      padding: EdgeInsets.zero,
+      splashRadius: 20,
       onPressed: () {
         appdata.settings['comicDisplayMode'] = _detailed ? 'brief' : 'detailed';
         appdata.saveData();
-        setState(() {});
       },
     );
-  }
-}
-
-/// 胶囊条内的「双态分段控件」：把互斥的两种视图并排摆出来。
-///
-/// 取代原先「单图标按钮 + 图标随状态反转」的做法——那种写法只显示「点完之后会
-/// 变成什么」，用户看不出当前处于哪种布局，也容易误读成筛选/排序。分段控件把
-/// 「当前是哪个 / 还能切到哪个」同时呈现，当前项用 accent 红 + 淡红底标记。
-class ToolsPillSegment extends StatelessWidget {
-  const ToolsPillSegment({
-    super.key,
-    required this.icons,
-    required this.selectedIndex,
-    required this.onSelected,
-    this.tooltips,
-    this.size = 17,
-  });
-
-  /// 每段的 HugeIcons 常量（路径数据，不是 IconData），顺序即展示顺序。
-  final List<dynamic> icons;
-
-  final List<String>? tooltips;
-
-  final int selectedIndex;
-
-  final ValueChanged<int> onSelected;
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < icons.length; i++) _segment(context, cs, i),
-      ],
-    );
-  }
-
-  Widget _segment(BuildContext context, ColorScheme cs, int i) {
-    final selected = i == selectedIndex;
-    final btn = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: IconButton(
-        icon: HugeIcon(icon: icons[i], size: size),
-        // 选中图标走 kcBrandAdaptive（图标标记语义）：AMOLED 下 kcAccentColor
-        // 是 surfaceContainerHigh 深灰面色，当图标色会隐进淡染底里 —— 实测
-        // 分段控件选中段变成一颗「空胶囊」。
-        color: selected ? kcBrandAdaptive(context) : cs.onSurfaceVariant,
-        style: IconButton.styleFrom(
-          backgroundColor: selected
-              ? kcAccentSurface(context, alpha: 0.14)
-              : Colors.transparent,
-          minimumSize: const Size(38, 28),
-          padding: EdgeInsets.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        onPressed: () {
-          if (!selected) onSelected(i);
-        },
-      ),
-    );
-    final tip = tooltips != null && i < tooltips!.length ? tooltips![i] : null;
-    return tip == null ? btn : Tooltip(message: tip, child: btn);
   }
 }
 
@@ -186,7 +271,12 @@ class ToolsPillSegment extends StatelessWidget {
 /// `localToGlobal(Offset.zero)` 得到 (0,0)，菜单就会弹到屏幕左上角
 /// （实测过：点右侧「⋯」菜单跑到标题下方）。
 class ToolsPillMoreButton extends StatelessWidget {
-  const ToolsPillMoreButton({super.key, required this.entries, this.tooltip, this.icon});
+  const ToolsPillMoreButton({
+    super.key,
+    required this.entries,
+    this.tooltip,
+    this.icon,
+  });
 
   final List<MenuEntry> entries;
 
@@ -211,10 +301,102 @@ class ToolsPillMoreButton extends StatelessWidget {
         splashRadius: 20,
         onPressed: () {
           final rb = ctx.findRenderObject() as RenderBox;
-          showMenuX(ctx, rb.localToGlobal(Offset.zero), entries);
+          showMenuX(
+            ctx,
+            rb.localToGlobal(Offset.zero),
+            entries,
+            anchorSize: rb.size,
+          );
         },
       ),
     );
     return Tooltip(message: tooltip ?? "More".tl, child: btn);
+  }
+}
+
+/// 胶囊条内的「当前值」标签：一句话说清现在的状态，点开还是同一套菜单。
+///
+/// 排序这类「单选状态 + 点开可改」的功能，原先做成「图标 + 文字」塞进一个按钮：
+/// 两个元素挤在 36dp 高的胶囊里显得零碎，而且排序图标本身就是几根横线，跟旁边
+/// 布局图标的横线撞脸 —— 两个按钮挨着时像同一族，谁也不突出。
+///
+/// 改成纯文字 + 下拉箭头：文字即状态，箭头即「可以展开」，与左右纯图标按钮
+/// 分工明确（图标 = 动作，胶囊 = 状态）。
+class ToolsPillValueChip extends StatelessWidget {
+  const ToolsPillValueChip({
+    super.key,
+    required this.label,
+    required this.entries,
+    this.tooltip,
+  });
+
+  /// 当前值短标签（手动 / 最近 / 标题），由调用方翻译后传入。
+  final String label;
+
+  final List<MenuEntry> entries;
+
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(kcPillRadius);
+    // 左右各留 4：图标按钮是固定 38 宽、自带留白，标签是自适应宽，不加这
+    // 圈 margin 会直接贴住两侧的 1px 分隔线（实测很挤）。
+    final chip = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Builder(
+        builder: (ctx) => Material(
+          // 比胶囊底色深一档的极淡中性底：让它读起来像「标签」而不是「按钮」。
+          // 不用品牌红——红在这个设计里只代表激活/危险。
+          color: cs.onSurface.withValues(alpha: 0.055),
+          borderRadius: radius,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: () {
+              final rb = ctx.findRenderObject() as RenderBox;
+              showMenuX(
+                ctx,
+                rb.localToGlobal(Offset.zero),
+                entries,
+                anchorSize: rb.size,
+              );
+            },
+            child: Padding(
+              // 左多右少：视觉重心压在文字上，箭头只做「可展开」的提示。
+              // 垂直 5 让标签高度约 25dp —— 比 36dp 的图标按钮矮一档，读起来
+              // 是「贴在工具条里的状态」，而不是又一个按钮。
+              padding: const EdgeInsets.fromLTRB(9, 5, 4, 5),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ConstrainedBox(
+                    // 长语种（如「タイトル」）不许把胶囊撑开：超出就省略。
+                    constraints: const BoxConstraints(maxWidth: 52),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: kcCaption,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 1),
+                  HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowDown01,
+                    size: 13,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return tooltip == null ? chip : Tooltip(message: tooltip!, child: chip);
   }
 }

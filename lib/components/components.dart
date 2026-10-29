@@ -48,6 +48,7 @@ export 'package:kong_comic/design_tokens.dart';
 
 part 'glass_container.dart';
 part 'image.dart';
+part 'cover.dart';
 part 'appbar.dart';
 part 'button.dart';
 part 'consts.dart';
@@ -55,6 +56,7 @@ part 'tools_pill.dart';
 part 'flyout.dart';
 part 'layout.dart';
 part 'loading.dart';
+part 'chibi.dart';
 part 'menu.dart';
 part 'message.dart';
 part 'navigation_bar.dart';
@@ -70,36 +72,75 @@ part 'code.dart';
 
 /// 统一的友好空状态组件 —— 用于各 tab 的"无数据"展示。
 /// 与 NetworkError（红色错误图标）区分：本组件传达"这里还没有内容"而非"出错了"。
+///
+/// 默认插画是 [KcChibiIdle]：空状态和加载态共用同一只角色，形成「在爬 = 正在
+/// 载入、停着 = 没有内容」的一套语言。个别场景（塞在卡片里的窄条空态）可以
+/// 用 [illustration] 换更小的画，或用 [icon] 退回单个图标。
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
-    required this.icon,
+    this.icon,
+    this.illustration,
+    this.illustrationWidth = 144,
     required this.title,
     this.subtitle,
     this.actionLabel,
     this.onAction,
-  });
+    this.secondaryLabel,
+    this.onSecondary,
+  }) : assert(
+         icon == null || illustration == null,
+         'icon 与 illustration 只能二选一',
+       );
 
-  final Widget icon;
+  /// 单个图标的退路。不传 [illustration] 也不传它时用默认角色插画。
+  final Widget? icon;
+
+  /// 自定义插画（整块 Widget，尺寸由调用方自己决定）。
+  final Widget? illustration;
+
+  /// 默认角色插画的宽度。矮屏 / 窄卡片里可以调小到 88–96。
+  final double illustrationWidth;
+
   final String title;
   final String? subtitle;
   final String? actionLabel;
   final VoidCallback? onAction;
 
+  /// 次要动作（文字按钮）。用于「主 CTA 之外还有一个轻量入口」的场景，
+  /// 例如收藏总览空态：主按钮去发现页，次按钮新建文件夹。
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    Widget graphic;
+    if (illustration != null) {
+      graphic = illustration!;
+    } else if (icon != null) {
+      graphic = IconTheme(
+        data: IconThemeData(
+          size: 56,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+        ),
+        child: icon!,
+      );
+    } else {
+      // 默认角色插画。标题已经说明了「这里是什么都没有」，插画不需要再被
+      // 读屏念一次。
+      graphic = ExcludeSemantics(
+        child: KcChibiIdle(width: illustrationWidth),
+      );
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconTheme(
-              data: IconThemeData(size: 56, color: cs.onSurfaceVariant.withValues(alpha: 0.35)),
-              child: icon,
-            ),
-            const SizedBox(height: 20),
+            graphic,
+            const SizedBox(height: 18),
             Text(
               title,
               style: TextStyle(
@@ -127,6 +168,14 @@ class EmptyState extends StatelessWidget {
               Button.filled(
                 onPressed: () => onAction?.call(),
                 child: Text(actionLabel!),
+              ),
+            ],
+            // 次要动作：不抢主 CTA 的视觉权重，用文字按钮排在下面。
+            if (secondaryLabel != null && onSecondary != null) ...[
+              const SizedBox(height: 4),
+              Button.text(
+                onPressed: () => onSecondary?.call(),
+                child: Text(secondaryLabel!),
               ),
             ],
           ],

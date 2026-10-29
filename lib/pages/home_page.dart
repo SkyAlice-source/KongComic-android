@@ -1,13 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:kong_comic/foundation/appdata.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:kong_comic/components/components.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/consts.dart';
-import 'package:kong_comic/foundation/custom_cover.dart';
 import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/listen_mixin.dart';
@@ -115,6 +112,13 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
   Timer? _timer;
   /// 手动滑动切换后暂停自动轮播
   bool _pauseAutoPlay = false;
+
+  /// 已确认加载失败的封面（按漫画 id）。
+  ///
+  /// 轮播每 4 秒换一张，AnimatedSwitcher 会把整张卡重建一次、CoverBox 的
+  /// State 也随之销毁；不在这里记一笔，断网时会看到它一遍遍「重新加载」，
+  /// 永远等不到失败态，也就永远没有重试按钮。
+  final Set<String> _failedCovers = {};
   List<FavoriteItem> _comics = [];
   void _loadComics() {
     final allFolderNames = userFolderNames();
@@ -250,7 +254,10 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
                   borderRadius: BorderRadius.circular(kcRadius10),
                 ),
                 child: ClipRRect(borderRadius: BorderRadius.circular(kcRadius8),
-                  child: SizedBox(height: cardW * 1.4, child: _buildCover(comic)),
+                  child: SizedBox(
+                    height: cardW * 1.4,
+                    child: _buildCover(comic, decorative: true),
+                  ),
                 ),
               ),
             ),
@@ -284,35 +291,23 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     ]);
   }
 
-  Widget _buildCover(FavoriteItem comic) {
-    // 自定义封面优先
-    final sourceKey = comic.type.comicSource?.key ?? 'local';
-    final customPath = CustomCoverManager.getCustomCoverPath(sourceKey, comic.id);
-    // 用带内存缓存的 coverFileExists：build 路径上直接 existsSync 每卡片
-    // 一次磁盘 stat，滚动时批量阻塞 UI 线程（审计 C5）。
-    if (customPath != null && CustomCoverManager.coverFileExists(customPath)) {
-      return Image(
-        image: FileImage(File(customPath)),
-        fit: BoxFit.cover,
-        filterQuality: FilterQuality.high,
-        errorBuilder: (_, __, ___) => const Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 40)),
-      );
-    }
-
-    if (comic.coverPath.startsWith('http')) {
-      return CachedNetworkImage(
-        imageUrl: comic.coverPath,
-        fit: BoxFit.cover,
-        filterQuality: FilterQuality.high,
-        placeholder: (_, __) => const SizedBox(),
-        errorWidget: (_, __, ___) => const Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 40)),
-      );
-    }
-    return Image(
-      image: FileImage(File(comic.coverPath)),
-      fit: BoxFit.cover,
-      filterQuality: FilterQuality.high,
-      errorBuilder: (_, __, ___) => const Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 40)),
+  Widget _buildCover(FavoriteItem comic, {bool decorative = false}) {
+    // 走全 App 统一的封面加载链（自定义封面 > 本地漫画 > CacheManager 网络缓存），
+    // 不再用裸 CachedNetworkImage：那是第二套 HTTP 缓存，和 App 自己的
+    // CacheManager 互不复用 —— 收藏页刚下好的封面到了主页要重下一遍，
+    // 断网时主页就是一片空白（其它页面反而有图，用户会以为是主页坏了）。
+    //
+    // 占位/失败态由 CoverBox 兜住：加载中显示「书名首字」，失败给重试。
+    return CoverBox(
+      image: comicCoverImageProvider(comic),
+      // 堆叠卡只是背景装饰：不显示首字和图标，也不给重试按钮，
+      // 否则一屏会同时出现四五个「重试」，比空白还吵。
+      label: decorative ? null : comic.name,
+      showIcon: !decorative,
+      retryable: !decorative,
+      failed: _failedCovers.contains(comic.id),
+      onFailed: () => _failedCovers.add(comic.id),
+      initialFontSize: 52,
     );
   }
 }

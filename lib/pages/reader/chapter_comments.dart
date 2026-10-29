@@ -140,7 +140,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const KcPageLoading();
     } else if (_error != null) {
       return NetworkError(
         message: _error!,
@@ -801,7 +801,7 @@ class _EmbeddedChapterCommentsPageState
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const KcPageLoading();
     } else if (_error != null) {
       return NetworkError(
         message: _error!,

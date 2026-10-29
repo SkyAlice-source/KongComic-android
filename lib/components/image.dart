@@ -23,6 +23,8 @@ class AnimatedImage extends StatefulWidget {
     this.isAntiAlias = false,
     this.part,
     this.onError,
+    this.placeholder,
+    this.errorWidget,
     Map<String, String>? headers,
     int? cacheWidth,
     int? cacheHeight,
@@ -65,6 +67,14 @@ class AnimatedImage extends StatefulWidget {
   final ImagePart? part;
 
   final Function? onError;
+
+  /// 加载中显示的图层。默认 [Center]（即空白），封面类场景请传骨架占位，
+  /// 否则慢网/断网时整块卡片就是一片空白。
+  final Widget? placeholder;
+
+  /// 加载失败显示的图层。默认一颗 18px 的错误图标；封面类场景可换成
+  /// 带书名首字的占位 + 重试入口（见 [CoverBox]）。
+  final Widget? errorWidget;
 
   static void clear() => _AnimatedImageState.clear();
 
@@ -312,11 +322,12 @@ class _AnimatedImageState extends State<AnimatedImage>
     } else if (_lastException != null) {
       // 加载失败仅展示提示图标。不加 Semantics(image: true)——空标签的“图片”
       // 播报对屏幕阅读器是噪音；封面本身是装饰性的（标题文字已传达信息）。
-      result = const Center(
-        child: HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 18),
-      );
+      result = widget.errorWidget ??
+          const Center(
+            child: HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 18),
+          );
     } else {
-      result = const Center();
+      result = widget.placeholder ?? const Center();
     }
 
     return AnimatedSwitcher(
