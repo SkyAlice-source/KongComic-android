@@ -269,6 +269,16 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
           useDeviceSettings: useDeviceSpecificSettings,
         ).toSliver(),
+        _SwitchSetting(
+          title: "Auto Webtoon detection".tl,
+          settingKey: "autoDetectWebtoon",
+          onChanged: () {
+            widget.onChanged?.call("autoDetectWebtoon");
+          },
+          comicId: isEnabledSpecificSettings ? widget.comicId : null,
+          comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+          useDeviceSettings: useDeviceSpecificSettings,
+        ).toSliver(),
         _SliderSetting(
           title: "Auto page turning interval".tl,
           settingsIndex: "autoPageTurningInterval",
@@ -642,7 +652,9 @@ class __CustomImageProcessingState extends State<_CustomImageProcessing> {
             child: Container(
               margin: EdgeInsets.all(kcSpaceSm),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(kcRadius4),
+                // 与设置页输入框同圆角：4dp 的方角编辑框在满屏圆角里像一块
+                // 遗留的旧控件，这里对齐到 kcRadius10。
+                borderRadius: BorderRadius.circular(kcRadius10),
                 border: Border.all(color: context.colorScheme.outlineVariant),
               ),
               child: SizedBox.expand(

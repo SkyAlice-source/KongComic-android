@@ -1129,36 +1129,9 @@ class _BodyState extends State<_Body> with AutoListenMixin {
             ),
             const SizedBox(height: 10),
             TextField(
-              decoration: InputDecoration(
+              decoration: kcInputDecoration(
+                context,
                 hintText: "URL".tl,
-                hintStyle: TextStyle(
-                  fontSize: kcBody,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                ),
-                isDense: true,
-                filled: true,
-                fillColor: cs.surfaceContainerHigh,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
-                ),
-                // 圆角实心输入框：和下排按钮、卡片同属「圆角矩形」语汇，
-                // 不再是全站唯一一条 Material 下划线。
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(kcRadius10),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(kcRadius10),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(kcRadius10),
-                  borderSide: BorderSide(
-                    color: kcAccentColor(context),
-                    width: 1.2,
-                  ),
-                ),
                 suffixIconConstraints: const BoxConstraints(
                   minWidth: 40,
                   minHeight: 40,
@@ -2580,9 +2553,9 @@ class _LoginPageState extends State<_LoginPage> {
                 const SizedBox(height: 32),
                 if (widget.config.cookieFields == null)
                   TextField(
-                    decoration: InputDecoration(
+                    decoration: kcInputDecoration(
+                      context,
                       labelText: "Username".tl,
-                      border: const OutlineInputBorder(),
                     ),
                     enabled: widget.config.login != null,
                     onChanged: (s) {
@@ -2592,9 +2565,9 @@ class _LoginPageState extends State<_LoginPage> {
                   ).paddingBottom(16),
                 if (widget.config.cookieFields == null)
                   TextField(
-                    decoration: InputDecoration(
+                    decoration: kcInputDecoration(
+                      context,
                       labelText: "Password".tl,
-                      border: const OutlineInputBorder(),
                     ),
                     obscureText: true,
                     enabled: widget.config.login != null,
@@ -2606,9 +2579,9 @@ class _LoginPageState extends State<_LoginPage> {
                   ).paddingBottom(16),
                 for (var field in widget.config.cookieFields ?? <String>[])
                   TextField(
-                    decoration: InputDecoration(
+                    decoration: kcInputDecoration(
+                      context,
                       labelText: field,
-                      border: const OutlineInputBorder(),
                     ),
                     obscureText: true,
                     enabled: widget.config.validateCookies != null,

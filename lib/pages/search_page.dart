@@ -425,12 +425,14 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
     }
   }
 
-  /// 源选择：单行横向滚动的填充胶囊。
+  /// 源选择：铺开成两三排的填充胶囊。
   ///
-  /// 这里是「未对齐」观感的主要来源：源一多就 Wrap 成两三行，右边还挂着一颗
-  /// 齿轮，齿轮既不跟任何一边对齐、又只有半行高，看起来像掉在角落的零件。
-  /// 现在改成一行滚动条 + 齿轮上提到顶栏（和设置页的搜索图标同位置），
-  /// 源再多也只有一行高，内容区不会再被推下去。
+  /// 过去是一行横向滚动 + 右侧 24dp 渐隐：源一多就得往左滑，滑到哪都数不清
+  /// 还有几个，「选搜索源」这种需要一眼总览的动作反而要试探。改成 Wrap 自动
+  /// 换行后，常见 3~8 个源全部一屏可见，不滑、也不会被边缘硬切一半。
+  ///
+  /// 高度上限 140dp（约 4 行）：源多到离谱时不会把下面的搜索历史/检索选项
+  /// 挤没，超出部分在胶囊区内部滚动，整页滚动位置不跟着跳。
   Widget _buildSourceRow() {
     final sources = searchSources.map((e) => ComicSource.find(e)!).toList();
     final allSelected = _selectedSources.length == searchSources.length;
@@ -470,41 +472,15 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
         );
       }),
     ];
-    return SizedBox(
-      height: 32,
-      child: Stack(
-        children: [
-          ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: _gutter),
-            itemCount: chips.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
-            itemBuilder: (_, i) => chips[i],
-          ),
-          // 右侧 24dp 渐隐：源多到装不下时，最后一个胶囊会在边缘被硬切一半，
-          // 看着像排版出错；压一层同底色的透明渐变，切口变成「还有更多、可以
-          // 往左滑」的提示。胶囊放得下时渐变盖在纯底色上，等于不可见。
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: 24,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(
-                        context,
-                      ).colorScheme.surface.withValues(alpha: 0),
-                      Theme.of(context).colorScheme.surface,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 140),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: _gutter),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: chips,
+        ),
       ),
     );
   }
@@ -915,32 +891,29 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
                       ),
                     ),
                   ),
-                GestureDetector(
-                  onTap: () {
-                    if (!hasText) {
-                      focusNode.requestFocus();
-                      return;
-                    }
-                    suggestions.clear();
-                    search(_searchTextController.text);
-                  },
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 12, 14, 12),
-                    child: Text(
-                      "Search".tl,
-                      style: TextStyle(
-                        fontSize: kcBody,
-                        fontWeight: FontWeight.w600,
-                        // 没字时压成灰字：一眼能看出「现在还搜不了」，
-                        // 又不像禁用按钮那样发白、刺眼。
-                        color: hasText
-                            ? kcBrandAdaptive(context)
-                            : cs.onSurfaceVariant.withValues(alpha: 0.45),
+                if (hasText)
+                  // 提交键**只在有字时出现**。空态右侧那颗灰「搜索」既点不动、
+                  // 又和左侧 hint「搜索漫画、作者或链接」重复出现同一个词，
+                  // 读起来像多贴了一个标签；有字时才让它亮成品牌色，语义就
+                  // 变成明确的「按这里开始搜」。
+                  GestureDetector(
+                    onTap: () {
+                      suggestions.clear();
+                      search(_searchTextController.text);
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 12, 14, 12),
+                      child: Text(
+                        "Search".tl,
+                        style: TextStyle(
+                          fontSize: kcBody,
+                          fontWeight: FontWeight.w600,
+                          color: kcBrandAdaptive(context),
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           );

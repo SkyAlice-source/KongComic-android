@@ -56,6 +56,7 @@ const List<_SettingSearchEntry> _kSettingSearchIndex = [
   _SettingSearchEntry("Tap Zone Layout", 0),
   _SettingSearchEntry("Page animation", 0),
   _SettingSearchEntry("Reading mode", 0),
+  _SettingSearchEntry("Auto Webtoon detection", 0),
   _SettingSearchEntry("Auto page turning interval", 0),
   _SettingSearchEntry("Show single image on first page", 0),
   _SettingSearchEntry("Long press zoom position", 0),

@@ -15,7 +15,8 @@ Future<void> newFolder() async {
               children: [
                 TextField(
                   controller: controller,
-                  decoration: InputDecoration(
+                  decoration: kcInputDecoration(
+                    context,
                     hintText: "Folder Name".tl,
                     errorText: error,
                   ),

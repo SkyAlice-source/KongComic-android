@@ -258,6 +258,10 @@ class Settings with ChangeNotifier {
     // higher importance once (v1.3.4 shipped it as IMPORTANCE_LOW).
     'downloadChannelReset': false,
     'preloadImageCount': 4,
+    // 自动条漫（Webtoon）识别：抽样首几页，长图占多数时自动切竖向连续模式。
+    // 必须进默认值表 —— 阅读器里用 `?? true` 读，但设置页开关走
+    // `bool v = settings[key]` 会因 null 崩（v1.5.0 的坑）。
+    'autoDetectWebtoon': true,
     'followUpdatesFolders':
         <
           String

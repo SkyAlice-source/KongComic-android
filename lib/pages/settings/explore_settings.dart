@@ -160,9 +160,9 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
               title: "Add keyword".tl,
               content: TextField(
                 controller: controller,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  label: Text("Keyword".tl),
+                decoration: kcInputDecoration(
+                  context,
+                  labelText: "Keyword".tl,
                   errorText: error,
                 ),
                 onChanged: (s) {
@@ -319,9 +319,9 @@ class _ManageBlockingCommentWordViewState
               title: "Add keyword".tl,
               content: TextField(
                 controller: controller,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  label: Text("Keyword".tl),
+                decoration: kcInputDecoration(
+                  context,
+                  labelText: "Keyword".tl,
                   errorText: error,
                 ),
                 onChanged: (s) {

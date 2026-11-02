@@ -170,9 +170,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
               child: TextField(
                 controller: nameController,
                 autofocus: true,
-                decoration: InputDecoration(
+                decoration: kcInputDecoration(
+                  dialogContext,
                   labelText: "Name".tl,
-                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
@@ -180,10 +180,10 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: TextField(
                 controller: urlController,
-                decoration: InputDecoration(
+                decoration: kcInputDecoration(
+                  dialogContext,
                   labelText: "URL".tl,
                   hintText: "https://.../index.json",
-                  border: const OutlineInputBorder(),
                 ),
               ),
             ),

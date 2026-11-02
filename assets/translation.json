@@ -271,6 +271,7 @@
     "Tap to turn Pages": "点击翻页",
     "Page animation": "页面动画",
     "Reading mode": "阅读模式",
+    "Auto Webtoon detection": "自动识别条漫",
     "Gallery (Left to Right)": "画廊（从左到右）",
     "Gallery (Right to Left)": "画廊（从右到左）",
     "Gallery (Top to Bottom)": "画廊（从上到下）",
@@ -990,7 +991,12 @@
     "Search \"@k\" on the web": "在网络上搜索「@k」",
     "Try different keywords": "换个关键词试试",
     "Works offline": "支持离线",
-    "Search comics, authors or links": "搜索漫画、作者或链接"
+    "Search comics, authors or links": "搜索漫画、作者或链接",
+    "Move the files into the new folder to keep using it, or switch back to the original one.": "想把文件留在新文件夹继续用，就点「移动到这里」；也可以切回原来的文件夹。",
+    "Move here": "移动到这里",
+    "Move files here?": "移动到这里？",
+    "Files in @old will be copied to @new, then the old folder will be emptied.": "将把 @old 里的文件复制到 @new，完成后清空原来的文件夹。",
+    "Files moved": "文件已移动"
   },
   "zh_TW": {
     "Previous page": "上一頁",
@@ -1264,6 +1270,7 @@
     "Tap to turn Pages": "點擊翻頁",
     "Page animation": "頁面動畫",
     "Reading mode": "閱讀模式",
+    "Auto Webtoon detection": "自動辨識條漫",
     "Gallery (Left to Right)": "畫廊（從左到右）",
     "Gallery (Right to Left)": "畫廊（從右到左）",
     "Gallery (Top to Bottom)": "畫廊（從上到下）",
@@ -1983,7 +1990,12 @@
     "Search \"@k\" on the web": "在網路上搜尋「@k」",
     "Try different keywords": "換個關鍵字試試",
     "Works offline": "支援離線",
-    "Search comics, authors or links": "搜尋漫畫、作者或連結"
+    "Search comics, authors or links": "搜尋漫畫、作者或連結",
+    "Move the files into the new folder to keep using it, or switch back to the original one.": "想把檔案留在新資料夾繼續用，就點「移動到這裡」；也可以切回原本的資料夾。",
+    "Move here": "移動到這裡",
+    "Move files here?": "移動到這裡？",
+    "Files in @old will be copied to @new, then the old folder will be emptied.": "將把 @old 裡的檔案複製到 @new，完成後清空原本的資料夾。",
+    "Files moved": "檔案已移動"
   },
   "ja_JP": {
     "Previous page": "前のページ",
@@ -2254,6 +2266,7 @@
     "Tap to turn Pages": "タップでページをめくる",
     "Page animation": "ページアニメーション",
     "Reading mode": "閲覧モード",
+    "Auto Webtoon detection": "ウェブトゥーン自動判別",
     "Gallery (Left to Right)": "ギャラリー（左から右）",
     "Gallery (Right to Left)": "ギャラリー（右から左）",
     "Gallery (Top to Bottom)": "ギャラリー（上から下）",
@@ -2976,6 +2989,11 @@
     "Search \"@k\" on the web": "「@k」をウェブで検索",
     "Try different keywords": "別のキーワードをお試しください",
     "Works offline": "オフラインでも使えます",
-    "Search comics, authors or links": "漫画・作者・リンクを検索"
+    "Search comics, authors or links": "漫画・作者・リンクを検索",
+    "Move the files into the new folder to keep using it, or switch back to the original one.": "新しいフォルダーを使い続けるには「ここに移動」、元に戻すには「元のフォルダーを使う」を押してください。",
+    "Move here": "ここに移動",
+    "Move files here?": "ここに移動しますか？",
+    "Files in @old will be copied to @new, then the old folder will be emptied.": "@old 内のファイルを @new にコピーし、完了後に元のフォルダーを空にします。",
+    "Files moved": "ファイルを移動しました"
   }
 }

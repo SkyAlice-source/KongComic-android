@@ -79,6 +79,14 @@ const double kcCardRadius = 12; // 漫画卡 / 英雄卡 外圆角
 const double kcCardInnerRadius = 10; // 卡内裁剪圆角
 const double kcPillRadius = 999; // 胶囊 / 底栏激活态
 
+/// 输入框圆角（唯一的输入框圆角来源）。
+///
+/// 比卡片（[kcCardRadius] 12）再圆 4dp：输入框高度只有 48dp 左右，同样的
+/// 圆角值在小控件上看起来会更「方」；16 让它在视觉圆润度和卡片的 12 对齐，
+/// 同时贴近 Material 3 Expressive 的「大圆角」手感，但还没到胶囊（999）。
+/// 设置页、漫画源、仓库页、各类输入弹窗全部走这一个值。
+const double kcFieldRadius = 16;
+
 // ── 字号阶梯（对齐用户习惯，杜绝 18/20 混用）─────────────
 const double kcTitleMain = 20; // 全局根页主标题（粗体）
 /// 顶栏标题（自绘 Appbar / SliverAppbar / 阅读器里的系统 AppBar）。
@@ -334,3 +342,109 @@ class KcSpring extends Curve {
 
 /// 统一弹簧曲线实例：选中态 / 页面切换复用，避免各处重复构造。
 const kcSpring = KcSpring();
+
+// ── 输入框外观 ──────────────────────────────────────────
+/// 输入框常态描边的「发丝线」：浅色 90%、深色 55% 的 outlineVariant。
+///
+/// 必须留这一条线：输入框既出现在页面底色上，也出现在对话框里，而对话框
+/// 底色（surfaceContainerHigh）与填充色只差一档，没描边时整块框会「消失」，
+/// 只剩一行飘着的标签。
+BorderSide kcInputHairline(ColorScheme scheme, bool isDark) => BorderSide(
+      color: scheme.outlineVariant.withValues(alpha: isDark ? 0.55 : 0.9),
+      width: 0.8,
+    );
+
+/// [kcFieldRadius] 圆角的输入框边框。
+OutlineInputBorder kcInputBorder(BorderSide side) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(kcFieldRadius),
+      borderSide: side,
+    );
+
+/// 输入框四态边框（圆角 + 描边）的**唯一来源**。
+///
+/// [kcInputDecoration] 从这里取四态，所以改圆润度只需要改 [kcFieldRadius]
+/// 一个值 —— 不会再出现「设置页 10dp、漫画源 10dp、登录页 4dp 直角」这种
+/// 一屏三套圆角的情况。
+///
+/// ⚠️ 不要把它整个挂到 `ThemeData.inputDecorationTheme` 上：行内输入
+/// （搜索框、评论区、代理 Host/Port、DNS 覆盖…）靠显式写
+/// `border: InputBorder.none` 表示「不要边框」，而 `InputDecorator` 在
+/// `enabledBorder` 为空时会回落到 **theme** 的 `enabledBorder` —— 一旦全局
+/// 给了它，这些输入框会平白多出一圈圆角描边、聚焦时还冒出强调色边。
+/// 全局主题只给 [kcInputDefaultBorder]（仅 `border` 一项），见 `main.dart`。
+InputDecorationTheme kcInputThemeData({
+  required ColorScheme scheme,
+  required bool isDark,
+  required Color accent,
+}) {
+  final hairline = kcInputHairline(scheme, isDark);
+  return InputDecorationTheme(
+    border: kcInputBorder(hairline),
+    enabledBorder: kcInputBorder(hairline),
+    focusedBorder: kcInputBorder(BorderSide(color: accent, width: 1.2)),
+    errorBorder: kcInputBorder(BorderSide(color: scheme.error, width: 1)),
+    focusedErrorBorder:
+        kcInputBorder(BorderSide(color: scheme.error, width: 1.2)),
+  );
+}
+
+/// 挂在全局 `inputDecorationTheme` 上的**最小**默认：只有一条圆角发丝边框。
+///
+/// 只设 `border`、不设 `enabledBorder` / `focusedBorder`，原因见
+/// [kcInputThemeData] 的警告。它的作用只是兜底：将来有人写了不指定边框的
+/// 输入框，也自动是圆角而不是 Material 下划线。
+InputDecorationTheme kcInputDefaultBorder({
+  required ColorScheme scheme,
+  required bool isDark,
+}) {
+  return InputDecorationTheme(
+    border: kcInputBorder(kcInputHairline(scheme, isDark)),
+  );
+}
+
+/// 全站统一的输入框装饰：**实心淡面 + [kcFieldRadius] 圆角 + 一圈发丝描边**，
+/// 聚焦时描边换成强调色。
+///
+/// 设置页（WebDAV、关键词屏蔽弹窗）、漫画源登录、源仓库、新建收藏夹等「看得见
+/// 边框」的输入框统一走这里；行内输入（设置行里铺满一行、刻意不要边框的那种，
+/// 例如代理 Host / Port、DNS 覆盖）仍显式写 `border: InputBorder.none`，
+/// 不要套这个装饰，否则会在行里多出一块灰色浮岛。
+InputDecoration kcInputDecoration(
+  BuildContext context, {
+  String? labelText,
+  String? hintText,
+  Widget? suffixIcon,
+  BoxConstraints? suffixIconConstraints,
+  String? errorText,
+  bool isDense = true,
+  EdgeInsetsGeometry? contentPadding,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  final theme = kcInputThemeData(
+    scheme: cs,
+    isDark: Theme.of(context).brightness == Brightness.dark,
+    accent: kcAccentColor(context),
+  );
+
+  return InputDecoration(
+    labelText: labelText,
+    hintText: hintText,
+    hintStyle: TextStyle(
+      fontSize: kcBody,
+      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+    ),
+    suffixIcon: suffixIcon,
+    suffixIconConstraints: suffixIconConstraints,
+    errorText: errorText,
+    isDense: isDense,
+    filled: true,
+    fillColor: cs.surfaceContainerHighest,
+    contentPadding:
+        contentPadding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    border: theme.border,
+    enabledBorder: theme.enabledBorder,
+    focusedBorder: theme.focusedBorder,
+    errorBorder: theme.errorBorder,
+    focusedErrorBorder: theme.focusedErrorBorder,
+  );
+}

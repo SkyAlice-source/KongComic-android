@@ -189,6 +189,118 @@ class _ReaderImagesState extends State<_ReaderImages> {
     return true;
   }
 
+  /// 自动条漫（Webtoon）识别入口：图片列表就绪后调用。幂等，同一章节只探测
+  /// 一次 —— build 会在滚动、缩放等时机反复调用。
+  ///
+  /// 判据：国漫条漫单页通常远高于宽（高宽比 ≥ 2）。抽样前 3 张原始尺寸，
+  /// 过半为长条就切竖向连续模式。只从**图集模式**切走：连续模式已经是用户
+  /// 选好的滚动方向，图集模式虽也是分页，但把它当成默认入口来接管。
+  void _maybeAutoDetectWebtoon() {
+    final r = reader;
+    final images = r.images;
+    if (images == null || images.length < 2) return;
+    if (r._autoWebtoonProbedChapter == r.chapter) return;
+    if (!r.mode.isGallery) {
+      // 已经是连续模式，没什么可切的；标记一下省掉后续判断。
+      r._autoWebtoonProbedChapter = r.chapter;
+      return;
+    }
+    final enabled =
+        appdata.settings.getReaderSetting(
+          r.cid,
+          r.type.sourceKey,
+          'autoDetectWebtoon',
+        ) ??
+        true;
+    if (!enabled) {
+      r._autoWebtoonProbedChapter = r.chapter;
+      return;
+    }
+    // 先占位：探测要等图片解码，期间 build 会重复进入本方法。
+    r._autoWebtoonProbedChapter = r.chapter;
+    final cached = _ReaderState._autoWebtoonCache[r.cid];
+    if (cached == true) {
+      // 这本漫画本进程内已判定为条漫，不必再抽样。
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || reader.mode.isContinuous) return;
+        setState(() {
+          reader.mode = ReaderMode.continuousTopToBottom;
+        });
+        context.readerScaffold.update();
+      });
+      return;
+    }
+    if (cached == false) return;
+    _probeWebtoon();
+  }
+
+  /// 抽样前几张图，判定是否为长条漫画并落到进程内缓存。
+  Future<void> _probeWebtoon() async {
+    final r = reader;
+    final images = r.images;
+    if (images == null || images.isEmpty) return;
+    final sample = math.min(3, images.length);
+    final ratios = <double>[];
+    for (var i = 0; i < sample; i++) {
+      final ratio = await _probeImageAspect(i + 1);
+      if (!mounted) return;
+      if (ratio != null) ratios.add(ratio);
+    }
+    if (ratios.isEmpty) return;
+    final isWebtoon = looksLikeWebtoon(ratios);
+    _ReaderState._autoWebtoonCache[r.cid] = isWebtoon;
+    if (!isWebtoon || !mounted) return;
+    if (reader.mode == ReaderMode.continuousTopToBottom) return;
+    setState(() {
+      reader.mode = ReaderMode.continuousTopToBottom;
+    });
+    context.readerScaffold.update();
+  }
+
+  /// 读取单页图片的原始高宽比。
+  ///
+  /// 必须复用渲染用的 [ReaderImageProvider]：源站普遍校验 Referer，
+  /// 用裸 HTTP 探测只会拿到 403。`enableResize: false` 取原始尺寸。
+  Future<double?> _probeImageAspect(int page) {
+    final r = reader;
+    final images = r.images;
+    if (images == null || page < 1 || page > images.length) {
+      return Future<double?>.value();
+    }
+    final provider = ReaderImageProvider(
+      images[page - 1],
+      r.type.comicSource?.key,
+      r.cid,
+      r.eid,
+      r.page,
+      enableResize: false,
+    );
+    final completer = Completer<double?>();
+    final stream = provider.resolve(ImageConfiguration.empty);
+    late ImageStreamListener listener;
+    void finish(double? value) {
+      if (completer.isCompleted) return;
+      stream.removeListener(listener);
+      completer.complete(value);
+    }
+
+    listener = ImageStreamListener(
+      (info, _) {
+        final width = info.image.width;
+        finish(width <= 0 ? null : info.image.height / width);
+      },
+      onError: (_, __) => finish(null),
+    );
+    stream.addListener(listener);
+    return completer.future.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {
+        finish(null);
+        return null;
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (reader.isLoading) {
@@ -213,6 +325,7 @@ class _ReaderImagesState extends State<_ReaderImages> {
         ),
       );
     } else {
+      _maybeAutoDetectWebtoon();
       if (reader.mode.isGallery) {
         var showComments =
             appdata.settings.getReaderSetting(
@@ -1704,6 +1817,20 @@ class _ContinuousModeState extends State<_ContinuousMode>
     }
     return imageKey;
   }
+}
+
+/// 判定一张（组）图片是否呈条漫特征：高宽比 ≥ 2 视作长条。
+///
+/// 抽成纯函数只为可测 —— 阈值是主观的，但「过半」这条边界必须稳定，
+/// 否则同一本漫画可能这章进条漫模式、下章又跳回分页。
+bool looksLikeWebtoon(List<double> aspectRatios) {
+  if (aspectRatios.isEmpty) return false;
+  var tall = 0;
+  for (final ratio in aspectRatios) {
+    if (ratio >= 2.0) tall++;
+  }
+  // 过半（含恰好一半）即认定条漫。
+  return tall * 2 >= aspectRatios.length;
 }
 
 ImageProvider _createImageProviderFromKey(

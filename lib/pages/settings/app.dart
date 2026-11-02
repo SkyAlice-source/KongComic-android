@@ -606,6 +606,47 @@ class _StoragePathFallbackBannerState
     });
   }
 
+  /// 「移动到这里」：把原文件夹的内容搬进当前存储路径。
+  ///
+  /// 会清空原文件夹，属于不可逆操作（复制成功后才清），所以先弹一次确认，
+  /// 把「从哪搬到哪」写清楚 —— 提示条上只给了路径，没有明确说搬完旧的就没了。
+  void _adoptOriginalFiles() {
+    if (_busy) return;
+    final pending = LocalManager().pendingPathFallback;
+    if (pending == null) return;
+    showConfirmDialog(
+      context: context,
+      title: "Move files here?".tl,
+      content: "Files in @old will be copied to @new, then the old folder will be emptied."
+          .tlParams({
+        'old': pending.originalPath,
+        'new': LocalManager().path,
+      }),
+      confirmText: "Move here",
+      onConfirm: _doAdopt,
+    );
+  }
+
+  Future<void> _doAdopt() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    String? res;
+    try {
+      res = await LocalManager().adoptOriginalFiles();
+    } catch (e, s) {
+      Log.error("Local", "Failed to move files into storage path: $e", s);
+      res = e.toString();
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res != null) {
+      context.showMessage(message: res);
+      return;
+    }
+    context.showMessage(message: "Files moved".tl);
+    widget.onResolved();
+  }
+
   void _startPick() {
     _pickFolder();
   }
@@ -638,7 +679,9 @@ class _StoragePathFallbackBannerState
       padding: const EdgeInsets.all(kcSpaceSm),
       decoration: BoxDecoration(
         color: colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(kcRadius8),
+        // 与设置页其它卡片同档圆角：8dp 在这张「一屏里最显眼的红卡片」上
+        // 会显得方，和 16dp 的输入框、12dp 的卡片都不搭。
+        borderRadius: BorderRadius.circular(kcCardRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -673,20 +716,37 @@ class _StoragePathFallbackBannerState
               color: colorScheme.onErrorContainer,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            fallback.originalPath,
-            style: TextStyle(
-              fontSize: kcCaption,
-              color: colorScheme.onErrorContainer,
-              fontFamily: "monospace",
+          // 原路径为空（记录损坏 / 早期的异常数据）时不展示：一行空白既没信息量，
+          // 又会让人以为「路径就是空的」，下面的「找回」按钮同样无从下手。
+          if (fallback.originalPath.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              fallback.originalPath,
+              style: TextStyle(
+                fontSize: kcCaption,
+                color: colorScheme.onErrorContainer,
+                fontFamily: "monospace",
+              ),
             ),
-          ),
+            const SizedBox(height: 6),
+            // 「接下来该怎么办」——过去只有三个按钮，每个都跟「文件夹」有关，
+            // 用户看完并不知道点哪个才能把书找回来。这里先用一句话把两条路径
+            // 摊开，再由下面的按钮各自对应。
+            Text(
+              "Move the files into the new folder to keep using it, or switch back to the original one."
+                  .tl,
+              style: TextStyle(
+                fontSize: kcCaption,
+                color: colorScheme.onErrorContainer,
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
-          // 三个按钮在 448dp 宽的手机屏上排成一行会溢出约 15px
+          // 四个按钮在 448dp 宽的手机屏上排成一行会溢出约 15px
           // （"Choose a different folder" 太长），用 Wrap 让它们按需换行。
           Wrap(
             alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 4,
             children: [
               Button.text(
@@ -697,11 +757,21 @@ class _StoragePathFallbackBannerState
                 onPressed: _startPick,
                 child: Text("Choose a different folder".tl),
               ),
-              Button.filled(
-                isLoading: _busy,
-                onPressed: () => _switchTo(fallback.originalPath),
-                child: Text("Use original folder".tl),
-              ),
+              // 两个「回到原路径」的动作只在原路径有效时才有意义。
+              if (fallback.originalPath.isNotEmpty) ...[
+                Button.outlined(
+                  isLoading: _busy,
+                  onPressed: () => _switchTo(fallback.originalPath),
+                  child: Text("Use original folder".tl),
+                ),
+                // 主操作：真正把旧文件搬进当前路径。之前这条需求缺入口 —— 想
+                // 「留在新路径」只能先切回原目录、再重新选一次目录绕一圈。
+                Button.filled(
+                  isLoading: _busy,
+                  onPressed: _adoptOriginalFiles,
+                  child: Text("Move here".tl),
+                ),
+              ],
             ],
           ),
         ],
@@ -944,39 +1014,38 @@ class _WebdavSettingState extends State<_WebdavSetting> {
           children: [
             const SizedBox(height: 12),
             TextField(
-              decoration: InputDecoration(
+              decoration: kcInputDecoration(
+                context,
                 labelText: "URL".tl,
                 hintText: "A valid WebDav directory URL".tl,
-                border: OutlineInputBorder(),
               ),
               controller: _urlController,
               onChanged: (value) => url = value,
             ),
             const SizedBox(height: 12),
             TextField(
-              decoration: InputDecoration(
+              decoration: kcInputDecoration(
+                context,
                 labelText: "Username".tl,
-                border: const OutlineInputBorder(),
               ),
               controller: _userController,
               onChanged: (value) => user = value,
             ),
             const SizedBox(height: 12),
             TextField(
-              decoration: InputDecoration(
+              decoration: kcInputDecoration(
+                context,
                 labelText: "Password".tl,
-                border: const OutlineInputBorder(),
               ),
               controller: _passController,
               onChanged: (value) => pass = value,
             ),
             const SizedBox(height: 12),
             TextField(
-              decoration: InputDecoration(
+              decoration: kcInputDecoration(
+                context,
                 labelText: "Skip Setting Fields (Optional)".tl,
                 hintText: "field0, field1, field2, ...",
-                hintStyle: TextStyle(color: Theme.of(context).hintColor),
-                border: OutlineInputBorder(),
                 suffixIcon: IconButton(
                   tooltip: "Help".tl,
                   icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),

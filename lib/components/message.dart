@@ -797,9 +797,9 @@ Future<void> showInputDialog({
                   ).paddingBottom(8),
                 TextField(
                   controller: controller,
-                  decoration: InputDecoration(
+                  decoration: kcInputDecoration(
+                    context,
                     hintText: hintText,
-                    border: const OutlineInputBorder(),
                     errorText: error,
                   ),
                 ).paddingHorizontal(12),
@@ -993,10 +993,9 @@ Future<ImageSaveChoice?> showImageSaveDialog(
                 maxLines: 2,
                 minLines: 1,
                 onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
+                decoration: kcInputDecoration(
+                  context,
                   labelText: "File name".tl,
-                  border: const OutlineInputBorder(),
-                  isDense: true,
                 ),
               ),
               const SizedBox(height: kcSpace6),

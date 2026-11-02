@@ -14,6 +14,7 @@ import 'package:kong_comic/foundation/favorites.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
+import 'package:kong_comic/utils/dir_copy.dart';
 import 'package:kong_comic/utils/io.dart';
 import 'package:kong_comic/utils/translations.dart';
 import 'package:path/path.dart' as p;
@@ -461,7 +462,10 @@ class LocalManager with ChangeNotifier {
   }) async {
     final oldRoot = directory.path;
     try {
-      await _copyWithStrategy(directory, newDir, overwrite: overwrite);
+      final copied =
+          await _copyWithStrategy(directory, newDir, overwrite: overwrite);
+      // 下一步就是清空旧目录：必须先确认文件真的落到新目录了。
+      await _verifyCopy(directory, newDir, copied);
     } catch (e, s) {
       Log.error("IO", "Failed to move comics: $e", s);
       // 复制失败：旧目录数据完好，恢复下载任务继续写旧目录。
@@ -523,12 +527,18 @@ class LocalManager with ChangeNotifier {
     }
   }
 
-  Future<void> _copyWithStrategy(
+  /// 纯 dart:io 的递归复制见 [copyDirectoryContentsSync]。
+  ///
+  /// 返回**实际写进目标**的文件数。调用方（迁移 / 收拢旧目录）必须拿它做校验：
+  /// 兼容层在写不进去时曾静默跳过，只看「有没有抛异常」会把假迁移当成功，
+  /// 紧接着清空源目录 → 数据真丢。
+  Future<int> _copyWithStrategy(
     Directory source,
     Directory destination, {
     required bool overwrite,
   }) async {
-    await Isolate.run(() {
+    return await Isolate.run(() {
+      var copied = 0;
       overrideIO(() {
         void walk(Directory src, Directory dst) {
           for (final entity in src.listSync(recursive: false)) {
@@ -557,10 +567,18 @@ class LocalManager with ChangeNotifier {
                   parent?.createSync(recursive: true);
                   return AndroidFile.fromPathSync(target.path);
                 })();
-                safFile?.writeAsBytesSync(entity.readAsBytesSync());
+                if (safFile == null) {
+                  // 绝不能静默跳过：调用方（迁移 / 收拢外部漫画）把「没抛异常」
+                  // 当作复制成功，随后会清空旧目录 —— 文件就真没了。
+                  throw FileSystemException(
+                      "Cannot create file in the selected folder",
+                      target.path);
+                }
+                safFile.writeAsBytesSync(entity.readAsBytesSync());
               } else {
                 entity.copySync(target.path);
               }
+              copied++;
             } else if (entity is Directory) {
               if (!target.existsSync()) {
                 target.createSync(recursive: true);
@@ -571,6 +589,7 @@ class LocalManager with ChangeNotifier {
         }
         walk(source, destination);
       });
+      return copied;
     });
   }
 
@@ -681,7 +700,10 @@ class LocalManager with ChangeNotifier {
         used.add(name);
         var destination = Directory(FilePath.join(root, name));
         try {
-          await _copyWithStrategy(source, destination, overwrite: false);
+          final copied =
+              await _copyWithStrategy(source, destination, overwrite: false);
+          // 紧接着就删源目录：先复核文件真的搬过去了。
+          await _verifyCopy(source, destination, copied);
           // 只有复制成功才删源，避免两头都不完整。
           await source.delete(recursive: true);
         } catch (e, s) {
@@ -1068,6 +1090,122 @@ class LocalManager with ChangeNotifier {
     return null;
   }
 
+  /// 把「上次失效的原目录」里的文件搬进**当前**存储目录，然后清掉提示。
+  ///
+  /// 设置页提示条里那张红卡片说的是「路径改了，旧文件没跟过来」——过去只给了
+  /// 「切回原目录 / 另选目录」两条路，想「留在新路径并把旧文件搬来」只能先切回、
+  /// 再重新选一次目录，绕两圈还要求用户记住旧路径。这个方法把那条路补上：
+  /// 直接把旧目录内容复制进当前目录，**不再切换路径**（已经在新路径上了）。
+  ///
+  /// 顺序刻意是「先复制、复制成功了才清空源目录」：中途失败时旧数据仍完整，
+  /// 用户可以重试，不会两头空。清理失败不致命（残留可手动删），与 [setNewPath]
+  /// 的 [_moveTo] 同策略。返回 null 表示成功，否则返回错误信息。
+  Future<String?> adoptOriginalFiles({bool overwrite = false}) async {
+    final pending = _pendingFallback;
+    if (pending == null) return null;
+    if (_isMigrating) return "A storage migration is already in progress".tl;
+    // 空路径必须先挡掉：`Directory('')` 会解析成进程当前工作目录，
+    // 后面的复制会去搬一个毫不相干的目录（记录损坏时 originalPath 可能是空串）。
+    if (pending.originalPath.trim().isEmpty) {
+      return "Directory does not exist".tl;
+    }
+    final source = Directory(pending.originalPath);
+    bool exists;
+    try {
+      exists = await source.exists();
+    } catch (_) {
+      exists = false;
+    }
+    if (!exists) {
+      return "Directory does not exist".tl;
+    }
+    if (await isSameAsCurrentPath(pending.originalPath)) {
+      // 当前路径已经就是那个原目录（两种写法都算）：没有可搬的东西。
+      await clearPathFallback();
+      return null;
+    }
+    // 与 [setNewPath] 同理：复制期间下载任务必须停手，否则会边写边拷，
+    // 复制出来的可能只是半话文件。
+    _isMigrating = true;
+    notifyListeners();
+    final paused = <DownloadTask>[];
+    for (final task in downloadingTasks) {
+      if (!task.isPaused) {
+        task.pause();
+        paused.add(task);
+      }
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    final target = path;
+    // 目标若是 SAF 树（`android://primary:...`），先折算成等价的普通路径再复制。
+    // SAF 逐文件写要经过 DocumentsContract 解析父子关系，目录刚建出来的那几秒
+    // 子文件常解析不到 —— 实测会出现「目录建好了、文件一个都没进去」却一路
+    // 返回成功的假迁移。有普通路径就走普通 IO：写不进去会抛异常，而不是静默
+    // 跳过；折算不出来（真 SAF 树 / 非 primary 卷）才退回原路径。
+    //
+    // 这里刻意用 `plainDir == null` 判断而不是 `identical(destination, directory)`：
+    // `directory` 是个 getter（每次访问都 new 一个 Directory），两次取值永远不
+    // identical，那样写会把 SAF 目标误判成普通路径 —— 拿 `android://...` 去
+    // mkdir 会在进程当前目录下建一个同名文件夹，复制「成功」后清空源目录，
+    // 文件就真丢了。
+    Directory? plainDir;
+    final plainTarget = await _plainPathOf(directory.path);
+    if (plainTarget != null && plainTarget.isNotEmpty) {
+      final candidate = Directory(plainTarget);
+      try {
+        if (!await candidate.exists()) {
+          await candidate.create(recursive: true);
+        }
+        plainDir = candidate;
+      } catch (e, s) {
+        Log.error("IO", "Failed to prepare target '$plainTarget': $e", s);
+      }
+    }
+    var destination = plainDir ?? directory;
+    try {
+      final int copied;
+      if (plainDir == null) {
+        // 目标只在 SAF 树里（折算不出普通路径）：只能走兼容层。
+        copied = await _copyWithStrategy(
+          source,
+          destination,
+          overwrite: overwrite,
+        );
+      } else {
+        // 两边都是普通路径 —— 纯 dart:io 复制，写不进去会抛异常而不是静默跳过。
+        copied = copyDirectoryContentsSync(
+          source.path,
+          plainDir.path,
+          overwrite: overwrite,
+        );
+      }
+      // 「没抛异常」不等于搬成功：兼容层写不进去时会静默跳过，所以必须复核
+      // 目标里到底有没有这些文件，否则紧接着清空源目录就是数据丢失。
+      await _verifyCopy(source, destination, copied);
+      Log.warning(
+          "Local", "Adopted $copied file(s) from '${source.path}' to '${destination.path}'");
+    } catch (e, s) {
+      Log.error(
+          "IO", "Failed to adopt files from '${pending.originalPath}': $e", s);
+      _resumePausedTasks(paused, null, target);
+      return "Failed to move comics. Check storage permission and try again."
+          .tl;
+    } finally {
+      _isMigrating = false;
+      notifyListeners();
+    }
+    try {
+      await source.deleteContents(recursive: true);
+    } catch (e, s) {
+      // 复制已落盘，旧目录清理失败不影响使用。
+      Log.error("IO", "Failed to clean old directory: $e", s);
+    }
+    // 搬完了，提示没有意义：写 local_path 并清掉 pending 记录。
+    await acceptCurrentPath();
+    _resumePausedTasks(paused, null, target);
+    return null;
+  }
+
   /// [other] 是否就是当前存储目录。
   ///
   /// 同一个目录可能有两种写法（普通路径 / SAF 的 `android://primary:`），
@@ -1076,6 +1214,60 @@ class LocalManager with ChangeNotifier {
     final a = await _plainPathOf(directory.path) ?? directory.path;
     final b = await _plainPathOf(other) ?? other;
     return p.equals(a, b);
+  }
+
+  /// [path] 是否是普通文件系统路径（非 SAF 树 URI）。
+  bool _isPlainPath(String path) =>
+      !path.startsWith('android://') &&
+      !path.startsWith('content://') &&
+      !path.startsWith('file://');
+
+  /// 复制后复核：确认 [source] 里的文件在 [destination] 里都有一份。
+  ///
+  /// 这是「复制成功才能清空源目录」这条约定的最后一道闸门。[copied] 只说明
+  /// **这次写了几个**——目标已有同名文件时会被刻意跳过（不覆盖用户新下载的
+  /// 内容），跳过并不等于失败，所以不能拿它和源文件数简单相减。
+  ///
+  /// - 两边都是普通路径：按相对路径逐个核对，缺一个就抛异常。
+  /// - 目标在 SAF 树里（无法可靠 list）：退回粗校验 —— 源里有文件、一个都没
+  ///   写进去，就判失败。宁可让用户重试，也不能清掉唯一一份数据。
+  Future<void> _verifyCopy(
+    Directory source,
+    Directory destination,
+    int copied,
+  ) async {
+    String src;
+    String dst;
+    try {
+      src = await _plainPathOf(source.path) ?? source.path;
+      dst = await _plainPathOf(destination.path) ?? destination.path;
+    } catch (e, s) {
+      Log.error("IO", "Failed to resolve copy paths: $e", s);
+      src = source.path;
+      dst = destination.path;
+    }
+    if (_isPlainPath(src) && _isPlainPath(dst)) {
+      final missing = findMissingFiles(src, dst);
+      if (missing.isNotEmpty) {
+        throw FileSystemException(
+          "Cannot write ${missing.length} file(s) into the selected folder",
+          missing.first,
+        );
+      }
+      return;
+    }
+    if (copied == 0 && _isPlainPath(src)) {
+      int expected;
+      try {
+        expected = countFilesSync(src);
+      } catch (_) {
+        return;
+      }
+      if (expected > 0) {
+        throw FileSystemException(
+            "Nothing was copied into the selected folder", src);
+      }
+    }
   }
 
   /// 切换目录后决定要不要撤掉「原目录失效」提示。

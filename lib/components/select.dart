@@ -19,12 +19,27 @@ class Select extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 与输入框同一套「圆角 + 发丝描边」语汇：下拉选择本质上就是一个
+    // 只读输入框，过去这里是 4dp 直角 + 1dp 硬边，在设置弹窗里像个
+    // 贴上去的小方块，和 16dp 圆角的输入框并排很割裂。
+    //
+    // 深色下改用 outline 而不是 outlineVariant：Select 是空心描边（输入框还有
+    // 淡面填充托底），variant 那条线在深色对话框上对比不足，整框会「消失」。
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: context.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(kcRadius4),
+        border: Border.all(
+          color: isDark
+              ? cs.outline.withValues(alpha: 0.7)
+              : cs.outlineVariant,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(kcFieldRadius),
       ),
       child: InkWell(
+        // 水波跟随圆角，否则方形水波会盖住四角、在圆角外露出一点色块。
+        borderRadius: BorderRadius.circular(kcFieldRadius),
         onTap: () {
           var renderBox = context.findRenderObject() as RenderBox;
           var offset = renderBox.localToGlobal(Offset.zero);

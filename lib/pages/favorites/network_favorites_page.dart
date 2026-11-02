@@ -634,8 +634,8 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
             child: TextField(
               controller: controller,
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
+              decoration: kcInputDecoration(
+                context,
                 labelText: "name".tl,
               ),
             ),

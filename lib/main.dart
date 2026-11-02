@@ -572,6 +572,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         radius: const Radius.circular(kcRadius3),
         interactive: true,
       ),
+      // 输入框全站统一：圆角取自 kcFieldRadius，具体四态边框由
+      // kcInputDecoration 显式给出（设置页、漫画源、源仓库、各类输入弹窗）。
+      //
+      // 这里**只给 `border` 一项**，刻意不给 enabledBorder / focusedBorder：
+      // 行内输入（搜索框、评论区、代理 Host/Port、DNS 覆盖…）靠显式写
+      // `border: InputBorder.none` 表达「不要边框」，而 InputDecorator 在
+      // enabledBorder 为空时会回落到 theme 的 enabledBorder —— 一旦全局给了，
+      // 这些输入框会平白多出一圈圆角描边、聚焦时还冒出强调色边。
+      // 同样不能在这里开 `filled`：它们会在行里冒出一块灰色实心块。
+      inputDecorationTheme: kcInputDefaultBorder(
+        scheme: scheme,
+        isDark: isDark,
+      ),
     );
 
     // AMOLED 纯黑：去掉彩色按钮，改为黑灰底 + 白字 + 细描边，

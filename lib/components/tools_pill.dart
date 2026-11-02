@@ -155,9 +155,13 @@ class _LayoutGlyphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final s = math.min(size.width, size.height);
-    final stroke = s * 0.085;
-    // 原点向内移半个线宽，描边外溢后视觉外轮廓正好等于 s。
+    // 与旁边 HugeIcons 的「视觉体积」对齐：HugeIcons 是 24 网格、内容约 20，
+    // 即四周留 8% 空白；自绘若铺满 size，同样的 18dp 会比放大镜/齿轮大一圈，
+    // 一排看过去像三个不同字号。这里先把内容缩到 0.86，再按内容区给线宽
+    // （18dp 图标 → 线宽 1.13，正好等于 HugeIcons 1.5/24×18）。
+    final s = math.min(size.width, size.height) * 0.86;
+    final stroke = s * 0.073;
+    // 原点向内移半个线宽，描边外溢后视觉外轮廓正好等于内容区 s。
     final ox = (size.width - s) / 2 + stroke / 2;
     final oy = (size.height - s) / 2 + stroke / 2;
 

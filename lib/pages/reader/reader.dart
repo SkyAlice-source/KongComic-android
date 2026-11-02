@@ -188,6 +188,16 @@ class _ReaderState extends State<Reader>
   @override
   late ReaderMode mode;
 
+  /// 自动条漫（Webtoon）识别的进程内缓存：cid -> 是否为条漫。
+  ///
+  /// 只活在本进程里，不落盘：识别本身很便宜（每章抽 3 张图读尺寸），但每翻
+  /// 一章都重来一次没必要。缓存命中后，同一本漫画后续章节直接进竖向连续模式，
+  /// 省掉一次「先按分页渲染再重排」的闪动。
+  static final Map<String, bool> _autoWebtoonCache = {};
+
+  /// 已经探测过条漫的章节号，防止 build 反复触发探测。
+  int? _autoWebtoonProbedChapter;
+
   @override
   bool get isPortrait =>
       MediaQuery.of(context).orientation == Orientation.portrait;
@@ -259,6 +269,18 @@ class _ReaderState extends State<Reader>
     mode = ReaderMode.fromKey(
       appdata.settings.getReaderSetting(cid, type.sourceKey, 'readerMode'),
     );
+    // 本进程已识别为条漫的漫画：直接进竖向连续模式，避免先分页再重排。
+    // 仅当用户没显式选过图集模式时生效 —— 图集是明确的手动选择，不该被覆盖。
+    if (_autoWebtoonCache[cid] == true &&
+        mode.isGallery &&
+        (appdata.settings.getReaderSetting(
+              cid,
+              type.sourceKey,
+              'autoDetectWebtoon',
+            ) ??
+            true)) {
+      mode = ReaderMode.continuousTopToBottom;
+    }
     history = widget.history;
     _applySystemUiMode();
     if (appdata.settings.getReaderSetting(

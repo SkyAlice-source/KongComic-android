@@ -1860,7 +1860,7 @@ class ComicListState extends State<ComicList> {
               keyboardType: TextInputType.number,
               autofocus: true,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(labelText: "Page".tl),
+              decoration: kcInputDecoration(context, labelText: "Page".tl),
               onSubmitted: (_) => submit(),
             ).paddingHorizontal(16),
             actions: [Button.filled(onPressed: submit, child: Text("Jump".tl))],
