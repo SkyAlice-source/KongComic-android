@@ -512,6 +512,14 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
             },
             actionTitle: 'Backup'.tl,
           ).toSliver(),
+        _CallbackSetting(
+          title: "Cloud Sync".tl,
+          subtitle: "Sync data across devices via WebDAV (Nextcloud, etc.)".tl,
+          callback: () {
+            context.to(() => const _WebdavSetting());
+          },
+          actionTitle: 'Set'.tl,
+        ).toSliver(),
         _SettingPartTitle(
           title: "User".tl,
           icon: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18),
@@ -1088,7 +1096,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                     appdata.writeImplicitData();
                     appdata.saveData();
                     context.showMessage(message: "Saved".tl);
-                    App.rootPop();
+                    context.pop();
                     return;
                   }
 
@@ -1100,7 +1108,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                   if (!autoSync) {
                     appdata.saveData();
                     context.showMessage(message: "Saved".tl);
-                    App.rootPop();
+                    context.pop();
                     return;
                   }
 
@@ -1124,7 +1132,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                   } else {
                     appdata.saveData();
                     context.showMessage(message: "Saved".tl);
-                    App.rootPop();
+                    context.pop();
                   }
                 },
                 child: Text("Continue".tl),

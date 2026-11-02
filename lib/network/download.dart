@@ -522,6 +522,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       "totalCount": _totalCount,
       "index": _index,
       "chapter": _chapter,
+      "pausedByUser": pausedByUser,
     };
   }
 
@@ -558,7 +559,8 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       .._downloadedCount = json["downloadedCount"]
       .._totalCount = json["totalCount"]
       .._index = json["index"]
-      .._chapter = json["chapter"];
+      .._chapter = json["chapter"]
+      ..pausedByUser = json["pausedByUser"] == true;
   }
 
   @override
@@ -918,6 +920,7 @@ class ArchiveDownloadTask extends DownloadTask {
       "archiveUrl": archiveUrl,
       "comic": comic.toJson(),
       "path": path,
+      "pausedByUser": pausedByUser,
     };
   }
 
@@ -928,7 +931,9 @@ class ArchiveDownloadTask extends DownloadTask {
     return ArchiveDownloadTask(
       json["archiveUrl"],
       ComicDetails.fromJson(json["comic"]),
-    )..path = json["path"];
+    )
+      ..path = json["path"]
+      ..pausedByUser = json["pausedByUser"] == true;
   }
 
   String _findCover() {

@@ -1548,12 +1548,25 @@ class LocalManager with ChangeNotifier {
             downloadingTasks.add(task);
           }
         }
+        // 崩溃/休眠恢复后自动续传：把队列从队头逐个放行（尊重 pausedByUser
+        // 与 isError 规则）。之前这里只 restore 不 resume，导致重启后所有
+        // 下载卡在「已暂停」，必须手动点恢复——这正是拷贝漫画式「休眠恢复
+        // 自动续传」要补的体验缺口。
+        kickDownloadQueue();
       } catch (e) {
         file.delete();
         Log.error("LocalManager", "Failed to restore downloading tasks: $e");
       }
     }
   }
+
+  /// 唤醒下载队列：从队头开始自动续传，遵守 [_DownloadTask.pausedByUser] 与
+  /// [DownloadTask.isError] 规则（见 [_resumeHead]）。
+  ///
+  /// 崩溃恢复与设备从休眠/后台唤醒时各调用一次即可。
+  /// [ImagesDownloadTask.resume] 自带 `_isRunning` 守卫，对正在跑的任务重复
+  /// 调用不会产生副作用。
+  void kickDownloadQueue() => _resumeHead();
 
   /// Get all comics in a category
   List<LocalComic> getComicsByCategory(String category, LocalSortType sort) {

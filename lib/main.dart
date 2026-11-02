@@ -22,6 +22,7 @@ import 'headless.dart';
 import 'init.dart';
 import 'pages/follow_updates_page.dart';
 import 'package:kong_comic/utils/auto_backup.dart';
+import 'package:kong_comic/foundation/local.dart';
 
 /// 全局滚动行为：把 Android 越界辉光颜色从强调色改为中性灰，
 /// 避免选了绿/蓝等强调色时列表四边泛绿。iOS 橡皮筋回弹手感保持不变。
@@ -147,6 +148,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // 还停在后台检查之前的状态。
       LocalFavoritesManager().initCounts();
       updateFollowUpdatesUI();
+      // 设备从休眠/后台唤醒后，自动续传未在跑、又非用户主动暂停的下载
+      // （休眠时网络被 OS 挂起会导致在途请求报错中断）。
+      LocalManager().kickDownloadQueue();
     }
     if (!App.isMobile || !appdata.settings['authorizationRequired']) {
       return;

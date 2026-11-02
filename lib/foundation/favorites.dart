@@ -254,7 +254,12 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   int folderComics(String folder) {
-    return counts[folder] ?? 0;
+    // 内存计数缺失（如某条新增/移动路径极端情况下没走到 +1/−1）时直接查库
+    // 兜底，避免左栏文件夹角标显示「0」。counts 仍是主路径，查库只是保险。
+    final cached = counts[folder];
+    if (cached != null) return cached;
+    if (existsFolder(folder)) return count(folder);
+    return 0;
   }
 
   Future<void> init() async {
@@ -827,7 +832,7 @@ class LocalFavoritesManager with ChangeNotifier {
       }
     }
     if (counts[folder] == null) {
-      counts[folder] = count(folder);
+      counts[folder] = count(folder) + 1;
     } else {
       counts[folder] = counts[folder]! + 1;
     }

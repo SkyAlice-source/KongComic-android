@@ -1087,6 +1087,15 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   Future<void> _preloadChapter(int chapter, String key) async {
     try {
+      // 仅在非计费网络（WiFi / 有线）下预取下一话的「图片列表」，
+      // 避免移动数据下偷跑流量。「自动 Webtoon 识别」等仍是手动模式或后续项，
+      // 这里只堵住最明显的浪费点。判断失败则保守跳过，交给切章时正常流程。
+      final connectivity = Connectivity();
+      final result = await connectivity.checkConnectivity();
+      final onUnmetered = result.any(
+        (r) => r == ConnectivityResult.wifi || r == ConnectivityResult.ethernet,
+      );
+      if (!onUnmetered) return;
       final chapters = reader.widget.chapters;
       final List<String> pages;
       if (reader.type == ComicType.local ||

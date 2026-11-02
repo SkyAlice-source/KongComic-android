@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -57,6 +58,14 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
   bool _closed = true;
 
   Dio? _dio;
+
+  /// JS 定时器桥：quickjs 没有原生定时器，早期用 `delay` 消息 + Promise 兜底，
+  /// 但 flutter_qjs 的 [sendMessage] 不一定回 Promise，导致 setTimeout 回调
+  /// 永不触发。这里改为由 Dart 端用 [Timer] 调度，再通过 [JSInvokable] 直接
+  /// 回调 JS 函数（与 UI 回调同一机制，已验证可跨桥）。
+  int _timerSeq = 0;
+  final Map<int, Timer> _activeTimers = {};
+  final Map<int, JSInvokable> _timerCallbacks = {};
 
   static void reset() {
     _cache?.dispose();
@@ -184,10 +193,8 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
           case "isLogged":
             var loggedSource = ComicSource.find(message["key"]);
             return loggedSource?.isLogged ?? false;
-          // temporary solution for [setTimeout] function
-          // TODO: implement [setTimeout] in quickjs project
-          case "delay":
-            return Future.delayed(Duration(milliseconds: message["time"]));
+          case "timer":
+            return _handleTimer(Map.from(message));
           case "UI":
             return handleUIMessage(Map.from(message));
           case "getLocale":
@@ -290,10 +297,83 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
   }
 
   void dispose() {
+    _disposeTimers();
     _cache = null;
     _closed = true;
     _engine?.close();
     _engine?.port.close();
+  }
+
+  Object? _handleTimer(Map<String, dynamic> data) {
+    final function = data["function"] as String?;
+    switch (function) {
+      case "setTimeout":
+        return _scheduleTimer(data["callback"], _toMs(data["time"]), false);
+      case "setInterval":
+        return _scheduleTimer(data["callback"], _toMs(data["time"]), true);
+      case "clearTimeout":
+      case "clearInterval":
+        _clearTimer(_toMs(data["id"], nullable: true));
+        return null;
+    }
+    return null;
+  }
+
+  static int _toMs(dynamic v, {bool nullable = false}) {
+    if (v == null) return nullable ? 0 : 0;
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
+
+  int _scheduleTimer(dynamic callback, int delayMs, bool periodic) {
+    if (callback is! JSInvokable) {
+      Log.warning("JsEngine", "timer callback is not a JSInvokable, ignored");
+      return -1;
+    }
+    final id = ++_timerSeq;
+    final cb = callback;
+    void invoke() {
+      try {
+        cb.call([]);
+      } catch (e, s) {
+        Log.error("JsEngine", "timer callback error: $e\n$s");
+      }
+    }
+
+    if (periodic) {
+      _activeTimers[id] = Timer.periodic(
+        Duration(milliseconds: delayMs),
+        (_) => invoke(),
+      );
+    } else {
+      _activeTimers[id] = Timer(Duration(milliseconds: delayMs), () {
+        _activeTimers.remove(id);
+        _timerCallbacks.remove(id);
+        invoke();
+        cb.free();
+      });
+    }
+    _timerCallbacks[id] = cb;
+    return id;
+  }
+
+  void _clearTimer(int id) {
+    if (id <= 0) return;
+    _activeTimers.remove(id)?.cancel();
+    _timerCallbacks.remove(id)?.free();
+  }
+
+  void _disposeTimers() {
+    for (final t in _activeTimers.values) {
+      t.cancel();
+    }
+    _activeTimers.clear();
+    for (final cb in _timerCallbacks.values) {
+      cb.free();
+    }
+    _timerCallbacks.clear();
   }
 }
 

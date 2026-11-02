@@ -13,14 +13,57 @@ This library provides a set of APIs for interacting with the Venera app.
 
 /**
  * Set a timeout to execute a callback function after a specified delay.
+ * Backed by a Dart-side timer bridge (see JsEngine._handleTimer).
  * @param callback {Function}
  * @param delay {number} - delay in milliseconds
+ * @returns {number} timer id, pass to clearTimeout to cancel
  */
 function setTimeout(callback, delay) {
-    sendMessage({
-        method: 'delay',
+    return sendMessage({
+        method: 'timer',
+        function: 'setTimeout',
+        callback: callback,
         time: delay,
-    }).then(callback);
+    });
+}
+
+/**
+ * Repeatedly call a callback with a fixed time delay between each call.
+ * @param callback {Function}
+ * @param delay {number} - delay in milliseconds
+ * @returns {number} timer id, pass to clearInterval to cancel
+ */
+function setInterval(callback, delay) {
+    return sendMessage({
+        method: 'timer',
+        function: 'setInterval',
+        callback: callback,
+        time: delay,
+    });
+}
+
+/**
+ * Cancel a timer previously established by setTimeout.
+ * @param id {number}
+ */
+function clearTimeout(id) {
+    sendMessage({
+        method: 'timer',
+        function: 'clearTimeout',
+        id: id,
+    });
+}
+
+/**
+ * Cancel a timer previously established by setInterval.
+ * @param id {number}
+ */
+function clearInterval(id) {
+    sendMessage({
+        method: 'timer',
+        function: 'clearInterval',
+        id: id,
+    });
 }
 
 /// encode, decode, hash, decrypt
@@ -403,42 +446,6 @@ function randomDouble(min, max) {
         min: min,
         max: max
     });
-}
-
-class _Timer {
-    delay = 0;
-
-    callback = () => { };
-
-    status = false;
-
-    constructor(delay, callback) {
-        this.delay = delay;
-        this.callback = callback;
-    }
-
-    run() {
-        this.status = true;
-        this._interval();
-    }
-
-    _interval() {
-        if (!this.status) {
-            return;
-        }
-        this.callback();
-        setTimeout(this._interval.bind(this), this.delay);
-    }
-
-    cancel() {
-        this.status = false;
-    }
-}
-
-function setInterval(callback, delay) {
-    let timer = new _Timer(delay, callback);
-    timer.run();
-    return timer;
 }
 
 /**
