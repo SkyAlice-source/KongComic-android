@@ -832,7 +832,9 @@ class LocalFavoritesManager with ChangeNotifier {
       }
     }
     if (counts[folder] == null) {
-      counts[folder] = count(folder) + 1;
+      // 注意：此处的 insert 已经执行，count(folder) 已包含刚插入的这本，
+      // 不能再 +1（否则角标会多算 1）。缓存在场时走下面的自增分支。
+      counts[folder] = count(folder);
     } else {
       counts[folder] = counts[folder]! + 1;
     }
