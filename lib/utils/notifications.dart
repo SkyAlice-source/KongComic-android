@@ -47,6 +47,13 @@ void _onNotificationResponse(NotificationResponse response) {
     _retryInstall(payload.substring('app_update:'.length));
     return;
   }
+  // 正在下载更新的通知：取消按钮 → 停掉更新下载流程
+  if (payload == 'app_update_download') {
+    if (response.actionId == 'cancel') {
+      AppUpdate.cancelActiveDownload();
+    }
+    return;
+  }
   // 漫画更新完成通知点击 → 跳转追更页查看更新结果
   if (payload == 'comic_update') {
     _openFollowUpdatesPage();
@@ -251,6 +258,7 @@ class AppNotifications {
     String channelDescKey = _updateChannelDescKey,
     Importance importance = Importance.low,
     Priority priority = Priority.low,
+    List<AndroidNotificationAction>? actions,
   }) {
     return AndroidNotificationDetails(
       channelId,
@@ -271,6 +279,7 @@ class AppNotifications {
       // default sound or they would chime on every update.
       playSound: false,
       enableVibration: false,
+      actions: actions,
     );
   }
 
@@ -322,8 +331,14 @@ class AppNotifications {
           channelDescKey: _appUpdateChannelDescKey,
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
+          // Without this the background download had no exit at all: the only
+          // control was to wait for a 40 MB asset over a throttled link.
+          actions: [
+            AndroidNotificationAction('cancel', 'Cancel'.tl),
+          ],
         ),
       ),
+      payload: 'app_update_download',
     );
   }
 

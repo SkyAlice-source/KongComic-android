@@ -477,6 +477,38 @@ Future<void> _startBackgroundUpdateDownload(
     await AppUpdate.openReleasePageInBrowser();
     return;
   }
+  // 已经在下载：不要另起一条下载管线。
+  // 之前的实现会无条件再跑一次 downloadAndInstall，两条流程抢同一个临时
+  // 文件、瓜分带宽，通知栏也会叠出多条进度——用户看到的就是「越点越慢、
+  // 还停不下来」。这里改为提示并提供取消。
+  if (AppUpdate.isDownloading) {
+    if (!App.rootContext.mounted) return;
+    final stop = await showDialog<bool>(
+      context: App.rootContext,
+      builder: (ctx) => ContentDialog(
+        title: "Download in progress".tl,
+        content: Text(
+          "An update is already downloading in the background. Cancel it?"
+              .tl,
+        ).paddingHorizontal(16),
+        actions: [
+          Button.text(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text("Keep downloading".tl),
+          ),
+          Button.filled(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text("Cancel download".tl),
+          ),
+        ],
+      ),
+    );
+    if (stop == true) {
+      AppUpdate.cancelActiveDownload();
+      await AppNotifications.cancelAppUpdate();
+    }
+    return;
+  }
   await AppNotifications.requestPermission();
   if (!await AppNotifications.isAllowed) {
     // Nothing would be visible without the notification permission, and the
@@ -519,6 +551,12 @@ Future<void> _backgroundUpdateDownload(
     await AppNotifications.showAppUpdateComplete(version: info.latestVersion);
   } catch (e, s) {
     AppUpdate.safeLog(e, s);
+    // 用户主动取消不是失败：收掉进度通知即可，不要弹「更新失败」，
+    // 否则用户点了取消反而被告知下载出错。
+    if (AppUpdate.isCancellation(e)) {
+      await AppNotifications.cancelAppUpdate();
+      return;
+    }
     // Report which stage actually failed. For an install failure the APK is
     // already downloaded, so tapping the notification retries *installing* it
     // rather than starting another download.

@@ -202,7 +202,11 @@ class AppUpdate {
   /// e.g. `<!-- lang:zh -->`. Markdown renderers hide HTML comments, so the
   /// GitHub release web page still shows every section while the app only
   /// shows the one matching the device locale.
-  static final _langMarker = RegExp(r'<!--\s*lang:(\w+)\s*-->');
+  ///
+  /// The language code may contain a hyphen (`zh-Hant`), so `\w+` is not
+  /// enough — matching only `zh` silently merged the Traditional Chinese
+  /// section into the Simplified one and showed both to zh users.
+  static final _langMarker = RegExp(r'<!--\s*lang:([\w-]+)\s*-->');
 
   /// Map a `<details>` `<summary>` label to a language code. The shipped
   /// changelog format uses localized summary text, not the `lang:` markers.
@@ -298,10 +302,27 @@ class AppUpdate {
         .trim();
   }
 
-  /// Pick the device locale's language code: zh / ja / else en.
+  /// Pick the device locale's language code: zh-Hant / zh / ja / else en.
+  ///
+  /// Traditional Chinese used to fall into `zh`, so those users got the
+  /// Simplified section. Script and region are both checked because Android
+  /// reports zh_TW / zh_HK without an explicit script tag.
   static String _targetLang() {
-    final lc = App.locale.languageCode;
-    if (lc == 'zh') return 'zh';
+    final locale = App.locale;
+    final lc = locale.languageCode;
+    if (lc == 'zh') {
+      switch (locale.scriptCode) {
+        case 'Hant':
+          return 'zh-Hant';
+        case 'Hans':
+          return 'zh';
+      }
+      final country = locale.countryCode;
+      if (country == 'TW' || country == 'HK' || country == 'MO') {
+        return 'zh-Hant';
+      }
+      return 'zh';
+    }
     if (lc == 'ja') return 'ja';
     return 'en';
   }
@@ -312,7 +333,11 @@ class AppUpdate {
     final cleaned = _stripSha256(body);
     final blocks = _extractLangBlocks(cleaned);
     if (blocks.isEmpty) {
-      return cleaned.trim().isEmpty ? _defaultReleaseNotes : cleaned;
+      final whole = cleaned.trim();
+      if (whole.isEmpty || _placeholderNotes.hasMatch(whole)) {
+        return _defaultReleaseNotes;
+      }
+      return cleaned;
     }
     final target = _targetLang();
     final picked = blocks[target] ??
@@ -321,8 +346,19 @@ class AppUpdate {
           (s) => s.trim().isNotEmpty,
           orElse: () => '',
         );
-    return picked.trim().isNotEmpty ? picked : _defaultReleaseNotes;
+    final trimmed = picked.trim();
+    // CI used to fall back to a bare "Release 1.5.14" placeholder when the
+    // changelog file was missing. Rendering that is worse than showing nothing:
+    // it looks like the update notes failed to load. Treat it as empty.
+    if (trimmed.isEmpty || _placeholderNotes.hasMatch(trimmed)) {
+      return _defaultReleaseNotes;
+    }
+    return trimmed;
   }
+
+  /// Matches the stand-in body older CI runs produced when
+  /// `changelogs/v<version>.md` did not exist.
+  static final _placeholderNotes = RegExp(r'^Release\s+v?\d+(?:\.\d+)*$');
 
   /// Helper: GET with simple retry for transient failures (timeout, 5xx).
   /// Dio throws [DioException] on timeout; we catch it and retry.
@@ -731,9 +767,68 @@ class AppUpdate {
   /// installer. Reports progress via [onProgress]. Returns when the install
   /// intent has been dispatched.
   ///
+  /// Only one update download may run at a time. A second call (for example the
+  /// user taps "check for updates" again because the current one looks stuck)
+  /// joins the running pipeline instead of starting a parallel one: two
+  /// pipelines share the same temp file, split the available bandwidth and
+  /// leave duplicate progress notifications behind, which is exactly what made
+  /// slow downloads feel frozen and impossible to stop.
+  ///
   /// Throws if no download URL is available, the download itself fails, or
   /// the install intent cannot be launched.
   static Future<void> downloadAndInstall(
+    AppUpdateInfo info, {
+    required String? abi,
+    void Function(double progress, int bytesPerSecond)? onProgress,
+    void Function(String mirrorName)? onMirrorChanged,
+    FileDownloaderHandle? handle,
+  }) {
+    final running = _activeDownload;
+    if (running != null) return running;
+    final future = _downloadAndInstallInternal(
+      info,
+      abi: abi,
+      onProgress: onProgress,
+      onMirrorChanged: onMirrorChanged,
+      handle: handle,
+    );
+    _activeDownload = future;
+    _activeVersion = info.latestVersion;
+    return future.whenComplete(() {
+      // Only the pipeline that registered itself may clear the slot, so a
+      // quickly-started retry never has its own guard wiped by its predecessor.
+      if (identical(_activeDownload, future)) {
+        _activeDownload = null;
+        _activeHandle = null;
+        _activeVersion = null;
+      }
+    });
+  }
+
+  /// The pipeline currently running, if any. See [downloadAndInstall].
+  static Future<void>? _activeDownload;
+  static FileDownloaderHandle? _activeHandle;
+  static String? _activeVersion;
+
+  /// True while an update APK is being downloaded or installed.
+  static bool get isDownloading => _activeDownload != null;
+
+  /// Version currently being downloaded, or null when idle.
+  static String? get downloadingVersion => _activeVersion;
+
+  /// Stop the in-flight update download. Both the in-app dialog and the
+  /// notification shade's Cancel action route here, so there is always an exit
+  /// even when the background path (no dialog) is the one running.
+  static void cancelActiveDownload() {
+    _activeHandle?.cancel();
+  }
+
+  /// Whether [e] is the "the user pressed cancel" signal rather than a real
+  /// failure. Callers must not report a cancellation as a download error.
+  static bool isCancellation(Object e) =>
+      e is StateError && e.toString().toLowerCase().contains("canceled");
+
+  static Future<void> _downloadAndInstallInternal(
     AppUpdateInfo info, {
     required String? abi,
     void Function(double progress, int bytesPerSecond)? onProgress,
@@ -763,6 +858,9 @@ class AppUpdate {
     // it, so it hands over no handle. The stall watchdog still needs one to stop
     // a dead route, otherwise it could never move on from it.
     final effectiveHandle = handle ?? FileDownloaderHandle();
+    // Published so [cancelActiveDownload] can stop the background path, which
+    // has no dialog and therefore no handle of its own to cancel.
+    _activeHandle = effectiveHandle;
     Object? lastError;
     String? lastDetail;
 
