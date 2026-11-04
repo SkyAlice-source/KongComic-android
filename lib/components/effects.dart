@@ -25,10 +25,7 @@ class BlurEffect extends StatelessWidget {
       valueListenable: KcGlassActivity.scrolling,
       builder: (context, scrolling, _) {
         Widget body = Container(
-          decoration: BoxDecoration(
-            borderRadius: borderRadius,
-            border: border,
-          ),
+          decoration: BoxDecoration(borderRadius: borderRadius, border: border),
           child: child,
         );
         // blurSigma = 0 表示「不要模糊，只保留裁剪/边框」：给需要实心底的

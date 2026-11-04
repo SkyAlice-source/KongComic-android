@@ -30,9 +30,7 @@ class Select extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
-          color: isDark
-              ? cs.outline.withValues(alpha: 0.7)
-              : cs.outlineVariant,
+          color: isDark ? cs.outline.withValues(alpha: 0.7) : cs.outlineVariant,
           width: 1,
         ),
         borderRadius: BorderRadius.circular(kcFieldRadius),
@@ -60,11 +58,13 @@ class Select extends StatelessWidget {
               offset.dy,
             ),
             items: values
-                .map((e) => PopupMenuItem(
-                      height: App.isMobile ? 46 : 40,
-                      value: e,
-                      child: Text(e.tl),
-                    ))
+                .map(
+                  (e) => PopupMenuItem(
+                    height: App.isMobile ? 46 : 40,
+                    value: e,
+                    child: Text(e.tl),
+                  ),
+                )
                 .toList(),
           ).then((value) {
             if (value != null) {
@@ -79,10 +79,17 @@ class Select extends StatelessWidget {
               constraints: BoxConstraints(
                 minWidth: minWidth != null ? (minWidth! - 32) : 0,
               ),
-              child: Text((current ?? ' ').tl, style: TextStyle(fontSize: kcBody)),
+              child: Text(
+                (current ?? ' ').tl,
+                style: TextStyle(fontSize: kcBody),
+              ),
             ),
             const SizedBox(width: 8),
-            HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18, color: kcBrandAdaptive(context)),
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowDown01,
+              size: 18,
+              color: kcBrandAdaptive(context),
+            ),
           ],
         ).padding(const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
       ),
@@ -91,11 +98,12 @@ class Select extends StatelessWidget {
 }
 
 class FilterChipFixedWidth extends StatefulWidget {
-  const FilterChipFixedWidth(
-      {required this.label,
-      required this.selected,
-      required this.onSelected,
-      super.key});
+  const FilterChipFixedWidth({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+    super.key,
+  });
 
   final Widget label;
 
@@ -161,10 +169,7 @@ class _FilterChipFixedWidthState extends State<FilterChipFixedWidth> {
 
   Widget firstBuild() {
     return Center(
-      child: SizedBox(
-        key: key,
-        child: widget.label,
-      ),
+      child: SizedBox(key: key, child: widget.label),
     );
   }
 
@@ -188,7 +193,7 @@ class _FilterChipFixedWidthState extends State<FilterChipFixedWidth> {
               bottom: 0,
               right: labelWidth! + gap,
               child: const AnimatedCheckIcon(size: iconSize).toCenter(),
-            )
+            ),
         ],
       ),
     );
@@ -216,8 +221,8 @@ class AnimatedCheckWidget extends AnimatedWidget {
         child: FractionallySizedBox(
           widthFactor: animation.value,
           child: ClipRRect(
-            child: HugeIcon(icon: 
-              HugeIcons.strokeRoundedCheckmarkCircle01,
+            child: HugeIcon(
+              icon: HugeIcons.strokeRoundedCheckmarkCircle01,
               size: iconSize,
               color: kcBrandAdaptive(context),
             ),
@@ -264,19 +269,17 @@ class _AnimatedCheckIconState extends State<AnimatedCheckIcon>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedCheckWidget(
-      animation: animation,
-      size: widget.size,
-    );
+    return AnimatedCheckWidget(animation: animation, size: widget.size);
   }
 }
 
 class OptionChip extends StatelessWidget {
-  const OptionChip(
-      {super.key,
-      required this.text,
-      required this.isSelected,
-      required this.onTap});
+  const OptionChip({
+    super.key,
+    required this.text,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   final String text;
 
@@ -290,19 +293,13 @@ class OptionChip extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isSelected
         ? kcAccentSurface(context, alpha: 0.12)
-        : (isDark
-            ? Colors.white.withValues(alpha: 0.10)
-            : cs.surface);
+        : (isDark ? Colors.white.withValues(alpha: 0.10) : cs.surface);
     final borderColor = isSelected
         ? kcAccentColor(context)
-        : (isDark
-            ? Colors.white.withValues(alpha: 0.14)
-            : cs.outline);
+        : (isDark ? Colors.white.withValues(alpha: 0.14) : cs.outline);
     final textColor = isSelected
         ? kcBrandAdaptive(context)
-        : (isDark
-            ? Colors.white.withValues(alpha: 0.95)
-            : cs.onSurface);
+        : (isDark ? Colors.white.withValues(alpha: 0.95) : cs.onSurface);
     return AnimatedContainer(
       duration: _fastAnimationDuration,
       constraints: const BoxConstraints(minHeight: 40),
@@ -318,10 +315,7 @@ class OptionChip extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text(
-              text,
-              style: TextStyle(color: textColor),
-            ),
+            child: Text(text, style: TextStyle(color: textColor)),
           ),
         ),
       ),

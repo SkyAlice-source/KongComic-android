@@ -65,7 +65,7 @@ Future<bool> _deleteComic(
                       loading = false;
                     });
                     context.showMessage(
-                      message: friendlyError(res.errorMessage!),
+                      message: friendlySourceError(res.errorMessage),
                     );
                   }
                 },
@@ -588,7 +588,7 @@ class _FolderTile extends StatelessWidget {
                         loading = false;
                       });
                       context.showMessage(
-                        message: friendlyError(res.errorMessage!),
+                        message: friendlySourceError(res.errorMessage),
                       );
                     }
                   },
@@ -634,10 +634,7 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
             child: TextField(
               controller: controller,
-              decoration: kcInputDecoration(
-                context,
-                labelText: "name".tl,
-              ),
+              decoration: kcInputDecoration(context, labelText: "name".tl),
             ),
           ),
           const SizedBox(height: 16),
@@ -652,7 +649,9 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
             });
             widget.data.addFolder!(controller.text).then((b) {
               if (b.error) {
-                context.showMessage(message: friendlyError(b.errorMessage!));
+                context.showMessage(
+                  message: friendlySourceError(b.errorMessage),
+                );
                 setState(() {
                   loading = false;
                 });

@@ -266,10 +266,7 @@ class KcEntryBox extends StatelessWidget {
             ),
             if (value != null)
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 constraints: const BoxConstraints(minWidth: 24),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHigh,
@@ -381,8 +378,12 @@ class KcHistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
-    final chapter = history.ep >= 1 ? "Chapter @ep".tlParams({'ep': history.ep}) : '';
-    final page = history.page >= 1 ? "Page @page".tlParams({'page': history.page}) : '';
+    final chapter = history.ep >= 1
+        ? "Chapter @ep".tlParams({'ep': history.ep})
+        : '';
+    final page = history.page >= 1
+        ? "Page @page".tlParams({'page': history.page})
+        : '';
     final meta = [chapter, page].where((s) => s.isNotEmpty).join(' · ');
 
     return Material(
@@ -465,7 +466,10 @@ class KcHistoryTile extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 timeLabel ?? '',
-                style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
+                style: TextStyle(
+                  fontSize: kcCaption,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
               ),
               if (menuOptions != null && menuOptions!.isNotEmpty)
                 _TileMenuButton(options: menuOptions!),

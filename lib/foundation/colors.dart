@@ -24,7 +24,9 @@ const Map<TranslationType, Color> translationTypeColors = {
 /// 避免中等明度的固定色在暗色表面上作为前景时对比度不足。
 Color translationTypeColor(TranslationType type, ColorScheme cs) {
   final fixed = translationTypeColors[type];
-  return fixed == null ? cs.onSurfaceVariant : adaptAccent(fixed, cs.brightness);
+  return fixed == null
+      ? cs.onSurfaceVariant
+      : adaptAccent(fixed, cs.brightness);
 }
 
 /// 多来源匹配时为各漫画源分配的稳定强调色。
@@ -45,8 +47,8 @@ const List<Color> sourceColors = [
 /// 暗色模式下向白色混合提亮，保证在暗色表面上可读；亮色模式原样返回。
 Color adaptAccent(Color color, Brightness brightness) =>
     brightness == Brightness.dark
-        ? Color.lerp(color, Colors.white, 0.45)!
-        : color;
+    ? Color.lerp(color, Colors.white, 0.45)!
+    : color;
 
 /// 多来源强调色（亮度感知）。用作前景色时使用此函数而非直接取 [sourceColors]。
 Color sourceColor(int index, Brightness brightness) =>

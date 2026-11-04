@@ -1,138 +1,39 @@
 part of 'settings_page.dart';
 
+/// APP 设置的分段。
+///
+/// 原来「通用设置」一页 17 行、5 组（语言/启动、存储、缓存、备份同步、用户），
+/// 一屏放不下。根页按「应用本身」与「数据」拆成两页：应用页管语言、启动页、
+/// 存储与缓存；数据页管导入导出、自动备份、WebDAV 同步与账号相关。
+enum AppSettingsSection {
+  /// 全部（未拆分的旧入口）。
+  all,
+
+  /// 语言与启动 + 存储 + 缓存。
+  app,
+
+  /// 备份与同步 + 用户。
+  data,
+}
+
 class AppSettings extends StatefulWidget {
-  const AppSettings({super.key});
+  const AppSettings({super.key, this.section = AppSettingsSection.all});
+
+  final AppSettingsSection section;
+
+  String get title => switch (section) {
+    AppSettingsSection.app => "App & storage",
+    AppSettingsSection.data => "Data & backup",
+    AppSettingsSection.all => "APP",
+  };
 
   @override
   State<AppSettings> createState() => _AppSettingsState();
 }
 
-class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
-  /// 是否已获得「所有文件访问」(MANAGE_EXTERNAL_STORAGE)。
-  ///
-  /// 这个权限只在 Manifest 里声明、从未运行时申请过；只有拿到它，默认存储目录
-  /// 才可能是公共 Download/Comic。这里把状态显示出来并给出入口，而不是让
-  /// findDefaultPath() 悄悄探测失败后回退。
-  bool _allFilesAccess = false;
-
-  /// 系统通知开关状态。null = 还没查到（首帧不显示，避免闪一下「已关闭」）。
-  bool? _notificationsAllowed;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _loadAllFilesAccess();
-    _loadNotificationPermission();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 从系统设置页返回后重新取一次，状态才会跟着变。
-    if (state == AppLifecycleState.resumed) {
-      _loadAllFilesAccess();
-      _loadNotificationPermission();
-    }
-  }
-
-  Future<void> _loadAllFilesAccess() async {
-    var granted = await LocalManager.hasAllFilesAccess();
-    if (!mounted) return;
-    if (granted == _allFilesAccess) return;
-    setState(() => _allFilesAccess = granted);
-  }
-
-  Future<void> _loadNotificationPermission() async {
-    if (!App.isAndroid) return;
-    var allowed = await AppNotifications.isAllowed;
-    if (!mounted) return;
-    if (allowed == _notificationsAllowed) return;
-    setState(() => _notificationsAllowed = allowed);
-  }
-
-  /// 存储权限入口：Android 10 及以下弹系统授权框，Android 11+ 只能跳系统设置页。
-  Future<void> _openStoragePermission() async {
-    var granted = await LocalManager.requestStoragePermission();
-    if (!mounted) return;
-    if (granted) {
-      await _loadAllFilesAccess();
-      return;
-    }
-    await LocalManager.openAllFilesAccessSettings();
-  }
-
-  /// 把存储路径切到公共 Download/Comic（需已授予「所有文件访问」）。
-  ///
-  /// 授予权限本身不会改变当前路径 —— 默认路径只在首次启动时探测一次。没有这个
-  /// 入口的话，用户开了权限却看不到任何变化，会以为授权没生效。
-  Future<void> _useDownloadComicFolder() async {
-    final target = await LocalManager().detectDownloadComicPath();
-    if (!mounted) return;
-    if (target == null) {
-      context.showMessage(message: "Cannot use the Download/Comic folder".tl);
-      return;
-    }
-    if (await LocalManager().isSameAsCurrentPath(target)) {
-      context.showMessage(message: "Already in current storage path".tl);
-      return;
-    }
-    await _setStoragePath(target);
-  }
-  /// 把下载目录迁移到 [result]：冲突检测 → 弹窗选择覆盖/合并 → 复制+删旧。
-  /// 与「Set New Storage Path」和「Move to Download/Comic」共用。
-  Future<void> _setStoragePath(String result) async {
-    if (result.isEmpty) return;
-    if (!mounted) return;
-    final manager = LocalManager();
-    final existingCount = await manager.countConflicts(result);
-    bool overwrite = true;
-    if (existingCount > 0) {
-      final choice = await showDialog<_ConflictChoice>(
-        context: context,
-        builder: (ctx) => _StorageConflictDialog(
-          existingCount: existingCount,
-          newPath: result,
-        ),
-      );
-      if (choice == null || choice == _ConflictChoice.cancel) return;
-      overwrite = choice == _ConflictChoice.overwrite;
-    }
-    if (!mounted) return;
-    var loadingDialog = showLoadingDialog(
-      App.rootContext,
-      barrierDismissible: false,
-      allowCancel: false,
-    );
-    // The dialog above has no cancel button and cannot be dismissed, so any
-    // throw out of `setNewPath` (isolate work, file IO) would strand it on
-    // screen forever with no way to close it.
-    String? res;
-    try {
-      res = await manager.setNewPath(result, overwrite: overwrite);
-    } catch (e) {
-      if (mounted) {
-        // 用户可见提示统一走 friendlyError：底层异常（IO / isolate）
-        // 直接 toString 会在中文界面里冒出整条英文技术串。
-        context.showMessage(message: friendlyError(e));
-      }
-      return;
-    } finally {
-      loadingDialog.close();
-    }
-    if (!mounted) return;
-    if (res != null) {
-      context.showMessage(message: res);
-    } else {
-      context.showMessage(message: "Path set successfully".tl);
-      setState(() {});
-    }
-  }
+class _AppSettingsState extends State<AppSettings> {
+  /// 把存储路径切到公共 Download/Comic 与权限入口已抽到 permissions.dart，
+  /// 与「权限」分类共用同一份实现：两边各写一份必然会分叉。
 
   /// 把散落在存储目录之外的本地漫画归拢进当前存储路径。
   ///
@@ -177,10 +78,7 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
             onPressed: () => ctx.pop(false),
             child: Text("Cancel".tl),
           ),
-          Button.filled(
-            onPressed: () => ctx.pop(true),
-            child: Text("Move".tl),
-          ),
+          Button.filled(onPressed: () => ctx.pop(true), child: Text("Move".tl)),
         ],
       ),
     );
@@ -211,349 +109,406 @@ class _AppSettingsState extends State<AppSettings> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final showApp = widget.section != AppSettingsSection.data;
+    final showData = widget.section != AppSettingsSection.app;
     return SmoothCustomScrollView(
       slivers: [
-        SliverAppbar(title: Text("APP".tl)),
-        SelectSetting(
-          title: "Initial Page".tl,
-          settingKey: "initialPage",
-          optionTranslation: {
-            '0': "Categories".tl,
-            '1': "Favorites".tl,
-            '2': "Home".tl,
-            '3': "Explore".tl,
-          },
-        ).toSliver(),
-        _SettingPartTitle(
-          title: "Data".tl,
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedDatabase, size: 18),
-        ),
-        _KcSettingTile(
-          title: Text("Storage Path for local comics".tl),
-          // 路径很长：基座里的副标题统一做单行省略，避免被硬裁到半截。
-          subtitle: LocalManager().path,
-          subtitleMaxLines: 1,
-          trailing: IconButton(
-            tooltip: "Copy".tl,
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: LocalManager().path));
-              context.showMessage(message: "Path copied to clipboard".tl);
-            },
+        SliverAppbar(title: Text(widget.title.tl)),
+        // 「语言与启动」：与数据无关、也不属于任何权限的应用级偏好。
+        // 语言从「外观」挪过来 —— 它不影响任何视觉样式，放在主题页里会让人
+        // 以为「改语言=换外观」。不叫「通用」是因为本分类在中文里已经叫
+        // 「通用设置」，组内再出现一个「通用」会有两层同名。
+        if (showApp) ...[
+          _SettingPartTitle(
+            title: "Language & startup".tl,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 18),
           ),
-        ).toSliver(),
-        // 上次启动发现存储目录不可用、已临时切换时，提示用户文件还在原处。
-        if (LocalManager().pendingPathFallback != null)
-          _StoragePathFallbackBanner(
-            onResolved: () => setState(() {}),
+          SelectSetting(
+            title: "Initial Page".tl,
+            settingKey: "initialPage",
+            // 取值必须与 main_page.dart 的 `_pages` 下标一一对应
+            // （0 分类 / 1 收藏 / 2 主页 / 3 发现 / 4 历史）。以前少了「历史」，
+            // 5 个 tab 里唯一不能当初始页的就是它。
+            optionTranslation: {
+              '0': "Categories".tl,
+              '1': "Favorites".tl,
+              '2': "Home".tl,
+              '3': "Explore".tl,
+              '4': "History".tl,
+            },
           ).toSliver(),
-        _CallbackSetting(
-          title: "Set New Storage Path".tl,
-          actionTitle: "Set".tl,
-          callback: () async {
-            String? result;
-            if (App.isAndroid) {
-              var picker = DirectoryPicker();
-              result = (await picker.pickDirectory())?.path;
-            } else if (App.isIOS) {
-              result = await selectDirectoryIOS();
-            } else {
-              result = await selectDirectory();
-            }
-            if (result == null || result.isEmpty) return;
-            await _setStoragePath(result);
-          },
-        ).toSliver(),
-        _CallbackSetting(
-          title: "Move to Current Storage Path".tl,
-          subtitle:
-              "Move all your local comics into the Storage Path folder. No extra permission needed, and the setting stays unchanged."
-                  .tl,
-          actionTitle: "Move".tl,
-          callback: () => _moveExternalToCurrentPath(),
-        ).toSliver(),
-        if (App.isAndroid)
-          _CallbackSetting(
-            title: "All files access".tl,
-            subtitle: _allFilesAccess
-                ? "Granted".tl
-                : "Required only to use the public Download/Comic folder".tl,
-            actionTitle: "Open".tl,
-            // 老设备（Android 10 及以下）先弹系统授权框，Android 11+ 只能跳设置页。
-            callback: () => _openStoragePermission(),
-          ).toSliver(),
-        // 授予「所有文件访问」不会自动改变当前路径（默认路径只在首次启动时探测
-        // 一次）。给一个显式入口，否则用户开了权限却看不到任何变化。
-        if (App.isAndroid && _allFilesAccess)
-          _CallbackSetting(
-            title: "Use Download/Comic".tl,
-            subtitle:
-                "Switch the storage path to the public Download/Comic folder".tl,
-            actionTitle: "Switch".tl,
-            callback: () => _useDownloadComicFolder(),
-          ).toSliver(),
-        if (App.isAndroid)
-          _CallbackSetting(
-            title: "Notifications".tl,
-            subtitle: _notificationsAllowed == null
-                ? null
-                : (_notificationsAllowed! ? "Granted".tl : "Turned off".tl),
-            actionTitle: "Open".tl,
-            callback: () => AppNotifications.openSettings(),
-          ).toSliver(),
-        _KcSettingTile(
-          title: Text("Cache Size".tl),
-          subtitle: bytesToReadableString(CacheManager().currentSize),
-        ).toSliver(),
-        _CallbackSetting(
-          title: "Clear Cache".tl,
-          actionTitle: "Clear".tl,
-          callback: () async {
-            var loadingDialog = showLoadingDialog(
-              App.rootContext,
-              barrierDismissible: false,
-              allowCancel: false,
-            );
-            await CacheManager().clear();
-            loadingDialog.close();
-            if (!mounted) return;
-            context.showMessage(message: "Cache cleared".tl);
-            setState(() {});
-          },
-        ).toSliver(),
-        _CallbackSetting(
-          title: "Cache Limit".tl,
-          subtitle: "${appdata.settings['cacheSize']} ${"MB".tl}",
-          callback: () {
-            showInputDialog(
-              context: context,
-              title: "Set Cache Limit".tl,
-              hintText: "Size in MB".tl,
-              inputValidator: RegExp(r"^\d+$"),
-              onConfirm: (value) {
-                appdata.settings['cacheSize'] = int.parse(value);
-                appdata.saveData();
-                setState(() {});
-                CacheManager().setLimitSize(appdata.settings['cacheSize']);
-                return null;
-              },
-            );
-          },
-          actionTitle: 'Set'.tl,
-        ).toSliver(),
-        _CallbackSetting(
-          title: "Export App Data".tl,
-          callback: () async {
-            var controller = showLoadingDialog(context);
-            try {
-              var file = await exportAppData(false);
-              final now = DateTime.now();
-              final dateStr =
-                  "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-              final suffix = _randomFileSuffix();
-              final targetName = "KongComic_${dateStr}_$suffix.kongcomic";
-              final targetPath = FilePath.join(App.cachePath, targetName);
-              final renamed = await file.copy(targetPath);
-              file.deleteIgnoreError();
-              await saveFile(filename: targetName, file: renamed);
-              if (context.mounted) {
-                context.showMessage(message: "Export completed".tl);
-              }
-            } catch (e, s) {
-              Log.error("Export data", e.toString(), s);
-              context.showMessage(message: "Failed to export data".tl);
-            } finally {
-              controller.close();
-            }
-          },
-          actionTitle: 'Export'.tl,
-        ).toSliver(),
-        _CallbackSetting(
-          title: "Import App Data".tl,
-          callback: () async {
-            var file = await selectFile(ext: ['kongcomic', 'venera', 'picadata']);
-            if (file != null) {
-              var controller = showLoadingDialog(context);
-              var cacheFile =
-                  File(FilePath.join(App.cachePath, "import_data_temp"));
-              var needRestart = false;
-              var cancelled = false;
-              try {
-                await file.saveTo(cacheFile.path);
-                if (file.name.endsWith('picadata')) {
-                  await importPicaData(cacheFile);
-                } else {
-                  var hasDuplicates = await importHasDuplicates(cacheFile);
-                  if (hasDuplicates) {
-                    var choice = await _showImportModeDialog(context);
-                    if (choice == null || choice == _ConflictChoice.cancel) {
-                      cancelled = true;
-                      context.showMessage(message: "Import cancelled".tl);
-                    } else {
-                      needRestart = await importAppData(
-                          cacheFile, false, choice == _ConflictChoice.merge);
-                    }
-                  } else {
-                    needRestart = await importAppData(cacheFile);
-                  }
-                }
-              } catch (e, s) {
-                Log.error("Import data", e.toString(), s);
-                context.showMessage(message: "Failed to import data".tl);
-              } finally {
-                controller.close();
-                cacheFile.deleteIgnoreError();
-                App.forceRebuild();
-              }
-              if (cancelled) {
-                // 已显示取消提示，无需额外反馈
-              } else if (needRestart && context.mounted) {
-                context.showMessage(
-                    message: "Restart app to complete data import".tl);
-              } else if (context.mounted) {
-                context.showMessage(message: "Import completed".tl);
-              }
-            }
-          },
-          actionTitle: 'Import'.tl,
-        ).toSliver(),
-        if (App.isAndroid)
-          _SwitchSetting(
-            title: "Auto Backup".tl,
-            settingKey: 'autoBackupEnabled',
-            subtitle: "Periodically back up your data to the Download folder".tl,
+          SelectSetting(
+            title: "Language".tl,
+            settingKey: "language",
+            optionTranslation: {
+              "system": "System",
+              "zh-CN": "Simplified Chinese",
+              "zh-TW": "Traditional Chinese",
+              "ja-JP": "Japanese",
+              "en-US": "English",
+            },
             onChanged: () async {
-              await initAutoBackup();
+              App.forceRebuild();
+              // 关闭设置页后重新打开，让语言立即生效。
+              // 平板双栏下本页为内联渲染（非路由栈），canPop 为 false，不 pop
+              // 以免关掉整个设置页。
+              if (context.mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            },
+          ).toSliver(),
+          // 「数据」以前是 13 行一个组：存储、缓存、导入导出、备份、云同步全塞在
+          // 同一个标题下，等于没分组。按用途拆成四段后，「改路径」「清缓存」
+          // 「备份」「更新源」各自有归属，找的时候不用整段扫。
+          if (App.isAndroid)
+            _SwitchSetting(
+              title: "Exit Confirmation".tl,
+              settingKey: "exitConfirm",
+              subtitle: "Ask before exiting via back gesture at root".tl,
+            ).toSliver(),
+          _SettingPartTitle(
+            title: "Storage".tl,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 18),
+          ),
+          _KcSettingTile(
+            title: Text("Storage Path for local comics".tl),
+            // 路径很长：基座里的副标题统一做单行省略，避免被硬裁到半截。
+            subtitle: LocalManager().path,
+            subtitleMaxLines: 1,
+            trailing: IconButton(
+              tooltip: "Copy".tl,
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: LocalManager().path));
+                context.showMessage(message: "Path copied to clipboard".tl);
+              },
+            ),
+          ).toSliver(),
+          // 上次启动发现存储目录不可用、已临时切换时，提示用户文件还在原处。
+          if (LocalManager().pendingPathFallback != null)
+            _StoragePathFallbackBanner(
+              onResolved: () => setState(() {}),
+            ).toSliver(),
+          _CallbackSetting(
+            title: "Set New Storage Path".tl,
+            actionTitle: "Set".tl,
+            callback: () async {
+              String? result;
+              if (App.isAndroid) {
+                var picker = DirectoryPicker();
+                result = (await picker.pickDirectory())?.path;
+              } else if (App.isIOS) {
+                result = await selectDirectoryIOS();
+              } else {
+                result = await selectDirectory();
+              }
+              if (result == null || result.isEmpty) return;
+              final changed = await setStoragePathWithPrompt(context, result);
+              if (changed && mounted) setState(() {});
+            },
+          ).toSliver(),
+          _CallbackSetting(
+            title: "Move to Current Storage Path".tl,
+            subtitle:
+                "Move all your local comics into the Storage Path folder. No extra permission needed, and the setting stays unchanged."
+                    .tl,
+            actionTitle: "Move".tl,
+            callback: () => _moveExternalToCurrentPath(),
+          ).toSliver(),
+          _SettingPartTitle(
+            title: "Cache".tl,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedDatabase, size: 18),
+          ),
+          // 所有与系统授权相关的项（存储访问、通知、后台运行、安装未知应用）都已
+          // 迁到独立的「权限」分类：它们和存储路径、缓存大小不是一类东西，夹在
+          // 这里时用户既找不到，也没法一处看全。
+          //
+          // 「缓存大小」不再是单独一行：它是一块只读信息，和「清缓存」讲的是
+          // 同一件事，合成一行后少一次上下对照。
+          _CallbackSetting(
+            title: "Clear Cache".tl,
+            subtitle: "Used @size".tlParams({
+              'size': bytesToReadableString(CacheManager().currentSize),
+            }),
+            actionTitle: "Clear".tl,
+            callback: () async {
+              var loadingDialog = showLoadingDialog(
+                App.rootContext,
+                barrierDismissible: false,
+                allowCancel: false,
+              );
+              await CacheManager().clear();
+              loadingDialog.close();
               if (!mounted) return;
+              context.showMessage(message: "Cache cleared".tl);
               setState(() {});
             },
           ).toSliver(),
-        if (App.isAndroid)
-          _SwitchSetting(
-            title: "Auto-update comic sources".tl,
-            settingKey: 'autoUpdateSourcesEnabled',
-            subtitle:
-                "Automatically update installed sources on WiFi. Overrides local source edits.".tl,
-            onChanged: () => setState(() {}),
-          ).toSliver(),
-        if (App.isAndroid)
           _CallbackSetting(
-            title: "Backup Interval".tl,
-            subtitle:
-                "@count days".tlParams({'count': appdata.settings['autoBackupInterval'] ?? 7}),
-            callback: () async {
-              final options = ["1", "3", "7", "14", "30"];
-              final current =
-                  (appdata.settings['autoBackupInterval'] as int? ?? 7);
-              var index = options.indexOf(current.toString());
-              if (index < 0) index = 2;
-              final result = await showSelectDialog(
-                title: "Backup Interval".tl,
-                options: options.map((e) => "@count days".tlParams({'count': e})).toList(),
-                initialIndex: index,
+            title: "Cache Limit".tl,
+            subtitle: "${appdata.settings['cacheSize']} ${"MB".tl}",
+            callback: () {
+              showInputDialog(
+                context: context,
+                title: "Set Cache Limit".tl,
+                hintText: "Size in MB".tl,
+                inputValidator: RegExp(r"^\d+$"),
+                onConfirm: (value) {
+                  appdata.settings['cacheSize'] = int.parse(value);
+                  appdata.saveData();
+                  setState(() {});
+                  CacheManager().setLimitSize(appdata.settings['cacheSize']);
+                  return null;
+                },
               );
-              if (result != null) {
-                appdata.settings['autoBackupInterval'] =
-                    int.parse(options[result]);
-                await appdata.saveData();
-                await initAutoBackup();
-                if (!mounted) return;
-                setState(() {});
-              }
             },
             actionTitle: 'Set'.tl,
           ).toSliver(),
-        if (App.isAndroid)
+        ],
+        if (showData) ...[
+          _SettingPartTitle(
+            title: "Backup & sync".tl,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCloudBackup, size: 18),
+          ),
           _CallbackSetting(
-            title: "Backup Retention".tl,
-            subtitle:
-                "@count days".tlParams({'count': appdata.settings['autoBackupRetentionDays'] ?? 30}),
-            callback: () async {
-              final options = ["7", "30", "90", "180", "365"];
-              final current =
-                  (appdata.settings['autoBackupRetentionDays'] as int? ?? 30);
-              var index = options.indexOf(current.toString());
-              if (index < 0) index = 1;
-              final result = await showSelectDialog(
-                title: "Backup Retention".tl,
-                options: options
-                    .map((e) => "@count days".tlParams({'count': e}))
-                    .toList(),
-                initialIndex: index,
-              );
-              if (result != null) {
-                appdata.settings['autoBackupRetentionDays'] =
-                    int.parse(options[result]);
-                await appdata.saveData();
-                if (!mounted) return;
-                setState(() {});
-              }
-            },
-            actionTitle: 'Set'.tl,
-          ).toSliver(),
-        if (App.isAndroid)
-          _CallbackSetting(
-            title: "Back Up Now".tl,
+            title: "Export App Data".tl,
             callback: () async {
               var controller = showLoadingDialog(context);
               try {
-                await performAutoBackup();
+                var file = await exportAppData(false);
+                final now = DateTime.now();
+                final dateStr =
+                    "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+                final suffix = _randomFileSuffix();
+                final targetName = "KongComic_${dateStr}_$suffix.kongcomic";
+                final targetPath = FilePath.join(App.cachePath, targetName);
+                final renamed = await file.copy(targetPath);
+                file.deleteIgnoreError();
+                await saveFile(filename: targetName, file: renamed);
                 if (context.mounted) {
-                  context.showMessage(message: "Backup created".tl);
+                  context.showMessage(message: "Export completed".tl);
                 }
               } catch (e, s) {
-                Log.error("Backup", e.toString(), s);
-                if (context.mounted) {
-                  context.showMessage(message: "Backup failed".tl);
-                }
+                Log.error("Export data", e.toString(), s);
+                context.showMessage(message: "Failed to export data".tl);
               } finally {
                 controller.close();
               }
             },
-            actionTitle: 'Backup'.tl,
+            actionTitle: 'Export'.tl,
           ).toSliver(),
-        _CallbackSetting(
-          title: "Cloud Sync".tl,
-          subtitle: "Sync data across devices via WebDAV (Nextcloud, etc.)".tl,
-          callback: () {
-            context.to(() => const _WebdavSetting());
-          },
-          actionTitle: 'Set'.tl,
-        ).toSliver(),
-        _SettingPartTitle(
-          title: "User".tl,
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18),
-        ),
-        if (!App.isLinux)
-          _SwitchSetting(
-            title: "Authorization Required".tl,
-            settingKey: "authorizationRequired",
-            onChanged: () async {
-              var current = appdata.settings['authorizationRequired'];
-              if (current) {
-                final auth = LocalAuthentication();
-                final bool canAuthenticateWithBiometrics =
-                    await auth.canCheckBiometrics;
-                final bool canAuthenticate = canAuthenticateWithBiometrics ||
-                    await auth.isDeviceSupported();
-                if (!mounted) return;
-                if (!canAuthenticate) {
-                  context.showMessage(message: "Biometrics not supported".tl);
-                  setState(() {
-                    appdata.settings['authorizationRequired'] = false;
-                  });
-                  appdata.saveData();
-                  return;
+          _CallbackSetting(
+            title: "Import App Data".tl,
+            callback: () async {
+              var file = await selectFile(
+                ext: ['kongcomic', 'venera', 'picadata'],
+              );
+              if (file != null) {
+                var controller = showLoadingDialog(context);
+                var cacheFile = File(
+                  FilePath.join(App.cachePath, "import_data_temp"),
+                );
+                var needRestart = false;
+                var cancelled = false;
+                try {
+                  await file.saveTo(cacheFile.path);
+                  if (file.name.endsWith('picadata')) {
+                    await importPicaData(cacheFile);
+                  } else {
+                    var hasDuplicates = await importHasDuplicates(cacheFile);
+                    if (hasDuplicates) {
+                      var choice = await _showImportModeDialog(context);
+                      if (choice == null || choice == _ConflictChoice.cancel) {
+                        cancelled = true;
+                        context.showMessage(message: "Import cancelled".tl);
+                      } else {
+                        needRestart = await importAppData(
+                          cacheFile,
+                          false,
+                          choice == _ConflictChoice.merge,
+                        );
+                      }
+                    } else {
+                      needRestart = await importAppData(cacheFile);
+                    }
+                  }
+                } catch (e, s) {
+                  Log.error("Import data", e.toString(), s);
+                  context.showMessage(message: "Failed to import data".tl);
+                } finally {
+                  controller.close();
+                  cacheFile.deleteIgnoreError();
+                  App.forceRebuild();
+                }
+                if (cancelled) {
+                  // 已显示取消提示，无需额外反馈
+                } else if (needRestart && context.mounted) {
+                  context.showMessage(
+                    message: "Restart app to complete data import".tl,
+                  );
+                } else if (context.mounted) {
+                  context.showMessage(message: "Import completed".tl);
                 }
               }
             },
+            actionTitle: 'Import'.tl,
           ).toSliver(),
-        if (App.isAndroid)
-          _SwitchSetting(
-            title: "Exit Confirmation".tl,
-            settingKey: "exitConfirm",
-            subtitle: "Ask before exiting via back gesture at root".tl,
+          if (App.isAndroid)
+            _SwitchSetting(
+              title: "Auto Backup".tl,
+              settingKey: 'autoBackupEnabled',
+              subtitle:
+                  "Periodically back up your data to the Download folder".tl,
+              onChanged: () async {
+                await initAutoBackup();
+                if (!mounted) return;
+                setState(() {});
+              },
+            ).toSliver(),
+          if (App.isAndroid)
+            _SwitchSetting(
+              title: "Auto-update comic sources".tl,
+              settingKey: 'autoUpdateSourcesEnabled',
+              subtitle:
+                  "Automatically update installed sources on WiFi. Overrides local source edits."
+                      .tl,
+              onChanged: () => setState(() {}),
+            ).toSliver(),
+          // 间隔 / 保留时长只在自动备份打开时才有意义：关着的时候它们是两个
+          // 永远用不上的「Set」，白占两行还让人以为备份在跑。
+          if (App.isAndroid && appdata.settings['autoBackupEnabled'] == true)
+            _CallbackSetting(
+              title: "Backup Interval".tl,
+              subtitle: "@count days".tlParams({
+                'count': appdata.settings['autoBackupInterval'] ?? 7,
+              }),
+              callback: () async {
+                final options = ["1", "3", "7", "14", "30"];
+                final current =
+                    (appdata.settings['autoBackupInterval'] as int? ?? 7);
+                var index = options.indexOf(current.toString());
+                if (index < 0) index = 2;
+                final result = await showSelectDialog(
+                  title: "Backup Interval".tl,
+                  options: options
+                      .map((e) => "@count days".tlParams({'count': e}))
+                      .toList(),
+                  initialIndex: index,
+                );
+                if (result != null) {
+                  appdata.settings['autoBackupInterval'] = int.parse(
+                    options[result],
+                  );
+                  await appdata.saveData();
+                  await initAutoBackup();
+                  if (!mounted) return;
+                  setState(() {});
+                }
+              },
+              actionTitle: 'Set'.tl,
+            ).toSliver(),
+          if (App.isAndroid && appdata.settings['autoBackupEnabled'] == true)
+            _CallbackSetting(
+              title: "Backup Retention".tl,
+              subtitle: "@count days".tlParams({
+                'count': appdata.settings['autoBackupRetentionDays'] ?? 30,
+              }),
+              callback: () async {
+                final options = ["7", "30", "90", "180", "365"];
+                final current =
+                    (appdata.settings['autoBackupRetentionDays'] as int? ?? 30);
+                var index = options.indexOf(current.toString());
+                if (index < 0) index = 1;
+                final result = await showSelectDialog(
+                  title: "Backup Retention".tl,
+                  options: options
+                      .map((e) => "@count days".tlParams({'count': e}))
+                      .toList(),
+                  initialIndex: index,
+                );
+                if (result != null) {
+                  appdata.settings['autoBackupRetentionDays'] = int.parse(
+                    options[result],
+                  );
+                  await appdata.saveData();
+                  if (!mounted) return;
+                  setState(() {});
+                }
+              },
+              actionTitle: 'Set'.tl,
+            ).toSliver(),
+          if (App.isAndroid)
+            _CallbackSetting(
+              title: "Back Up Now".tl,
+              callback: () async {
+                var controller = showLoadingDialog(context);
+                try {
+                  await performAutoBackup();
+                  if (context.mounted) {
+                    context.showMessage(message: "Backup created".tl);
+                  }
+                } catch (e, s) {
+                  Log.error("Backup", e.toString(), s);
+                  if (context.mounted) {
+                    context.showMessage(message: "Backup failed".tl);
+                  }
+                } finally {
+                  controller.close();
+                }
+              },
+              actionTitle: 'Backup'.tl,
+            ).toSliver(),
+          _CallbackSetting(
+            title: "Cloud Sync".tl,
+            subtitle:
+                "Sync data across devices via WebDAV (Nextcloud, etc.)".tl,
+            callback: () {
+              context.to(() => const _WebdavSetting());
+            },
+            actionTitle: 'Set'.tl,
           ).toSliver(),
+          _SettingPartTitle(
+            title: "User".tl,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18),
+          ),
+          if (!App.isLinux)
+            _SwitchSetting(
+              title: "Authorization Required".tl,
+              settingKey: "authorizationRequired",
+              onChanged: () async {
+                var current = appdata.settings['authorizationRequired'];
+                if (current) {
+                  // canCheckBiometrics / isDeviceSupported 在部分 ROM 上会抛
+                  // PlatformException。以前不接，异常逃到 zone 里被吞掉，开关
+                  // 停在「开」但根本没校验过设备能否认证 —— 下次启动直接卡在
+                  // 锁屏页。这里按「不可用」处理，并把开关拨回去。
+                  bool canAuthenticate;
+                  try {
+                    final auth = LocalAuthentication();
+                    canAuthenticate =
+                        await auth.canCheckBiometrics ||
+                        await auth.isDeviceSupported();
+                  } catch (e, s) {
+                    Log.error(
+                      "Auth",
+                      "Failed to query biometric capability: $e",
+                      s,
+                    );
+                    canAuthenticate = false;
+                  }
+                  if (!mounted) return;
+                  if (!canAuthenticate) {
+                    context.showMessage(message: "Biometrics not supported".tl);
+                    setState(() {
+                      appdata.settings['authorizationRequired'] = false;
+                    });
+                    appdata.saveData();
+                    return;
+                  }
+                }
+              },
+            ).toSliver(),
+        ],
       ],
     );
   }
@@ -617,11 +572,12 @@ class _StoragePathFallbackBannerState
     showConfirmDialog(
       context: context,
       title: "Move files here?".tl,
-      content: "Files in @old will be copied to @new, then the old folder will be emptied."
-          .tlParams({
-        'old': pending.originalPath,
-        'new': LocalManager().path,
-      }),
+      content:
+          "Files in @old will be copied to @new, then the old folder will be emptied."
+              .tlParams({
+                'old': pending.originalPath,
+                'new': LocalManager().path,
+              }),
       confirmText: "Move here",
       onConfirm: _doAdopt,
     );
@@ -749,10 +705,7 @@ class _StoragePathFallbackBannerState
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 4,
             children: [
-              Button.text(
-                onPressed: _ignore,
-                child: Text("Ignore".tl),
-              ),
+              Button.text(onPressed: _ignore, child: Text("Ignore".tl)),
               Button.text(
                 onPressed: _startPick,
                 child: Text("Choose a different folder".tl),
@@ -803,64 +756,80 @@ class _LogsPageState extends State<LogsPage> {
         title: Text("Logs".tl),
         actions: [
           IconButton(
-              tooltip: "Filter".tl,
-              onPressed: () => setState(() {
-                    final RelativeRect position = RelativeRect.fromLTRB(
-                      MediaQuery.of(context).size.width,
-                      MediaQuery.of(context).padding.top + kToolbarHeight,
-                      0.0,
-                      0.0,
-                    );
-                    showMenu(context: context, position: position, items: [
-                      PopupMenuItem(
-                          child: Text("all"),
-                          onTap: () => setState(() => logLevelToShow = "all")
-                      ),
-                      PopupMenuItem(
-                          child: Text("info"),
-                          onTap: () => setState(() => logLevelToShow = "info")
-                      ),
-                      PopupMenuItem(
-                          child: Text("warning"),
-                          onTap: () => setState(() => logLevelToShow = "warning")
-                      ),
-                      PopupMenuItem(
-                          child: Text("error"),
-                          onTap: () => setState(() => logLevelToShow = "error")
-                      ),
-                    ]);
-              }),
-              icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilterHorizontal, size: 18)
+            tooltip: "Filter".tl,
+            onPressed: () => setState(() {
+              final RelativeRect position = RelativeRect.fromLTRB(
+                MediaQuery.of(context).size.width,
+                MediaQuery.of(context).padding.top + kToolbarHeight,
+                0.0,
+                0.0,
+              );
+              showMenu(
+                context: context,
+                position: position,
+                items: [
+                  PopupMenuItem(
+                    child: Text("all"),
+                    onTap: () => setState(() => logLevelToShow = "all"),
+                  ),
+                  PopupMenuItem(
+                    child: Text("info"),
+                    onTap: () => setState(() => logLevelToShow = "info"),
+                  ),
+                  PopupMenuItem(
+                    child: Text("warning"),
+                    onTap: () => setState(() => logLevelToShow = "warning"),
+                  ),
+                  PopupMenuItem(
+                    child: Text("error"),
+                    onTap: () => setState(() => logLevelToShow = "error"),
+                  ),
+                ],
+              );
+            }),
+            icon: const HugeIcon(
+              icon: HugeIcons.strokeRoundedFilterHorizontal,
+              size: 18,
+            ),
           ),
           IconButton(
-              tooltip: "More".tl,
-              onPressed: () => setState(() {
-                    final RelativeRect position = RelativeRect.fromLTRB(
-                      MediaQuery.of(context).size.width,
-                      MediaQuery.of(context).padding.top + kToolbarHeight,
-                      0.0,
-                      0.0,
-                    );
-                    showMenu(context: context, position: position, items: [
-                      PopupMenuItem(
-                        child: Text("Clear".tl),
-                        onTap: () => setState(() => Log.clear()),
-                      ),
-                      PopupMenuItem(
-                        child: Text("Disable Length Limitation".tl),
-                        onTap: () {
-                          Log.ignoreLimitation = true;
-                          context.showMessage(
-                              message: "Only valid for this run".tl);
-                        },
-                      ),
-                      PopupMenuItem(
-                        child: Text("Export".tl),
-                        onTap: () => saveLog(Log().toString()),
-                      ),
-                    ]);
-                  }),
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 18))
+            tooltip: "More".tl,
+            onPressed: () => setState(() {
+              final RelativeRect position = RelativeRect.fromLTRB(
+                MediaQuery.of(context).size.width,
+                MediaQuery.of(context).padding.top + kToolbarHeight,
+                0.0,
+                0.0,
+              );
+              showMenu(
+                context: context,
+                position: position,
+                items: [
+                  PopupMenuItem(
+                    child: Text("Clear".tl),
+                    onTap: () => setState(() => Log.clear()),
+                  ),
+                  PopupMenuItem(
+                    child: Text("Disable Length Limitation".tl),
+                    onTap: () {
+                      Log.ignoreLimitation = true;
+                      context.showMessage(
+                        message: "Only valid for this run".tl,
+                      );
+                    },
+                  ),
+                  PopupMenuItem(
+                    child: Text("Export".tl),
+                    onTap: () => saveLog(Log().toString()),
+                  ),
+                ],
+              );
+            }),
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedMoreHorizontal,
+              size: 18,
+            ),
+          ),
         ],
       ),
       body: ListView.builder(
@@ -878,53 +847,58 @@ class _LogsPageState extends State<LogsPage> {
                     children: [
                       Container(
                         decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
-                          borderRadius:
-                              const BorderRadius.all(Radius.circular(kcRadius16)),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(kcRadius16),
+                          ),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
                           child: Text(logToShow[index].title),
                         ),
                       ),
-                      const SizedBox(
-                        width: 3,
-                      ),
+                      const SizedBox(width: 3),
                       Container(
                         decoration: BoxDecoration(
                           color: [
                             Theme.of(context).colorScheme.error,
                             Theme.of(context).colorScheme.errorContainer,
-                            kcAccentSurface(context)
+                            kcAccentSurface(context),
                           ][logToShow[index].level.index],
-                          borderRadius:
-                              const BorderRadius.all(Radius.circular(kcRadius16)),
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(kcRadius16),
+                          ),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
                           child: Text(
                             logToShow[index].level.name,
                             style: TextStyle(
-                                color: [
-                              Theme.of(context).colorScheme.onError,
-                              Theme.of(context).colorScheme.onErrorContainer,
-                              kcBrandAdaptive(context)
-                            ][logToShow[index].level.index]),
+                              color: [
+                                Theme.of(context).colorScheme.onError,
+                                Theme.of(context).colorScheme.onErrorContainer,
+                                kcBrandAdaptive(context),
+                              ][logToShow[index].level.index],
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
                   Text(logToShow[index].content),
-                  Text(logToShow[index].time
-                      .toString()
-                      .replaceAll(RegExp(r"\.\w+"), "")),
+                  Text(
+                    logToShow[index].time.toString().replaceAll(
+                      RegExp(r"\.\w+"),
+                      "",
+                    ),
+                  ),
                   Button.text(
                     onPressed: () {
                       Clipboard.setData(
-                          ClipboardData(text: logToShow[index].content));
+                        ClipboardData(text: logToShow[index].content),
+                      );
                     },
                     child: Text("Copy".tl),
                   ),
@@ -1024,19 +998,13 @@ class _WebdavSettingState extends State<_WebdavSetting> {
             ),
             const SizedBox(height: 12),
             TextField(
-              decoration: kcInputDecoration(
-                context,
-                labelText: "Username".tl,
-              ),
+              decoration: kcInputDecoration(context, labelText: "Username".tl),
               controller: _userController,
               onChanged: (value) => user = value,
             ),
             const SizedBox(height: 12),
             TextField(
-              decoration: kcInputDecoration(
-                context,
-                labelText: "Password".tl,
-              ),
+              decoration: kcInputDecoration(context, labelText: "Password".tl),
               controller: _passController,
               onChanged: (value) => pass = value,
             ),
@@ -1048,7 +1016,10 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                 hintText: "field0, field1, field2, ...",
                 suffixIcon: IconButton(
                   tooltip: "Help".tl,
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedHelpCircle,
+                    size: 18,
+                  ),
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -1060,7 +1031,8 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "When sync data, skip certain setting fields, which means these won't be uploaded / override.".tl,
+                              "When sync data, skip certain setting fields, which means these won't be uploaded / override."
+                                  .tl,
                             ),
                             const SizedBox(height: 12),
                             Row(
@@ -1074,9 +1046,14 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                                   alignment: Alignment.centerRight,
                                   child: IconButton(
                                     tooltip: "Open Link".tl,
-                                    icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 18),
+                                    icon: HugeIcon(
+                                      icon: HugeIcons.strokeRoundedShare01,
+                                      size: 18,
+                                    ),
                                     onPressed: () {
-                                      launchUrlString("https://github.com/venera-app/venera/blob/b08f11f6ac49bd07d34b4fcde233ed07e86efbc9/lib/foundation/appdata.dart#L138");
+                                      launchUrlString(
+                                        "https://github.com/venera-app/venera/blob/b08f11f6ac49bd07d34b4fcde233ed07e86efbc9/lib/foundation/appdata.dart#L138",
+                                      );
                                     },
                                   ),
                                 ),
@@ -1098,10 +1075,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
               contentPadding: EdgeInsets.zero,
               leading: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
               title: Text("Auto Sync Data".tl),
-              trailing: KcSwitch(
-                value: autoSync,
-                onChanged: onAutoSyncChanged,
-              ),
+              trailing: KcSwitch(value: autoSync, onChanged: onAutoSyncChanged),
             ),
             const SizedBox(height: 12),
             RadioGroup<bool>(
@@ -1114,13 +1088,9 @@ class _WebdavSettingState extends State<_WebdavSetting> {
               child: Row(
                 children: [
                   Text("Operation".tl),
-                  Radio<bool>(
-                    value: true,
-                  ),
+                  Radio<bool>(value: true),
                   Text("Upload".tl),
-                  Radio<bool>(
-                    value: false,
-                  ),
+                  Radio<bool>(value: false),
                   Text("Download".tl),
                 ],
               ),
@@ -1137,12 +1107,16 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                       ),
                       child: Row(
                         children: [
-                          HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 20),
+                          HugeIcon(
+                            icon: HugeIcons.strokeRoundedInformationCircle,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                                "Once the operation is successful, app will automatically sync data with the server."
-                                    .tl),
+                              "Once the operation is successful, app will automatically sync data with the server."
+                                  .tl,
+                            ),
                           ),
                         ],
                       ),
@@ -1196,7 +1170,9 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                     appdata.implicitData['webdavAutoSync'] = oldAutoSync;
                     appdata.writeImplicitData();
                     appdata.saveData();
-                    context.showMessage(message: friendlyError(testResult.errorMessage!));
+                    context.showMessage(
+                      message: friendlyError(testResult.errorMessage ?? ""),
+                    );
                     context.showMessage(message: "Saved Failed".tl);
                   } else {
                     appdata.saveData();
@@ -1206,7 +1182,7 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                 },
                 child: Text("Continue".tl),
               ),
-            )
+            ),
           ],
         ).paddingHorizontal(16),
       ),
@@ -1220,7 +1196,10 @@ const _fileSuffixChars = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 String _randomFileSuffix() {
   final rand = Random.secure();
-  return List.generate(6, (_) => _fileSuffixChars[rand.nextInt(_fileSuffixChars.length)]).join();
+  return List.generate(
+    6,
+    (_) => _fileSuffixChars[rand.nextInt(_fileSuffixChars.length)],
+  ).join();
 }
 
 class _StorageConflictDialog extends StatelessWidget {
@@ -1256,10 +1235,7 @@ class _StorageConflictDialog extends StatelessWidget {
               fontFamily: "monospace",
             ),
           ).paddingBottom(12),
-          Text(
-            "Overwrite".tl,
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+          Text("Overwrite".tl, style: TextStyle(fontWeight: FontWeight.bold)),
           Text(
             "Move your library and replace any files with the same name.".tl,
             style: TextStyle(
@@ -1267,10 +1243,7 @@ class _StorageConflictDialog extends StatelessWidget {
               color: context.colorScheme.onSurfaceVariant,
             ),
           ).paddingBottom(8),
-          Text(
-            "Merge".tl,
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+          Text("Merge".tl, style: TextStyle(fontWeight: FontWeight.bold)),
           Text(
             "Move your library and skip files that already exist.".tl,
             style: TextStyle(
@@ -1333,10 +1306,7 @@ class _ImportConflictDialog extends StatelessWidget {
               color: context.colorScheme.onSurfaceVariant,
             ),
           ).paddingBottom(8),
-          Text(
-            "Merge".tl,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
+          Text("Merge".tl, style: const TextStyle(fontWeight: FontWeight.bold)),
           Text(
             "Keep local data and append only the items missing from the backup."
                 .tl,

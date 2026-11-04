@@ -140,9 +140,12 @@ Future<void> _checkOldConfigs() async {
     appdata.writeImplicitData();
   }
 
-  if (appdata.settings['comicSourceListUrl'].toString().contains("git.nyne.dev")) {
+  if (appdata.settings['comicSourceListUrl'].toString().contains(
+    "git.nyne.dev",
+  )) {
     // migrate to jsdelivr cdn
-    appdata.settings['comicSourceListUrl'] = "https://cdn.jsdelivr.net/gh/SkyAlice-source/venera-configs@main/index.json";
+    appdata.settings['comicSourceListUrl'] =
+        "https://cdn.jsdelivr.net/gh/SkyAlice-source/venera-configs@main/index.json";
     appdata.saveData();
   }
 

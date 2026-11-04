@@ -275,7 +275,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
     var res = await widget.comicSource.favoriteData!.loadFolders!(widget.cid);
     if (!mounted) return;
     if (res.error) {
-      context.showMessage(message: friendlyError(res.errorMessage!));
+      context.showMessage(message: friendlySourceError(res.errorMessage));
       setState(() {
         isLoadingFolders = false;
         foldersError = res.errorMessage;
@@ -434,7 +434,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
                     }
                   } else {
                     context.showMessage(
-                      message: friendlyError(res.errorMessage!),
+                      message: friendlySourceError(res.errorMessage),
                     );
                   }
                   if (mounted) setState(() => isLoading = false);
@@ -499,7 +499,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
                       }
                     } else {
                       context.showMessage(
-                        message: friendlyError(res.errorMessage!),
+                        message: friendlySourceError(res.errorMessage),
                       );
                     }
                     if (mounted) setState(() => _itemLoading[id] = false);
@@ -508,11 +508,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
             leading: _rowIcon(context, HugeIcons.strokeRoundedFolder01),
             title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
             trailing: (_itemLoading[id] ?? false)
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const KcInlineSpinner(size: 20)
                 : _FavoriteStatePill(isFavorite: isAdded, enabled: enabled),
           );
         }),
@@ -662,14 +658,7 @@ class _FavoriteStatePill extends StatelessWidget {
               ),
       ),
       child: isLoading
-          ? SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: kcBrandAdaptive(context),
-              ),
-            )
+          ? KcInlineSpinner(size: 12, color: kcBrandAdaptive(context))
           : Text(
               isFavorite ? "Remove".tl : "Add".tl,
               style: TextStyle(

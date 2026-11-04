@@ -129,9 +129,7 @@ class EmptyState extends StatelessWidget {
     } else {
       // 默认角色插画。标题已经说明了「这里是什么都没有」，插画不需要再被
       // 读屏念一次。
-      graphic = ExcludeSemantics(
-        child: KcChibiIdle(width: illustrationWidth),
-      );
+      graphic = ExcludeSemantics(child: KcChibiIdle(width: illustrationWidth));
     }
     return Center(
       child: Padding(

@@ -17,6 +17,32 @@ import 'foundation/appdata.dart';
 /// 品牌主色 Kong Coral，用于收藏红心、收藏角标等强调色。
 const Color kcBrandColor = Color(0xFFD4381B);
 
+/// 可选主题色板：key 与 `settings['color']` 一一对应，值为 (primary, secondary)。
+///
+/// **唯一事实来源**：`main.dart` 用它生成 ColorScheme，设置页用它画色点。
+/// 以前色值只写在 `translateColorSetting()` 里，设置页要显示色点就得再抄一份，
+/// 抄错一个色值就会出现「点的是紫、界面是蓝」。
+///
+/// 顺序即设置页的展示顺序；`system`（= 品牌红）放在首位当默认项。
+const Map<String, (Color, Color)> kcThemePalettes = {
+  // 默认项不跟壁纸动态取色，直接落品牌红 + 同族珊瑚红。
+  'system': (kcBrandColor, kcBrandColorOnDark),
+  // 高饱和珊瑚红 + 鲜天蓝
+  'red': (Color(0xFFFF453A), Color(0xFF0EA5E9)),
+  // 高饱和玫红 + 电光紫
+  'pink': (Color(0xFFFF2D55), Color(0xFF8B5CF6)),
+  // 高饱和紫 + 鲜橙
+  'purple': (Color(0xFFBF5AF2), Color(0xFFFF9F0A)),
+  // 高饱和草绿 + 鲜橙
+  'green': (Color(0xFF30D158), Color(0xFFFF9F0A)),
+  // 高饱和蓝 + 鲜橙
+  'blue': (Color(0xFF0A84FF), Color(0xFFFF9F0A)),
+  // 高饱和黄 + 鲜天蓝
+  'yellow': (Color(0xFFFFD60A), Color(0xFF0EA5E9)),
+  // 高饱和青 + 电光紫
+  'cyan': (Color(0xFF5AC8FA), Color(0xFF8B5CF6)),
+};
+
 /// 当前是否为 **AMOLED 纯黑外观**。
 ///
 /// 只有 `theme_mode == 'amoled'` 才算；「深色」与「跟随系统（系统为暗色）」都走
@@ -136,8 +162,9 @@ const double kcLineHeightFactor = 1.55;
 BoxShadow kcCardShadow(BuildContext context) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return BoxShadow(
-    color: (isDark ? Colors.white : Colors.black)
-        .withValues(alpha: isDark ? 0.16 : 0.10),
+    color: (isDark ? Colors.white : Colors.black).withValues(
+      alpha: isDark ? 0.16 : 0.10,
+    ),
     blurRadius: 8,
     offset: const Offset(0, 2),
   );
@@ -285,7 +312,9 @@ Color kcTagColor(int index, Brightness brightness, {bool amoled = false}) {
   if (amoled && brightness == Brightness.dark) {
     return kcTagAmoledGray;
   }
-  final palette = brightness == Brightness.dark ? kcTagPaletteDark : kcTagPaletteLight;
+  final palette = brightness == Brightness.dark
+      ? kcTagPaletteDark
+      : kcTagPaletteLight;
   return palette[index % palette.length];
 }
 
@@ -350,15 +379,15 @@ const kcSpring = KcSpring();
 /// 底色（surfaceContainerHigh）与填充色只差一档，没描边时整块框会「消失」，
 /// 只剩一行飘着的标签。
 BorderSide kcInputHairline(ColorScheme scheme, bool isDark) => BorderSide(
-      color: scheme.outlineVariant.withValues(alpha: isDark ? 0.55 : 0.9),
-      width: 0.8,
-    );
+  color: scheme.outlineVariant.withValues(alpha: isDark ? 0.55 : 0.9),
+  width: 0.8,
+);
 
 /// [kcFieldRadius] 圆角的输入框边框。
 OutlineInputBorder kcInputBorder(BorderSide side) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(kcFieldRadius),
-      borderSide: side,
-    );
+  borderRadius: BorderRadius.circular(kcFieldRadius),
+  borderSide: side,
+);
 
 /// 输入框四态边框（圆角 + 描边）的**唯一来源**。
 ///
@@ -383,8 +412,9 @@ InputDecorationTheme kcInputThemeData({
     enabledBorder: kcInputBorder(hairline),
     focusedBorder: kcInputBorder(BorderSide(color: accent, width: 1.2)),
     errorBorder: kcInputBorder(BorderSide(color: scheme.error, width: 1)),
-    focusedErrorBorder:
-        kcInputBorder(BorderSide(color: scheme.error, width: 1.2)),
+    focusedErrorBorder: kcInputBorder(
+      BorderSide(color: scheme.error, width: 1.2),
+    ),
   );
 }
 
@@ -440,7 +470,8 @@ InputDecoration kcInputDecoration(
     filled: true,
     fillColor: cs.surfaceContainerHighest,
     contentPadding:
-        contentPadding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding ??
+        const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
     border: theme.border,
     enabledBorder: theme.enabledBorder,
     focusedBorder: theme.focusedBorder,

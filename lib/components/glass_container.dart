@@ -139,13 +139,15 @@ class _GlassContainerState extends State<GlassContainer>
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBorderRadius = widget.borderRadius ?? BorderRadius.circular(kcRadius20);
+    final effectiveBorderRadius =
+        widget.borderRadius ?? BorderRadius.circular(kcRadius20);
     final effectiveBorder = widget.border ?? GlassContainer.iosBorder(context);
-    final effectiveShadow = widget.boxShadow ?? GlassContainer.liquidShadow(context);
+    final effectiveShadow =
+        widget.boxShadow ?? GlassContainer.liquidShadow(context);
     final brightness = Theme.of(context).brightness;
 
     Widget glassChild = ClipRRect(
-      borderRadius: effectiveBorderRadius ,
+      borderRadius: effectiveBorderRadius,
       clipBehavior: widget.clipBehavior,
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(
@@ -158,7 +160,7 @@ class _GlassContainerState extends State<GlassContainer>
           brightness: brightness,
           opacity: widget.opacity,
           tintColor: widget.tintColor,
-          borderRadius: effectiveBorderRadius ,
+          borderRadius: effectiveBorderRadius,
           border: effectiveBorder,
           boxShadow: effectiveShadow,
           width: widget.width,
@@ -290,9 +292,7 @@ class GlassBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = edgeToEdge
-        ? MediaQuery.of(context).padding.bottom
-        : 0.0;
+    final bottomPad = edgeToEdge ? MediaQuery.of(context).padding.bottom : 0.0;
     final totalHeight = height + bottomPad;
     final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
     // 真·磨砂玻璃（像贴吧 Haze）的关键：不要镜面高光、不要过硬的投影。
@@ -311,8 +311,8 @@ class GlassBottomBar extends StatelessWidget {
       builder: (context, scrolling, _) {
         final effectiveTint = scrolling
             ? (isDark
-                ? Colors.black.withValues(alpha: 0.72)
-                : Colors.white.withValues(alpha: 0.88))
+                  ? Colors.black.withValues(alpha: 0.72)
+                  : Colors.white.withValues(alpha: 0.88))
             : tintColor;
 
         Widget body = Container(
@@ -406,19 +406,20 @@ class GlassCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
     final primary = cs.primary;
-    final effectiveBorderRadius = borderRadius ?? BorderRadius.circular(kcRadius16);
+    final effectiveBorderRadius =
+        borderRadius ?? BorderRadius.circular(kcRadius16);
 
     Widget card;
     if (isDark) {
       card = ClipRRect(
-        borderRadius: effectiveBorderRadius ,
+        borderRadius: effectiveBorderRadius,
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
             padding: padding ?? const EdgeInsets.all(kcSpaceLg),
             decoration: BoxDecoration(
               color: cs.surfaceContainerHigh,
-              borderRadius: effectiveBorderRadius ,
+              borderRadius: effectiveBorderRadius,
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.06),
                 width: 0.5,
@@ -440,7 +441,7 @@ class GlassCard extends StatelessWidget {
             ),
             child: onTap != null
                 ? InkWell(
-                    borderRadius: effectiveBorderRadius ,
+                    borderRadius: effectiveBorderRadius,
                     onTap: onTap,
                     splashColor: Colors.white.withValues(alpha: 0.08),
                     highlightColor: Colors.white.withValues(alpha: 0.04),
@@ -452,13 +453,13 @@ class GlassCard extends StatelessWidget {
       );
     } else {
       card = ClipRRect(
-        borderRadius: effectiveBorderRadius ,
+        borderRadius: effectiveBorderRadius,
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
             padding: padding ?? const EdgeInsets.all(kcSpaceLg),
             decoration: BoxDecoration(
-              borderRadius: effectiveBorderRadius ,
+              borderRadius: effectiveBorderRadius,
               gradient: LinearGradient(
                 colors: [
                   primary.withValues(alpha: 0.12),
@@ -488,7 +489,7 @@ class GlassCard extends StatelessWidget {
             ),
             child: onTap != null
                 ? InkWell(
-                    borderRadius: effectiveBorderRadius ,
+                    borderRadius: effectiveBorderRadius,
                     onTap: onTap,
                     splashColor: Colors.white.withValues(alpha: 0.08),
                     highlightColor: Colors.white.withValues(alpha: 0.04),
@@ -507,4 +508,3 @@ class GlassCard extends StatelessWidget {
     return card;
   }
 }
-

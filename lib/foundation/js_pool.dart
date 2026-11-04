@@ -74,7 +74,10 @@ class IsolateJsEngine {
   IsolateJsEngine(Uint8List jsInit) {
     _receivePort = ReceivePort();
     _receivePort!.listen(_onMessage);
-    Isolate.spawn(_run, _IsolateJsEngineInitParam(_receivePort!.sendPort, jsInit));
+    Isolate.spawn(
+      _run,
+      _IsolateJsEngineInitParam(_receivePort!.sendPort, jsInit),
+    );
   }
 
   void _onMessage(dynamic message) {
@@ -110,8 +113,7 @@ class IsolateJsEngine {
     try {
       JsEngine.cacheJsInit(params.jsInit);
       await engine.init();
-    }
-    catch(e, s) {
+    } catch (e, s) {
       sendPort.send(Exception("Failed to initialize JS engine: $e\n$s"));
       return;
     }
@@ -120,7 +122,9 @@ class IsolateJsEngine {
         try {
           final jsFunc = engine.runCode(message.jsFunction);
           if (jsFunc is! JSInvokable) {
-            throw Exception("The provided code does not evaluate to a function.");
+            throw Exception(
+              "The provided code does not evaluate to a function.",
+            );
           }
           final result = jsFunc.invoke(message.args);
           jsFunc.free();
@@ -163,8 +167,9 @@ class IsolateJsEngine {
       // Wait for pending tasks with a timeout to avoid permanent blocking.
       if (_tasks.isNotEmpty) {
         try {
-          await Future.wait(_tasks.values.map((c) => c.future))
-              .timeout(const Duration(seconds: 5));
+          await Future.wait(
+            _tasks.values.map((c) => c.future),
+          ).timeout(const Duration(seconds: 5));
         } catch (_) {
           // Timeout or error: force kill the isolate.
         }

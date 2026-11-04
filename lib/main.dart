@@ -205,10 +205,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // 加载动画的素材几乎每个页面都会用到。不预热的话，第一次进详情页 /
     // 评论页时那一小块是空的，等解码完才「突然出现」；预热一次之后，
     // 后续所有加载态都从图片缓存同步取到，首帧就有画面。
-    precacheImage(
-      const AssetImage('assets/loading/chibi_crawl.webp'),
-      context,
-    );
+    precacheImage(const AssetImage('assets/loading/chibi_crawl.webp'), context);
   }
 
   void forceRebuild() {
@@ -217,45 +214,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   /// 各主题色的种子色。
   ///
-  /// 各主题色的种子色。
-  ///
-  /// - [red] 使用 Kong Coral 品牌色 #E5402A，保留唯一暖红主题。
+  /// - 色值统一定义在 [kcThemePalettes]（design_tokens.dart），设置页画色点也用
+  ///   同一张表，不再两处各写一份。
   /// - 删除 [orange] 主题：与 red 在色相环上过于接近，造成「双红重复」。
   /// - secondary 统一采用互补/冷暖对比色，让同一主题内的 primary 与 secondary
   ///   拉开层次，避免整体看起来「一个颜色」。
   /// 返回 (primary, secondary) 配色对。
   (Color, Color) translateColorSetting() {
-    return switch (appdata.settings['color']) {
-      'red' => (
-        const Color(0xFFFF453A),
-        const Color(0xFF0EA5E9),
-      ), // 高饱和珊瑚红 + 鲜天蓝
-      'pink' => (
-        const Color(0xFFFF2D55),
-        const Color(0xFF8B5CF6),
-      ), // 高饱和玫红 + 电光紫
-      'purple' => (
-        const Color(0xFFBF5AF2),
-        const Color(0xFFFF9F0A),
-      ), // 高饱和紫 + 鲜橙
-      'green' => (
-        const Color(0xFF30D158),
-        const Color(0xFFFF9F0A),
-      ), // 高饱和草绿 + 鲜橙
-      'blue' => (const Color(0xFF0A84FF), const Color(0xFFFF9F0A)), // 高饱和蓝 + 鲜橙
-      'yellow' => (
-        const Color(0xFFFFD60A),
-        const Color(0xFF0EA5E9),
-      ), // 高饱和黄 + 鲜天蓝
-      'cyan' => (
-        const Color(0xFF5AC8FA),
-        const Color(0xFF8B5CF6),
-      ), // 高饱和青 + 电光紫
-      // 默认（system）不再跟壁纸动态色，直接落到品牌红 + 同族珊瑚红：
-      // 浅色下的选中胶囊、次级按钮、勾选框才会和主 CTA 是同一套红。
-      'system' => (kcBrandColor, kcBrandColorOnDark),
-      _ => (kcBrandColor, kcBrandColorOnDark),
-    };
+    final key = appdata.settings['color'];
+    // 未知 key（旧版本保存过已下线的主题色）一律退回品牌红。
+    return kcThemePalettes[key] ?? (kcBrandColor, kcBrandColorOnDark);
   }
 
   ThemeData getTheme(
@@ -348,21 +316,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             // 派生容器色一并压成中性灰，确保任何使用 primaryContainer/
             // secondaryContainer/surfaceVariant 的组件（如主页计数徽标）在
             // 纯黑外观下都不会泄漏主题色。
-        primaryContainer: highest,
-        onPrimaryContainer: Colors.white,
-        secondaryContainer: highest,
-        onSecondaryContainer: Colors.white,
-        tertiaryContainer: highest,
-        onTertiaryContainer: Colors.white,
-        // errorContainer 也必须压成灰：AppBadge 的 warning 类型（「需登录」
-        // 「新版本」）正是用它做底，不覆盖就会在纯黑界面上冒出一块红。
-        // 只收容器色，`error` 本身仍是红——删除类按钮按约定保留语义红。
-        errorContainer: high,
-        onErrorContainer: const Color(0xFFEDEAEB),
-        // 灰度外观里 error 是唯一保留的彩色（报错 / 删除必须一眼可辨），
-        // 取 M3 深色错误色保证纯黑底上的对比度。
-        error: const Color(0xFFFFB4AB),
-        onError: const Color(0xFF690005),
+            primaryContainer: highest,
+            onPrimaryContainer: Colors.white,
+            secondaryContainer: highest,
+            onSecondaryContainer: Colors.white,
+            tertiaryContainer: highest,
+            onTertiaryContainer: Colors.white,
+            // errorContainer 也必须压成灰：AppBadge 的 warning 类型（「需登录」
+            // 「新版本」）正是用它做底，不覆盖就会在纯黑界面上冒出一块红。
+            // 只收容器色，`error` 本身仍是红——删除类按钮按约定保留语义红。
+            errorContainer: high,
+            onErrorContainer: const Color(0xFFEDEAEB),
+            // 灰度外观里 error 是唯一保留的彩色（报错 / 删除必须一眼可辨），
+            // 取 M3 深色错误色保证纯黑底上的对比度。
+            error: const Color(0xFFFFB4AB),
+            onError: const Color(0xFF690005),
             inverseSurface: const Color(0xFFE0E0E0),
             inversePrimary: const Color(0xFFB0B0B0),
           );
@@ -607,7 +575,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 states.contains(WidgetState.selected) ? scheme.primary : null,
           ),
           checkColor: const WidgetStatePropertyAll(Colors.black),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kcRadius6)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(kcRadius6),
+          ),
         ),
         radioTheme: RadioThemeData(
           fillColor: WidgetStateProperty.resolveWith(
@@ -675,7 +645,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               states.contains(WidgetState.selected) ? kcBrandColor : null,
         ),
         checkColor: const WidgetStatePropertyAll(Colors.white),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kcRadius6)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kcRadius6),
+        ),
       ),
       radioTheme: RadioThemeData(
         fillColor: WidgetStateProperty.resolveWith(

@@ -8,11 +8,9 @@ void showToast({
   int? seconds,
 }) {
   var newEntry = OverlayEntry(
-      builder: (context) => _ToastOverlay(
-            message: message,
-            icon: icon,
-            trailing: trailing,
-          ));
+    builder: (context) =>
+        _ToastOverlay(message: message, icon: icon, trailing: trailing),
+  );
 
   var state = context.findAncestorStateOfType<OverlayWidgetState>();
 
@@ -41,41 +39,45 @@ class _ToastOverlay extends StatelessWidget {
         child: Semantics(
           liveRegion: true,
           child: Material(
-          color: Theme.of(context).colorScheme.inverseSurface,
-          borderRadius: BorderRadius.circular(kcRadius8),
-          elevation: 2,
-          textStyle:
-              ts.withColor(Theme.of(context).colorScheme.onInverseSurface),
-          child: IconTheme(
-            data: IconThemeData(
-                color: Theme.of(context).colorScheme.onInverseSurface),
-            child: IntrinsicWidth(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                constraints: BoxConstraints(
-                  maxWidth: context.width - 32,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (icon != null) icon!.paddingRight(8),
-                    Expanded(
-                      child: Text(
-                        message,
-                        style: const TextStyle(
-                            fontSize: kcSubtitle, fontWeight: FontWeight.w500),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
+            color: Theme.of(context).colorScheme.inverseSurface,
+            borderRadius: BorderRadius.circular(kcRadius8),
+            elevation: 2,
+            textStyle: ts.withColor(
+              Theme.of(context).colorScheme.onInverseSurface,
+            ),
+            child: IconTheme(
+              data: IconThemeData(
+                color: Theme.of(context).colorScheme.onInverseSurface,
+              ),
+              child: IntrinsicWidth(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 16,
+                  ),
+                  constraints: BoxConstraints(maxWidth: context.width - 32),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (icon != null) icon!.paddingRight(8),
+                      Expanded(
+                        child: Text(
+                          message,
+                          style: const TextStyle(
+                            fontSize: kcSubtitle,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    if (trailing != null) trailing!.paddingLeft(8)
-                  ],
+                      if (trailing != null) trailing!.paddingLeft(8),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
         ),
       ),
     );
@@ -169,8 +171,10 @@ class _UpdateBannerOverlay extends StatelessWidget {
                     ),
                   ],
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
                     if (coverPath != null)
@@ -212,9 +216,9 @@ class _UpdateBannerOverlay extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             subtitle,
-                            style: TextStyle(fontSize: kcBody).copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                            style: TextStyle(
+                              fontSize: kcBody,
+                            ).copyWith(color: colorScheme.onSurfaceVariant),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -286,12 +290,7 @@ void showDialogMessage(BuildContext context, String title, String message) {
     builder: (context) => ContentDialog(
       title: title,
       content: Text(message).paddingHorizontal(16),
-      actions: [
-        Button.filled(
-          onPressed: context.pop,
-          child: Text("OK".tl),
-        )
-      ],
+      actions: [Button.filled(onPressed: context.pop, child: Text("OK".tl))],
     ),
   );
 }
@@ -414,100 +413,106 @@ LoadingDialogController showLoadingDialog(
     context: context,
     barrierDismissible: barrierDismissible,
     builder: (BuildContext context) {
-      return StatefulBuilder(builder: (context, setState) {
-        controller._serProgress = (value) {
-          setState(() {
-            controller._progress = value;
-          });
-        };
-        controller._setMessage = (message) {
-          setState(() {
-            controller._message = message;
-          });
-        };
-        final progress = controller._progress;
-        final isDark = context.colorScheme.brightness == Brightness.dark;
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            // 与 app 统一弹窗（ContentDialog）一致：24dp 大圆角 + 极细凝光描边
-            borderRadius: BorderRadius.circular(kcSurfaceRadius),
-            side: BorderSide(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : Colors.black.withValues(alpha: 0.06),
-              width: 0.5,
+      return StatefulBuilder(
+        builder: (context, setState) {
+          controller._serProgress = (value) {
+            setState(() {
+              controller._progress = value;
+            });
+          };
+          controller._setMessage = (message) {
+            setState(() {
+              controller._message = message;
+            });
+          };
+          final progress = controller._progress;
+          final isDark = context.colorScheme.brightness == Brightness.dark;
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              // 与 app 统一弹窗（ContentDialog）一致：24dp 大圆角 + 极细凝光描边
+              borderRadius: BorderRadius.circular(kcSurfaceRadius),
+              side: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
+                width: 0.5,
+              ),
             ),
-          ),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 48),
-          elevation: 6,
-          shadowColor: context.colorScheme.shadow.withValues(alpha: 0.18),
-          backgroundColor: context.colorScheme.surfaceContainerHigh,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  controller._message ?? 'Loading'.tl,
-                  style: const TextStyle(fontSize: kcBody),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(kcRadius6),
-                        child: LinearProgressIndicator(
-                          // 收敛到 [0,1]：上游镜像下载可能把 downloadedBytes 报得
-                          // 大于 totalBytes（Content-Length 不准），或传入 NaN/Infinity，
-                          // 越界会让 LinearProgressIndicator 抛断言。null/NaN 走不确定态。
-                          value: progress == null || progress.isNaN
-                              ? null
-                              : progress.clamp(0.0, 1.0),
-                          minHeight: 8,
-                          color: context.colorScheme.brightness == Brightness.dark
-                              ? Color.alphaBlend(
-                                  kcAccentColor(context).withValues(alpha: 0.34),
-                                  context.colorScheme.surface,
-                                )
-                              : kcAccentColor(context),
-                          backgroundColor:
-                              context.colorScheme.surfaceContainerHighest,
-                        ),
-                      ),
-                    ),
-                    if (withProgress) ...[
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 40,
-                        child: Text(
-                          progress == null
-                              ? ''
-                              : '${(progress.clamp(0.0, 1.0) * 100).round()}%',
-                          style: const TextStyle(fontSize: kcFont13),
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                if (allowCancel)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Button.text(
-                      onPressed: () {
-                        controller.close();
-                        onCancel?.call();
-                      },
-                      child: Text(cancelButtonText.tl),
-                    ),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 48),
+            elevation: 6,
+            shadowColor: context.colorScheme.shadow.withValues(alpha: 0.18),
+            backgroundColor: context.colorScheme.surfaceContainerHigh,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    controller._message ?? 'Loading'.tl,
+                    style: const TextStyle(fontSize: kcBody),
+                    textAlign: TextAlign.center,
                   ),
-              ],
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(kcRadius6),
+                          child: LinearProgressIndicator(
+                            // 收敛到 [0,1]：上游镜像下载可能把 downloadedBytes 报得
+                            // 大于 totalBytes（Content-Length 不准），或传入 NaN/Infinity，
+                            // 越界会让 LinearProgressIndicator 抛断言。null/NaN 走不确定态。
+                            value: progress == null || progress.isNaN
+                                ? null
+                                : progress.clamp(0.0, 1.0),
+                            minHeight: 8,
+                            color:
+                                context.colorScheme.brightness ==
+                                    Brightness.dark
+                                ? Color.alphaBlend(
+                                    kcAccentColor(
+                                      context,
+                                    ).withValues(alpha: 0.34),
+                                    context.colorScheme.surface,
+                                  )
+                                : kcAccentColor(context),
+                            backgroundColor:
+                                context.colorScheme.surfaceContainerHighest,
+                          ),
+                        ),
+                      ),
+                      if (withProgress) ...[
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 40,
+                          child: Text(
+                            progress == null
+                                ? ''
+                                : '${(progress.clamp(0.0, 1.0) * 100).round()}%',
+                            style: const TextStyle(fontSize: kcFont13),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (allowCancel)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Button.text(
+                        onPressed: () {
+                          controller.close();
+                          onCancel?.call();
+                        },
+                        child: Text(cancelButtonText.tl),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        );
-      });
+          );
+        },
+      );
     },
   );
 
@@ -523,15 +528,18 @@ LoadingDialogController showLoadingDialog(
   // 挂起」导致加载框永久不消失。长任务（本地漫画导入、批量导出）请在调用处
   // 显式传 `timeout: null` 豁免，避免误伤仍在进行的后台任务。
   if (timeout != null) {
-    controller.startTimeout(timeout, onTimeout: () {
-      onTimeout?.call();
-      if (onTimeout == null && context.mounted) {
-        showToast(
-          message: "Operation timed out, please retry".tl,
-          context: context,
-        );
-      }
-    });
+    controller.startTimeout(
+      timeout,
+      onTimeout: () {
+        onTimeout?.call();
+        if (onTimeout == null && context.mounted) {
+          showToast(
+            message: "Operation timed out, please retry".tl,
+            context: context,
+          );
+        }
+      },
+    );
   }
 
   return controller;
@@ -678,10 +686,9 @@ class ContentDialog extends StatelessWidget {
                           icon: HugeIcons.strokeRoundedCancel01,
                           size: 18,
                         ),
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurfaceVariant
-                            .withValues(alpha: 0.85),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
                         // 不可关闭时给一个空回调：按钮保留但点击无效，
                         // 既暗示有关闭入口，又不破坏「非 dismissible」语义。
                         onPressed: dismissible ? context.pop : () {},
@@ -788,7 +795,10 @@ Future<void> showInputDialog({
                 if (image != null)
                   SizedBox(
                     height: 108,
-                    child: CachedNetworkImage(imageUrl: image, fit: BoxFit.none),
+                    child: CachedNetworkImage(
+                      imageUrl: image,
+                      fit: BoxFit.none,
+                    ),
                   ).paddingBottom(8),
                 if (image == null && imageData != null)
                   SizedBox(
@@ -856,10 +866,7 @@ void showInfoDialog({
         title: title,
         content: Text(content).paddingHorizontal(16).paddingVertical(8),
         actions: [
-          Button.filled(
-            onPressed: context.pop,
-            child: Text(confirmText.tl),
-          ),
+          Button.filled(onPressed: context.pop, child: Text(confirmText.tl)),
         ],
       );
     },
@@ -894,7 +901,7 @@ Future<int?> showSelectDialog({
                         current = i;
                       });
                     },
-                  )
+                  ),
                 ],
               ),
             ),
@@ -911,10 +918,9 @@ Future<int?> showSelectDialog({
                 // 未选时置灰 + 空操作，保留「必须先选再确认」的语义；
                 // 选中后恢复品牌色并真正关闭。
                 color: current == null
-                    ? Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
-                        .withValues(alpha: 0.4)
+                    ? Theme.of(
+                        context,
+                      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
                     : null,
                 onPressed: () {
                   if (current != null) context.pop();
@@ -945,9 +951,9 @@ class ImageSaveChoice {
 ///
 /// 对话框会按所选格式自动补后缀，输入框里只需要名字本身。
 String _stripImageExtension(String name) => name.replaceFirst(
-      RegExp(r'\.(png|jpe?g|webp|gif|bmp|avif|heic|heif)$', caseSensitive: false),
-      '',
-    );
+  RegExp(r'\.(png|jpe?g|webp|gif|bmp|avif|heic|heif)$', caseSensitive: false),
+  '',
+);
 
 /// 弹出「保存图片」对话框：上半部分是文件名（可改），下半部分是格式三选一。
 ///
@@ -973,10 +979,12 @@ Future<ImageSaveChoice?> showImageSaveDialog(
         final scheme = context.colorScheme;
         // 最终文件名（含扩展名）—— 输入框放不下长标题时，这行预览保证
         // 用户仍能看全后缀，而不是被输入框裁成 `..._EP1_`。
-        final inputName =
-            controller.text.trim().isEmpty ? initialName : controller.text.trim();
-        final finalExt =
-            format == ImageSaveFormat.original ? originalExt : format.ext;
+        final inputName = controller.text.trim().isEmpty
+            ? initialName
+            : controller.text.trim();
+        final finalExt = format == ImageSaveFormat.original
+            ? originalExt
+            : format.ext;
         final finalName =
             '${_stripImageExtension(safeShareFileName(inputName))}$finalExt';
         return ContentDialog(
@@ -1040,8 +1048,9 @@ Future<ImageSaveChoice?> showImageSaveDialog(
                 final input = controller.text.trim();
                 Navigator.of(context).pop(
                   ImageSaveChoice(
-                    name: _stripImageExtension(safeShareFileName(
-                        input.isEmpty ? initialName : input)),
+                    name: _stripImageExtension(
+                      safeShareFileName(input.isEmpty ? initialName : input),
+                    ),
                     format: format,
                   ),
                 );
@@ -1074,10 +1083,10 @@ class _ImageSaveFormatTile extends StatelessWidget {
 
   // HugeIcons 的图标常量类型是 `List<List<dynamic>>`（与 HugeIcon.icon 一致）。
   List<List<dynamic>> get _icon => switch (format) {
-        ImageSaveFormat.original => HugeIcons.strokeRoundedImage01,
-        ImageSaveFormat.png => HugeIcons.strokeRoundedImage02,
-        ImageSaveFormat.jpg => HugeIcons.strokeRoundedImage03,
-      };
+    ImageSaveFormat.original => HugeIcons.strokeRoundedImage01,
+    ImageSaveFormat.png => HugeIcons.strokeRoundedImage02,
+    ImageSaveFormat.jpg => HugeIcons.strokeRoundedImage03,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -1110,7 +1119,9 @@ class _ImageSaveFormatTile extends StatelessWidget {
               HugeIcon(
                 icon: _icon,
                 size: 20,
-                color: selected ? kcBrandAdaptive(context) : scheme.onSurfaceVariant,
+                color: selected
+                    ? kcBrandAdaptive(context)
+                    : scheme.onSurfaceVariant,
               ),
               const SizedBox(width: kcSpaceMd),
               Expanded(

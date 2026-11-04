@@ -66,8 +66,10 @@ extension AppTranslation on String {
           e.key: Map<String, String>.fromEntries(
             (e.value as Map).entries
                 .where((entry) => entry.value is String)
-                .map((entry) =>
-                    MapEntry(entry.key.toString(), entry.value as String)),
+                .map(
+                  (entry) =>
+                      MapEntry(entry.key.toString(), entry.value as String),
+                ),
           ),
       };
     } catch (e, s) {
@@ -174,7 +176,8 @@ String _friendlyHttpStatus(int? code) {
     400: "The Request is invalid.".tl,
     401: "The Request is unauthorized.".tl,
     402: "Payment required.".tl,
-    403: "No permission to access the resource. Check your account or network.".tl,
+    403: "No permission to access the resource. Check your account or network."
+        .tl,
     404: "Not found.".tl,
     405: "Method not allowed.".tl,
     406: "Not acceptable.".tl,
@@ -207,6 +210,10 @@ String friendlyErrorMessage(String raw) {
       .replaceFirst(RegExp(r'^DioException\s*\[[^\]]*\]:\s*'), '')
       .replaceFirst(RegExp(r'^Error:\s*'), '')
       .replaceFirst(RegExp(r'^Exception:\s*'), '')
+      // 源脚本的异常在 Dart 侧统一包成 `JSException: ...`。不剥掉这一层，
+      // 后面所有针对 ReferenceError / TypeError 的识别都命中不了，最后只剩
+      // 一句「未知错误」—— 用户既看不出是脚本过期，也不知道该更新。
+      .replaceFirst(RegExp(r'^JSException:\s*'), '')
       .replaceFirst(RegExp(r'^SocketException:\s*'), '')
       .replaceFirst(RegExp(r'^ClientException with\s*'), '')
       .trim();
@@ -262,9 +269,10 @@ String friendlyErrorMessage(String raw) {
   // 源里抛出的 `Not login` / `未登录` / `请先登录`。之前没有映射，中文界面里
   // 会显示成「未知错误」，用户完全不知道是自己没登录。（不区分大小写，
   // 源作者写法五花八门。）
-  if (RegExp(r'not\s*log(?:in|ged)|unlogged|login\s*required|please\s*log\s*in',
-          caseSensitive: false)
-      .hasMatch(msg)) {
+  if (RegExp(
+    r'not\s*log(?:in|ged)|unlogged|login\s*required|please\s*log\s*in',
+    caseSensitive: false,
+  ).hasMatch(msg)) {
     return "Login required".tl;
   }
   if (msg.contains('Failed to fetch') ||
@@ -329,6 +337,12 @@ String friendlyErrorMessage(String raw) {
       low.contains('tls')) {
     return "SSL connection error".tl;
   }
+  // 源站挂了 Cloudflare 人机验证。此前没有映射，界面只显示「未知错误」，
+  // 而其实 App 有能力弹 WebView 让用户点一次验证（见 NetworkError）。
+  if (low.contains('cloudflareexception') ||
+      low.contains('cloudflare') && low.contains('challenge')) {
+    return "Cloudflare verification required".tl;
+  }
   // 源返回的内容不是合法 JSON / 解析失败 —— 多半是源站改版或被拦截。
   if (low.contains('formatexception') ||
       low.contains('unexpected character') ||
@@ -336,6 +350,20 @@ String friendlyErrorMessage(String raw) {
       low.contains('is not valid json') ||
       low.contains('invalid json')) {
     return "This is server-side error, please try again later. Do not report this issue."
+        .tl;
+  }
+
+  // 源脚本自身出错：ReferenceError / SyntaxError、访问空对象的属性等。
+  // 这类失败的重试与换网络都无效，唯一出路是更新（或删除）该源，所以文案
+  // 必须明确指出「源脚本有问题」，而不是含糊地说不知道出了什么事。
+  if (low.contains('referenceerror') ||
+      low.contains('syntaxerror') ||
+      low.contains('rangeerror') ||
+      low.contains('is not defined') ||
+      low.contains('is not a function') ||
+      low.contains('of undefined') ||
+      low.contains('of null')) {
+    return "This source's script failed (it may be outdated). Try updating it, or remove it if the site has changed."
         .tl;
   }
 
@@ -409,8 +437,9 @@ bool isRetryableError(String? raw) {
   }
 
   // 3) 裸状态码：5xx 与 408 / 429 可重试，其余 4xx 属客户端问题，重试无用。
-  final code = RegExp(r'(?:status\s*code|http[^\s]*)\s*[:：]?\s*(\d{3})')
-      .firstMatch(msg);
+  final code = RegExp(
+    r'(?:status\s*code|http[^\s]*)\s*[:：]?\s*(\d{3})',
+  ).firstMatch(msg);
   if (code != null) {
     final c = int.tryParse(code.group(1)!);
     if (c != null) return c >= 500 || c == 408 || c == 429;
@@ -452,4 +481,34 @@ String friendlyError(Object e) {
   final text = e.toString().trim();
   if (text.isEmpty || text == 'null') return "Unknown error".tl;
   return friendlyErrorMessage(text);
+}
+
+/// 源没返回数据、也没给失败原因时的提示。
+///
+/// 源脚本里常见 `return {error: true}`（站点改版、解析不到列表）或直接
+/// 返回空对象，Dart 侧拿到的 errorMessage 就是空串。以前这里统一显示
+/// 「未知错误」：既看不出是网络还是源的问题，也没有下一步可做。
+String sourceReturnedNothingError() =>
+    "The source returned nothing — it may be down or changed. Test it, or try updating it."
+        .tl;
+
+/// 处理「源返回的错误」：[raw] 为空时给出可执行的提示，否则照常归一化。
+///
+/// 与 [friendlyError] 的区别只在空值分支，专门用于 JSResult / Res 的
+/// errorMessage —— 那个字段为空恰恰是最需要解释的情况。
+String friendlySourceError(String? raw) {
+  final text = raw?.trim() ?? '';
+  if (text.isEmpty || text == 'null') return sourceReturnedNothingError();
+  return friendlyErrorMessage(text);
+}
+
+/// 交给 [NetworkError] 的原始错误串。
+///
+/// 不能提前归一化：NetworkError 靠 `CloudflareException` 前缀判断要不要
+/// 显示「验证」按钮，一旦在这里换成中文文案，用户就只剩一句「未知错误」，
+/// 明明有一次人机验证的机会也看不到了。空串仍然要给兜底文案。
+String rawSourceError(String? raw) {
+  final text = raw?.trim() ?? '';
+  if (text.isEmpty || text == 'null') return sourceReturnedNothingError();
+  return text;
 }

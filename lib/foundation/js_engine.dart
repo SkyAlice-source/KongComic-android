@@ -74,8 +74,12 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
   }
 
   void resetDio() {
-    _dio = AppDio(BaseOptions(
-        responseType: ResponseType.plain, validateStatus: (status) => true));
+    _dio = AppDio(
+      BaseOptions(
+        responseType: ResponseType.plain,
+        validateStatus: (status) => true,
+      ),
+    );
   }
 
   static Uint8List? _jsInitCache;
@@ -94,13 +98,18 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
       if (App.isInitialized) {
         _cookieJar ??= await SingleInstanceCookieJar.createInstance();
       }
-      _dio ??= AppDio(BaseOptions(
-          responseType: ResponseType.plain, validateStatus: (status) => true));
+      _dio ??= AppDio(
+        BaseOptions(
+          responseType: ResponseType.plain,
+          validateStatus: (status) => true,
+        ),
+      );
       _closed = false;
       _engine = FlutterQjs();
       _engine!.dispatch();
-      var setGlobalFunc =
-          _engine!.evaluate("(key, value) => { this[key] = value; }");
+      var setGlobalFunc = _engine!.evaluate(
+        "(key, value) => { this[key] = value; }",
+      );
       (setGlobalFunc as JSInvokable)(["sendMessage", _messageReceiver]);
       setGlobalFunc(["appVersion", App.version]);
       setGlobalFunc.free();
@@ -111,8 +120,7 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
         var buffer = await rootBundle.load("assets/init.js");
         jsInit = buffer.buffer.asUint8List();
       }
-      _engine!
-          .evaluate(utf8.decode(jsInit), name: "<init>");
+      _engine!.evaluate(utf8.decode(jsInit), name: "<init>");
     } catch (e, s) {
       Log.error('JS Engine', 'JS Engine Init Error:\n$e\n$s');
     }
@@ -127,14 +135,15 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
           case "log":
             String level = message["level"];
             Log.addLog(
-                switch (level) {
-                  "error" => LogLevel.error,
-                  "warning" => LogLevel.warning,
-                  "info" => LogLevel.info,
-                  _ => LogLevel.warning
-                },
-                message["title"],
-                message["content"].toString());
+              switch (level) {
+                "error" => LogLevel.error,
+                "warning" => LogLevel.warning,
+                "info" => LogLevel.info,
+                _ => LogLevel.warning,
+              },
+              message["title"],
+              message["content"].toString(),
+            );
           case 'load_data':
             String key = message["key"];
             String dataKey = message["data_key"];
@@ -183,10 +192,14 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
               Log.error("JsEngine", "Source not found: $key");
               return null;
             }
-            var setting = source.data["settings"]?[settingKey] ??
+            var setting =
+                source.data["settings"]?[settingKey] ??
                 source.settings?[settingKey]?['default'];
             if (setting == null) {
-              Log.error("JsEngine", "Setting not found: $settingKey for source: $key");
+              Log.error(
+                "JsEngine",
+                "Setting not found: $settingKey for source: $key",
+              );
               return null;
             }
             return setting;
@@ -243,10 +256,12 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
       }
       var dio = _dio;
       if (headers['http_client'] == "dart:io") {
-        dio = Dio(BaseOptions(
-          responseType: ResponseType.plain,
-          validateStatus: (status) => true,
-        ));
+        dio = Dio(
+          BaseOptions(
+            responseType: ResponseType.plain,
+            validateStatus: (status) => true,
+          ),
+        );
         var proxy = await getProxy();
         dio.httpClientAdapter = IOHttpClientAdapter(
           createHttpClient: () {
@@ -255,20 +270,22 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
             return client;
           },
         );
-        dio.interceptors
-            .add(CookieManagerSql(SingleInstanceCookieJar.instance!));
+        dio.interceptors.add(
+          CookieManagerSql(SingleInstanceCookieJar.instance!),
+        );
         dio.interceptors.add(LogInterceptor());
       }
-      response = await dio!.request(req["url"],
-          data: req["data"],
-          options: Options(
-              method: req['http_method'],
-              responseType: req["bytes"] == true
-                  ? ResponseType.bytes
-                  : ResponseType.plain,
-              headers: headers,
-              extra: extra,
-          )
+      response = await dio!.request(
+        req["url"],
+        data: req["data"],
+        options: Options(
+          method: req['http_method'],
+          responseType: req["bytes"] == true
+              ? ResponseType.bytes
+              : ResponseType.plain,
+          headers: headers,
+          extra: extra,
+        ),
       );
     } catch (e) {
       error = e.toString();
@@ -276,8 +293,9 @@ class JsEngine with _JSEngineApi, JsUiApi, Init {
 
     Map<String, String> headers = {};
 
-    response?.headers
-        .forEach((name, values) => headers[name] = values.join(','));
+    response?.headers.forEach(
+      (name, values) => headers[name] = values.join(','),
+    );
 
     dynamic body = response?.data;
     if (body is! Uint8List && body is List<int>) {
@@ -463,29 +481,32 @@ mixin class _JSEngineApi {
     switch (data["function"]) {
       case "set":
         _cookieJar!.saveFromResponse(
-            Uri.parse(data["url"]),
-            (data["cookies"] as List).map((e) {
-              var c = Cookie(e["name"], e["value"]);
-              if (e['domain'] != null) {
-                c.domain = e['domain'];
-              }
-              return c;
-            }).toList());
+          Uri.parse(data["url"]),
+          (data["cookies"] as List).map((e) {
+            var c = Cookie(e["name"], e["value"]);
+            if (e['domain'] != null) {
+              c.domain = e['domain'];
+            }
+            return c;
+          }).toList(),
+        );
         return null;
       case "get":
         var cookies = _cookieJar!.loadForRequest(Uri.parse(data["url"]));
         return cookies
-            .map((e) => {
-                  "name": e.name,
-                  "value": e.value,
-                  "domain": e.domain,
-                  "path": e.path,
-                  "expires": e.expires,
-                  "max-age": e.maxAge,
-                  "secure": e.secure,
-                  "httpOnly": e.httpOnly,
-                  "session": e.expires == null,
-                })
+            .map(
+              (e) => {
+                "name": e.name,
+                "value": e.value,
+                "domain": e.domain,
+                "path": e.path,
+                "expires": e.expires,
+                "max-age": e.maxAge,
+                "secure": e.secure,
+                "httpOnly": e.httpOnly,
+                "session": e.expires == null,
+              },
+            )
             .toList();
       case "delete":
         clearCookies([data["url"]]);
@@ -527,15 +548,13 @@ mixin class _JSEngineApi {
         case "hmac":
           var key = data["key"];
           var hash = data["hash"];
-          var hmac = Hmac(
-              switch (hash) {
-                "md5" => md5,
-                "sha1" => sha1,
-                "sha256" => sha256,
-                "sha512" => sha512,
-                _ => throw "Unsupported hash: $hash"
-              },
-              key);
+          var hmac = Hmac(switch (hash) {
+            "md5" => md5,
+            "sha1" => sha1,
+            "sha256" => sha256,
+            "sha512" => sha512,
+            _ => throw "Unsupported hash: $hash",
+          }, key);
           if (data['isString'] == true) {
             return hmac.convert(value).toString();
           } else {
@@ -544,19 +563,11 @@ mixin class _JSEngineApi {
         case "aes-ecb":
           var key = data["key"];
           var cipher = ECBBlockCipher(AESEngine());
-          cipher.init(
-            isEncode,
-            KeyParameter(key),
-          );
+          cipher.init(isEncode, KeyParameter(key));
           var offset = 0;
           var result = Uint8List(value.length);
           while (offset < value.length) {
-            offset += cipher.processBlock(
-              value,
-              offset,
-              result,
-              offset,
-            );
+            offset += cipher.processBlock(value, offset, result, offset);
           }
           return result;
         case "aes-cbc":
@@ -567,12 +578,7 @@ mixin class _JSEngineApi {
           var offset = 0;
           var result = Uint8List(value.length);
           while (offset < value.length) {
-            offset += cipher.processBlock(
-              value,
-              offset,
-              result,
-              offset,
-            );
+            offset += cipher.processBlock(value, offset, result, offset);
           }
           return result;
         case "aes-cfb":
@@ -584,12 +590,7 @@ mixin class _JSEngineApi {
           var offset = 0;
           var result = Uint8List(value.length);
           while (offset < value.length) {
-            offset += cipher.processBlock(
-              value,
-              offset,
-              result,
-              offset,
-            );
+            offset += cipher.processBlock(value, offset, result, offset);
           }
           return result;
         case "aes-ofb":
@@ -600,20 +601,17 @@ mixin class _JSEngineApi {
           var offset = 0;
           var result = Uint8List(value.length);
           while (offset < value.length) {
-            offset += cipher.processBlock(
-              value,
-              offset,
-              result,
-              offset,
-            );
+            offset += cipher.processBlock(value, offset, result, offset);
           }
           return result;
         case "rsa":
           if (!isEncode) {
             var key = data["key"];
             final cipher = PKCS1Encoding(RSAEngine());
-            cipher.init(false,
-                PrivateKeyParameter<RSAPrivateKey>(_parsePrivateKey(key)));
+            cipher.init(
+              false,
+              PrivateKeyParameter<RSAPrivateKey>(_parsePrivateKey(key)),
+            );
             return _processInBlocks(cipher, value);
           }
           return null;
@@ -641,11 +639,16 @@ mixin class _JSEngineApi {
     final q = pkSeq.elements![5] as ASN1Integer;
 
     return RSAPrivateKey(
-        modulus.integer!, privateExponent.integer!, p.integer!, q.integer!);
+      modulus.integer!,
+      privateExponent.integer!,
+      p.integer!,
+      q.integer!,
+    );
   }
 
   Uint8List _processInBlocks(AsymmetricBlockCipher engine, Uint8List input) {
-    final numBlocks = input.length ~/ engine.inputBlockSize +
+    final numBlocks =
+        input.length ~/ engine.inputBlockSize +
         ((input.length % engine.inputBlockSize != 0) ? 1 : 0);
 
     final output = Uint8List(numBlocks * engine.outputBlockSize);
@@ -658,7 +661,12 @@ mixin class _JSEngineApi {
           : input.length - inputOffset;
 
       outputOffset += engine.processBlock(
-          input, inputOffset, chunkSize, output, outputOffset);
+        input,
+        inputOffset,
+        chunkSize,
+        output,
+        outputOffset,
+      );
 
       inputOffset += chunkSize;
     }
@@ -708,11 +716,8 @@ class DocumentWrapper {
 
   Map<String, String> elementGetAttributes(int key) {
     return elements[key].attributes.map(
-          (key, value) => MapEntry(
-            key.toString(),
-            value,
-          ),
-        );
+      (key, value) => MapEntry(key.toString(), value),
+    );
   }
 
   String? elementGetInnerHTML(int key) {
@@ -773,7 +778,7 @@ class DocumentWrapper {
       dom.Node.TEXT_NODE => "text",
       dom.Node.COMMENT_NODE => "comment",
       dom.Node.DOCUMENT_NODE => "document",
-      _ => "unknown"
+      _ => "unknown",
     };
   }
 

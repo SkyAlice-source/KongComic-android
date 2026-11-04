@@ -82,10 +82,11 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
       }
 
       if (matchedSources.length == 1) {
-        context.to(() => ComicPage(
-          sourceKey: matchedSources.first.key,
-          id: keyword,
-        )).then((_) => update());
+        context
+            .to(
+              () => ComicPage(sourceKey: matchedSources.first.key, id: keyword),
+            )
+            .then((_) => update());
         return;
       }
 
@@ -103,7 +104,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
             () => AggregatedSearchPage(
               keyword: keyword,
               sourceKeys: _selectedSources.toList(),
-            )
+            ),
           )
           .then((_) => update());
     } else {
@@ -114,7 +115,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
               text: keyword,
               sourceKey: singleSource,
               options: options,
-            )
+            ),
           )
           .then((_) => update());
     }
@@ -125,7 +126,9 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
       context: context,
       showDragHandle: true,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(kcSurfaceRadius)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(kcSurfaceRadius),
+        ),
       ),
       builder: (context) {
         final cs = Theme.of(context).colorScheme;
@@ -185,10 +188,9 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
                   chevron: true,
                   onTap: () {
                     Navigator.pop(context);
-                    context.to(() => ComicPage(
-                          sourceKey: source.key,
-                          id: id,
-                        )).then((_) => update());
+                    context
+                        .to(() => ComicPage(sourceKey: source.key, id: id))
+                        .then((_) => update());
                   },
                 );
               }),
@@ -228,10 +230,9 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
 
       for (var comicSource in ComicSource.enabled()) {
         if (comicSource.idMatcher?.hasMatch(text) ?? false) {
-          suggestions.add(Pair(
-            "**${comicSource.key}**",
-            TranslationType.other,
-          ));
+          suggestions.add(
+            Pair("**${comicSource.key}**", TranslationType.other),
+          );
         }
       }
     }
@@ -285,7 +286,8 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
     findSearchSources();
     _selectedSources = searchSources.take(1).toSet();
     var defaultSearchTarget = appdata.settings['defaultSearchTarget'];
-    if (defaultSearchTarget is String && searchSources.contains(defaultSearchTarget)) {
+    if (defaultSearchTarget is String &&
+        searchSources.contains(defaultSearchTarget)) {
       _selectedSources = {defaultSearchTarget};
     } else if (defaultSearchTarget == "_aggregated_") {
       _selectedSources = searchSources.toSet();
@@ -293,9 +295,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
     if (_selectedSources.isNotEmpty) {
       useDefaultOptions();
     }
-    controller = SearchBarController(
-      onSearch: search,
-    );
+    controller = SearchBarController(onSearch: search);
     // 带词进入：首帧之后再发搜索——initState 里直接 push 结果页会和本页的
     // 入场动画抢路由。输入框同步填上，返回时能看到搜的是什么。
     final initialKeyword = widget.initialKeyword?.trim();
@@ -395,9 +395,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
             _buildHeader(),
             _buildSourceRow(),
             Expanded(
-              child: SmoothCustomScrollView(
-                slivers: buildSlivers().toList(),
-              ),
+              child: SmoothCustomScrollView(slivers: buildSlivers().toList()),
             ),
           ],
         ),
@@ -476,11 +474,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
       constraints: const BoxConstraints(maxHeight: 140),
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: _gutter),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: chips,
-        ),
+        child: Wrap(spacing: 8, runSpacing: 8, children: chips),
       ),
     );
   }
@@ -510,15 +504,17 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
     }
     for (int i = 0; i < searchOptions.length; i++) {
       final option = searchOptions[i];
-      children.add(SearchOptionWidget(
-        option: option,
-        value: options[i],
-        onChanged: (value) {
-          options[i] = value;
-          update();
-        },
-        sourceKey: _selectedSources.first,
-      ));
+      children.add(
+        SearchOptionWidget(
+          option: option,
+          value: options[i],
+          onChanged: (value) {
+            options[i] = value;
+            update();
+          },
+          sourceKey: _selectedSources.first,
+        ),
+      );
     }
 
     return SliverToBoxAdapter(
@@ -554,13 +550,20 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
     void onSelected(String text, TranslationType? type) {
       var words = _searchTextController.text.split(" ");
       if (words.length >= 2 &&
-          check("${words[words.length - 2]} ${words[words.length - 1]}", text,
-              text.translateTagIfNeed)) {
+          check(
+            "${words[words.length - 2]} ${words[words.length - 1]}",
+            text,
+            text.translateTagIfNeed,
+          )) {
         _searchTextController.text = _searchTextController.text.replaceLast(
-            "${words[words.length - 2]} ${words[words.length - 1]}", "");
+          "${words[words.length - 2]} ${words[words.length - 1]}",
+          "",
+        );
       } else {
-        _searchTextController.text =
-            _searchTextController.text.replaceLast(words[words.length - 1], "");
+        _searchTextController.text = _searchTextController.text.replaceLast(
+          words[words.length - 1],
+          "",
+        );
       }
       final source = ComicSource.find(_selectedSources.first);
       String insert;
@@ -636,22 +639,24 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
             _searchTextController.text,
             maxLines: 1,
             overflow: TextOverflow.fade,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: kcCaption),
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: kcCaption,
+            ),
           ),
           chevron: true,
           onTap: () {
             context.to(
-              () => ComicPage(
-                sourceKey: key,
-                id: _searchTextController.text,
-              ),
+              () => ComicPage(sourceKey: key, id: _searchTextController.text),
             );
           },
         );
       }
 
       var subTitle = TagsTranslation.translationTagWithNamespace(
-          value.left, value.right.name);
+        value.left,
+        value.right.name,
+      );
       return KcListTile(
         leading: Container(
           width: 6,
@@ -665,12 +670,13 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
           mainAxisSize: MainAxisSize.min,
           children: [
             Expanded(
-              child: Text(value.left, maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
-            if (!showMethod)
-              const SizedBox(
-                width: 12,
+              child: Text(
+                value.left,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
+            ),
+            if (!showMethod) const SizedBox(width: 12),
             if (!showMethod && showTranslation)
               Text(
                 subTitle,
@@ -678,7 +684,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
                   fontSize: kcBody,
                   color: Theme.of(context).colorScheme.outline,
                 ),
-              )
+              ),
           ],
         ),
         subtitle: (showMethod && showTranslation) ? Text(subTitle) : null,
@@ -722,12 +728,9 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
           ),
         ),
         SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              return buildItem(suggestions[index]);
-            },
-            childCount: suggestions.length,
-          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            return buildItem(suggestions[index]);
+          }, childCount: suggestions.length),
         ),
       ],
     );
@@ -1000,7 +1003,7 @@ class SearchOptionWidget extends StatelessWidget {
               onTap: (index) {
                 onChanged(option.options.keys.elementAt(index));
               },
-            )
+            ),
         ],
       ),
     );

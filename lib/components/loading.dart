@@ -4,29 +4,9 @@ part of 'components.dart';
 // 已上移到 lib/utils/translations.dart，供 NetworkError 与 SnackBar
 // 等所有出错路径共用一份实现，避免两套映射各自漂移。
 
-
-/// 统一加载指示器 —— 应用默认加载态的唯一实现。
-///
-/// 集中约定尺寸与线宽，替代各处 strokeWidth 不一（1.4/1.8/2/默认）的裸
-/// [CircularProgressIndicator]。新加载态请优先使用本组件，保持全局一致。
-class AppLoadingIndicator extends StatelessWidget {
-  const AppLoadingIndicator({super.key, this.size = 32, this.strokeWidth = 2});
-
-  final double size;
-
-  final double strokeWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: CircularProgressIndicator(strokeWidth: strokeWidth),
-      ),
-    );
-  }
-}
+// 这里曾经有一个 AppLoadingIndicator（Center + CircularProgressIndicator），
+// 自称「应用默认加载态的唯一实现」，实际全仓零调用 —— 真正的统一实现是下面
+// 的 KcPageLoading。两个「唯一实现」并存只会让下一个人选错，已删除。
 
 /// 慢网络提示 —— 加载态持续超过 [delay] 仍没有结果时，淡入一行说明。
 ///
@@ -136,9 +116,7 @@ class SlowLoadingOverlay extends StatelessWidget {
           left: kcSpaceLg,
           right: kcSpaceLg,
           bottom: 28,
-          child: Center(
-            child: SlowLoadingHint(delay: delay, chip: true),
-          ),
+          child: Center(child: SlowLoadingHint(delay: delay, chip: true)),
         ),
       ],
     );
@@ -205,7 +183,7 @@ class NetworkError extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 24),
-              if (retry != null)
+            if (retry != null)
               if (cfe != null)
                 Button.filled(
                   onPressed: () => passCloudflare(
@@ -218,8 +196,7 @@ class NetworkError extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (action != null)
-                      action!.paddingRight(8),
+                    if (action != null) action!.paddingRight(8),
                     Button.filled(
                       onPressed: () => retry?.call(),
                       child: Text(buttonText ?? 'Retry'.tl),
@@ -262,9 +239,7 @@ class ListLoadingIndicator extends StatelessWidget {
     return const SizedBox(
       width: double.infinity,
       height: 80,
-      child: Center(
-        child: KcChibiCrawlLoading(charWidth: 52),
-      ),
+      child: Center(child: KcChibiCrawlLoading(charWidth: 52)),
     );
   }
 }
@@ -374,7 +349,7 @@ abstract class LoadingState<T extends StatefulWidget, S extends Object>
     } else {
       setState(() {
         isLoading = false;
-        error = friendlyError(value.errorMessage ?? "Unknown error".tl);
+        error = rawSourceError(value.errorMessage);
       });
     }
   }
@@ -499,7 +474,7 @@ abstract class MultiPageLoadingState<T extends StatefulWidget, S extends Object>
       } else {
         setState(() {
           _isFirstLoading = false;
-          _error = friendlyError(value.errorMessage ?? "Unknown error".tl);
+          _error = rawSourceError(value.errorMessage);
         });
       }
     });
@@ -604,7 +579,10 @@ class _KcChibiCrawlLoadingState extends State<KcChibiCrawlLoading>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat();
-    _shift = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+    _shift = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
     _syncProgress(initial: true);
   }
 
@@ -773,7 +751,10 @@ class _CrawlTrackPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rr = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(size.height / 2));
+    final rr = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(size.height / 2),
+    );
     canvas.drawRRect(rr, Paint()..color = color.withValues(alpha: 0.16));
 
     canvas.save();
@@ -816,6 +797,254 @@ class _CrawlTrackPainter extends CustomPainter {
   @override
   bool shouldRepaint(_CrawlTrackPainter old) =>
       old.value != value || old.phase != phase || old.color != color;
+}
+
+/// 横条进度 —— 与爬行小人脚下那条**同一个 painter、同一个 3dp 高度**。
+///
+/// 用在「有真实字节进度、但不适合放人物」的地方：封面查看器、图片收藏查看器。
+/// 这两处是 PhotoView 的 loadingBuilder，能拿到 [ImageChunkEvent] 的已下载字节
+/// 与总字节，所以百分比是真数字；服务器没给 Content-Length 时 [value] 为 null，
+/// 自动退化成流光条 —— 而不是显示一个假的 0%。
+///
+/// 为什么要换掉原来的小圆环：`expectedTotalBytes` 一旦可用，圆环就在 20dp 里
+/// 画一个勉强能看出角度的弧，用户读不出「还剩多少」；而横条本身长度就是刻度，
+/// 百分比只是把它翻译成数字。
+class KcTrackProgress extends StatefulWidget {
+  const KcTrackProgress({
+    super.key,
+    this.value,
+    this.width = 140,
+    this.color,
+    this.showPercent = true,
+  });
+
+  /// 0..1。null / NaN 表示拿不到总字节，走不确定态。
+  final double? value;
+
+  /// 条的长度。默认 140，和整页档爬行轨道的宽度同量级。
+  final double width;
+
+  /// 默认用主题 primary，和爬行轨道一致。
+  final Color? color;
+
+  final bool showPercent;
+
+  @override
+  State<KcTrackProgress> createState() => _KcTrackProgressState();
+}
+
+class _KcTrackProgressState extends State<KcTrackProgress>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _flow;
+
+  @override
+  void initState() {
+    super.initState();
+    _flow = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    if (_target == null) _flow.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(KcTrackProgress old) {
+    super.didUpdateWidget(old);
+    if ((old.value == null) != (widget.value == null)) _syncAnimation();
+  }
+
+  @override
+  void dispose() {
+    _flow.dispose();
+    super.dispose();
+  }
+
+  /// 只有不确定态才需要动画；确定态让条停住，省掉一份常驻 ticker。
+  void _syncAnimation() {
+    final indefinite = _target == null;
+    if (!indefinite) {
+      _flow.stop();
+      return;
+    }
+    if (MediaQuery.of(context).disableAnimations) {
+      _flow.stop();
+      _flow.value = 0;
+    } else if (!_flow.isAnimating) {
+      _flow.repeat();
+    }
+  }
+
+  double? get _target {
+    final v = widget.value;
+    if (v == null || v.isNaN) return null;
+    return v.clamp(0.0, 1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final accent = widget.color ?? cs.primary;
+    final target = _target;
+
+    final bar = SizedBox(
+      width: widget.width,
+      height: 3,
+      child: AnimatedBuilder(
+        animation: _flow,
+        builder: (context, _) => CustomPaint(
+          painter: _CrawlTrackPainter(
+            value: target,
+            phase: _flow.value,
+            color: accent,
+          ),
+        ),
+      ),
+    );
+
+    if (target == null || !widget.showPercent) {
+      return Center(child: bar);
+    }
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          bar,
+          const SizedBox(height: 6),
+          Text(
+            '${(target * 100).round()}%',
+            // 等宽数字：从 9% 到 10% 时宽度不变，数字不会左右跳。
+            style: TextStyle(
+              fontSize: kcCaption,
+              height: 1.0,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 行内加载小圆环 —— 按钮、图标位、状态角标里的「在忙」。
+///
+/// 尺寸只有三档：12 / 16 / 20。此前全仓是 12/14/16/18/20/24 六种直径、
+/// 1.5/1.6/1.8/2/默认 五种线宽 —— 同一个列表里，「检查更新」和「点赞提交」
+/// 两件轻重完全不同的事，看起来却一样粗、一样大。
+///
+/// 动画不用 M3 默认的「旋转 + 弧长伸缩 + 波浪」：那套在 12~20dp 里会一顿一顿，
+/// 而且和横条进度条的匀速流光不是同一种节奏。这里固定 260° 弧、匀速 1.1s 一圈，
+/// 底圈给 14% 淡色，让「还有多少没转完」有个参照 —— 这也是它和裸圆环唯一的
+/// 形态差别。
+class KcInlineSpinner extends StatefulWidget {
+  const KcInlineSpinner({super.key, this.size = 16, this.color});
+
+  /// 直径，建议只用 12 / 16 / 20 三档。
+  final double size;
+
+  /// 默认取 onSurfaceVariant（中性，不跟主题色抢注意力）。
+  final Color? color;
+
+  @override
+  State<KcInlineSpinner> createState() => _KcInlineSpinnerState();
+}
+
+class _KcInlineSpinnerState extends State<KcInlineSpinner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _spin;
+
+  @override
+  void initState() {
+    super.initState();
+    _spin = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) {
+      if (_spin.isAnimating) _spin.stop();
+    } else if (!_spin.isAnimating) {
+      _spin.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _spin.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        widget.color ?? Theme.of(context).colorScheme.onSurfaceVariant;
+    return SizedBox.square(
+      dimension: widget.size,
+      child: AnimatedBuilder(
+        animation: _spin,
+        builder: (context, _) => CustomPaint(
+          painter: _ArcSpinnerPainter(phase: _spin.value, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+/// 固定弧长匀速旋转的细弧。线宽按直径走：12dp 用 1.6，其余 2。
+class _ArcSpinnerPainter extends CustomPainter {
+  const _ArcSpinnerPainter({required this.phase, required this.color});
+
+  /// 0..1，一圈的相位。
+  final double phase;
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final strokeWidth = size.shortestSide <= 12 ? 1.6 : 2.0;
+    final radius = (size.shortestSide - strokeWidth) / 2;
+    if (radius <= 0) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..color = color.withValues(alpha: 0.14),
+    );
+
+    // 260° 留 100° 缺口：缺口太小像满圈，太大像碎裂的三段。
+    const sweep = 260 * math.pi / 180;
+    canvas.drawArc(
+      rect,
+      phase * 2 * math.pi - math.pi / 2,
+      sweep,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..color = color.withValues(alpha: 0.95),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ArcSpinnerPainter old) =>
+      old.phase != phase || old.color != color;
 }
 
 /// 页面 / 大区块的加载态：爬行人物 + 慢网络提示。

@@ -29,8 +29,13 @@ class IO {
 class FilePath {
   const FilePath._();
 
-  static String join(String path1, String path2,
-      [String? path3, String? path4, String? path5]) {
+  static String join(
+    String path1,
+    String path2, [
+    String? path3,
+    String? path4,
+    String? path5,
+  ]) {
     return p.join(path1, path2, path3, path4, path5);
   }
 }
@@ -181,11 +186,11 @@ Future<void> copyDirectory(Directory source, Directory destination) async {
 /// Copy the **contents** of the source directory to the destination directory.
 /// This function is executed in an isolate to prevent the UI from freezing.
 Future<void> copyDirectoryIsolate(
-    Directory source, Directory destination) async {
+  Directory source,
+  Directory destination,
+) async {
   await Isolate.run(() => overrideIO(() => copyDirectory(source, destination)));
 }
-
-
 
 String findValidDirectoryName(String path, String directory) {
   var name = sanitizeFileName(directory);
@@ -223,7 +228,19 @@ class DirectoryPicker {
       if (App.isWindows || App.isLinux) {
         directory = await file_selector.getDirectoryPath();
       } else if (App.isAndroid) {
-        directory = (await AndroidDirectory.pickDirectory())?.path;
+        try {
+          directory = (await AndroidDirectory.pickDirectory())?.path;
+        } on PlatformException catch (e) {
+          // 选了「存储根目录」不是用户取消：原生侧拒绝并抛 root_directory。
+          // 以前这里只会得到 null，界面表现为「点了没反应」，用户会以为选择器坏了。
+          if (e.code != "root_directory") rethrow;
+          App.rootContext.showMessage(
+            message:
+                "Please pick a folder inside the storage root, not the storage root itself"
+                    .tl,
+          );
+          directory = null;
+        }
         if (directory != null && directAccess) {
           // Native library does not have access to the directory. Copy it to cache.
           var cache = FilePath.join(App.cachePath, "selected_directory");
@@ -236,8 +253,9 @@ class DirectoryPicker {
         }
       } else {
         // ios, macos
-        directory =
-            await _methodChannel.invokeMethod<String?>("getDirectoryPath");
+        directory = await _methodChannel.invokeMethod<String?>(
+          "getDirectoryPath",
+        );
       }
       if (directory == null) return null;
       _finalizer.attach(this, directory);
@@ -251,7 +269,9 @@ class DirectoryPicker {
 }
 
 class IOSDirectoryPicker {
-  static const MethodChannel _channel = MethodChannel("kong_comic/method_channel");
+  static const MethodChannel _channel = MethodChannel(
+    "kong_comic/method_channel",
+  );
 
   // 调用 iOS 目录选择方法
   static Future<String?> selectDirectory() async {
@@ -332,8 +352,11 @@ Future<String?> selectDirectoryIOS() async {
   return IOSDirectoryPicker.selectDirectory();
 }
 
-Future<void> saveFile(
-    {Uint8List? data, required String filename, File? file}) async {
+Future<void> saveFile({
+  Uint8List? data,
+  required String filename,
+  File? file,
+}) async {
   if (data == null && file == null) {
     throw Exception("data and file cannot be null at the same time");
   }
@@ -398,10 +421,7 @@ final class _IOOverrides extends IOOverrides {
 }
 
 T overrideIO<T>(T Function() f) {
-  return IOOverrides.runWithIOOverrides<T>(
-    f,
-    _IOOverrides(),
-  );
+  return IOOverrides.runWithIOOverrides<T>(f, _IOOverrides());
 }
 
 /// 把漫画名等用户可控文本转成安全的文件名。
@@ -535,16 +555,19 @@ class Share {
         final path = paths[i];
         final data = await File(path).readAsBytes();
         final name = path.split(Platform.pathSeparator).last;
-        final declared = (mimeTypes != null &&
+        final declared =
+            (mimeTypes != null &&
                 i < mimeTypes.length &&
                 mimeTypes[i].isNotEmpty)
             ? mimeTypes[i]
             : null;
-        payloads.add(ShareImageData(
-          data: data,
-          filename: name,
-          mime: declared ?? detectFileType(data, nameHint: name).mime,
-        ));
+        payloads.add(
+          ShareImageData(
+            data: data,
+            filename: name,
+            mime: declared ?? detectFileType(data, nameHint: name).mime,
+          ),
+        );
       } catch (_) {
         // 单个文件读失败不影响其余图片
       }

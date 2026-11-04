@@ -659,7 +659,7 @@ class _MultiPartExplorePageState extends State<_MultiPartExplorePage> {
     setState(() {
       loading = false;
       if (res.error) {
-        message = friendlyError(res.errorMessage ?? "Unknown error".tl);
+        message = rawSourceError(res.errorMessage);
       } else {
         parts = res.data;
       }

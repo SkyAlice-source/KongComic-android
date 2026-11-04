@@ -64,7 +64,9 @@ Future<String?> _getProxy() async {
 /// 解析代理字符串（可能带 `username:password@` 认证前缀），分离出 host:port 与
 /// 认证信息。Dart HttpClient 的 findProxy 只接受 `PROXY host:port`，不支持内嵌
 /// 认证，需单独通过 authenticateProxy + addProxyCredentials 处理。
-({String host, String? username, String? password}) _parseProxyAuth(String proxy) {
+({String host, String? username, String? password}) _parseProxyAuth(
+  String proxy,
+) {
   var hostPort = proxy;
   String? username;
   String? password;

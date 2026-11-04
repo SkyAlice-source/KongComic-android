@@ -129,26 +129,26 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
               ),
             ),
             SliverGrid(
-              delegate: SliverChildBuilderDelegate(
-                childCount: length,
-                (context, i) {
-                  if (reverse) {
-                    i = chapters.length - i - 1;
-                  }
-                  var key = chapters.ids.elementAt(i);
-                  var value = chapters[key]!;
-                  bool visited = (history?.readEpisode ?? {}).contains(i + 1);
-                  bool isCurrent = history != null && (i + 1) == history!.ep;
-                  return _buildChapterTile(
-                    context,
-                    value: value,
-                    visited: visited,
-                    isCurrent: isCurrent,
-                    downloaded: _downloadedKeys.contains(key),
-                    onTap: () => state.read(i + 1),
-                  );
-                },
-              ),
+              delegate: SliverChildBuilderDelegate(childCount: length, (
+                context,
+                i,
+              ) {
+                if (reverse) {
+                  i = chapters.length - i - 1;
+                }
+                var key = chapters.ids.elementAt(i);
+                var value = chapters[key]!;
+                bool visited = (history?.readEpisode ?? {}).contains(i + 1);
+                bool isCurrent = history != null && (i + 1) == history!.ep;
+                return _buildChapterTile(
+                  context,
+                  value: value,
+                  visited: visited,
+                  isCurrent: isCurrent,
+                  downloaded: _downloadedKeys.contains(key),
+                  onTap: () => state.read(i + 1),
+                );
+              }),
               gridDelegate: const SliverGridDelegateWithFixedHeight(
                 maxCrossAxisExtent: 250,
                 itemHeight: 48,
@@ -167,7 +167,10 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedArrowDown01,
+                          size: 18,
+                        ),
                         const SizedBox(width: 6),
                         Text("${"Show all".tl} (${chapters.length})"),
                       ],
@@ -175,9 +178,7 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                   ).paddingTop(12),
                 ),
               ),
-            const SliverToBoxAdapter(
-              child: Divider(),
-            ),
+            const SliverToBoxAdapter(child: Divider()),
           ],
         );
       },
@@ -336,41 +337,42 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
             ),
             SliverPadding(padding: const EdgeInsets.only(top: 8)),
             SliverGrid(
-              delegate: SliverChildBuilderDelegate(
-                childCount: length,
-                (context, i) {
-                  if (reverse) {
-                    i = group.length - i - 1;
+              delegate: SliverChildBuilderDelegate(childCount: length, (
+                context,
+                i,
+              ) {
+                if (reverse) {
+                  i = group.length - i - 1;
+                }
+                var key = group.keys.elementAt(i);
+                var value = group[key]!;
+                var chapterIndex = 0;
+                for (var j = 0; j < chapters.groupCount; j++) {
+                  if (j == index) {
+                    chapterIndex += i;
+                    break;
                   }
-                  var key = group.keys.elementAt(i);
-                  var value = group[key]!;
-                  var chapterIndex = 0;
-                  for (var j = 0; j < chapters.groupCount; j++) {
-                    if (j == index) {
-                      chapterIndex += i;
-                      break;
-                    }
-                    chapterIndex += chapters.getGroupByIndex(j).length;
-                  }
-                  String rawIndex = (chapterIndex + 1).toString();
-                  String groupedIndex = "${index + 1}-${i + 1}";
-                  bool visited = false;
-                  bool isCurrent = false;
-                  if (history != null) {
-                    visited = history!.readEpisode.contains(groupedIndex) ||
-                        history!.readEpisode.contains(rawIndex);
-                    isCurrent = (chapterIndex + 1) == history!.ep;
-                  }
-                  return _buildChapterTile(
-                    context,
-                    value: value,
-                    visited: visited,
-                    isCurrent: isCurrent,
-                    downloaded: _downloadedKeys.contains(key),
-                    onTap: () => state.read(chapterIndex + 1),
-                  );
-                },
-              ),
+                  chapterIndex += chapters.getGroupByIndex(j).length;
+                }
+                String rawIndex = (chapterIndex + 1).toString();
+                String groupedIndex = "${index + 1}-${i + 1}";
+                bool visited = false;
+                bool isCurrent = false;
+                if (history != null) {
+                  visited =
+                      history!.readEpisode.contains(groupedIndex) ||
+                      history!.readEpisode.contains(rawIndex);
+                  isCurrent = (chapterIndex + 1) == history!.ep;
+                }
+                return _buildChapterTile(
+                  context,
+                  value: value,
+                  visited: visited,
+                  isCurrent: isCurrent,
+                  downloaded: _downloadedKeys.contains(key),
+                  onTap: () => state.read(chapterIndex + 1),
+                );
+              }),
               gridDelegate: const SliverGridDelegateWithFixedHeight(
                 maxCrossAxisExtent: 250,
                 itemHeight: 48,
@@ -389,7 +391,10 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedArrowDown01,
+                          size: 18,
+                        ),
                         const SizedBox(width: 6),
                         Text("${"Show all".tl} (${group.length})"),
                       ],
@@ -397,9 +402,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                   ).paddingTop(12),
                 ),
               ),
-            const SliverToBoxAdapter(
-              child: Divider(),
-            ),
+            const SliverToBoxAdapter(child: Divider()),
           ],
         );
       },
@@ -504,13 +507,16 @@ Widget _buildChapterTile(
                   color: isCurrent
                       ? accent
                       : visited
-                          ? cs.tertiary.withValues(alpha: 0.5)
-                          : cs.outline.withValues(alpha: 0.3),
+                      ? cs.tertiary.withValues(alpha: 0.5)
+                      : cs.outline.withValues(alpha: 0.3),
                   width: isCurrent ? 1.5 : 1,
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 child: Center(
                   child: Text(
                     value,
@@ -523,8 +529,8 @@ Widget _buildChapterTile(
                       color: isCurrent
                           ? cs.onSurface
                           : visited
-                              ? cs.onSurfaceVariant
-                              : cs.onSurface,
+                          ? cs.onSurfaceVariant
+                          : cs.onSurface,
                       fontWeight: isCurrent ? FontWeight.w600 : null,
                     ),
                   ),

@@ -59,12 +59,14 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
   /// All comics across the followed folders, optionally filtered to only the
   /// ones that have a new update.
   Map<String, List<FavoriteItemWithUpdateInfo>> _comicsGroupedByFolder(
-      bool onlyUpdated) {
+    bool onlyUpdated,
+  ) {
     final map = <String, List<FavoriteItemWithUpdateInfo>>{};
     for (final f in folders) {
       final list = LocalFavoritesManager().getComicsWithUpdatesInfo(f);
-      final filtered =
-          onlyUpdated ? list.where((c) => c.hasNewUpdate).toList() : list;
+      final filtered = onlyUpdated
+          ? list.where((c) => c.hasNewUpdate).toList()
+          : list;
       if (filtered.isNotEmpty) map[f] = filtered;
     }
     return map;
@@ -99,7 +101,8 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
     );
   }
 
-  Widget buildNotConfigured(BuildContext context) {    return SliverToBoxAdapter(
+  Widget buildNotConfigured(BuildContext context) {
+    return SliverToBoxAdapter(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
@@ -115,7 +118,10 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
           children: [
             KcListTile(
               showDivider: false,
-              leading: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 18),
+              leading: HugeIcon(
+                icon: HugeIcons.strokeRoundedInformationCircle,
+                size: 18,
+              ),
               title: Text("Not Configured".tl),
             ),
             Text(
@@ -139,11 +145,11 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
   static const _intervalDaysList = [1, 3, 7];
 
   String _intervalLabel(int days) => switch (days) {
-        1 => "Daily".tl,
-        3 => "Every 3 days".tl,
-        7 => "Weekly".tl,
-        _ => "Daily".tl,
-      };
+    1 => "Daily".tl,
+    3 => "Every 3 days".tl,
+    7 => "Weekly".tl,
+    _ => "Daily".tl,
+  };
 
   Widget buildConfigured(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -192,8 +198,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        "Following @c folders"
-                            .tlParams({'c': folders.length}),
+                        "Following @c folders".tlParams({'c': folders.length}),
                         style: TextStyle(
                           fontSize: kcSubtitle,
                           fontWeight: FontWeight.w600,
@@ -247,8 +252,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
                     if (checking) {
                       return Button.outlined(
                         height: 36,
-                        onPressed: () =>
-                            FollowUpdatesService.cancelCurrent(),
+                        onPressed: () => FollowUpdatesService.cancelCurrent(),
                         child: Text("Cancel".tl),
                       );
                     }
@@ -269,7 +273,8 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
 
   /// Groups comics by their source (漫画源) name, sorted alphabetically.
   Map<String, List<FavoriteItemWithUpdateInfo>> _groupBySource(
-      List<FavoriteItemWithUpdateInfo> comics) {
+    List<FavoriteItemWithUpdateInfo> comics,
+  ) {
     final map = <String, List<FavoriteItemWithUpdateInfo>>{};
     for (var c in comics) {
       final key = c.type.comicSource?.name ?? "Unknown".tl;
@@ -334,13 +339,15 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
                 color: Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(kcRadius8),
               ),
-              child: Text('@total'.tlParams({'total': total}), style: TextStyle(fontSize: kcBody)),
+              child: Text(
+                '@total'.tlParams({'total': total}),
+                style: TextStyle(fontSize: kcBody),
+              ),
             ),
             if (updated > 0) ...[
               const SizedBox(width: 6),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   // 用品牌强调浅染而非 errorContainer：
                   // 1) 语义上「有更新」不是错误；2) AMOLED 下 errorContainer 被
@@ -349,9 +356,13 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
                   color: kcAccentSurface(context),
                   borderRadius: BorderRadius.circular(kcRadius8),
                 ),
-                child: Text('@updated updated'.tlParams({'updated': updated}),
-                    style: TextStyle(
-                        fontSize: kcBody, color: kcBrandAdaptive(context))),
+                child: Text(
+                  '@updated updated'.tlParams({'updated': updated}),
+                  style: TextStyle(
+                    fontSize: kcBody,
+                    color: kcBrandAdaptive(context),
+                  ),
+                ),
               ),
             ],
             const Spacer(),
@@ -362,13 +373,18 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
   }
 
   /// Render one folder's comics (grouped by source) as a flat list of slivers.
-  List<Widget> _folderGroup(String folder, List<FavoriteItemWithUpdateInfo> comics) {
+  List<Widget> _folderGroup(
+    String folder,
+    List<FavoriteItemWithUpdateInfo> comics,
+  ) {
     final groups = _groupBySource(comics);
-    final slivers = <Widget>[_folderHeader(
-      folder,
-      comics.length,
-      comics.where((c) => c.hasNewUpdate).length,
-    )];
+    final slivers = <Widget>[
+      _folderHeader(
+        folder,
+        comics.length,
+        comics.where((c) => c.hasNewUpdate).length,
+      ),
+    ];
     groups.forEach((source, items) {
       slivers.add(_sourceHeader(source, items.length));
       // 紧凑小行：把大封面网格换成「缩略图 + 两行文字」的行，一屏看全更新，
@@ -413,10 +429,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 8),
-            Text(
-              "Updates".tl,
-              style: TextStyle(fontSize: kcSectionTitle),
-            ),
+            Text("Updates".tl, style: TextStyle(fontSize: kcSectionTitle)),
             const Spacer(),
             // 「全部关注漫画」区块此前没有任何入口（_showAll 永远是 false，
             // buildAllComics 恒返回空），关注文件夹里没更新的漫画根本看不到。
@@ -514,10 +527,8 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
       header,
       SliverToBoxAdapter(
         child: Text(
-                "The comic will be marked as no updates as soon as you read it."
-                    .tl)
-            .paddingHorizontal(16)
-            .paddingVertical(4),
+          "The comic will be marked as no updates as soon as you read it.".tl,
+        ).paddingHorizontal(16).paddingVertical(4),
       ),
     ];
     grouped.forEach((folder, comics) {
@@ -549,10 +560,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 8),
-            Text(
-              "All Comics".tl,
-              style: TextStyle(fontSize: kcSectionTitle),
-            ),
+            Text("All Comics".tl, style: TextStyle(fontSize: kcSectionTitle)),
             const Spacer(),
             Button.text(
               onPressed: () {
@@ -588,84 +596,85 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
     final current = getEffectiveFollowFolders();
     final allSelected =
         current.isNotEmpty && current.length == allFolders.length;
-    final Set<String> selected =
-        allSelected ? {...allFolders} : {...current};
+    final Set<String> selected = allSelected ? {...allFolders} : {...current};
     var allToggle = current.contains('*') || allSelected;
 
     showDialog(
       context: App.rootContext,
       builder: (context) {
-        return StatefulBuilder(builder: (context, setState) {
-          return ContentDialog(
-            title: "Select Folders".tl,
-            content: SizedBox(
-              width: double.maxFinite,
-              height: 340,
-              child: Column(
-                children: [
-                  CheckboxListTile(
-                    title: Text("All Folders".tl),
-                    value: allToggle,
-                    onChanged: (v) {
-                      setState(() {
-                        allToggle = v ?? false;
-                        if (allToggle) {
-                          selected.addAll(allFolders);
-                        } else {
-                          // 取消「全部」时要把自动勾上的子项一起清掉，否则下面
-                          // 每一行仍是勾选态，看起来像点了没反应。
-                          selected.clear();
-                        }
-                      });
-                    },
-                  ),
-                  const Divider(),
-                  Expanded(
-                    child: ListView(
-                      children: allFolders.map((f) {
-                        return CheckboxListTile(
-                          title: Text(f),
-                          value: allToggle ? true : selected.contains(f),
-                          onChanged: allToggle
-                              ? null
-                              : (v) {
-                                  setState(() {
-                                    if (v == true) {
-                                      selected.add(f);
-                                    } else {
-                                      selected.remove(f);
-                                    }
-                                  });
-                                },
-                        );
-                      }).toList(),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return ContentDialog(
+              title: "Select Folders".tl,
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 340,
+                child: Column(
+                  children: [
+                    CheckboxListTile(
+                      title: Text("All Folders".tl),
+                      value: allToggle,
+                      onChanged: (v) {
+                        setState(() {
+                          allToggle = v ?? false;
+                          if (allToggle) {
+                            selected.addAll(allFolders);
+                          } else {
+                            // 取消「全部」时要把自动勾上的子项一起清掉，否则下面
+                            // 每一行仍是勾选态，看起来像点了没反应。
+                            selected.clear();
+                          }
+                        });
+                      },
                     ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              if (getEffectiveFollowFolders().isNotEmpty)
-                Button.text(
-                  onPressed: () {
-                    disable();
-                    context.pop();
-                  },
-                  child: Text("Disable".tl),
+                    const Divider(),
+                    Expanded(
+                      child: ListView(
+                        children: allFolders.map((f) {
+                          return CheckboxListTile(
+                            title: Text(f),
+                            value: allToggle ? true : selected.contains(f),
+                            onChanged: allToggle
+                                ? null
+                                : (v) {
+                                    setState(() {
+                                      if (v == true) {
+                                        selected.add(f);
+                                      } else {
+                                        selected.remove(f);
+                                      }
+                                    });
+                                  },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                 ),
-              Button.filled(
-                onPressed: (allToggle || selected.isNotEmpty)
-                    ? () {
-                        context.pop();
-                        final list = allToggle ? ['*'] : selected.toList();
-                        setFolders(list);
-                      }
-                    : () {},
-                child: Text("Confirm".tl),
               ),
-            ],
-          );
-        });
+              actions: [
+                if (getEffectiveFollowFolders().isNotEmpty)
+                  Button.text(
+                    onPressed: () {
+                      disable();
+                      context.pop();
+                    },
+                    child: Text("Disable".tl),
+                  ),
+                Button.filled(
+                  onPressed: (allToggle || selected.isNotEmpty)
+                      ? () {
+                          context.pop();
+                          final list = allToggle ? ['*'] : selected.toList();
+                          setFolders(list);
+                        }
+                      : () {},
+                  child: Text("Confirm".tl),
+                ),
+              ],
+            );
+          },
+        );
       },
     );
   }
@@ -686,8 +695,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
 
   void setFolders(List<String> selected) async {
     FollowUpdatesService.cancelCurrent();
-    final resolved =
-        selected.contains('*') ? userFolderNames() : selected;
+    final resolved = selected.contains('*') ? userFolderNames() : selected;
     // 改动前的关注列表：只给「新增进来的文件夹」跑首次检查。
     // 原来是无条件全量重查（ignoreCheckTime=true），文件夹和漫画一多，
     // 只是删掉一个文件夹也要把所有漫画重拉一遍章节信息，又慢又费流量。
@@ -740,8 +748,10 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
         // 保证 ongoing 的「检查中」通知一定被收掉（取消 / 异常路径同理）。
         // 只有仍持有取消槽位时才复位 UI 状态：新检查（手动/定时）可能已经接管，
         // 无条件复位会把「取消」按钮又变回「立即检查」。
-        final owned =
-            identical(FollowUpdatesService._cancelChecking, cancelToken);
+        final owned = identical(
+          FollowUpdatesService._cancelChecking,
+          cancelToken,
+        );
         if (owned) {
           FollowUpdatesService._cancelChecking = null;
           FollowUpdatesService._setChecking(false);
@@ -814,8 +824,10 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
       // 无论正常结束、被取消还是 updateFolders 抛异常，都必须把这个 ongoing
       // 的「检查中」通知收掉——ongoing 通知用户划不掉，异常路径漏掉就会一直挂在
       // 通知栏。取消 → 直接撤销；其余 → 换成「检查完成」（限时自动消失）。
-      final owned =
-          identical(FollowUpdatesService._cancelChecking, cancelToken);
+      final owned = identical(
+        FollowUpdatesService._cancelChecking,
+        cancelToken,
+      );
       if (owned) {
         FollowUpdatesService._cancelChecking = null;
         FollowUpdatesService._setChecking(false);
@@ -840,8 +852,8 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
         coverPath: updatedComics.firstOrNull?.coverPath,
         title: '@c updates'.tlParams({'c': updatedComics.length}),
         subtitle: updatedComics.firstOrNull?.name ?? 'Follow Updates'.tl,
-        onTap: () => App.mainNavigatorKey?.currentContext
-            ?.to(() => FollowUpdatesPage()),
+        onTap: () =>
+            App.mainNavigatorKey?.currentContext?.to(() => FollowUpdatesPage()),
       );
     }
   }
@@ -1126,8 +1138,9 @@ abstract class FollowUpdatesService {
             coverPath: comics.firstOrNull?.coverPath,
             title: '@c updates'.tlParams({'c': comics.length}),
             subtitle: comics.firstOrNull?.name ?? 'Follow Updates'.tl,
-            onTap: () => App.mainNavigatorKey?.currentContext
-                ?.to(() => FollowUpdatesPage()),
+            onTap: () => App.mainNavigatorKey?.currentContext?.to(
+              () => FollowUpdatesPage(),
+            ),
           );
         }
       }

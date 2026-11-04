@@ -15,8 +15,11 @@ class PopUpWidget<T> extends PopupRoute<T> {
   String? get barrierLabel => "exit";
 
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation) {
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     var height = MediaQuery.of(context).size.height * 0.9;
     bool showPopUp = MediaQuery.of(context).size.width > 500;
     // 宽屏（>500）时才做成卡片 + 玻璃；手机上 PopUpWidget 是全屏页面，玻璃背景
@@ -53,9 +56,7 @@ class PopUpWidget<T> extends PopupRoute<T> {
       return MediaQuery.removePadding(
         removeTop: true,
         context: context,
-        child: Center(
-          child: body,
-        ),
+        child: Center(child: body),
       );
     }
     return body;
@@ -65,8 +66,12 @@ class PopUpWidget<T> extends PopupRoute<T> {
   Duration get transitionDuration => const Duration(milliseconds: 350);
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     return FadeTransition(
       opacity: animation.drive(
         Tween(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.ease)),
@@ -95,8 +100,12 @@ Future<T> showPopUpWidget<T>(BuildContext context, Widget widget) async {
 }
 
 class PopUpWidgetScaffold extends StatefulWidget {
-  const PopUpWidgetScaffold(
-      {required this.title, required this.body, this.tailing, super.key});
+  const PopUpWidgetScaffold({
+    required this.title,
+    required this.body,
+    this.tailing,
+    super.key,
+  });
 
   final Widget body;
   final List<Widget>? tailing;
@@ -122,32 +131,33 @@ class _PopUpWidgetScaffoldState extends State<PopUpWidgetScaffold> {
               padding: EdgeInsets.only(top: context.padding.top),
               width: double.infinity,
               child: Row(
-              children: [
-                const SizedBox(
-                  width: 8,
-                ),
-                Tooltip(
-                  message: "Back".tl,
-                  child: IconButton(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
-                    onPressed: () =>
-                        context.canPop() ? context.pop() : App.pop(),
+                children: [
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: "Back".tl,
+                    child: IconButton(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowLeft01,
+                        size: 18,
+                      ),
+                      onPressed: () =>
+                          context.canPop() ? context.pop() : App.pop(),
+                    ),
                   ),
-                ),
-                const SizedBox(
-                  width: 16,
-                ),
-                Text(
-                  widget.title,
-                  style: const TextStyle(
-                      fontSize: kcFont22, fontWeight: FontWeight.w500),
-                ),
-                const Spacer(),
-                if (widget.tailing != null) ...widget.tailing!,
-                const SizedBox(width: 8),
-              ],
+                  const SizedBox(width: 16),
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: kcFont22,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (widget.tailing != null) ...widget.tailing!,
+                  const SizedBox(width: 8),
+                ],
+              ),
             ),
-          ),
           ),
           NotificationListener<ScrollNotification>(
             onNotification: (notifications) {
@@ -176,13 +186,14 @@ class _PopUpWidgetScaffoldState extends State<PopUpWidgetScaffold> {
             ),
           ),
           SizedBox(
-            height: MediaQuery.of(context).viewInsets.bottom -
+            height:
+                MediaQuery.of(context).viewInsets.bottom -
                         0.05 * MediaQuery.of(context).size.height >
                     0
                 ? MediaQuery.of(context).viewInsets.bottom -
-                    0.05 * MediaQuery.of(context).size.height
+                      0.05 * MediaQuery.of(context).size.height
                 : 0,
-          )
+          ),
         ],
       ),
     );

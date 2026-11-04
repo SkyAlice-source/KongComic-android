@@ -121,10 +121,7 @@ class _ReaderImagesState extends State<_ReaderImages> {
         });
         return;
       }
-      var res = await loadPages(
-        reader.widget.cid,
-        cp,
-      );
+      var res = await loadPages(reader.widget.cid, cp);
       if (!mounted) return;
       if (res.error) {
         // Network chapter load failed (e.g. offline). If opened from an image
@@ -167,8 +164,9 @@ class _ReaderImagesState extends State<_ReaderImages> {
   Future<bool> _tryLoadOfflineFavorites() async {
     final fav = reader.widget.imageFavoritesComic;
     if (fav == null) return false;
-    final epData =
-        fav.imageFavoritesEp.where((e) => e.ep == reader.chapter).firstOrNull;
+    final epData = fav.imageFavoritesEp
+        .where((e) => e.ep == reader.chapter)
+        .firstOrNull;
     if (epData == null) return false;
     final images = List<String>.filled(epData.maxPage, "");
     for (final f in epData.imageFavorites) {
@@ -284,13 +282,10 @@ class _ReaderImagesState extends State<_ReaderImages> {
       completer.complete(value);
     }
 
-    listener = ImageStreamListener(
-      (info, _) {
-        final width = info.image.width;
-        finish(width <= 0 ? null : info.image.height / width);
-      },
-      onError: (_, __) => finish(null),
-    );
+    listener = ImageStreamListener((info, _) {
+      final width = info.image.width;
+      finish(width <= 0 ? null : info.image.height / width);
+    }, onError: (_, __) => finish(null));
     stream.addListener(listener);
     return completer.future.timeout(
       const Duration(seconds: 8),
@@ -368,7 +363,8 @@ class _GalleryModeState extends State<_GalleryMode>
 
   /// Reader-wide image zoom factor (1.0 - 2.0) from the "display scale" setting.
   double get _imageDisplayScaleFactor {
-    final scale = (appdata.settings['imageDisplayScale'] as num?)?.toInt() ?? 100;
+    final scale =
+        (appdata.settings['imageDisplayScale'] as num?)?.toInt() ?? 100;
     return scale.clamp(100, 200) / 100.0;
   }
 
@@ -576,7 +572,10 @@ class _GalleryModeState extends State<_GalleryMode>
                 minScale: PhotoViewComputedScale.contained * factor,
                 maxScale: PhotoViewComputedScale.covered * 10.0 * factor,
                 errorBuilder: (_, error, s, retry) {
-                  return NetworkError(message: "Failed to load image".tl, retry: retry);
+                  return NetworkError(
+                    message: "Failed to load image".tl,
+                    retry: retry,
+                  );
                 },
               );
             }
@@ -615,7 +614,8 @@ class _GalleryModeState extends State<_GalleryMode>
         },
         onPageChanged: (i) {
           if (i == 0) {
-            if (reader.isFirstChapterOfGroup || !reader.toPrevChapter(toLastPage: true)) {
+            if (reader.isFirstChapterOfGroup ||
+                !reader.toPrevChapter(toLastPage: true)) {
               controller.jumpToPage(1);
             }
           } else if (i == totalPages + 1) {
@@ -996,11 +996,7 @@ String _chapterPreloadKey(ComicType type, Object cid, int chapter) =>
     '${type.comicSource?.key ?? type.value.toString()}|$cid|$chapter';
 
 /// 取走预取结果（一次性，取到即删除）。
-List<String>? _takePreloadedChapter(
-  ComicType type,
-  Object cid,
-  int chapter,
-) {
+List<String>? _takePreloadedChapter(ComicType type, Object cid, int chapter) {
   final pages = _preloadedChapterPages.remove(
     _chapterPreloadKey(type, cid, chapter),
   );
@@ -1047,7 +1043,8 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   /// Reader-wide image zoom factor (1.0 - 2.0) from the "display scale" setting.
   double get _imageDisplayScaleFactor {
-    final scale = (appdata.settings['imageDisplayScale'] as num?)?.toInt() ?? 100;
+    final scale =
+        (appdata.settings['imageDisplayScale'] as num?)?.toInt() ?? 100;
     return scale.clamp(100, 200) / 100.0;
   }
 
@@ -1057,8 +1054,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
   /// 与 `limitImageWidth`（固定 0.7 比例限宽的开关）互补：这里是可调百分比，
   /// 直接作为图片容器的左右 padding。
   double get _webtoonSidePaddingRatio {
-    final v =
-        (appdata.settings['webtoonSidePadding'] as num?)?.toDouble() ?? 0;
+    final v = (appdata.settings['webtoonSidePadding'] as num?)?.toDouble() ?? 0;
     return v.clamp(0, 30) / 100.0;
   }
 
@@ -1113,12 +1109,9 @@ class _ContinuousModeState extends State<_ContinuousMode>
     reader._imageViewController = this;
     listen(itemPositionsListener.itemPositions, onPositionChanged);
     cached = List.filled(reader.maxPage + 2, false);
-    Future.delayed(
-      const Duration(milliseconds: 100),
-      () {
-        if (mounted) cacheImages(reader.page);
-      },
-    );
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) cacheImages(reader.page);
+    });
     super.initState();
   }
 
@@ -1145,16 +1138,19 @@ class _ContinuousModeState extends State<_ContinuousMode>
     if (speed <= 0) return;
     _autoScrolling = true;
     _autoScrollTimer?.cancel();
-    _autoScrollTimer = Timer.periodic(Duration(milliseconds: (1000 / speed).round()), (_) {
-      if (!mounted || !_autoScrolling) {
-        _autoScrollTimer?.cancel();
-        return;
-      }
-      try {
-        var newOffset = scrollController.offset + pixelsPerTick;
-        scrollController.jumpTo(newOffset);
-      } catch (_) {}
-    });
+    _autoScrollTimer = Timer.periodic(
+      Duration(milliseconds: (1000 / speed).round()),
+      (_) {
+        if (!mounted || !_autoScrolling) {
+          _autoScrollTimer?.cancel();
+          return;
+        }
+        try {
+          var newOffset = scrollController.offset + pixelsPerTick;
+          scrollController.jumpTo(newOffset);
+        } catch (_) {}
+      },
+    );
   }
 
   void onPositionChanged() {
@@ -1355,8 +1351,9 @@ class _ContinuousModeState extends State<_ContinuousMode>
     final gap = (40.0 * scale).clamp(28.0, 60.0).toDouble();
     // 卷尾那一项是整份列表的最后一项，下方再留一整份空白纯属浪费
     // （滑到最后一张图还得再滑小半屏才看得到按钮），所以底部只留一半。
-    final bottomGap =
-        isTail ? (22.0 * scale).clamp(14.0, 34.0).toDouble() : gap;
+    final bottomGap = isTail
+        ? (22.0 * scale).clamp(14.0, 34.0).toDouble()
+        : gap;
     final isVertical = reader.mode == ReaderMode.continuousTopToBottom;
     return Padding(
       padding: isVertical
@@ -1416,8 +1413,8 @@ class _ContinuousModeState extends State<_ContinuousMode>
           // 卷首的「上一话」入口，与卷尾的「继续阅读」对称。
           final hasPrevChapter = reader.chapter > 1;
           if (!hasPrevChapter) return const SizedBox();
-          final prevChapterTitle =
-              reader.widget.chapters?.titles.elementAtOrNull(reader.chapter - 2);
+          final prevChapterTitle = reader.widget.chapters?.titles
+              .elementAtOrNull(reader.chapter - 2);
           final label = (prevChapterTitle == null || prevChapterTitle.isEmpty)
               ? "Previous chapter".tl
               : "${"Previous chapter".tl} $prevChapterTitle";
@@ -1430,8 +1427,9 @@ class _ContinuousModeState extends State<_ContinuousMode>
         if (index == reader.maxPage + 1) {
           var hasNextChapter = reader.chapter < reader.maxChapter;
           if (!hasNextChapter) return const SizedBox();
-          var nextChapterTitle =
-              reader.widget.chapters?.titles.elementAtOrNull(reader.chapter);
+          var nextChapterTitle = reader.widget.chapters?.titles.elementAtOrNull(
+            reader.chapter,
+          );
           // "继续阅读 第 3 话 xxx" —— 单行胶囊，长标题交给 ellipsis 截断。
           final label = (nextChapterTitle == null || nextChapterTitle.isEmpty)
               ? "Next Chapter".tl
@@ -1710,7 +1708,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
   }
 
   @override
-    void handleLongPressUp(Offset location) {
+  void handleLongPressUp(Offset location) {
     if (!appdata.settings['enableLongPressToZoom']) {
       return;
     }
@@ -1845,7 +1843,9 @@ ImageProvider _createImageProviderFromKey(
     reader.cid,
     reader.eid,
     reader.page,
-    enableResize: reader.mode.isContinuous, // For continuous mode, we need to resize the image to improve performance
+    enableResize: reader
+        .mode
+        .isContinuous, // For continuous mode, we need to resize the image to improve performance
   );
 }
 
@@ -1860,7 +1860,9 @@ ImageProvider? _createImageProvider(int page, BuildContext context) {
 /// The image is cached using the flutter's [precacheImage] method.
 /// The image will be downloaded and decoded into memory.
 void _precacheImage(int page, BuildContext context) {
-  if (page <= 0 || context.reader.images == null || page > context.reader.images!.length) {
+  if (page <= 0 ||
+      context.reader.images == null ||
+      page > context.reader.images!.length) {
     return;
   }
   var image = _createImageProvider(page, context);
@@ -1871,7 +1873,9 @@ void _precacheImage(int page, BuildContext context) {
 /// [_preDownloadImage] is used to download the image for the given page.
 /// The image is downloaded using the [CacheManager] and saved to the local storage.
 void _preDownloadImage(int page, BuildContext context) {
-  if (page <= 0 || context.reader.images == null || page > context.reader.images!.length) {
+  if (page <= 0 ||
+      context.reader.images == null ||
+      page > context.reader.images!.length) {
     return;
   }
   var reader = context.reader;
@@ -1964,7 +1968,17 @@ class _SwipeChangeChapterProgressState
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          widget.isPrev ? HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 16, color: context.colorScheme.onSurface) : HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 16, color: context.colorScheme.onSurface),
+          widget.isPrev
+              ? HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowDown01,
+                  size: 16,
+                  color: context.colorScheme.onSurface,
+                )
+              : HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowUp01,
+                  size: 16,
+                  color: context.colorScheme.onSurface,
+                ),
           const SizedBox(width: 4),
           Text(msg),
         ],
@@ -1992,7 +2006,13 @@ class _ProgressPainter extends CustomPainter {
       ..color = backgroundColor
       ..style = PaintingStyle.fill;
     canvas.drawRRect(
-      RRect.fromLTRBR(0, 0, size.width, size.height, Radius.circular(kcRadius16)),
+      RRect.fromLTRBR(
+        0,
+        0,
+        size.width,
+        size.height,
+        Radius.circular(kcRadius16),
+      ),
       paint,
     );
 
@@ -2047,8 +2067,10 @@ class _ChapterLinkButton extends StatelessWidget {
     final fontSize = (19.0 * scale).clamp(15.0, 27.0).toDouble();
     final paddingH = (30.0 * scale).clamp(22.0, 44.0).toDouble();
     final paddingV = (17.0 * scale).clamp(13.0, 25.0).toDouble();
-    final maxWidth =
-        math.min(520.0 * scale, screenWidth - 48).clamp(200.0, 640.0).toDouble();
+    final maxWidth = math
+        .min(520.0 * scale, screenWidth - 48)
+        .clamp(200.0, 640.0)
+        .toDouble();
     // 量出文字实际宽度，据此决定胶囊宽度：短标签撑到 62% 屏宽（长条观感），
     // 长标签仍由 maxWidth 收口。
     final textPainter = TextPainter(

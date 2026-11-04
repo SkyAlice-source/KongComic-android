@@ -1783,14 +1783,7 @@ class ComicListState extends State<ComicList> {
             ),
             const SizedBox(width: 4),
             if (loading)
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.6,
-                  color: cs.onSurfaceVariant,
-                ),
-              )
+              KcInlineSpinner(size: 12, color: cs.onSurfaceVariant)
             else
               HugeIcon(
                 icon: HugeIcons.strokeRoundedArrowDown01,
@@ -1945,7 +1938,7 @@ class ComicListState extends State<ComicList> {
           }
         } else if (!silent) {
           setState(() {
-            _error = friendlyError(res.errorMessage ?? "Unknown error".tl);
+            _error = friendlySourceError(res.errorMessage);
           });
         }
       } else {
@@ -2922,16 +2915,10 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
                   _loadNextPage();
                 });
               }
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(kcSpaceLg),
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              );
+              // 分页「加载更多」曾经是这里唯一还在转圈的列表底部：同一个文件
+              // 里 2157 行的另一条列表已经用 ListLoadingIndicator 爬小人了，
+              // 两个网格滚到底看到的却是两套动画。
+              return const ListLoadingIndicator();
             }
             return const SizedBox.shrink();
           }

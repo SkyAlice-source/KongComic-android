@@ -21,8 +21,8 @@ class _ImageFavoritesItem extends StatefulWidget {
 }
 
 class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
-  late List<ImageFavorite> imageFavorites =
-      widget.imageFavoritesComic.images.toList();
+  late List<ImageFavorite> imageFavorites = widget.imageFavoritesComic.images
+      .toList();
   bool _expanded = true;
 
   @override
@@ -34,10 +34,9 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
   }
 
   void goComicInfo(ImageFavoritesComic comic) {
-    App.mainNavigatorKey?.currentContext?.to(() => ComicPage(
-          id: comic.id,
-          sourceKey: comic.sourceKey,
-        ));
+    App.mainNavigatorKey?.currentContext?.to(
+      () => ComicPage(id: comic.id, sourceKey: comic.sourceKey),
+    );
   }
 
   void goPhotoView(ImageFavorite imageFavorite) {
@@ -70,88 +69,83 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
   }
 
   void showMenu(Offset location, BuildContext context) {
-    showMenuX(
-      App.rootContext,
-      location,
-      [
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
-          text: 'Details'.tl,
-          onClick: () {
-            goComicInfo(widget.imageFavoritesComic);
-          },
+    showMenuX(App.rootContext, location, [
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
+        text: 'Details'.tl,
+        onClick: () {
+          goComicInfo(widget.imageFavoritesComic);
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
+        text: 'Copy Title'.tl,
+        onClick: () {
+          copyTitle();
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(
+          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+          size: 18,
         ),
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
-          text: 'Copy Title'.tl,
-          onClick: () {
-            copyTitle();
-          },
-        ),
-        MenuEntry(
-          icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
-          text: 'Select All'.tl,
-          onClick: () {
-            for (var ele in imageFavorites) {
-              widget.addSelected(ele);
-            }
-          },
-        ),
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedBookOpen01, size: 18),
-          text: 'Photo View'.tl,
-          onClick: () {
-            if (imageFavorites.isNotEmpty) {
-              goPhotoView(imageFavorites.first);
-            }
-          },
-        ),
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
-          text: 'Cache All Images'.tl,
-          onClick: () async {
-            final images = imageFavorites.toList();
-            if (images.isEmpty) return;
-            final controller = showLoadingDialog(
-              App.rootContext,
-              message: "Cache All Images".tl,
-              withProgress: true,
-            );
-            int ok = 0;
-            int done = 0;
-            for (var img in images) {
-              if (controller.closed) break;
-              if (await ImageFavoritesProvider.cacheImage(img)) ok++;
-              done++;
-              controller.setProgress(done / images.length);
-            }
-            controller.close();
-            App.rootContext.showMessage(
-              message: "Cached @c images".tlParams({"c": ok}),
-            );
-          },
-        ),
-      ],
-    );
+        text: 'Select All'.tl,
+        onClick: () {
+          for (var ele in imageFavorites) {
+            widget.addSelected(ele);
+          }
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedBookOpen01, size: 18),
+        text: 'Photo View'.tl,
+        onClick: () {
+          if (imageFavorites.isNotEmpty) {
+            goPhotoView(imageFavorites.first);
+          }
+        },
+      ),
+      MenuEntry(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
+        text: 'Cache All Images'.tl,
+        onClick: () async {
+          final images = imageFavorites.toList();
+          if (images.isEmpty) return;
+          final controller = showLoadingDialog(
+            App.rootContext,
+            message: "Cache All Images".tl,
+            withProgress: true,
+          );
+          int ok = 0;
+          int done = 0;
+          for (var img in images) {
+            if (controller.closed) break;
+            if (await ImageFavoritesProvider.cacheImage(img)) ok++;
+            done++;
+            controller.setProgress(done / images.length);
+          }
+          controller.close();
+          App.rootContext.showMessage(
+            message: "Cached @c images".tlParams({"c": ok}),
+          );
+        },
+      ),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildHeader(context),
-        if (_expanded) _buildGrid(context),
-      ],
+      children: [_buildHeader(context), if (_expanded) _buildGrid(context)],
     ).paddingHorizontal(8).paddingVertical(4);
   }
 
   Widget _buildHeader(BuildContext context) {
-    final comicSource =
-        ComicSource.find(widget.imageFavoritesComic.sourceKey);
-    final time =
-        DateFormat('yyyy-MM-dd').format(widget.imageFavoritesComic.time);
+    final comicSource = ComicSource.find(widget.imageFavoritesComic.sourceKey);
+    final time = DateFormat(
+      'yyyy-MM-dd',
+    ).format(widget.imageFavoritesComic.time);
     final cs = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
@@ -195,8 +189,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.secondaryContainer,
                   borderRadius: BorderRadius.circular(kcRadius8),
@@ -280,7 +273,8 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                 tag: "${image.sourceKey}@${image.id}@${image.ep}@${image.page}",
                 child: AnimatedImage(
                   key: ValueKey(
-                      "favimg_${image.sourceKey}_${image.ep}_${image.page}"),
+                    "favimg_${image.sourceKey}_${image.ep}_${image.page}",
+                  ),
                   image: ImageFavoritesProvider(image),
                   fit: BoxFit.cover,
                   filterQuality: FilterQuality.medium,
@@ -363,7 +357,9 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                 color: Colors.black.withValues(alpha: 0.45),
                 child: Text(
                   pageText,
-                  style: TextStyle(fontSize: kcCaption).copyWith(color: Colors.white),
+                  style: TextStyle(
+                    fontSize: kcCaption,
+                  ).copyWith(color: Colors.white),
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

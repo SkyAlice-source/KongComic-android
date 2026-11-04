@@ -19,7 +19,9 @@ abstract mixin class _ComicPageActions {
     update();
     var res = await comicSource.likeOrUnlikeComic!(comic.id, isLiked);
     if (res.error) {
-      App.rootContext.showMessage(message: friendlyError(res.errorMessage!));
+      App.rootContext.showMessage(
+        message: friendlySourceError(res.errorMessage),
+      );
     } else {
       isLiked = !isLiked;
     }
@@ -57,8 +59,9 @@ abstract mixin class _ComicPageActions {
       barrierDismissible: true,
       barrierLabel: 'Favorite'.tl,
       barrierColor: Colors.black.withValues(alpha: 0.42),
-      transitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+      transitionDuration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
       pageBuilder: (dialogContext, _, __) => _FavoriteDialog(
         panel: _FavoritePanel(
           cid: comic.id,
@@ -146,11 +149,11 @@ abstract mixin class _ComicPageActions {
             author: comic.findAuthor() ?? '',
             tags: comic.plainTags,
             forCoverSelection: forCoverSelection,
-          )
+          ),
         )
         .then((_) {
-      onReadEnd();
-    });
+          onReadEnd();
+        });
   }
 
   void continueRead() {
@@ -205,10 +208,7 @@ abstract mixin class _ComicPageActions {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      RadioListTile<int>(
-                        value: -1,
-                        title: Text("Normal".tl),
-                      ),
+                      RadioListTile<int>(value: -1, title: Text("Normal".tl)),
                       ExpansionTile(
                         title: Text("Archive".tl),
                         shape: const RoundedRectangleBorder(
@@ -223,16 +223,19 @@ abstract mixin class _ComicPageActions {
                             comicSource.archiveDownloader!
                                 .getArchives(comic.id)
                                 .then((value) {
-                              if (value.success) {
-                                archives = value.data;
-                              } else {
-                                App.rootContext
-                                    .showMessage(message: friendlyError(value.errorMessage!));
-                              }
-                              setState(() {
-                                isLoading = false;
-                              });
-                            });
+                                  if (value.success) {
+                                    archives = value.data;
+                                  } else {
+                                    App.rootContext.showMessage(
+                                      message: friendlySourceError(
+                                        value.errorMessage,
+                                      ),
+                                    );
+                                  }
+                                  setState(() {
+                                    isLoading = false;
+                                  });
+                                });
                           }
                         },
                         children: [
@@ -244,9 +247,9 @@ abstract mixin class _ComicPageActions {
                                 value: i,
                                 title: Text(archives![i].title),
                                 subtitle: Text(archives![i].description),
-                              )
+                              ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -262,23 +265,24 @@ abstract mixin class _ComicPageActions {
                       setState(() {
                         isGettingLink = true;
                       });
-                      var res =
-                          await comicSource.archiveDownloader!.getDownloadUrl(
-                        comic.id,
-                        archives![selected].id,
-                      );
+                      var res = await comicSource.archiveDownloader!
+                          .getDownloadUrl(comic.id, archives![selected].id);
                       if (!context.mounted) return;
                       if (res.error) {
-                        App.rootContext.showMessage(message: friendlyError(res.errorMessage!));
+                        App.rootContext.showMessage(
+                          message: friendlySourceError(res.errorMessage),
+                        );
                         setState(() {
                           isGettingLink = false;
                         });
                       } else if (context.mounted) {
                         if (res.data.isNotEmpty) {
-                          LocalManager()
-                            .addTask(ArchiveDownloadTask(res.data, comic));
-                          App.rootContext
-                            .showMessage(message: "Download started".tl);
+                          LocalManager().addTask(
+                            ArchiveDownloadTask(res.data, comic),
+                          );
+                          App.rootContext.showMessage(
+                            message: "Download started".tl,
+                          );
                         }
                         context.pop();
                       }
@@ -297,19 +301,22 @@ abstract mixin class _ComicPageActions {
     }
 
     if (comic.chapters == null) {
-      LocalManager().addTask(ImagesDownloadTask(
-        source: comicSource,
-        comicId: comic.id,
-        comic: comic,
-      ));
+      LocalManager().addTask(
+        ImagesDownloadTask(
+          source: comicSource,
+          comicId: comic.id,
+          comic: comic,
+        ),
+      );
     } else {
       List<int>? selected;
       var downloaded = <int>[];
       var localComic = LocalManager().find(comic.id, comic.comicType);
       if (localComic != null) {
         for (int i = 0; i < comic.chapters!.length; i++) {
-          if (localComic.downloadedChapters
-              .contains(comic.chapters!.ids.elementAt(i))) {
+          if (localComic.downloadedChapters.contains(
+            comic.chapters!.ids.elementAt(i),
+          )) {
             downloaded.add(i);
           }
         }
@@ -323,14 +330,16 @@ abstract mixin class _ComicPageActions {
         ),
       );
       if (selected == null) return;
-      LocalManager().addTask(ImagesDownloadTask(
-        source: comicSource,
-        comicId: comic.id,
-        comic: comic,
-        chapters: selected!.map((i) {
-          return comic.chapters!.ids.elementAt(i);
-        }).toList(),
-      ));
+      LocalManager().addTask(
+        ImagesDownloadTask(
+          source: comicSource,
+          comicId: comic.id,
+          comic: comic,
+          chapters: selected!.map((i) {
+            return comic.chapters!.ids.elementAt(i);
+          }).toList(),
+        ),
+      );
     }
     App.rootContext.showMessage(message: "Download started".tl);
     update();
@@ -344,72 +353,71 @@ abstract mixin class _ComicPageActions {
 
   void showMoreActions() {
     var context = App.rootContext;
-    showMenuX(
-        context,
-        Offset(
-          context.width - 16,
-          context.padding.top,
+    showMenuX(context, Offset(context.width - 16, context.padding.top), [
+      // 下载
+      if (comic.chapters != null)
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
+          text: "Download".tl,
+          onClick: download,
         ),
-        [
-          // 下载
-          if (comic.chapters != null)
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
-              text: "Download".tl,
-              onClick: download,
-            ),
-          // 评论
-          if (comicSource.commentsLoader != null)
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
-              text: (comic.commentCount ?? 'Comments'.tl).toString(),
-              onClick: showComments,
-            ),
-          // 浏览器打开
-          if (comic.url != null)
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedBrowser, size: 18),
-              text: "Open in Browser".tl,
-              onClick: () => launchUrlString(comic.url!),
-            ),
-          // 评分
-          if (comicSource.isLogged && comicSource.starRatingFunc != null)
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18),
-              text: "Rating".tl,
-              onClick: starRating,
-            ),
-          // 复制 URL
-          if (comic.url != null)
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
-              text: "Copy URL".tl,
-              onClick: () {
-                Clipboard.setData(ClipboardData(text: comic.url!));
-                context.showMessage(message: "Copied".tl);
-              },
-            ),
-          // 恢复默认封面
-          if (CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id))
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-              text: "Restore Default Cover".tl,
-              onClick: () => _restoreCover(context),
-            ),
-          // Debug
-          if (appdata.settings['debug'] == true)
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 18),
-              text: "Debug Info".tl,
-              onClick: () {
-                context.showMessage(message: comicSource.key);
-              },
-            ),
-        ]);
+      // 评论
+      if (comicSource.commentsLoader != null)
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
+          text: (comic.commentCount ?? 'Comments'.tl).toString(),
+          onClick: showComments,
+        ),
+      // 浏览器打开
+      if (comic.url != null)
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedBrowser, size: 18),
+          text: "Open in Browser".tl,
+          onClick: () => launchUrlString(comic.url!),
+        ),
+      // 评分
+      if (comicSource.isLogged && comicSource.starRatingFunc != null)
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18),
+          text: "Rating".tl,
+          onClick: starRating,
+        ),
+      // 复制 URL
+      if (comic.url != null)
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
+          text: "Copy URL".tl,
+          onClick: () {
+            Clipboard.setData(ClipboardData(text: comic.url!));
+            context.showMessage(message: "Copied".tl);
+          },
+        ),
+      // 恢复默认封面
+      if (CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id))
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+          text: "Restore Default Cover".tl,
+          onClick: () => _restoreCover(context),
+        ),
+      // Debug
+      if (appdata.settings['debug'] == true)
+        MenuEntry(
+          icon: HugeIcon(
+            icon: HugeIcons.strokeRoundedInformationCircle,
+            size: 18,
+          ),
+          text: "Debug Info".tl,
+          onClick: () {
+            context.showMessage(message: comicSource.key);
+          },
+        ),
+    ]);
   }
 
   Future<void> _changeCover(BuildContext context) async {
-    final file = await selectFile(ext: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp']);
+    final file = await selectFile(
+      ext: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
+    );
     if (file == null) return;
 
     final success = await CustomCoverManager.setCustomCover(
@@ -436,10 +444,7 @@ abstract mixin class _ComicPageActions {
   void showComments() {
     showSideBar(
       App.rootContext,
-      CommentsPage(
-        data: comic,
-        source: comicSource,
-      ),
+      CommentsPage(data: comic, source: comicSource),
     );
   }
 
@@ -458,53 +463,56 @@ abstract mixin class _ComicPageActions {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-            SizedBox(
-              height: 100,
-              child: Center(
-                child: SizedBox(
-                  width: 210,
-                  child: Column(
-                    children: [
-                      const SizedBox(
-                        height: 10,
-                      ),
-                      RatingWidget(
-                        padding: 2,
-                        onRatingUpdate: (value) => rating = value,
-                        value: 1,
-                        selectable: true,
-                        size: 40,
-                      ),
-                      const Spacer(),
-                      Button.filled(
-                        isLoading: isLoading,
-                        onPressed: () {
-                          setState(() {
-                            isLoading = true;
-                          });
-                          comicSource.starRatingFunc!(comic.id, rating.round())
-                              .then((value) {
-                            if (value.success) {
-                              App.rootContext
-                                  .showMessage(message: "Success".tl);
-                              Navigator.of(dialogContext).pop();
-                            } else {
-                              App.rootContext
-                                  .showMessage(message: friendlyError(value.errorMessage!));
-                              setState(() {
-                                isLoading = false;
-                              });
-                            }
-                          });
-                        },
-                        child: Text("Submit".tl),
-                      )
-                    ],
+              SizedBox(
+                height: 100,
+                child: Center(
+                  child: SizedBox(
+                    width: 210,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        RatingWidget(
+                          padding: 2,
+                          onRatingUpdate: (value) => rating = value,
+                          value: 1,
+                          selectable: true,
+                          size: 40,
+                        ),
+                        const Spacer(),
+                        Button.filled(
+                          isLoading: isLoading,
+                          onPressed: () {
+                            setState(() {
+                              isLoading = true;
+                            });
+                            comicSource
+                                .starRatingFunc!(comic.id, rating.round())
+                                .then((value) {
+                                  if (value.success) {
+                                    App.rootContext.showMessage(
+                                      message: "Success".tl,
+                                    );
+                                    Navigator.of(dialogContext).pop();
+                                  } else {
+                                    App.rootContext.showMessage(
+                                      message: friendlySourceError(
+                                        value.errorMessage,
+                                      ),
+                                    );
+                                    setState(() {
+                                      isLoading = false;
+                                    });
+                                  }
+                                });
+                          },
+                          child: Text("Submit".tl),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
           ),
         ),
       ),

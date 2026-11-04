@@ -493,7 +493,12 @@ class _SelectSettingState extends State<SelectSetting> {
   @override
   Widget build(BuildContext context) {
     final value = _value;
-    final current = widget.optionTranslation[value]?.tl ?? "None".tl;
+    // 存储值不在选项表里时（旧版本遗留值、选项键改过名），显示原始值而不是
+    // 「None」：后者看起来像「没设置」，用户既不知道哪里坏了，也看不出当前
+    // 到底存的是什么，只能瞎猜着重新选一次。
+    final raw = value?.toString() ?? '';
+    final current =
+        widget.optionTranslation[value]?.tl ?? (raw.isEmpty ? "None".tl : raw);
 
     return _KcSettingTile(
       title: Row(

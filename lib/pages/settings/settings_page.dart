@@ -13,7 +13,6 @@ import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/cache_manager.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
 import 'package:kong_comic/foundation/favorites.dart';
-import 'package:kong_comic/foundation/js_engine.dart';
 import 'package:kong_comic/foundation/local.dart';
 import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/foundation/log.dart';
@@ -26,6 +25,7 @@ import 'package:kong_comic/utils/import_comic.dart';
 import 'package:kong_comic/utils/app_update.dart';
 import 'package:kong_comic/utils/auto_backup.dart';
 import 'package:kong_comic/utils/notifications.dart';
+import 'package:kong_comic/utils/power.dart';
 
 part 'reader.dart';
 part 'explore_settings.dart';
@@ -33,119 +33,245 @@ part 'setting_components.dart';
 part 'appearance.dart';
 part 'local_favorites.dart';
 part 'app.dart';
+part 'permissions.dart';
 part 'about.dart';
 part 'network.dart';
 part 'download.dart';
-part 'import_settings.dart';
 
 class _SettingSearchEntry {
   final String title;
   final int category;
   final String? subtitle;
   final bool isCategory;
-  const _SettingSearchEntry(this.title, this.category,
-      {this.subtitle, this.isCategory = false});
+
+  /// 只参与匹配、不显示的补充词（英文选项名、同义词）。
+  ///
+  /// 标题与副标题在中文界面下只拿「译文」参与匹配，所以用户输入 `dark` /
+  /// `AMOLED` 这类英文选项名时命不中一行叫「外观」的设置。这里显式登记这些
+  /// 词，避免为了可搜索去改显示文案。
+  final String? keywords;
+
+  const _SettingSearchEntry(
+    this.title,
+    this.category, {
+    this.subtitle,
+    this.isCategory = false,
+    this.keywords,
+  });
 }
 
 /// 跨分类的设置项搜索索引。title / subtitle 为英文源串，运行时经 `.tl` 取本地化
 /// 文本并同时用英文本体做匹配，保证中文界面下输入中文或英文都能命中。
 const List<_SettingSearchEntry> _kSettingSearchIndex = [
-  // 0 - Reader
-  _SettingSearchEntry("Tap to turn Pages", 0),
-  _SettingSearchEntry("Reverse tap to turn Pages", 0),
-  _SettingSearchEntry("Tap Zone Layout", 0),
-  _SettingSearchEntry("Page animation", 0),
+  // 0 - Reading & images ／ 1 - Page & interface
+  _SettingSearchEntry("Tap to turn Pages", 1),
+  _SettingSearchEntry("Reverse tap to turn Pages", 1),
+  _SettingSearchEntry("Tap Zone Layout", 1),
+  _SettingSearchEntry("Page animation", 1),
   _SettingSearchEntry("Reading mode", 0),
   _SettingSearchEntry("Auto Webtoon detection", 0),
-  _SettingSearchEntry("Auto page turning interval", 0),
+  _SettingSearchEntry("Auto page turning interval", 1),
   _SettingSearchEntry("Show single image on first page", 0),
   _SettingSearchEntry("Long press zoom position", 0),
-  _SettingSearchEntry("Image Fit Mode", 0),
-  _SettingSearchEntry("Display time & battery info in reader", 0),
-  _SettingSearchEntry("Hide navigation while reading", 0),
-  _SettingSearchEntry("Show system status bar", 0),
-  _SettingSearchEntry("Keep screen on", 0),
-  _SettingSearchEntry("Screen orientation", 0),
-  _SettingSearchEntry("Quick collect image", 0),
+  _SettingSearchEntry(
+    "Double tap to zoom",
+    0,
+    keywords: "double tap zoom 双击 放大",
+  ),
+  _SettingSearchEntry(
+    "Long press to zoom",
+    0,
+    keywords: "long press zoom 长按 放大",
+  ),
+  _SettingSearchEntry(
+    "Image Fit Mode",
+    0,
+    keywords: "fit width height screen 适应 拉伸",
+  ),
+  _SettingSearchEntry(
+    "Image display scale",
+    0,
+    keywords: "scale zoom percent 缩放 比例 显示大小",
+  ),
+  _SettingSearchEntry(
+    "Limit image width",
+    0,
+    keywords: "limit width continuous 宽度 限制",
+  ),
+  _SettingSearchEntry(
+    "Webtoon side margin",
+    0,
+    keywords: "webtoon margin padding 条漫 留白 边距",
+  ),
+  _SettingSearchEntry(
+    "Turn page by volume keys",
+    1,
+    keywords: "volume key 音量键 翻页",
+  ),
+  _SettingSearchEntry("Display time & battery info in reader", 1),
+  _SettingSearchEntry("Hide navigation while reading", 1),
+  _SettingSearchEntry("Show system status bar", 1),
+  _SettingSearchEntry("Keep screen on", 1),
+  _SettingSearchEntry("Screen orientation", 1),
+  _SettingSearchEntry("Quick collect image", 1),
   _SettingSearchEntry("Custom Image Processing", 0),
-  _SettingSearchEntry("Number of images preloaded", 0),
-  _SettingSearchEntry("Show Page Number", 0),
-  _SettingSearchEntry("Show Chapter Comments", 0),
-  _SettingSearchEntry("Show Comments at Chapter End", 0),
-  _SettingSearchEntry("Reverse default chapter order", 0),
-  // 1 - Appearance
-  _SettingSearchEntry("Theme Color", 1),
-  _SettingSearchEntry("Language", 1),
-  // 2 - Explore
-  _SettingSearchEntry("Display mode of comic tile", 2),
-  _SettingSearchEntry("Show recommendations on explore", 2),
-  _SettingSearchEntry("Size of comic tile", 2),
-  _SettingSearchEntry("Explore Pages", 2),
-  _SettingSearchEntry("Category Pages", 2),
-  _SettingSearchEntry("Network Favorite Pages", 2),
-  _SettingSearchEntry("Search Sources", 2),
-  _SettingSearchEntry("Show favorite status on comic tile", 2),
-  _SettingSearchEntry("Show history on comic tile", 2),
-  _SettingSearchEntry("Keyword blocking", 2),
-  _SettingSearchEntry("Comment keyword blocking", 2),
-  _SettingSearchEntry("Default Search Target", 2),
-  _SettingSearchEntry("Auto Language Filters", 2),
-  _SettingSearchEntry("Load mode of comic list", 2),
-  // 3 - Local Favorites
-  _SettingSearchEntry("Show local favorites before network favorites", 3),
-  _SettingSearchEntry("Auto close favorite panel after operation", 3),
-  _SettingSearchEntry("Add new favorite to", 3),
-  _SettingSearchEntry("Move favorite after reading", 3),
-  _SettingSearchEntry("Quick Favorite", 3),
-  _SettingSearchEntry("Delete all unavailable local favorite items", 3),
-  _SettingSearchEntry("Click favorite item", 3),
-  _SettingSearchEntry("Home banner folders", 3),
-  // 4 - Network
-  _SettingSearchEntry("Proxy", 4),
-  _SettingSearchEntry("DNS Overrides", 4),
-  _SettingSearchEntry("Enable DNS Overrides", 4),
-  _SettingSearchEntry("Server Name Indication", 4),
-  // 5 - Download
-  _SettingSearchEntry("CBZ Packaging", 5),
-  _SettingSearchEntry("Save chapters as CBZ", 5,
-      subtitle: "Package each chapter as .cbz file after download"),
-  _SettingSearchEntry("Delete folder after CBZ packaging", 5,
-      subtitle: "Keep only the .cbz file, remove the original folder"),
-  _SettingSearchEntry("Download Performance", 5),
-  _SettingSearchEntry("Download Threads", 5),
-  // 6 - Import
+  _SettingSearchEntry(
+    "Number of images preloaded",
+    0,
+    keywords: "preload cache 预加载 缓存图片",
+  ),
+  _SettingSearchEntry(
+    "The number of pic in screen for landscape (Only Gallery Mode)",
+    0,
+    keywords: "gallery grid landscape 网格 横屏 每屏",
+  ),
+  _SettingSearchEntry(
+    "The number of pic in screen for portrait (Only Gallery Mode)",
+    0,
+    keywords: "gallery grid portrait 网格 竖屏 每屏",
+  ),
+  _SettingSearchEntry("Show Page Number", 1),
+  _SettingSearchEntry("Show Chapter Comments", 1),
+  _SettingSearchEntry("Show Comments at Chapter End", 1),
+  _SettingSearchEntry("Reverse default chapter order", 1),
+  // 2 - Appearance（只有主题，语言在「应用与存储 → 语言与启动」）
+  // 页内第一段就叫「主题模式」，索引也用它 —— 否则搜 dark / 深色 命中的是
+  // 一条标题与分类名都叫「外观」的行，看不出它到底管什么。
+  _SettingSearchEntry(
+    "Theme Mode",
+    2,
+    subtitle: "Follow system, light, dark, AMOLED",
+    keywords:
+        "theme mode dark light amoled night black system 主题 外观 深色 浅色 暗色 夜间 纯黑",
+  ),
+  _SettingSearchEntry(
+    "Theme Color",
+    2,
+    keywords: "color accent palette theme 颜色 配色 主题色",
+  ),
+  _SettingSearchEntry("Language", 8, keywords: "language locale 语言 語言 语言切换"),
+  // 3 - Explore
+  _SettingSearchEntry("Display mode of comic tile", 3),
+  _SettingSearchEntry("Show recommendations on explore", 3),
+  _SettingSearchEntry("Size of comic tile", 3),
+  _SettingSearchEntry("Explore Pages", 3),
+  _SettingSearchEntry("Category Pages", 3),
+  _SettingSearchEntry("Network Favorite Pages", 3),
+  _SettingSearchEntry("Search Sources", 3),
+  _SettingSearchEntry("Show favorite status on comic tile", 3),
+  _SettingSearchEntry("Show history on comic tile", 3),
+  _SettingSearchEntry("Keyword blocking", 3),
+  _SettingSearchEntry("Comment keyword blocking", 3),
+  _SettingSearchEntry("Default Search Target", 3),
+  _SettingSearchEntry("Auto Language Filters", 3),
+  _SettingSearchEntry("Load mode of comic list", 3),
+  // 4 - Local Favorites
+  _SettingSearchEntry("Show local favorites before network favorites", 4),
+  _SettingSearchEntry("Auto close favorite panel after operation", 4),
+  _SettingSearchEntry("Add new favorite to", 4),
+  _SettingSearchEntry("Move favorite after reading", 4),
+  _SettingSearchEntry("Quick Favorite", 4),
+  _SettingSearchEntry("Delete all unavailable local favorite items", 4),
+  _SettingSearchEntry("Click favorite item", 4),
+  _SettingSearchEntry("Home banner folders", 4),
+  // 5 - Network
+  _SettingSearchEntry("Proxy", 5, keywords: "proxy http socks 代理 代理服务器"),
+  // 6 - Download & Import
+  // 「CBZ 打包」「下载性能」两个小标题在合并时已并入「下载」组，索引里一并删掉，
+  // 否则搜索结果会指向页面上早已不存在的小标题。
+  _SettingSearchEntry(
+    "Save chapters as CBZ",
+    6,
+    subtitle: "Package each chapter as .cbz file after download",
+  ),
+  _SettingSearchEntry(
+    "Delete folder after CBZ packaging",
+    6,
+    subtitle: "Keep only the .cbz file, remove the original folder",
+  ),
+  _SettingSearchEntry("Download Threads", 6),
   _SettingSearchEntry("Import CBZ / ZIP / 7Z", 6),
-  _SettingSearchEntry("Import archives from folder", 6,
-      subtitle: "Batch import .cbz/.zip/.7z files"),
-  _SettingSearchEntry("Import image folders", 6,
-      subtitle: "Import folders containing images as comics"),
-  // 7 - APP
-  _SettingSearchEntry("Move comics into storage path", 7),
-  _SettingSearchEntry("Initial Page", 7),
-  _SettingSearchEntry("Set New Storage Path", 7),
-  _SettingSearchEntry("Move to Current Storage Path", 7),
-  _SettingSearchEntry("All files access", 7),
-  _SettingSearchEntry("Use Download/Comic", 7),
-  _SettingSearchEntry("Notifications", 7),
-  _SettingSearchEntry("Clear Cache", 7),
-  _SettingSearchEntry("Cache Limit", 7),
+  _SettingSearchEntry(
+    "Import archives from folder",
+    6,
+    subtitle: "Batch import .cbz/.zip/.7z files",
+  ),
+  _SettingSearchEntry(
+    "Import image folders",
+    6,
+    subtitle: "Import folders containing images as comics",
+  ),
+  // 7 - Data & backup ／ 8 - App & storage ／ 9 - Permissions
+  _SettingSearchEntry("Move comics into storage path", 8),
+  _SettingSearchEntry("Initial Page", 8),
+  _SettingSearchEntry("Set New Storage Path", 8),
+  _SettingSearchEntry("Move to Current Storage Path", 8),
+  _SettingSearchEntry("All files access", 9),
+  _SettingSearchEntry("Use Download/Comic", 9),
+  _SettingSearchEntry("Notifications", 9),
+  _SettingSearchEntry("Unrestricted battery usage", 9),
+  _SettingSearchEntry("Install unknown apps", 9),
+  _SettingSearchEntry("Clear Cache", 8),
+  _SettingSearchEntry("Cache Limit", 8),
   _SettingSearchEntry("Export App Data", 7),
   _SettingSearchEntry("Import App Data", 7),
-  _SettingSearchEntry("Auto Backup", 7,
-      subtitle: "Periodically back up your data to the Download folder"),
+  _SettingSearchEntry(
+    "Auto Backup",
+    7,
+    subtitle: "Periodically back up your data to the Download folder",
+  ),
   _SettingSearchEntry("Auto-update comic sources", 7),
   _SettingSearchEntry("Backup Interval", 7),
   _SettingSearchEntry("Backup Retention", 7),
   _SettingSearchEntry("Back Up Now", 7),
   _SettingSearchEntry("Authorization Required", 7),
-  _SettingSearchEntry("Exit Confirmation", 7,
-      subtitle: "Ask before exiting via back gesture at root"),
-  _SettingSearchEntry("Webdav", 7),
-  // 8 - About
-  _SettingSearchEntry("Check for updates on startup", 8),
-  _SettingSearchEntry("Mirror template", 8),
-  _SettingSearchEntry("Download sources", 8),
+  _SettingSearchEntry(
+    "Exit Confirmation",
+    8,
+    subtitle: "Ask before exiting via back gesture at root",
+  ),
+  _SettingSearchEntry("Webdav", 7, keywords: "webdav cloud sync 云同步 同步"),
+  _SettingSearchEntry("Cloud Sync", 7, keywords: "webdav cloud sync 云同步 同步"),
+  // 10 - About
+  _SettingSearchEntry("Check for updates on startup", 10),
+  _SettingSearchEntry("Mirror template", 10),
+  _SettingSearchEntry("Download sources", 10),
 ];
+
+/// 分类列表的三段分组，区间是半开区间 [start, end)。
+///
+/// 9 条分类平铺时只能靠顺序记忆；按「读的时候 / 存的时候 / 应用本身」切开后，
+/// 段标题先给一个粗定位，再往下才是具体分类。分组只影响列表呈现，不改索引。
+const List<(int, int, String)> _kCategorySections = [
+  (0, 4, "Reading & display"),
+  (4, 8, "Data & network"),
+  (8, 11, "App & permissions"),
+];
+
+/// 分类列表的段标题。只承担「粗定位」，所以比分类行小一号、颜色更淡，
+/// 不去和下面 9 条分类抢注意力；左右内缩与分类行的内容左缘对齐。
+class _SettingSectionLabel extends StatelessWidget {
+  const _SettingSectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 12, 28, 3),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: kcCaption,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.4,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
+      ),
+    );
+  }
+}
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({this.initialPage = -1, super.key});
@@ -163,39 +289,47 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
 
   bool get enableTwoViews => context.width > 720;
 
+  // 顺序必须与下面的 icons / _subtitles / _buildSettingsContent 完全一致。
+  // 9 类：导入并入下载，语言并入 APP 的「通用」组。
   List<String> _categories() => [
-    "Reader Settings".tl,
+    "Reading & images".tl,
+    "Page & interface".tl,
     "Appearance".tl,
     "Explore".tl,
     "Local Favorites".tl,
     "Network".tl,
-    "Download".tl,
-    "Import".tl,
-    "APP".tl,
-    "About".tl
+    "Download & Import".tl,
+    "Data & backup".tl,
+    "App & storage".tl,
+    "Permissions".tl,
+    "About".tl,
   ];
 
   final icons = <Widget>[
-    HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedBookOpen01, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedFlipHorizontal, size: 24),
     HugeIcon(icon: HugeIcons.strokeRoundedColorPicker, size: 24),
     HugeIcon(icon: HugeIcons.strokeRoundedCompass01, size: 24),
     HugeIcon(icon: HugeIcons.strokeRoundedBookmark01, size: 24),
     HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 24),
     HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 24),
-    HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedCloudBackup, size: 24),
     HugeIcon(icon: HugeIcons.strokeRoundedAppStore, size: 24),
+    HugeIcon(icon: HugeIcons.strokeRoundedShieldKey, size: 24),
     HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 24),
   ];
 
   List<String> _subtitles() => [
-    "Reading mode, page turning, zoom".tl,
-    "Theme, language".tl,
+    "Reading mode, webtoon, image fit".tl,
+    "Page turning, gestures, interface".tl,
+    "Theme mode, theme color".tl,
     "Comic display, search sources, home".tl,
     "Local favorites management".tl,
-    "Proxy, DNS".tl,
-    "Download tasks, CBZ packaging".tl,
-    "Comic import".tl,
-    "Data sync, auth, cache, storage".tl,
+    "Proxy server".tl,
+    "Download tasks, CBZ, import".tl,
+    "Backup & sync, account".tl,
+    "Language, startup, storage, cache".tl,
+    "Storage, notifications, background".tl,
     "Version, update, GitHub".tl,
   ];
 
@@ -221,7 +355,13 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
       final t = e.title.tl.toLowerCase();
       final en = e.title.toLowerCase();
       final sub = e.subtitle?.tl.toLowerCase() ?? '';
-      if (t.contains(q) || en.contains(q) || sub.contains(q)) out.add(e);
+      final kw = e.keywords?.toLowerCase() ?? '';
+      if (t.contains(q) ||
+          en.contains(q) ||
+          sub.contains(q) ||
+          kw.contains(q)) {
+        out.add(e);
+      }
     }
     return out;
   }
@@ -257,7 +397,6 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
     super.initState();
   }
 
-
   void _onSettingsChange() {
     if (mounted) setState(() {});
   }
@@ -277,11 +416,7 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
     if (enableTwoViews) {
       return Row(
         children: [
-          SizedBox(
-            width: 280,
-            height: double.infinity,
-            child: buildLeft(),
-          ),
+          SizedBox(width: 280, height: double.infinity, child: buildLeft()),
           Container(
             height: double.infinity,
             decoration: BoxDecoration(
@@ -325,7 +460,7 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
               },
               child: buildRight(),
             ),
-          )
+          ),
         ],
       );
     } else {
@@ -338,67 +473,64 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
-          SizedBox(
-            height: MediaQuery.of(context).padding.top,
-          ),
+          SizedBox(height: MediaQuery.of(context).padding.top),
           SizedBox(
             height: 56,
-            child: Row(children: [
-              const SizedBox(
-                width: 8,
-              ),
-              Tooltip(
-                message: "Back".tl,
-                child: IconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 22),
-                  onPressed: context.pop,
+            child: Row(
+              children: [
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: "Back".tl,
+                  child: IconButton(
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedArrowLeft01,
+                      size: 22,
+                    ),
+                    onPressed: context.pop,
+                  ),
                 ),
-              ),
-              const SizedBox(
-                width: 16,
-              ),
-              Expanded(
-                child: _searchActive
-                    ? TextField(
-                        controller: _searchController,
-                        focusNode: _searchFocus,
-                        onChanged: (_) => setState(() {}),
-                        textInputAction: TextInputAction.search,
-                        style: TextStyle(fontSize: kcSubtitle),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: "Search settings".tl,
-                          hintStyle: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _searchActive
+                      ? TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocus,
+                          onChanged: (_) => setState(() {}),
+                          textInputAction: TextInputAction.search,
+                          style: TextStyle(fontSize: kcSubtitle),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: "Search settings".tl,
+                            hintStyle: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                            contentPadding: EdgeInsets.zero,
                           ),
-                          contentPadding: EdgeInsets.zero,
+                        )
+                      : Text(
+                          "Settings".tl,
+                          style: TextStyle(fontSize: kcTitleMain),
                         ),
-                      )
-                    : Text(
-                        "Settings".tl,
-                        style: TextStyle(fontSize: kcTitleMain),
-                      ),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: HugeIcon(
-                  icon: _searchActive
-                      ? HugeIcons.strokeRoundedCancel01
-                      : HugeIcons.strokeRoundedSearch02,
-                  size: 22,
                 ),
-                tooltip: _searchActive ? "Close".tl : "Search settings".tl,
-                onPressed: _searchActive ? _closeSearch : _openSearch,
-              ),
-              const SizedBox(width: 8),
-            ]),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: HugeIcon(
+                    icon: _searchActive
+                        ? HugeIcons.strokeRoundedCancel01
+                        : HugeIcons.strokeRoundedSearch02,
+                    size: 22,
+                  ),
+                  tooltip: _searchActive ? "Close".tl : "Search settings".tl,
+                  onPressed: _searchActive ? _closeSearch : _openSearch,
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
           ),
-          const SizedBox(
-            height: 4,
-          ),
-          Expanded(
-            child: buildCategories(),
-          )
+          const SizedBox(height: 4),
+          Expanded(child: buildCategories()),
         ],
       ),
     );
@@ -428,13 +560,21 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(kcCardRadius),
               border: Border.all(
-                color: selected ? kcAccentColor(context).withValues(alpha: 0.3) : Colors.transparent,
+                color: selected
+                    ? kcAccentColor(context).withValues(alpha: 0.3)
+                    : Colors.transparent,
                 width: 1,
               ),
             ),
             child: Row(
               children: [
-                HugeIcon(icon: (icons[id] as HugeIcon).icon, color: selected ? kcBrandAdaptive(context) : cs.onSurfaceVariant, size: 24),
+                HugeIcon(
+                  icon: (icons[id] as HugeIcon).icon,
+                  color: selected
+                      ? kcBrandAdaptive(context)
+                      : cs.onSurfaceVariant,
+                  size: 24,
+                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -461,7 +601,9 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
                 ),
                 HugeIcon(
                   icon: HugeIcons.strokeRoundedArrowRight01,
-                  color: selected ? kcBrandAdaptive(context) : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  color: selected
+                      ? kcBrandAdaptive(context)
+                      : cs.onSurfaceVariant.withValues(alpha: 0.4),
                   size: 18,
                 ),
               ],
@@ -471,10 +613,28 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.only(top: 8, bottom: MediaQuery.of(context).padding.bottom + 16),
-      itemCount: _categories().length,
-      itemBuilder: (context, index) => buildItem(_categories()[index], _subtitles()[index], index),
+    final cats = _categories();
+    final subs = _subtitles();
+    final rows = <Widget>[];
+    var covered = 0;
+    for (final (start, end, label) in _kCategorySections) {
+      rows.add(_SettingSectionLabel(label.tl));
+      for (var i = start; i < end; i++) {
+        rows.add(buildItem(cats[i], subs[i], i));
+      }
+      covered = end;
+    }
+    // 兜底：分段表写少了（新增分类却忘了改 _kCategorySections）时，剩下的
+    // 分类仍然要出现 —— 否则那个页面会从根页静默消失，只能靠搜索才找得到。
+    for (var i = covered; i < cats.length; i++) {
+      rows.add(buildItem(cats[i], subs[i], i));
+    }
+    return ListView(
+      padding: EdgeInsets.only(
+        top: 4,
+        bottom: MediaQuery.of(context).padding.bottom + 16,
+      ),
+      children: rows,
     );
   }
 
@@ -499,16 +659,18 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
 
   Widget _buildSettingsContent(int pageIndex) {
     return switch (pageIndex) {
-      0 => const ReaderSettings(),
-      1 => const AppearanceSettings(),
-      2 => const ExploreSettings(),
-      3 => const LocalFavoritesSettings(),
-      4 => const NetworkSettings(),
-      5 => const DownloadSettings(),
-      6 => const ImportSettings(),
-      7 => const AppSettings(),
-      8 => const AboutSettings(),
-      _ => throw UnimplementedError()
+      0 => const ReaderSettings(section: ReaderSettingsSection.reading),
+      1 => const ReaderSettings(section: ReaderSettingsSection.turning),
+      2 => const AppearanceSettings(),
+      3 => const ExploreSettings(),
+      4 => const LocalFavoritesSettings(),
+      5 => const NetworkSettings(),
+      6 => const DownloadSettings(),
+      7 => const AppSettings(section: AppSettingsSection.data),
+      8 => const AppSettings(section: AppSettingsSection.app),
+      9 => const PermissionsSettings(),
+      10 => const AboutSettings(),
+      _ => throw UnimplementedError(),
     };
   }
 
@@ -541,13 +703,20 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
       );
     }
     return ListView.builder(
-      padding: EdgeInsets.only(top: 8, bottom: MediaQuery.of(context).padding.bottom + 16),
+      padding: EdgeInsets.only(
+        top: 8,
+        bottom: MediaQuery.of(context).padding.bottom + 16,
+      ),
       itemCount: results.length,
       itemBuilder: (context, index) {
         final e = results[index];
         final selected = !e.isCategory && currentPage == e.category;
         final mainText = e.title.tl;
-        final subText = e.isCategory ? subs[e.category].tl : cats[e.category].tl;
+        // 条目自带副标题时优先用它（如「外观」列出四个模式名）；
+        // 没有才退回分类名。否则搜「外观」会出现标题与副标题同名的一行。
+        final subText = e.isCategory
+            ? subs[e.category].tl
+            : (e.subtitle?.tl ?? cats[e.category].tl);
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
           child: InkWell(
@@ -611,7 +780,6 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
     _searchFocus.dispose();
     super.dispose();
   }
-
 }
 
 class _SettingsDetailPage extends StatelessWidget {
@@ -629,16 +797,18 @@ class _SettingsDetailPage extends StatelessWidget {
 
   Widget _buildPage() {
     return switch (pageIndex) {
-      0 => const ReaderSettings(),
-      1 => const AppearanceSettings(),
-      2 => const ExploreSettings(),
-      3 => const LocalFavoritesSettings(),
-      4 => const NetworkSettings(),
-      5 => const DownloadSettings(),
-      6 => const ImportSettings(),
-      7 => const AppSettings(),
-      8 => const AboutSettings(),
-      _ => throw UnimplementedError()
+      0 => const ReaderSettings(section: ReaderSettingsSection.reading),
+      1 => const ReaderSettings(section: ReaderSettingsSection.turning),
+      2 => const AppearanceSettings(),
+      3 => const ExploreSettings(),
+      4 => const LocalFavoritesSettings(),
+      5 => const NetworkSettings(),
+      6 => const DownloadSettings(),
+      7 => const AppSettings(section: AppSettingsSection.data),
+      8 => const AppSettings(section: AppSettingsSection.app),
+      9 => const PermissionsSettings(),
+      10 => const AboutSettings(),
+      _ => throw UnimplementedError(),
     };
   }
 }

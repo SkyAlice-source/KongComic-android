@@ -72,9 +72,6 @@ class _NetworkSettingsState extends State<NetworkSettings> {
     appdata.saveData();
   }
 
-  // DNS overrides
-  final _dnsOverrides = <(TextEditingController, TextEditingController)>[];
-
   // 代理配置输入框 controller（缓存 + dispose，避免 rebuild 丢输入/内存泄漏）
   late final TextEditingController _hostController;
   late final TextEditingController _portController;
@@ -94,30 +91,11 @@ class _NetworkSettingsState extends State<NetworkSettings> {
     );
     _usernameController = TextEditingController(text: proxyUsername);
     _passwordController = TextEditingController(text: proxyPassword);
-    for (var entry in (appdata.settings['dnsOverrides'] as Map).entries) {
-      if (entry.key is String && entry.value is String) {
-        _dnsOverrides.add((
-          TextEditingController(text: entry.key),
-          TextEditingController(text: entry.value),
-        ));
-      }
-    }
     super.initState();
   }
 
   @override
   void dispose() {
-    var map = <String, String>{};
-    for (var entry in _dnsOverrides) {
-      map[entry.$1.text] = entry.$2.text;
-    }
-    appdata.settings['dnsOverrides'] = map;
-    appdata.saveData();
-    JsEngine().resetDio();
-    for (var entry in _dnsOverrides) {
-      entry.$1.dispose();
-      entry.$2.dispose();
-    }
     _hostController.dispose();
     _portController.dispose();
     _usernameController.dispose();
@@ -241,90 +219,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
               ],
             ),
           ).toSliver(),
-        _SettingPartTitle(
-          title: "DNS Overrides".tl,
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 18),
-        ),
-        _SwitchSetting(
-          title: "Enable DNS Overrides".tl,
-          settingKey: "enableDnsOverrides",
-        ).toSliver(),
-        _SwitchSetting(
-          title: "Server Name Indication".tl,
-          settingKey: "sni",
-        ).toSliver(),
-        if (_dnsOverrides.isNotEmpty)
-          Container(
-            height: 1,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            color: context.colorScheme.outlineVariant,
-          ).toSliver(),
-        for (var i = 0; i < _dnsOverrides.length; i++)
-          _buildDnsRow(i).toSliver(),
-        Button.text(
-          onPressed: () {
-            setState(
-              () => _dnsOverrides.add((
-                TextEditingController(),
-                TextEditingController(),
-              )),
-            );
-          },
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 18),
-              const SizedBox(width: 6),
-              Text("Add".tl),
-            ],
-          ),
-        ).paddingHorizontal(16).toSliver(),
       ],
-    );
-  }
-
-  Widget _buildDnsRow(int index) {
-    var entry = _dnsOverrides[index];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: "Domain".tl,
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
-              ),
-              controller: entry.$1,
-            ),
-          ),
-          SizedBox(
-            height: 32,
-            child: VerticalDivider(
-              width: 1,
-              color: context.colorScheme.outlineVariant,
-            ),
-          ),
-          Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: "IP".tl,
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
-              ),
-              controller: entry.$2,
-            ),
-          ),
-          IconButton(
-            tooltip: "Delete".tl,
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-            onPressed: () => setState(() => _dnsOverrides.removeAt(index)),
-          ),
-        ],
-      ),
     );
   }
 }

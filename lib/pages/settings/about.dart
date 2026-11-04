@@ -40,10 +40,7 @@ class _AboutSettingsState extends State<AboutSettings> {
         Column(
           children: [
             SizedBox(height: 8),
-            Text(
-              App.appVersion,
-              style: TextStyle(fontSize: kcSubtitle),
-            ),
+            Text(App.appVersion, style: TextStyle(fontSize: kcSubtitle)),
             Text("KongComic is a free and open-source comic reader.".tl),
             SizedBox(height: 4),
           ],
@@ -53,7 +50,9 @@ class _AboutSettingsState extends State<AboutSettings> {
           trailing: HugeIcon(
             icon: HugeIcons.strokeRoundedLinkSquare01,
             size: 18,
-            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
           ),
           onTap: _openGitHubRepo,
         ).toSliver(),
@@ -86,10 +85,9 @@ class _AboutSettingsState extends State<AboutSettings> {
             trailing: HugeIcon(
               icon: HugeIcons.strokeRoundedPencilEdit02,
               size: 18,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurfaceVariant
-                  .withValues(alpha: 0.55),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
             ),
             onTap: () async {
               await showInputDialog(
@@ -295,10 +293,7 @@ class _MirrorTestTileState extends State<_MirrorTestTile> {
             }).toList(),
           ).paddingHorizontal(16),
           actions: [
-            Button.filled(
-              onPressed: context.pop,
-              child: Text("OK".tl),
-            ),
+            Button.filled(onPressed: context.pop, child: Text("OK".tl)),
           ],
         );
       },
@@ -331,8 +326,10 @@ Future<bool> checkUpdate() async {
   }
 }
 
-Future<void> checkUpdateUi(
-    [bool showMessageIfNoUpdate = true, bool delay = false]) async {
+Future<void> checkUpdateUi([
+  bool showMessageIfNoUpdate = true,
+  bool delay = false,
+]) async {
   // Check against GitHub only.
   AppUpdateInfo? value;
   try {
@@ -412,10 +409,9 @@ Future<void> _showUpdateDialog(AppUpdateInfo info) async {
           // Each child declares its own width instead.
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Version @v"
-                    .tlParams({"v": info.latestVersion}))
-                .paddingHorizontal(16)
-                .fixWidth(double.infinity),
+            Text(
+              "Version @v".tlParams({"v": info.latestVersion}),
+            ).paddingHorizontal(16).fixWidth(double.infinity),
             if (info.releaseNotes.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -488,8 +484,7 @@ Future<void> _startBackgroundUpdateDownload(
       builder: (ctx) => ContentDialog(
         title: "Download in progress".tl,
         content: Text(
-          "An update is already downloading in the background. Cancel it?"
-              .tl,
+          "An update is already downloading in the background. Cancel it?".tl,
         ).paddingHorizontal(16),
         actions: [
           Button.text(
@@ -524,7 +519,9 @@ Future<void> _startBackgroundUpdateDownload(
     return;
   }
   if (App.rootContext.mounted) {
-    App.rootContext.showMessage(message: "Downloading update in the background".tl);
+    App.rootContext.showMessage(
+      message: "Downloading update in the background".tl,
+    );
   }
   unawaited(_backgroundUpdateDownload(info, abi: abi));
 }
@@ -589,7 +586,9 @@ Future<void> _showNetworkErrorDialog() async {
               Navigator.of(context).pop();
               AppUpdate.openReleasePageInBrowser().catchError((e) {
                 if (App.rootContext.mounted) {
-                  App.rootContext.showMessage(message: "Unable to open browser".tl);
+                  App.rootContext.showMessage(
+                    message: "Unable to open browser".tl,
+                  );
                 }
               });
             },
@@ -698,9 +697,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
     setState(() => _exportingApk = false);
     if (error == null) {
       if (mounted) {
-        App.rootContext.showMessage(
-          message: "Opened the system installer".tl,
-        );
+        App.rootContext.showMessage(message: "Opened the system installer".tl);
       }
       return;
     }
@@ -735,23 +732,22 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
         // content past the dialog bounds.
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Version @v"
-                  .tlParams({"v": widget.info.latestVersion}))
-              .paddingHorizontal(16)
-              .fixWidth(double.infinity),
+          Text(
+            "Version @v".tlParams({"v": widget.info.latestVersion}),
+          ).paddingHorizontal(16).fixWidth(double.infinity),
           if (widget.info.releaseNotes.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 180),
                 child: SingleChildScrollView(
-                    child: MarkdownBody(
-                      data: widget.info.releaseNotes,
-                      styleSheet: _mdStyleSheet(context),
-                    ),
+                  child: MarkdownBody(
+                    data: widget.info.releaseNotes,
+                    styleSheet: _mdStyleSheet(context),
                   ),
                 ),
-              ).fixWidth(double.infinity),
+              ),
+            ).fixWidth(double.infinity),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: _buildProgressSection(colorScheme),
@@ -760,10 +756,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
       ),
       actions: [
         if (!_installing)
-          Button.text(
-            onPressed: _cancel,
-            child: Text("Cancel".tl),
-          ),
+          Button.text(onPressed: _cancel, child: Text("Cancel".tl)),
         // The APK is already on disk for the install stage, so retrying the
         // download would just redownload the same file. Offer the paths that
         // can actually get it installed.
@@ -774,11 +767,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
               _installManually();
             },
             child: _exportingApk
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const KcInlineSpinner(size: 16)
                 : Text("Install manually".tl),
           ),
         if (_error != null && _failureStage != UpdateFailureStage.install)
@@ -804,19 +793,12 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
 
   Widget _buildProgressSection(ColorScheme colorScheme) {
     if (_error != null) {
-      return Text(
-        _error!,
-        style: TextStyle(color: colorScheme.error),
-      );
+      return Text(_error!, style: TextStyle(color: colorScheme.error));
     }
     if (_installing) {
       return Row(
         children: [
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+          const KcInlineSpinner(size: 16),
           const SizedBox(width: 12),
           Expanded(child: Text("Installing, follow the system prompt".tl)),
         ],
@@ -825,18 +807,15 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
     if (_starting && _progress == 0) {
       return Row(
         children: [
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+          const KcInlineSpinner(size: 16),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _mirrorName == null
                   ? "Connecting...".tl
-                  : "Connecting to @source..."
-                      .tlParams({"source": _mirrorName!}),
+                  : "Connecting to @source...".tlParams({
+                      "source": _mirrorName!,
+                    }),
             ),
           ),
         ],
@@ -853,7 +832,9 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
           color: kcAccentColor(context),
           backgroundColor: Theme.of(context).brightness == Brightness.dark
               ? Color.alphaBlend(
-                  Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
+                  Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.08),
                   Theme.of(context).colorScheme.surface,
                 )
               : Theme.of(context).colorScheme.surfaceContainerHighest,

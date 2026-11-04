@@ -1,11 +1,12 @@
 part of 'components.dart';
 
 class SliverGridViewWithFixedItemHeight extends StatelessWidget {
-  const SliverGridViewWithFixedItemHeight(
-      {required this.delegate,
-      required this.maxCrossAxisExtent,
-      required this.itemHeight,
-      super.key});
+  const SliverGridViewWithFixedItemHeight({
+    required this.delegate,
+    required this.maxCrossAxisExtent,
+    required this.itemHeight,
+    super.key,
+  });
 
   final SliverChildDelegate delegate;
 
@@ -54,12 +55,13 @@ class SliverGridDelegateWithFixedHeight extends SliverGridDelegate {
       crossItems += 1;
     }
     return SliverGridRegularTileLayout(
-        crossAxisCount: crossItems,
-        mainAxisStride: itemHeight,
-        crossAxisStride: width / crossItems,
-        childMainAxisExtent: itemHeight,
-        childCrossAxisExtent: width / crossItems,
-        reverseCrossAxis: false);
+      crossAxisCount: crossItems,
+      mainAxisStride: itemHeight,
+      crossAxisStride: width / crossItems,
+      childMainAxisExtent: itemHeight,
+      childCrossAxisExtent: width / crossItems,
+      reverseCrossAxis: false,
+    );
   }
 
   @override
@@ -83,36 +85,35 @@ class SliverGridDelegateWithComics extends SliverGridDelegate {
   @override
   SliverGridLayout getLayout(SliverConstraints constraints) {
     if (useBriefMode) {
-      return getBriefModeLayout(
-        constraints,
-        scale,
-      );
+      return getBriefModeLayout(constraints, scale);
     } else {
-      return getDetailedModeLayout(
-        constraints,
-        scale,
-      );
+      return getDetailedModeLayout(constraints, scale);
     }
   }
 
   SliverGridLayout getDetailedModeLayout(
-      SliverConstraints constraints, double scale) {
+    SliverConstraints constraints,
+    double scale,
+  ) {
     const minCrossAxisExtent = 360;
     final itemHeight = 152 * scale;
     final width = constraints.crossAxisExtent;
     var crossItems = width ~/ minCrossAxisExtent;
     crossItems = math.max(1, crossItems);
     return SliverGridRegularTileLayout(
-        crossAxisCount: crossItems,
-        mainAxisStride: itemHeight,
-        crossAxisStride: width / crossItems,
-        childMainAxisExtent: itemHeight,
-        childCrossAxisExtent: width / crossItems,
-        reverseCrossAxis: false);
+      crossAxisCount: crossItems,
+      mainAxisStride: itemHeight,
+      crossAxisStride: width / crossItems,
+      childMainAxisExtent: itemHeight,
+      childCrossAxisExtent: width / crossItems,
+      reverseCrossAxis: false,
+    );
   }
 
   SliverGridLayout getBriefModeLayout(
-      SliverConstraints constraints, double scale) {
+    SliverConstraints constraints,
+    double scale,
+  ) {
     // 基准宽度从 192 收到 150：手机（~411dp）从 2 列变 3 列，单屏封面数从
     // 6 本提到 9 本以上；平板按同一比例自动变密（Mihon 的库网格也是 3 列起）。
     // 仍随 comicTileScale 缩放，用户可在设置里自己调疏密。
@@ -160,10 +161,7 @@ class SliverLazyToBoxAdapter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverList.list(children: [
-      SizedBox(),
-      child,
-    ]);
+    return SliverList.list(children: [SizedBox(), child]);
   }
 }
 

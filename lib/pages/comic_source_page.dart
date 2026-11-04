@@ -395,11 +395,7 @@ class _BodyState extends State<_Body> with AutoListenMixin {
                 child: IconButton(
                   onPressed: _testingAll ? null : _testAll,
                   icon: _testingAll
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const KcInlineSpinner(size: 16)
                       : HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
                 ),
               ),
@@ -430,7 +426,16 @@ class _BodyState extends State<_Body> with AutoListenMixin {
             ],
           ],
         ),
+        // 添加区回到「一张卡 + 卡内标题」的旧样式：卡里已经有「添加漫画源」
+        // 这个标题，外面不再重复挂一个分区标题。
         buildCard(context),
+        SliverToBoxAdapter(
+          child: KcSectionHeader(
+            title: "Installed sources".tl,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 16),
+            trailing: _buildSourceCount(sources, filtered),
+          ),
+        ),
         if (!_selecting) _buildFilterChips(),
         if (filtered.isEmpty) SliverToBoxAdapter(child: _buildEmptySources()),
         SliverReorderableList(
@@ -521,35 +526,51 @@ class _BodyState extends State<_Body> with AutoListenMixin {
   }
 
   /// Shown instead of an empty list, so "no rows" never reads as a bug.
+  ///
+  /// 三种「空」是三种处境，出路也不同：一个源都没装（去仓库装）、筛选没命中
+  /// （清除筛选）、检查更新中／已是最新（等它出结果）。合成一句「没有符合该
+  /// 筛选的源」时，第一次打开 App 的人看到的是一句他无法执行的话。
   Widget _buildEmptySources() {
-    final scheme = Theme.of(context).colorScheme;
-    final String message;
     if (_checkingUpdates) {
-      message = "Checking for updates".tl;
-    } else if (_filter == _SourceFilter.update) {
-      message = "All sources up to date".tl;
-    } else {
-      message = "No sources match this filter.".tl;
+      // 检查更新是列表级的整体动作，等的是「这批源的新版本」而不是某一行，
+      // 所以用中号小人；56 在 48 的上下留白里不会被裁，也不用慢网络提示
+      // （一次检查通常两三秒，超过 7s 的提示只会闪一下又消失）。
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 36),
+        child: Center(child: KcChibiCrawlLoading(charWidth: 56)),
+      );
     }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
-      child: Column(
-        children: [
-          if (_checkingUpdates) ...[
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(height: 14),
-          ],
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: kcBody, color: scheme.onSurfaceVariant),
-          ),
-        ],
-      ),
+    if (_filter == _SourceFilter.update) {
+      return EmptyState(
+        icon: HugeIcon(
+          icon: HugeIcons.strokeRoundedCheckmarkCircle02,
+          size: 52,
+        ),
+        title: "All sources up to date".tl,
+        subtitle:
+            "New versions show up here once a repository publishes them.".tl,
+        actionLabel: "Show all".tl,
+        onAction: () => _setFilter(_SourceFilter.all),
+      );
+    }
+    if (orderedComicSources().isEmpty) {
+      return EmptyState(
+        title: "No comic sources yet".tl,
+        subtitle: "Add a source to browse, search and follow updates.".tl,
+        actionLabel: "Repositories".tl,
+        onAction: () => showPopUpWidget(
+          App.rootContext,
+          SourceRepositoriesPage(install: handleAddSource),
+        ),
+        secondaryLabel: "Use a config file".tl,
+        onSecondary: _selectFile,
+      );
+    }
+    return EmptyState(
+      title: "No sources match this filter.".tl,
+      subtitle: "Try another filter, or clear it to see every source.".tl,
+      actionLabel: "Clear filter".tl,
+      onAction: () => _setFilter(_SourceFilter.all),
     );
   }
 
@@ -557,7 +578,7 @@ class _BodyState extends State<_Body> with AutoListenMixin {
     return SliverToBoxAdapter(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
         child: Row(
           children: [
             for (final f in _SourceFilter.values)
@@ -1088,21 +1109,79 @@ class _BodyState extends State<_Body> with AutoListenMixin {
     );
   }
 
+  /// 分区标题右侧的计数：「12 个源 · 3 个可更新」。
+  ///
+  /// 只给数字、不给入口 —— 想让用户先切到「有更新」筛选才知道有多少更新，
+  /// 等于把信息藏起来了一层。
+  Widget _buildSourceCount(List<ComicSource> all, List<ComicSource> shown) {
+    final cs = Theme.of(context).colorScheme;
+    final updates = ComicSourceManager().availableUpdates;
+    final updatable = all.where((s) => updates.containsKey(s.key)).length;
+    final filtering = _filter != _SourceFilter.all;
+    final text = filtering
+        ? "@a / @b sources".tlParams({
+            "a": shown.length.toString(),
+            "b": all.length.toString(),
+          })
+        : "@n sources".tlParams({"n": all.length.toString()});
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: kcCaption,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          ),
+          if (updatable > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: kcBrandAdaptive(context),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              "@n updatable".tlParams({"n": updatable.toString()}),
+              style: TextStyle(
+                fontSize: kcCaption,
+                fontWeight: FontWeight.w600,
+                color: kcBrandAdaptive(context),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 添加入口（原来的那张卡）。
+  ///
+  /// 「卡片标题 + 一条输入框 + 三颗并排按钮」收在一张卡里：添加源是一个完整
+  /// 任务（输入 → 选来源），三个入口和页面标题抢层级、URL 那条下划线像上一段
+  /// 漏下来的分隔线，都不如一张卡讲得清。主路径（源仓库）用淡红底 + 红字，
+  /// 另外两个中性底，形状统一为 10dp 圆角矩形 —— 不是胶囊。
   Widget buildCard(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // 添加源是一个完整任务（输入 → 选择来源），把它收进一张卡片里：
-    // 原来是「标题 + 一条下划线输入框 + 三颗实心红按钮」散落在白底上，
-    // 三个入口和页面标题抢层级，URL 那条线也像是上一段漏下来的分隔线。
     return SliverToBoxAdapter(
       child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         decoration: BoxDecoration(
-          // 浅色用纯白 + 描边（和卡片同层，不靠灰底区分）；暗色用 Low 一档。
+          // 浅色用纯白 + 描边（和源卡片同层，不靠灰底区分）；暗色用 Low 一档。
           color: isDark ? cs.surfaceContainerLow : Colors.white,
-          borderRadius: BorderRadius.circular(kcCardRadius + 2),
-          border: Border.all(color: cs.outlineVariant, width: kcHairline),
+          borderRadius: BorderRadius.circular(kcCardRadius),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.7 : 0.9),
+            width: kcHairline,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1723,22 +1802,33 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
 
   @override
   Widget build(BuildContext context) {
-    final newVersion = ComicSourceManager().availableUpdates[source.key];
-    final hasUpdate =
-        newVersion != null && compareSemVer(newVersion, source.version);
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = kcAccentColor(context);
+    // 卡片态：批量选中 → 强调色描边 + 薄染底（设置页选中卡的做法）；
+    // 只是展开 → 只把描边换成强调色，不染底（整块面板染红会被读成报错）。
+    final selected = widget.selecting && widget.selected;
+    final expanded = _expanded && !widget.selecting;
 
     return Opacity(
       opacity: widget.disabled ? 0.55 : 1.0,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        // 卡片外壳与设置页卡片同一套：12dp 圆角、发丝描边、浅色纯白 /
+        // 深色 surfaceContainerLow。卡片内部仍是「标题 / 信息 / 动作」三段：
+        // 信息是「读」的、动作是「点」的，各占一行，长文案（更新到 x.y.z）
+        // 不会把标签挤到换行。
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          // 卡片给一层极浅的底色，让「标题 / 信息 / 动作」三行成为一块整体；
-          // 纯描边的空心框在长列表里会和背景糊成一片，层级全靠线，看着很散。
-          color: isDark ? cs.surfaceContainerLow : Colors.white,
-          border: Border.all(color: cs.outlineVariant, width: kcHairline),
-          borderRadius: BorderRadius.circular(kcCardRadius + 2),
+          color: selected
+              ? accent.withValues(alpha: isDark ? 0.10 : 0.055)
+              : (isDark ? cs.surfaceContainerLow : Colors.white),
+          borderRadius: BorderRadius.circular(kcCardRadius),
+          border: Border.all(
+            color: (selected || expanded)
+                ? accent.withValues(alpha: selected ? 0.55 : 0.40)
+                : cs.outlineVariant.withValues(alpha: isDark ? 0.7 : 0.9),
+            width: (selected || expanded) ? 1.2 : 1,
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -1760,10 +1850,11 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                     child: Tooltip(
                       message: "Drag to reorder".tl,
                       child: Padding(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.fromLTRB(10, 8, 2, 8),
                         child: HugeIcon(
                           icon: HugeIcons.strokeRoundedDrag01,
                           size: 18,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.45),
                         ),
                       ),
                     ),
@@ -1815,15 +1906,6 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                                         : AppBadgeType.warning,
                                     fontSize: kcFont13,
                                   ),
-                                if (hasUpdate)
-                                  Tooltip(
-                                    message: newVersion,
-                                    child: AppBadge(
-                                      "New Version".tl,
-                                      type: AppBadgeType.warning,
-                                      fontSize: kcFont13,
-                                    ),
-                                  ),
                               ],
                             ),
                           ),
@@ -1832,18 +1914,17 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                     ),
                   ),
                 ),
-                if (!widget.selecting)
-                  Tooltip(
-                    message: "Settings".tl,
-                    child: IconButton(
-                      onPressed: () => setState(() => _expanded = !_expanded),
-                      icon: AnimatedRotation(
-                        turns: _expanded ? 0.5 : 0,
-                        duration: const Duration(milliseconds: 200),
-                        child: HugeIcon(
-                          icon: HugeIcons.strokeRoundedArrowDown01,
-                          size: 18,
-                        ),
+                if (!widget.selecting && _hasDetailContent)
+                  IconButton(
+                    tooltip: "Settings".tl,
+                    onPressed: () => setState(() => _expanded = !_expanded),
+                    icon: AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowDown01,
+                        size: 18,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
                       ),
                     ),
                   ),
@@ -1853,6 +1934,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                     icon: HugeIcon(
                       icon: HugeIcons.strokeRoundedMoreHorizontal,
                       size: 18,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
                     ),
                     onSelected: (v) {
                       switch (v) {
@@ -1860,6 +1942,10 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                           widget.edit(source);
                         case 'update':
                           widget.update(source);
+                        case 'test':
+                          widget.onTest(source);
+                        case 'toggle':
+                          widget.onToggleDisabled(source);
                         case 'delete':
                           widget.delete(source);
                         case 'pin':
@@ -1867,57 +1953,39 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                       }
                     },
                     itemBuilder: (_) => [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            HugeIcon(
-                              icon: HugeIcons.strokeRoundedEdit01,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text("Edit".tl),
-                          ],
-                        ),
+                      _menuItem(
+                        'edit',
+                        HugeIcons.strokeRoundedEdit01,
+                        "Edit".tl,
                       ),
-                      PopupMenuItem(
-                        value: 'update',
-                        child: Row(
-                          children: [
-                            HugeIcon(
-                              icon: HugeIcons.strokeRoundedRefresh,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text("Update".tl),
-                          ],
-                        ),
+                      _menuItem(
+                        'update',
+                        HugeIcons.strokeRoundedRefresh,
+                        "Update".tl,
                       ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            HugeIcon(
-                              icon: HugeIcons.strokeRoundedDelete01,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text("Delete".tl),
-                          ],
-                        ),
+                      _menuItem(
+                        'test',
+                        HugeIcons.strokeRoundedLink01,
+                        "Test".tl,
+                      ),
+                      _menuItem(
+                        'toggle',
+                        widget.disabled
+                            ? HugeIcons.strokeRoundedCheckmarkCircle01
+                            : HugeIcons.strokeRoundedCancelCircle,
+                        widget.disabled ? "Enable".tl : "Disable".tl,
+                      ),
+                      _menuItem(
+                        'delete',
+                        HugeIcons.strokeRoundedDelete01,
+                        "Delete".tl,
                       ),
                       PopupMenuItem(
                         value: 'pin',
                         enabled: widget.index != 0,
-                        child: Row(
-                          children: [
-                            HugeIcon(
-                              icon: HugeIcons.strokeRoundedAlignTop,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text("Pin to top".tl),
-                          ],
+                        child: _menuRow(
+                          HugeIcons.strokeRoundedAlignTop,
+                          "Pin to top".tl,
                         ),
                       ),
                     ],
@@ -1932,12 +2000,12 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                 decoration: BoxDecoration(
                   border: Border(
                     left: BorderSide(
-                      color: kcAccentColor(context).withValues(alpha: 0.4),
-                      width: 3,
+                      color: accent.withValues(alpha: 0.35),
+                      width: 2,
                     ),
                     top: BorderSide(
-                      color: context.colorScheme.outlineVariant,
-                      width: 0.6,
+                      color: cs.outlineVariant,
+                      width: kcHairline,
                     ),
                   ),
                 ),
@@ -1955,6 +2023,12 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     );
   }
 
+  /// 信息行 + 动作行。
+  ///
+  /// 信息行全是设置页「当前值」那种小胶囊（8dp 圆角、极淡底、12sp 灰字，
+  /// 无描边无阴影）—— 原来五颗 999 胶囊并排，每一颗都长得像按钮，读的人
+  /// 分不清哪行是情报、哪行能点。动作行只有「更新 / 测试 / 启用」三颗，
+  /// 质感同样是设置页的小按钮：低对比薄底，有更新时「更新」才染强调色。
   Widget _buildStatusRow() {
     final enabledExplore = List<String>.from(
       appdata.settings['explore_pages'] ?? [],
@@ -1974,27 +2048,40 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
         : 0;
     final health = widget.health;
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // 卡片里所有状态都是同一枚胶囊：同高、同圆角、同字号，避免一行里
-    // 「方角标签 + 圆角按钮」两种形状并排。
-    Widget metaBadge(
-      String text, {
-      AppBadgeType type = AppBadgeType.neutral,
-      Color? bg,
-      Color? fg,
-      bool dim = false,
-    }) {
-      final badge = AppBadge(
-        text,
-        type: type,
-        backgroundColor: bg,
-        foregroundColor: fg,
-        fontSize: kcFont13,
-        radius: kcPillRadius,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    // 卡片里所有信息都是同一枚小胶囊：同高、同圆角、同字号。
+    Widget metaBadge(String text, {Color? bg, Color? fg, bool dim = false}) {
+      final chip = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color:
+              bg ??
+              (isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : cs.onSurface.withValues(alpha: 0.045)),
+          borderRadius: BorderRadius.circular(kcRadius8),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: kcCaption,
+            height: 1.3,
+            fontWeight: FontWeight.w500,
+            color: fg ?? cs.onSurfaceVariant,
+          ),
+        ),
       );
-      return dim ? Opacity(opacity: 0.6, child: badge) : badge;
+      return dim ? Opacity(opacity: 0.6, child: chip) : chip;
     }
+
+    // 状态色也走「薄染底 + 同色文字」，和设置页强调色胶囊同一档对比度，
+    // 不再用 M3 的 errorContainer 大色块。
+    Widget statusChip(String text, Color color) => metaBadge(
+      text,
+      bg: color.withValues(alpha: isDark ? 0.18 : 0.11),
+      fg: color,
+    );
 
     // Tapping a summary badge no longer toggles everything at once (one stray
     // tap used to switch off a whole source) — it opens the card, where each
@@ -2025,26 +2112,22 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
 
     Widget healthBadge() {
       if (health == 'testing') {
-        return const SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        );
+        return const KcInlineSpinner(size: 12);
       }
       if (health == 'ok') {
-        return metaBadge("Reachable".tl, type: AppBadgeType.success);
+        return statusChip("Reachable".tl, const Color(0xFF2FA45A));
       }
       if (health == 'proxy') {
-        return metaBadge("Proxy required".tl, bg: cs.error, fg: cs.onError);
+        return statusChip("Proxy required".tl, cs.error);
       }
       if (health == 'timeout') {
-        return metaBadge("Timeout".tl, type: AppBadgeType.warning);
+        return statusChip("Timeout".tl, const Color(0xFFD9A005));
       }
       if (health == 'http') {
         final label = detail.isNotEmpty
             ? "HTTP @code".tlParams({"code": detail})
             : "HTTP Error".tl;
-        return metaBadge(label, type: AppBadgeType.warning);
+        return statusChip(label, const Color(0xFFD9A005));
       }
       // 未测试('') → 「未测试」，与已测试但失败的「未连通」区分，
       // 否则卡片显示「未连通」而「未连通」筛选却查不到（health 为空）。
@@ -2052,7 +2135,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
         return metaBadge("Not tested".tl, dim: true);
       }
       // 已测试但不可达('fail') → 未连通
-      return metaBadge("Unreachable".tl);
+      return statusChip("Unreachable".tl, cs.error);
     }
 
     final infoChips = <Widget>[
@@ -2073,7 +2156,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     final actions = <Widget>[];
     if (!widget.selecting) {
       // 每个源都能直接点「更新」——之前只能长按卡片去 ⋮ 菜单里找，等于藏起来了。
-      // 有可用更新时才用实心强调色并带上目标版本号；没更新时保留中性胶囊，
+      // 有可用更新时才用强调色，并带上目标版本号；没更新时保留中性胶囊，
       // 仍可用来重装 / 修复脚本。
       final newVersion = ComicSourceManager().availableUpdates[source.key];
       final hasUpdate =
@@ -2135,12 +2218,12 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     );
   }
 
-  /// A compact pill for the row-level actions.
+  /// 行内动作钮，质感对齐设置页里的小控件（当前值胶囊 / 选中卡）：
+  /// 8dp 小圆角、低对比薄底、无描边、无阴影。原来的胶囊是 999 圆角 + 实心
+  /// 品牌红 + 灰描边，一颗钮就比整张卡还抢眼，和设置页那种「安静」不搭。
   ///
-  /// 整张卡只允许一颗实心强调色按钮：此刻真正该点的动作（有更新时的「更新」）。
-  /// 测试 / 启用状态走中性底 + 发丝描边，三颗并排时不再互相抢注意力。
-  /// Enable/disable changes icon and text, so the current state stays readable
-  /// even without relying on colour.
+  /// 只有 primary（有更新时的「更新」）用强调色薄染 + 强调色文字，
+  /// 其余走中性薄底，三颗并排也不会互相打架。
   Widget _actionChip({
     required List<List<dynamic>> icon,
     required String label,
@@ -2148,25 +2231,27 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     bool primary = false,
   }) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = kcAccentColor(context);
     final background = primary
-        ? kcAccentColor(context)
-        : scheme.surfaceContainerHigh;
-    final foreground = primary ? kcOnAccentColor : scheme.onSurfaceVariant;
+        ? accent.withValues(alpha: isDark ? 0.18 : 0.10)
+        : (isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : scheme.onSurface.withValues(alpha: 0.045));
+    final foreground = primary ? accent : scheme.onSurfaceVariant;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(kcPillRadius),
+        borderRadius: BorderRadius.circular(kcRadius8),
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: scheme.onSurface.withValues(alpha: 0.05),
         child: Container(
           height: 30,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: background,
-            borderRadius: BorderRadius.circular(kcPillRadius),
-            border: Border.all(
-              color: primary ? Colors.transparent : scheme.outlineVariant,
-              width: kcHairline,
-            ),
+            borderRadius: BorderRadius.circular(kcRadius8),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -2190,6 +2275,24 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
   }
 
   void _expandCard() => setState(() => _expanded = true);
+
+  Widget _menuRow(List<List<dynamic>> icon, String label) {
+    return Row(
+      children: [
+        HugeIcon(icon: icon, size: 16),
+        const SizedBox(width: 8),
+        Text(label),
+      ],
+    );
+  }
+
+  PopupMenuItem<String> _menuItem(
+    String value,
+    List<List<dynamic>> icon,
+    String label,
+  ) {
+    return PopupMenuItem<String>(value: value, child: _menuRow(icon, label));
+  }
 
   /// Per-entry switches for everything this source can contribute to the app:
   /// its explore (discover) tabs, its category tab, its network favorites and
@@ -2472,7 +2575,9 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             var res = await source.account!.login!(account[0], account[1]);
             if (!mounted) return;
             if (res.error) {
-              context.showMessage(message: friendlyError(res.errorMessage!));
+              context.showMessage(
+                message: friendlySourceError(res.errorMessage),
+              );
             } else {
               context.showMessage(message: "Success".tl);
             }
@@ -2481,10 +2586,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             });
           },
           trailing: loading
-              ? const SizedBox.square(
-                  dimension: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const KcInlineSpinner(size: 20)
               : HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
         );
       }
@@ -2579,10 +2681,7 @@ class _LoginPageState extends State<_LoginPage> {
                   ).paddingBottom(16),
                 for (var field in widget.config.cookieFields ?? <String>[])
                   TextField(
-                    decoration: kcInputDecoration(
-                      context,
-                      labelText: field,
-                    ),
+                    decoration: kcInputDecoration(context, labelText: field),
                     obscureText: true,
                     enabled: widget.config.validateCookies != null,
                     onChanged: (s) {
@@ -2657,7 +2756,7 @@ class _LoginPageState extends State<_LoginPage> {
       });
       widget.config.login!(username, password).then((value) {
         if (value.error) {
-          context.showMessage(message: friendlyError(value.errorMessage!));
+          context.showMessage(message: friendlySourceError(value.errorMessage));
           setState(() {
             loading = false;
           });

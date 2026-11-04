@@ -40,8 +40,7 @@ const String kReadLaterFolder = '__read_later__';
 ///
 /// 用于所有向用户展示或选择文件夹的 UI：避免泄漏保留名，也避免把
 /// 「稍后阅读」误当作普通收藏夹 / 追更目标 / 首页轮播来源。
-List<String> userFolderNames() => LocalFavoritesManager()
-    .folderNames
+List<String> userFolderNames() => LocalFavoritesManager().folderNames
     .where((f) => f != kReadLaterFolder)
     .toList();
 
@@ -56,26 +55,27 @@ class FavoriteItem implements Comic {
   String coverPath;
   late String time;
 
-  FavoriteItem(
-      {required this.id,
-      required this.name,
-      required this.coverPath,
-      required this.author,
-      required this.type,
-      required this.tags,
-      DateTime? favoriteTime}) {
+  FavoriteItem({
+    required this.id,
+    required this.name,
+    required this.coverPath,
+    required this.author,
+    required this.type,
+    required this.tags,
+    DateTime? favoriteTime,
+  }) {
     var t = favoriteTime ?? DateTime.now();
     time = _getTimeString(t);
   }
 
   FavoriteItem.fromRow(Row row)
-      : name = row["name"],
-        author = row["author"],
-        type = ComicType(row["type"]),
-        tags = (row["tags"] as String).split(","),
-        id = row["id"],
-        coverPath = row["cover_path"],
-        time = row["time"] {
+    : name = row["name"],
+      author = row["author"],
+      type = ComicType(row["type"]),
+      tags = (row["tags"] as String).split(","),
+      id = row["id"],
+      coverPath = row["cover_path"],
+      time = row["time"] {
     tags.remove("");
   }
 
@@ -172,14 +172,14 @@ class FavoriteItemWithFolderInfo extends FavoriteItem {
   String folder;
 
   FavoriteItemWithFolderInfo(FavoriteItem item, this.folder)
-      : super(
-          id: item.id,
-          name: item.name,
-          coverPath: item.coverPath,
-          author: item.author,
-          type: item.type,
-          tags: item.tags,
-        );
+    : super(
+        id: item.id,
+        name: item.name,
+        coverPath: item.coverPath,
+        author: item.author,
+        type: item.type,
+        tags: item.tags,
+      );
 }
 
 class FavoriteItemWithUpdateInfo extends FavoriteItem {
@@ -194,17 +194,17 @@ class FavoriteItemWithUpdateInfo extends FavoriteItem {
     this.updateTime,
     this.hasNewUpdate,
     int? lastCheckTime,
-  )   : lastCheckTime = lastCheckTime == null
-            ? null
-            : DateTime.fromMillisecondsSinceEpoch(lastCheckTime),
-        super(
-          id: item.id,
-          name: item.name,
-          coverPath: item.coverPath,
-          author: item.author,
-          type: item.type,
-          tags: item.tags,
-        );
+  ) : lastCheckTime = lastCheckTime == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(lastCheckTime),
+      super(
+        id: item.id,
+        name: item.name,
+        coverPath: item.coverPath,
+        author: item.author,
+        type: item.type,
+        tags: item.tags,
+      );
 
   @override
   String get description {
@@ -298,18 +298,25 @@ class LocalFavoritesManager with ChangeNotifier {
           var comics = getFolderComics(folder);
           for (var comic in comics) {
             var translatedTags = _translateTags(comic.tags);
-            _db.execute("""
+            _db.execute(
+              """
               update "$folder"
               set translated_tags = ?
               where id == ? and type == ?;
-            """, [translatedTags, comic.id, comic.type.value]);
+            """,
+              [translatedTags, comic.id, comic.type.value],
+            );
           }
         }
       }
       // Performance: ensure indexes exist for all folder tables
       for (var folder in folderNames) {
-        _db.execute('CREATE INDEX IF NOT EXISTS ${_safeIndexName(folder, "order")} ON "$folder"(display_order);');
-        _db.execute('CREATE INDEX IF NOT EXISTS ${_safeIndexName(folder, "time")} ON "$folder"(time);');
+        _db.execute(
+          'CREATE INDEX IF NOT EXISTS ${_safeIndexName(folder, "order")} ON "$folder"(display_order);',
+        );
+        _db.execute(
+          'CREATE INDEX IF NOT EXISTS ${_safeIndexName(folder, "time")} ON "$folder"(time);',
+        );
       }
       await appdata.ensureInit();
       // Make sure the follow updates folder is ready
@@ -321,7 +328,11 @@ class LocalFavoritesManager with ChangeNotifier {
         appdata.settings['followUpdatesFolder'] = null;
       }
     } catch (e, _) {
-      Log.error("Favorites", "Schema migration failed, continuing with initCounts", e);
+      Log.error(
+        "Favorites",
+        "Schema migration failed, continuing with initCounts",
+        e,
+      );
     }
     initCounts();
   }
@@ -333,8 +344,10 @@ class LocalFavoritesManager with ChangeNotifier {
     }
     _hashedIds = _computeHashedIds(folders);
     if (_hashedIds.isEmpty) {
-      Log.warning("Favorites",
-          "initCounts: _hashedIds is empty after processing $folders");
+      Log.warning(
+        "Favorites",
+        "initCounts: _hashedIds is empty after processing $folders",
+      );
     }
     notifyListeners();
   }
@@ -361,8 +374,10 @@ class LocalFavoritesManager with ChangeNotifier {
         select id, type from "$folder";
       ''');
       if (rows.isEmpty) {
-        Log.warning("Favorites",
-            "_computeHashedIds: folder '$folder' has 0 rows");
+        Log.warning(
+          "Favorites",
+          "_computeHashedIds: folder '$folder' has 0 rows",
+        );
       }
       for (var row in rows) {
         var id = row["id"] as String;
@@ -372,8 +387,10 @@ class LocalFavoritesManager with ChangeNotifier {
       }
     }
     if (hashedIds.isEmpty) {
-      Log.warning("Favorites",
-          "_computeHashedIds: result is empty for $folders");
+      Log.warning(
+        "Favorites",
+        "_computeHashedIds: result is empty for $folders",
+      );
     }
     return hashedIds;
   }
@@ -392,10 +409,13 @@ class LocalFavoritesManager with ChangeNotifier {
   List<String> find(String id, ComicType type) {
     var res = <String>[];
     for (var folder in folderNames) {
-      var rows = _db.select("""
+      var rows = _db.select(
+        """
         select * from "$folder"
         where id == ? and type == ?;
-      """, [id, type.value]);
+      """,
+        [id, type.value],
+      );
       if (rows.isNotEmpty) {
         res.add(folder);
       }
@@ -406,10 +426,13 @@ class LocalFavoritesManager with ChangeNotifier {
   Future<List<String>> findWithModel(FavoriteItem item) async {
     var res = <String>[];
     for (var folder in folderNames) {
-      var rows = _db.select("""
+      var rows = _db.select(
+        """
         select * from "$folder"
         where id == ? and type == ?;
-      """, [item.id, item.type.value]);
+      """,
+        [item.id, item.type.value],
+      );
       if (rows.isNotEmpty) {
         res.add(folder);
       }
@@ -447,10 +470,13 @@ class LocalFavoritesManager with ChangeNotifier {
 
   void updateOrder(List<String> folders) {
     for (int i = 0; i < folders.length; i++) {
-      _db.execute("""
+      _db.execute(
+        """
         insert or replace into folder_order (folder_name, order_value)
         values (?, ?);
-      """, [folders[i], i]);
+      """,
+        [folders[i], i],
+      );
     }
     notifyListeners();
   }
@@ -468,14 +494,16 @@ class LocalFavoritesManager with ChangeNotifier {
     return _db.select("""
         SELECT MAX(display_order) AS max_value
         FROM "$folder";
-      """).firstOrNull?["max_value"] ?? 0;
+      """).firstOrNull?["max_value"] ??
+        0;
   }
 
   int minValue(String folder) {
     return _db.select("""
         SELECT MIN(display_order) AS min_value
         FROM "$folder";
-      """).firstOrNull?["min_value"] ?? 0;
+      """).firstOrNull?["min_value"] ??
+        0;
   }
 
   /// 收藏排序设置（appdata.settings['favoriteSort']）→ ORDER BY 片段。
@@ -510,13 +538,20 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   /// Paginated version of [getFolderComics].
-  List<FavoriteItem> getFolderComicsPaginated(String folder,
-      {required int limit, required int offset, String? orderBy}) {
-    var rows = _db.select("""
+  List<FavoriteItem> getFolderComicsPaginated(
+    String folder, {
+    required int limit,
+    required int offset,
+    String? orderBy,
+  }) {
+    var rows = _db.select(
+      """
         select * from "$folder"
         ORDER BY ${orderBy ?? "display_order"}
         LIMIT ? OFFSET ?;
-      """, [limit, offset]);
+      """,
+      [limit, offset],
+    );
     return rows.map((element) => FavoriteItem.fromRow(element)).toList();
   }
 
@@ -540,11 +575,14 @@ class LocalFavoritesManager with ChangeNotifier {
     required int limit,
     String? orderBy,
   }) {
-    var rows = _db.select("""
+    var rows = _db.select(
+      """
         select *, count(*) over () as __total from "$folder"
         ORDER BY ${orderBy ?? "display_order"}
         LIMIT ?;
-      """, [limit]);
+      """,
+      [limit],
+    );
     if (rows.isEmpty) {
       return (comics: <FavoriteItem>[], total: 0);
     }
@@ -564,12 +602,17 @@ class LocalFavoritesManager with ChangeNotifier {
 
   /// Paginated async version of [getFolderComics].
   static Future<List<FavoriteItem>> _getFolderComicsAsyncPaginated(
-      String folder, int limit, int offset) {
-    return Future.value(LocalFavoritesManager().getFolderComicsPaginated(
-      folder,
-      limit: limit,
-      offset: offset,
-    ));
+    String folder,
+    int limit,
+    int offset,
+  ) {
+    return Future.value(
+      LocalFavoritesManager().getFolderComicsPaginated(
+        folder,
+        limit: limit,
+        offset: offset,
+      ),
+    );
   }
 
   /// Start a new isolate to get the comics in the folder
@@ -578,8 +621,11 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   /// Paginated async version of [getFolderComicsAsync].
-  Future<List<FavoriteItem>> getFolderComicsAsyncPaginated(String folder,
-      {required int limit, required int offset}) {
+  Future<List<FavoriteItem>> getFolderComicsAsyncPaginated(
+    String folder, {
+    required int limit,
+    required int offset,
+  }) {
     return _getFolderComicsAsyncPaginated(folder, limit, offset);
   }
 
@@ -609,11 +655,14 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   void addTagTo(String folder, String id, String tag) {
-    _db.execute("""
+    _db.execute(
+      """
       update "$folder"
       set tags = ? || ',' || tags
       where id == ?
-    """, [tag, id]);
+    """,
+      [tag, id],
+    );
     notifyListeners();
   }
 
@@ -623,8 +672,12 @@ class LocalFavoritesManager with ChangeNotifier {
       var comics = _db.select("""
         select * from "$folder";
       """);
-      res.addAll(comics.map((element) =>
-          FavoriteItemWithFolderInfo(FavoriteItem.fromRow(element), folder)));
+      res.addAll(
+        comics.map(
+          (element) =>
+              FavoriteItemWithFolderInfo(FavoriteItem.fromRow(element), folder),
+        ),
+      );
     }
     return res;
   }
@@ -673,34 +726,50 @@ class LocalFavoritesManager with ChangeNotifier {
       );
     """);
     // Performance: add index for display_order (used in sorting)
-    _db.execute('CREATE INDEX IF NOT EXISTS ${_safeIndexName(name, "order")} ON "$name"(display_order);');
-    _db.execute('CREATE INDEX IF NOT EXISTS ${_safeIndexName(name, "time")} ON "$name"(time);');
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS ${_safeIndexName(name, "order")} ON "$name"(display_order);',
+    );
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS ${_safeIndexName(name, "time")} ON "$name"(time);',
+    );
     notifyListeners();
     counts[name] = 0;
     return name;
   }
 
   void linkFolderToNetwork(String folder, String source, String networkFolder) {
-    _db.execute("""
+    _db.execute(
+      """
       insert or replace into folder_sync (folder_name, source_key, source_folder)
       values (?, ?, ?);
-    """, [folder, source, networkFolder]);
+    """,
+      [folder, source, networkFolder],
+    );
   }
 
   bool isLinkedToNetworkFolder(
-      String folder, String source, String networkFolder) {
-    var res = _db.select("""
+    String folder,
+    String source,
+    String networkFolder,
+  ) {
+    var res = _db.select(
+      """
       select * from folder_sync
       where folder_name == ? and source_key == ? and source_folder == ?;
-    """, [folder, source, networkFolder]);
+    """,
+      [folder, source, networkFolder],
+    );
     return res.isNotEmpty;
   }
 
   (String?, String?) findLinked(String folder) {
-    var res = _db.select("""
+    var res = _db.select(
+      """
       select * from folder_sync
       where folder_name == ?;
-    """, [folder]);
+    """,
+      [folder],
+    );
     if (res.isEmpty) {
       return (null, null);
     }
@@ -743,18 +812,24 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   bool comicExists(String folder, String id, ComicType type) {
-    var res = _db.select("""
+    var res = _db.select(
+      """
       select * from "$folder"
       where id == ? and type == ?;
-    """, [id, type.value]);
+    """,
+      [id, type.value],
+    );
     return res.isNotEmpty;
   }
 
   FavoriteItem getComic(String folder, String id, ComicType type) {
-    var res = _db.select("""
+    var res = _db.select(
+      """
       select * from "$folder"
       where id == ? and type == ?;
-    """, [id, type.value]);
+    """,
+      [id, type.value],
+    );
     if (res.isEmpty) {
       throw Exception("Comic not found");
     }
@@ -780,15 +855,23 @@ class LocalFavoritesManager with ChangeNotifier {
 
   /// add comic to a folder.
   /// return true if success, false if already exists
-  bool addComic(String folder, FavoriteItem comic,
-      [int? order, String? updateTime, bool notify = true]) {
+  bool addComic(
+    String folder,
+    FavoriteItem comic, [
+    int? order,
+    String? updateTime,
+    bool notify = true,
+  ]) {
     if (!existsFolder(folder)) {
       throw Exception("Folder does not exists");
     }
-    var res = _db.select("""
+    var res = _db.select(
+      """
       select * from "$folder"
       where id == ? and type == ?;
-    """, [comic.id, comic.type.value]);
+    """,
+      [comic.id, comic.type.value],
+    );
     if (res.isNotEmpty) {
       return false;
     }
@@ -801,34 +884,46 @@ class LocalFavoritesManager with ChangeNotifier {
       comic.tags.join(","),
       comic.coverPath,
       comic.time,
-      translatedTags
+      translatedTags,
     ];
     if (order != null) {
-      _db.execute("""
+      _db.execute(
+        """
         insert into "$folder" (id, name, author, type, tags, cover_path, time, translated_tags, display_order)
         values (?, ?, ?, ?, ?, ?, ?, ?, ?);
-      """, [...params, order]);
+      """,
+        [...params, order],
+      );
     } else if (appdata.settings['newFavoriteAddTo'] == "end") {
-      _db.execute("""
+      _db.execute(
+        """
         insert into "$folder" (id, name, author, type, tags, cover_path, time, translated_tags, display_order)
         values (?, ?, ?, ?, ?, ?, ?, ?, ?);
-      """, [...params, maxValue(folder) + 1]);
+      """,
+        [...params, maxValue(folder) + 1],
+      );
     } else {
-      _db.execute("""
+      _db.execute(
+        """
         insert into "$folder" (id, name, author, type, tags, cover_path, time, translated_tags, display_order)
         values (?, ?, ?, ?, ?, ?, ?, ?, ?);
-      """, [...params, minValue(folder) - 1]);
+      """,
+        [...params, minValue(folder) - 1],
+      );
     }
     if (updateTime != null) {
       var columns = _db.select("""
       pragma table_info("$folder");
     """);
       if (columns.any((element) => element["name"] == "last_update_time")) {
-        _db.execute("""
+        _db.execute(
+          """
           update "$folder"
           set last_update_time = ?
           where id == ? and type == ?;
-        """, [updateTime, comic.id, comic.type.value]);
+        """,
+          [updateTime, comic.id, comic.type.value],
+        );
       }
     }
     if (counts[folder] == null) {
@@ -845,7 +940,11 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   void moveFavorite(
-      String sourceFolder, String targetFolder, String id, ComicType type) {
+    String sourceFolder,
+    String targetFolder,
+    String id,
+    ComicType type,
+  ) {
     if (!existsFolder(sourceFolder)) {
       throw Exception("Source folder does not exist");
     }
@@ -853,26 +952,35 @@ class LocalFavoritesManager with ChangeNotifier {
       throw Exception("Target folder does not exist");
     }
 
-    var res = _db.select("""
+    var res = _db.select(
+      """
     select * from "$targetFolder"
     where id == ? and type == ?;
-  """, [id, type.value]);
+  """,
+      [id, type.value],
+    );
 
     if (res.isNotEmpty) {
       return;
     }
 
-    _db.execute("""
+    _db.execute(
+      """
       insert into "$targetFolder" (id, name, author, type, tags, cover_path, time, display_order)
       select id, name, author, type, tags, cover_path, time, ?
       from "$sourceFolder"
       where id == ? and type == ?;
-    """, [minValue(targetFolder) - 1, id, type.value]);
+    """,
+      [minValue(targetFolder) - 1, id, type.value],
+    );
 
-    _db.execute("""
+    _db.execute(
+      """
     delete from "$sourceFolder"
     where id == ? and type == ?;
-  """, [id, type.value]);
+  """,
+      [id, type.value],
+    );
 
     if (counts[sourceFolder] != null) {
       counts[sourceFolder] = counts[sourceFolder]! - 1;
@@ -884,7 +992,10 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   void batchMoveFavorites(
-      String sourceFolder, String targetFolder, List<FavoriteItem> items) {
+    String sourceFolder,
+    String targetFolder,
+    List<FavoriteItem> items,
+  ) {
     // 防止把漫画批量移动到它所在的同一文件夹：or ignore 会跳过插入，
     // 但随后的 delete 仍会删除该行，导致漫画被静默删除
     if (sourceFolder == targetFolder) {
@@ -901,17 +1012,23 @@ class LocalFavoritesManager with ChangeNotifier {
     var displayOrder = maxValue(targetFolder) + 1;
     try {
       for (var item in items) {
-        _db.execute("""
+        _db.execute(
+          """
           insert or ignore into "$targetFolder" (id, name, author, type, tags, cover_path, time, display_order)
           select id, name, author, type, tags, cover_path, time, ?
           from "$sourceFolder"
           where id == ? and type == ?;
-        """, [displayOrder, item.id, item.type.value]);
+        """,
+          [displayOrder, item.id, item.type.value],
+        );
 
-        _db.execute("""
+        _db.execute(
+          """
           delete from "$sourceFolder"
           where id == ? and type == ?;
-        """, [item.id, item.type.value]);
+        """,
+          [item.id, item.type.value],
+        );
 
         displayOrder++;
       }
@@ -932,7 +1049,10 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   void batchCopyFavorites(
-      String sourceFolder, String targetFolder, List<FavoriteItem> items) {
+    String sourceFolder,
+    String targetFolder,
+    List<FavoriteItem> items,
+  ) {
     if (!existsFolder(sourceFolder)) {
       throw Exception("Source folder does not exist");
     }
@@ -944,12 +1064,15 @@ class LocalFavoritesManager with ChangeNotifier {
     var displayOrder = maxValue(targetFolder) + 1;
     try {
       for (var item in items) {
-        _db.execute("""
+        _db.execute(
+          """
           insert or ignore into "$targetFolder" (id, name, author, type, tags, cover_path, time, display_order)
           select id, name, author, type, tags, cover_path, time, ?
           from "$sourceFolder"
           where id == ? and type == ?;
-        """, [displayOrder, item.id, item.type.value]);
+        """,
+          [displayOrder, item.id, item.type.value],
+        );
 
         displayOrder++;
       }
@@ -974,10 +1097,13 @@ class LocalFavoritesManager with ChangeNotifier {
     _db.execute("""
       drop table "$name";
     """);
-    _db.execute("""
+    _db.execute(
+      """
       delete from folder_order
       where folder_name == ?;
-    """, [name]);
+    """,
+      [name],
+    );
     counts.remove(name);
     refreshHashedIds();
     notifyListeners();
@@ -985,10 +1111,13 @@ class LocalFavoritesManager with ChangeNotifier {
 
   void deleteComicWithId(String folder, String id, ComicType type) {
     LocalFavoriteImageProvider.delete(id, type.value);
-    _db.execute("""
+    _db.execute(
+      """
       delete from "$folder"
       where id == ? and type == ?;
-    """, [id, type.value]);
+    """,
+      [id, type.value],
+    );
     if (counts[folder] != null) {
       counts[folder] = counts[folder]! - 1;
     } else {
@@ -1003,10 +1132,13 @@ class LocalFavoritesManager with ChangeNotifier {
     try {
       for (var comic in comics) {
         LocalFavoriteImageProvider.delete(comic.id, comic.type.value);
-        _db.execute("""
+        _db.execute(
+          """
           delete from "$folder"
           where id == ? and type == ?;
-        """, [comic.id, comic.type.value]);
+        """,
+          [comic.id, comic.type.value],
+        );
       }
       if (counts[folder] != null) {
         counts[folder] = counts[folder]! - comics.length;
@@ -1032,10 +1164,13 @@ class LocalFavoritesManager with ChangeNotifier {
       for (var comic in comics) {
         LocalFavoriteImageProvider.delete(comic.id, comic.type.value);
         for (var folder in folderNames) {
-          _db.execute("""
+          _db.execute(
+            """
             delete from "$folder"
             where id == ? and type == ?;
-          """, [comic.id, comic.type.value]);
+          """,
+            [comic.id, comic.type.value],
+          );
         }
       }
     } catch (e) {
@@ -1081,18 +1216,16 @@ class LocalFavoritesManager with ChangeNotifier {
     _db.execute("BEGIN TRANSACTION");
     try {
       for (int i = 0; i < newFolder.length; i++) {
-        _db.execute("""
+        _db.execute(
+          """
           update "$folder"
           set display_order = ?
           where id == ? and type == ?;
-        """, [
-          i,
-          newFolder[i].id,
-          newFolder[i].type.value
-        ]);
+        """,
+          [i, newFolder[i].id, newFolder[i].type.value],
+        );
       }
-    }
-    catch (e) {
+    } catch (e) {
       Log.error("Reorder", e.toString());
       _db.execute("ROLLBACK");
       return;
@@ -1112,16 +1245,22 @@ class LocalFavoritesManager with ChangeNotifier {
       ALTER TABLE "$before"
       RENAME TO "$after";
     """);
-    _db.execute("""
+    _db.execute(
+      """
       update folder_order
       set folder_name = ?
       where folder_name == ?;
-    """, [after, before]);
-    _db.execute("""
+    """,
+      [after, before],
+    );
+    _db.execute(
+      """
       update folder_sync
       set folder_name = ?
       where folder_name == ?;
-    """, [after, before]);
+    """,
+      [after, before],
+    );
     counts[after] = counts[before] ?? 0;
     counts.remove(before);
     notifyListeners();
@@ -1136,10 +1275,13 @@ class LocalFavoritesManager with ChangeNotifier {
     }
     final followFolders = getEffectiveFollowFolders();
     for (final folder in folderNames) {
-      var rows = _db.select("""
+      var rows = _db.select(
+        """
         select * from "$folder"
         where id == ? and type == ?;
-      """, [id, type.value]);
+      """,
+        [id, type.value],
+      );
       if (rows.isNotEmpty) {
         var newTime = DateTime.now()
             .toIso8601String()
@@ -1147,26 +1289,33 @@ class LocalFavoritesManager with ChangeNotifier {
             .substring(0, 19);
         String updateLocationSql = "";
         if (appdata.settings['moveFavoriteAfterRead'] == "end") {
-          int maxValue = _db.select("""
+          int maxValue =
+              _db.select("""
             SELECT MAX(display_order) AS max_value
             FROM "$folder";
-          """).firstOrNull?["max_value"] ?? 0;
+          """).firstOrNull?["max_value"] ??
+              0;
           updateLocationSql = "display_order = ${maxValue + 1},";
         } else if (appdata.settings['moveFavoriteAfterRead'] == "start") {
-          int minValue = _db.select("""
+          int minValue =
+              _db.select("""
             SELECT MIN(display_order) AS min_value
             FROM "$folder";
-          """).firstOrNull?["min_value"] ?? 0;
+          """).firstOrNull?["min_value"] ??
+              0;
           updateLocationSql = "display_order = ${minValue - 1},";
         }
-        _db.execute("""
+        _db.execute(
+          """
             UPDATE "$folder"
             SET 
               $updateLocationSql
               ${followFolders.contains(folder) ? "has_new_update = 0," : ""}
               time = ?
             WHERE id == ? and type == ?;
-          """, [newTime, id, type.value]);
+          """,
+          [newTime, id, type.value],
+        );
         if (followFolders.contains(folder)) {
           updateFollowUpdatesUI();
         }
@@ -1179,10 +1328,13 @@ class LocalFavoritesManager with ChangeNotifier {
     var keywordList = keyword.split(" ");
     keyword = keywordList.first;
     keyword = "%$keyword%";
-    var res = _db.select("""
+    var res = _db.select(
+      """
       SELECT * FROM "$folder" 
       WHERE name LIKE ? OR author LIKE ? OR tags LIKE ? OR translated_tags LIKE ?;
-    """, [keyword, keyword, keyword, keyword]);
+    """,
+      [keyword, keyword, keyword, keyword],
+    );
     var comics = res.map((e) => FavoriteItem.fromRow(e)).toList();
     bool test(FavoriteItem comic, String keyword) {
       if (comic.name.contains(keyword)) {
@@ -1196,8 +1348,9 @@ class LocalFavoritesManager with ChangeNotifier {
     }
 
     for (var i = 1; i < keywordList.length; i++) {
-      comics =
-          comics.where((element) => test(element, keywordList[i])).toList();
+      comics = comics
+          .where((element) => test(element, keywordList[i]))
+          .toList();
     }
     return comics;
   }
@@ -1208,10 +1361,13 @@ class LocalFavoritesManager with ChangeNotifier {
     var comics = <FavoriteItem>{};
     for (var table in folderNames) {
       keyword = "%$keyword%";
-      var res = _db.select("""
+      var res = _db.select(
+        """
         SELECT * FROM "$table" 
         WHERE name LIKE ? OR author LIKE ? OR tags LIKE ? OR translated_tags LIKE ?;
-      """, [keyword, keyword, keyword, keyword]);
+      """,
+        [keyword, keyword, keyword, keyword],
+      );
       for (var comic in res) {
         comics.add(FavoriteItem.fromRow(comic));
       }
@@ -1246,11 +1402,14 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   void editTags(String id, String folder, List<String> tags) {
-    _db.execute("""
+    _db.execute(
+      """
         update "$folder"
         set tags = ?
         where id == ?;
-      """, [tags.join(","), id]);
+      """,
+      [tags.join(","), id],
+    );
     notifyListeners();
   }
 
@@ -1259,18 +1418,21 @@ class LocalFavoritesManager with ChangeNotifier {
   }
 
   void updateInfo(String folder, FavoriteItem comic, [bool notify = true]) {
-    _db.execute("""
+    _db.execute(
+      """
       update "$folder"
       set name = ?, author = ?, cover_path = ?, tags = ?
       where id == ? and type == ?;
-    """, [
-      comic.name,
-      comic.author,
-      comic.coverPath,
-      comic.tags.join(","),
-      comic.id,
-      comic.type.value
-    ]);
+    """,
+      [
+        comic.name,
+        comic.author,
+        comic.coverPath,
+        comic.tags.join(","),
+        comic.id,
+        comic.type.value,
+      ],
+    );
     if (notify) {
       notifyListeners();
     }
@@ -1347,34 +1509,41 @@ class LocalFavoritesManager with ChangeNotifier {
     ComicType type,
     String updateTime,
   ) {
-    var oldTime = _db.select("""
+    var oldTime = _db
+        .select(
+          """
       select last_update_time from "$folder"
       where id == ? and type == ?;
-    """, [id, type.value]).first['last_update_time'];
+    """,
+          [id, type.value],
+        )
+        .first['last_update_time'];
     var hasNewUpdate = oldTime != updateTime;
-    _db.execute("""
+    _db.execute(
+      """
       update "$folder"
       set last_update_time = ?, has_new_update = ?, last_check_time = ?
       where id == ? and type == ?;
-    """, [
-      updateTime,
-      hasNewUpdate ? 1 : 0,
-      DateTime.now().millisecondsSinceEpoch,
-      id,
-      type.value,
-    ]);
+    """,
+      [
+        updateTime,
+        hasNewUpdate ? 1 : 0,
+        DateTime.now().millisecondsSinceEpoch,
+        id,
+        type.value,
+      ],
+    );
   }
 
-  void updateCheckTime(
-    String folder,
-    String id,
-    ComicType type,
-  ) {
-    _db.execute("""
+  void updateCheckTime(String folder, String id, ComicType type) {
+    _db.execute(
+      """
       update "$folder"
       set last_check_time = ?
       where id == ? and type == ?;
-    """, [DateTime.now().millisecondsSinceEpoch, id, type.value]);
+    """,
+      [DateTime.now().millisecondsSinceEpoch, id, type.value],
+    );
   }
 
   int countUpdates(String folder) {
@@ -1428,11 +1597,14 @@ class LocalFavoritesManager with ChangeNotifier {
   void markAsRead(String id, ComicType type, {bool notify = true}) {
     for (final f in folderNames) {
       if (!existsFolder(f)) continue;
-      _db.execute("""
+      _db.execute(
+        """
         update "$f"
         set has_new_update = 0
         where id == ? and type == ?;
-      """, [id, type.value]);
+      """,
+        [id, type.value],
+      );
     }
     // 这里必须广播：首页「追更」盒子的未读数字只靠监听这个 ChangeNotifier
     // 刷新，不 notify 就会出现「已经读过、DB 也标了已读，但红点数字还在」。

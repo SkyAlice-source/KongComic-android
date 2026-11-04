@@ -31,12 +31,16 @@ class HomePage extends StatefulWidget {
   @override
   State<HomePage> createState() => _HomePageState();
 }
+
 class _HomePageState extends State<HomePage> {
   final _currentComic = ValueNotifier<FavoriteItem?>(null);
   Key _bannerKey = UniqueKey();
 
   @override
-  void dispose() { _currentComic.dispose(); super.dispose(); }
+  void dispose() {
+    _currentComic.dispose();
+    super.dispose();
+  }
 
   Future<void> _onRefresh() async {
     setState(() {
@@ -59,15 +63,24 @@ class _HomePageState extends State<HomePage> {
         final contentArea = availableHeight - context.padding.top - dockHeight;
         // 按比例分配：banner 占内容区 ~42%，其余 58% 给信息区+按钮+两行框
         // 这样无论分辨率如何，整块英雄区都能完整显示在一屏内
-        final bannerHeight = (contentArea * 0.42).clamp(cardHeight * 0.8, cardHeight * 1.15);
+        final bannerHeight = (contentArea * 0.42).clamp(
+          cardHeight * 0.8,
+          cardHeight * 1.15,
+        );
         return _BannerProvider(
           bannerHeight: bannerHeight,
           child: RefreshIndicator(
             onRefresh: _onRefresh,
             child: SmoothCustomScrollView(
               slivers: [
-                SliverPadding(padding: EdgeInsets.only(top: context.padding.top)),
-                _Banner(key: _bannerKey, height: bannerHeight, currentComicNotifier: _currentComic),
+                SliverPadding(
+                  padding: EdgeInsets.only(top: context.padding.top),
+                ),
+                _Banner(
+                  key: _bannerKey,
+                  height: bannerHeight,
+                  currentComicNotifier: _currentComic,
+                ),
                 _ComicInfoSection(currentComicNotifier: _currentComic),
                 const _HomeHints(),
                 const _HomeCapsules(),
@@ -96,13 +109,19 @@ class _HomePageState extends State<HomePage> {
 class _BannerProvider extends InheritedWidget {
   final double bannerHeight;
   const _BannerProvider({required this.bannerHeight, required super.child});
-  @override bool updateShouldNotify(_BannerProvider old) => old.bannerHeight != bannerHeight;
+  @override
+  bool updateShouldNotify(_BannerProvider old) =>
+      old.bannerHeight != bannerHeight;
 }
 
 class _Banner extends StatefulWidget {
   final double height;
   final ValueNotifier<FavoriteItem?> currentComicNotifier;
-  const _Banner({super.key, this.height = 360, required this.currentComicNotifier});
+  const _Banner({
+    super.key,
+    this.height = 360,
+    required this.currentComicNotifier,
+  });
   @override
   State<_Banner> createState() => _BannerState();
 }
@@ -110,6 +129,7 @@ class _Banner extends StatefulWidget {
 class _BannerState extends State<_Banner> with AutoListenMixin {
   int _currentIndex = 0;
   Timer? _timer;
+
   /// 手动滑动切换后暂停自动轮播
   bool _pauseAutoPlay = false;
 
@@ -125,7 +145,10 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     final selectedFolders = appdata.settings['homeBannerFolders'] as List;
     final folders = selectedFolders.isEmpty
         ? allFolderNames
-        : selectedFolders.cast<String>().where((f) => allFolderNames.contains(f)).toList();
+        : selectedFolders
+              .cast<String>()
+              .where((f) => allFolderNames.contains(f))
+              .toList();
     final all = <FavoriteItem>[];
     for (final folder in folders) {
       all.addAll(LocalFavoritesManager().getFolderComics(folder));
@@ -138,49 +161,80 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
         if (_currentIndex >= _comics.length) {
           _currentIndex = _comics.isEmpty ? 0 : _comics.length - 1;
         }
-        widget.currentComicNotifier.value = _comics.isNotEmpty ? _comics[_currentIndex] : null;
+        widget.currentComicNotifier.value = _comics.isNotEmpty
+            ? _comics[_currentIndex]
+            : null;
       });
     }
   }
+
   @override
   void initState() {
     super.initState();
     // No PageController needed
-    _loadComics(); listen(LocalFavoritesManager(), _loadComics); listen(appdata.settings, _loadComics); _startTimer();
+    _loadComics();
+    listen(LocalFavoritesManager(), _loadComics);
+    listen(appdata.settings, _loadComics);
+    _startTimer();
   }
+
   void _startTimer() {
     _timer?.cancel();
     // 手动滑动切换后暂停自动轮播（下拉刷新重建页面后恢复）
     if (_pauseAutoPlay) return;
     _timer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _comics.length < 2) return;
-      setState(() { _currentIndex = (_currentIndex + 1) % _comics.length; widget.currentComicNotifier.value = _comics[_currentIndex]; });
+      setState(() {
+        _currentIndex = (_currentIndex + 1) % _comics.length;
+        widget.currentComicNotifier.value = _comics[_currentIndex];
+      });
     });
   }
-  @override void dispose() { _timer?.cancel(); super.dispose(); }
-  void _navigateToComic(FavoriteItem c) { context.to(() => ComicPage(id: c.id, sourceKey: c.type.comicSource?.key ?? '', cover: c.coverPath, title: c.name)); }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _navigateToComic(FavoriteItem c) {
+    context.to(
+      () => ComicPage(
+        id: c.id,
+        sourceKey: c.type.comicSource?.key ?? '',
+        cover: c.coverPath,
+        title: c.name,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     if (_comics.isEmpty) return const SliverToBoxAdapter(child: SizedBox());
     if (_comics.length < 3) {
       // Show single card centered when fewer than 3 comics
-      return SliverToBoxAdapter(child: SizedBox(
-        height: widget.height,
-        child: Stack(alignment: Alignment.topCenter, children: [
-          GestureDetector(
-            onTap: () => _navigateToComic(_comics[_currentIndex]),
-            child: _buildSingleCard(context, _comics[_currentIndex]),
+      return SliverToBoxAdapter(
+        child: SizedBox(
+          height: widget.height,
+          child: Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              GestureDetector(
+                onTap: () => _navigateToComic(_comics[_currentIndex]),
+                child: _buildSingleCard(context, _comics[_currentIndex]),
+              ),
+            ],
           ),
-        ]),
-      ).paddingVertical(2).paddingBottom(8));
+        ).paddingVertical(2).paddingBottom(8),
+      );
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sw = MediaQuery.of(context).size.width;
     final cardW = (sw * 0.54).clamp(0.0, _maxHeroCardWidth);
     return SliverToBoxAdapter(
-      child: SizedBox(height: widget.height,
+      child: SizedBox(
+        height: widget.height,
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.topCenter,
@@ -188,42 +242,57 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
             // Decorative stacked cards (background)
             ..._buildStackedCards(isDark, cardW, sw),
             // Main card with in-place replacement (AnimatedSwitcher)
-            Positioned(top: 0, child: GestureDetector(
-              onHorizontalDragEnd: (details) {
-                if (details.velocity.pixelsPerSecond.dx > 80) {
-                  final prev = (_currentIndex - 1 + _comics.length) % _comics.length;
-                  _pauseAutoPlay = true;
-                  setState(() { _currentIndex = prev; widget.currentComicNotifier.value = _comics[_currentIndex]; });
-                } else if (details.velocity.pixelsPerSecond.dx < -80) {
-                  final next = (_currentIndex + 1) % _comics.length;
-                  _pauseAutoPlay = true;
-                  setState(() { _currentIndex = next; widget.currentComicNotifier.value = _comics[_currentIndex]; });
-                }
-              },
-                child: AnimatedSwitcher(
-                duration: kcReduceMotion(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 300),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(scale: animation, child: child),
-                  );
+            Positioned(
+              top: 0,
+              child: GestureDetector(
+                onHorizontalDragEnd: (details) {
+                  if (details.velocity.pixelsPerSecond.dx > 80) {
+                    final prev =
+                        (_currentIndex - 1 + _comics.length) % _comics.length;
+                    _pauseAutoPlay = true;
+                    setState(() {
+                      _currentIndex = prev;
+                      widget.currentComicNotifier.value =
+                          _comics[_currentIndex];
+                    });
+                  } else if (details.velocity.pixelsPerSecond.dx < -80) {
+                    final next = (_currentIndex + 1) % _comics.length;
+                    _pauseAutoPlay = true;
+                    setState(() {
+                      _currentIndex = next;
+                      widget.currentComicNotifier.value =
+                          _comics[_currentIndex];
+                    });
+                  }
                 },
-                child: SizedBox(
-                  key: ValueKey(_currentIndex),
-                  width: cardW,
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: () => _navigateToComic(_comics[_currentIndex]),
-                      child: _buildSingleCard(context, _comics[_currentIndex], width: cardW),
+                child: AnimatedSwitcher(
+                  duration: kcReduceMotion(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(scale: animation, child: child),
+                    );
+                  },
+                  child: SizedBox(
+                    key: ValueKey(_currentIndex),
+                    width: cardW,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () => _navigateToComic(_comics[_currentIndex]),
+                        child: _buildSingleCard(
+                          context,
+                          _comics[_currentIndex],
+                          width: cardW,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
             ),
           ],
         ),
@@ -241,19 +310,34 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
       final scale = 1.0 - layer.abs() * 0.1;
       final topOff = layer.abs() * 2.0;
       final pos = sw * 0.5 + layer * overlap - cardW * 0.5;
-      items.add(Positioned(
-        left: pos, top: topOff, width: cardW,
-        child: Transform.scale(scale: scale,
-          child: ClipRRect(borderRadius: BorderRadius.circular(kcRadius10),
+      items.add(
+        Positioned(
+          left: pos,
+          top: topOff,
+          width: cardW,
+          child: Transform.scale(
+            scale: scale,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(kcRadius10),
               child: Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4),
+                    width: 3.0,
+                  ),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.3 : 0.15,
+                      ),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
                   ],
                   borderRadius: BorderRadius.circular(kcRadius10),
                 ),
-                child: ClipRRect(borderRadius: BorderRadius.circular(kcRadius8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(kcRadius8),
                   child: SizedBox(
                     height: cardW * 1.4,
                     child: _buildCover(comic, decorative: true),
@@ -262,33 +346,57 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
               ),
             ),
           ),
-      ));
+        ),
+      );
     }
     return items;
   }
 
-  Widget _buildSingleCard(BuildContext context, FavoriteItem comic, {double? width}) {
+  Widget _buildSingleCard(
+    BuildContext context,
+    FavoriteItem comic, {
+    double? width,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sw = MediaQuery.of(context).size.width;
     final cardW = width ?? (sw * 0.54).clamp(0.0, _maxHeroCardWidth);
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15), blurRadius: 6, offset: const Offset(0, 3)),
-          ],
-          borderRadius: BorderRadius.circular(kcCardRadius),
-        ),
-        child: ClipRRect(borderRadius: BorderRadius.circular(kcCardRadius),
-          child: Container(
-            decoration: BoxDecoration(border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4), width: 3.0), borderRadius: BorderRadius.circular(kcCardRadius)),
-            child: ClipRRect(borderRadius: BorderRadius.circular(kcRadius10),
-              child: SizedBox(width: cardW, height: cardW * 1.4, child: _buildCover(comic)),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+            borderRadius: BorderRadius.circular(kcCardRadius),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(kcCardRadius),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4),
+                  width: 3.0,
+                ),
+                borderRadius: BorderRadius.circular(kcCardRadius),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(kcRadius10),
+                child: SizedBox(
+                  width: cardW,
+                  height: cardW * 1.4,
+                  child: _buildCover(comic),
+                ),
+              ),
             ),
           ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   Widget _buildCover(FavoriteItem comic, {bool decorative = false}) {
@@ -315,7 +423,8 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
 class _ComicInfoSection extends StatelessWidget {
   final ValueNotifier<FavoriteItem?> currentComicNotifier;
   const _ComicInfoSection({required this.currentComicNotifier});
-  @override Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     return ValueListenableBuilder<FavoriteItem?>(
       valueListenable: currentComicNotifier,
       builder: (context, comic, _) {
@@ -324,98 +433,152 @@ class _ComicInfoSection extends StatelessWidget {
         final history = HistoryManager().find(comic.id, comic.type);
         final progress = history != null
             ? "Chapter %s · %s chapters read".tl
-                .replaceFirst("%s", "${history.ep}")
-                .replaceFirst("%s", "${history.readEpisode.length}")
+                  .replaceFirst("%s", "${history.ep}")
+                  .replaceFirst("%s", "${history.readEpisode.length}")
             : null;
-        final updatedTime = comic.time.isNotEmpty ? comic.time.substring(0, 10) : null;
-        return SliverToBoxAdapter(child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // 漫画名占三行高度
-            SizedBox(height: 72, child: Align(alignment: Alignment.bottomLeft,
-              child: Text(comic.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: kcTitleLarge, fontWeight: FontWeight.w700, color: cs.onSurface)))),
-            const SizedBox(height: 6),
-            if (comic.author.isNotEmpty || comic.tags.isNotEmpty)
-              Padding(padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  comic.author.isNotEmpty ? comic.author : comic.tags.first,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: kcBody, color: cs.onSurfaceVariant))),
-            if (progress != null)
-              Padding(padding: const EdgeInsets.only(bottom: 4),
-                child: Text(progress, style: TextStyle(fontSize: kcBody, color: cs.onSurface))),
-            Text("Total @count chapters".tlParams({'count': "${history?.maxPage ?? '?'}"}), style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant)),
-            if (updatedTime != null)
-              Padding(padding: const EdgeInsets.only(top: 4),
-                child: Text("Updated @time".tlParams({'time': updatedTime}), style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant))),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              // 浅色与深色都用「上亮下饱和」的红色渐变 + 柔和大半径红晕包裹，
-              // 主 CTA 才有体积与质感；AMOLED 零彩色，退化为实心灰底、无光晕。
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(kcRadius22),
-                  gradient: kcIsAmoled()
-                      ? null
-                      : const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          // 主页入口卡渐变底：上端用深色版品牌红提亮层次，
-                          // 下端落到标准品牌红 —— 两支都必须是品牌色本身，
-                          // 不换成 colorScheme 派生色（AMOLED 下整块渐变直接去掉）。
-                          // 上端与 kcBrandColorOnDark 同值，直接引用 token。
-                          colors: [kcBrandColorOnDark, kcBrandColor],
-                        ),
-                  boxShadow: kcIsAmoled()
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: kcBrandColor.withValues(alpha: 0.30),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: () => context.to(() => ComicPage(
-                    id: comic.id,
-                    sourceKey: comic.type.comicSource?.key ?? '',
-                    cover: comic.coverPath,
-                    title: comic.name,
-                  )),
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedPlayCircle,
-                    size: 20,
-                  ),
-                  label: Text(
-                    "Read Now".tl,
-                    style: TextStyle(fontSize: kcSubtitle, fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    // 渐变由外层 Container 提供，按钮本身透明只承载文字/涟漪；
-                    // AMOLED 则退回中性灰实心（与灰阶按钮同源）。
-                    backgroundColor:
-                        kcIsAmoled() ? kcAccentColor(context) : Colors.transparent,
-                    foregroundColor: kcOnAccentColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(kcRadius22),
+        final updatedTime = comic.time.isNotEmpty
+            ? comic.time.substring(0, 10)
+            : null;
+        return SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 漫画名占三行高度
+                SizedBox(
+                  height: 72,
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Text(
+                      comic.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: kcTitleLarge,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                      ),
                     ),
-                    // 显式清掉边线：深色主题给 ElevatedButton 强加了灰描边，
-                    // 会在这个灰底 CTA 外再套一圈灰环。
-                    side: BorderSide.none,
-                    elevation: 0,
-                    surfaceTintColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    minimumSize: const Size(0, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
                   ),
                 ),
-              ),
+                const SizedBox(height: 6),
+                if (comic.author.isNotEmpty || comic.tags.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      comic.author.isNotEmpty ? comic.author : comic.tags.first,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: kcBody,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                if (progress != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      progress,
+                      style: TextStyle(fontSize: kcBody, color: cs.onSurface),
+                    ),
+                  ),
+                Text(
+                  "Total @count chapters".tlParams({
+                    'count': "${history?.maxPage ?? '?'}",
+                  }),
+                  style: TextStyle(
+                    fontSize: kcCaption,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                if (updatedTime != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      "Updated @time".tlParams({'time': updatedTime}),
+                      style: TextStyle(
+                        fontSize: kcCaption,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  // 浅色与深色都用「上亮下饱和」的红色渐变 + 柔和大半径红晕包裹，
+                  // 主 CTA 才有体积与质感；AMOLED 零彩色，退化为实心灰底、无光晕。
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(kcRadius22),
+                      gradient: kcIsAmoled()
+                          ? null
+                          : const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              // 主页入口卡渐变底：上端用深色版品牌红提亮层次，
+                              // 下端落到标准品牌红 —— 两支都必须是品牌色本身，
+                              // 不换成 colorScheme 派生色（AMOLED 下整块渐变直接去掉）。
+                              // 上端与 kcBrandColorOnDark 同值，直接引用 token。
+                              colors: [kcBrandColorOnDark, kcBrandColor],
+                            ),
+                      boxShadow: kcIsAmoled()
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: kcBrandColor.withValues(alpha: 0.30),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () => context.to(
+                        () => ComicPage(
+                          id: comic.id,
+                          sourceKey: comic.type.comicSource?.key ?? '',
+                          cover: comic.coverPath,
+                          title: comic.name,
+                        ),
+                      ),
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedPlayCircle,
+                        size: 20,
+                      ),
+                      label: Text(
+                        "Read Now".tl,
+                        style: TextStyle(
+                          fontSize: kcSubtitle,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        // 渐变由外层 Container 提供，按钮本身透明只承载文字/涟漪；
+                        // AMOLED 则退回中性灰实心（与灰阶按钮同源）。
+                        backgroundColor: kcIsAmoled()
+                            ? kcAccentColor(context)
+                            : Colors.transparent,
+                        foregroundColor: kcOnAccentColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(kcRadius22),
+                        ),
+                        // 显式清掉边线：深色主题给 ElevatedButton 强加了灰描边，
+                        // 会在这个灰底 CTA 外再套一圈灰环。
+                        side: BorderSide.none,
+                        elevation: 0,
+                        surfaceTintColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ]),
-        ));
+          ),
+        );
       },
     );
   }
@@ -423,8 +586,10 @@ class _ComicInfoSection extends StatelessWidget {
 
 class _HomeCapsules extends StatefulWidget {
   const _HomeCapsules();
-  @override State<_HomeCapsules> createState() => _HomeCapsulesState();
+  @override
+  State<_HomeCapsules> createState() => _HomeCapsulesState();
 }
+
 class _HomeCapsulesState extends State<_HomeCapsules> with AutoListenMixin {
   int _updateCount = 0;
   List<String> get folders => getEffectiveFollowFolders();
@@ -432,71 +597,172 @@ class _HomeCapsulesState extends State<_HomeCapsules> with AutoListenMixin {
     if (!mounted) return;
     setState(() {
       _updateCount = folders.fold(
-          0, (sum, f) => sum + LocalFavoritesManager().countUpdates(f));
+        0,
+        (sum, f) => sum + LocalFavoritesManager().countUpdates(f),
+      );
     });
   }
-  @override void initState() { super.initState(); _refresh(); listen(LocalFavoritesManager(), _refresh); listen(LocalManager(), _refresh); }
-  @override Widget build(BuildContext context) {
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+    listen(LocalFavoritesManager(), _refresh);
+    listen(LocalManager(), _refresh);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final lc = LocalManager().count;
-    return SliverToBoxAdapter(child: Column(children: [
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Row(children: [
-        Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 20), label: "Follow Updates".tl, value: _updateCount > 0 ? "$_updateCount" : null, alert: _updateCount > 0, onTap: () => context.to(() => const FollowUpdatesPage()))),
-        const SizedBox(width: 10),
-        Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedFolder01, size: 20), label: "Local".tl, value: "$lc", onTap: () => context.to(() => const LocalComicsPage()))),
-      ])),
-    ]));
+    return SliverToBoxAdapter(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _FlatBox(
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedRefresh,
+                      size: 20,
+                    ),
+                    label: "Follow Updates".tl,
+                    value: _updateCount > 0 ? "$_updateCount" : null,
+                    alert: _updateCount > 0,
+                    onTap: () => context.to(() => const FollowUpdatesPage()),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _FlatBox(
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedFolder01,
+                      size: 20,
+                    ),
+                    label: "Local".tl,
+                    value: "$lc",
+                    onTap: () => context.to(() => const LocalComicsPage()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
 class _BottomModules extends StatelessWidget {
   const _BottomModules();
-  @override Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final cc = ComicSource.all().length;
     final imgCount = ImageFavoriteManager().length;
-    return SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Row(children: [
-      Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 20), label: "Image Favorites".tl, value: imgCount > 0 ? "$imgCount" : null, onTap: () => context.to(() => const ImageFavoritesPage()))),
-      const SizedBox(width: 10),
-      Expanded(child: _FlatBox(icon: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 20), label: "Comic Source".tl, value: "$cc", onTap: () => context.to(() => const ComicSourcePage()))),
-    ])));
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: _FlatBox(
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 20),
+                label: "Image Favorites".tl,
+                value: imgCount > 0 ? "$imgCount" : null,
+                onTap: () => context.to(() => const ImageFavoritesPage()),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _FlatBox(
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 20),
+                label: "Comic Source".tl,
+                value: "$cc",
+                onTap: () => context.to(() => const ComicSourcePage()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
 class _FlatBox extends StatelessWidget {
-  final Widget icon; final String label; final String? value; final VoidCallback? onTap;
+  final Widget icon;
+  final String label;
+  final String? value;
+  final VoidCallback? onTap;
   final bool alert;
-  const _FlatBox({required this.icon, required this.label, this.value, this.onTap, this.alert = false});
-  @override Widget build(BuildContext context) {
+  const _FlatBox({
+    required this.icon,
+    required this.label,
+    this.value,
+    this.onTap,
+    this.alert = false,
+  });
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(onTap: onTap,
-      child: Stack(clipBehavior: Clip.none, children: [
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(kcRadius22),
-            color: cs.surfaceContainerLow,
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(kcRadius22),
+              color: cs.surfaceContainerLow,
+            ),
+            child: Row(
+              children: [
+                icon,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(fontSize: kcBody, color: cs.onSurface),
+                  ),
+                ),
+                if (value != null)
+                  Container(
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 22,
+                      minHeight: 22,
+                    ),
+                    decoration: BoxDecoration(
+                      // 未读强调走品牌红（设计系统：强调一律 accent 红），不再用 errorContainer。
+                      color: alert
+                          ? kcAccentColor(context)
+                          : kcAccentSurface(context),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        value!,
+                        style: TextStyle(
+                          fontSize: kcFont11,
+                          fontWeight: FontWeight.w600,
+                          color: alert
+                              ? kcOnAccentColor
+                              : kcBrandAdaptive(context),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          child: Row(children: [
-            icon,
-            const SizedBox(width: 8),
-            Expanded(child: Text(label, style: TextStyle(fontSize: kcBody, color: cs.onSurface))),
-            if (value != null)
-              Container(
-                margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                decoration: BoxDecoration(
-                  // 未读强调走品牌红（设计系统：强调一律 accent 红），不再用 errorContainer。
-                  color: alert ? kcAccentColor(context) : kcAccentSurface(context),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(value!, style: TextStyle(fontSize: kcFont11, fontWeight: FontWeight.w600, color: alert ? kcOnAccentColor : kcBrandAdaptive(context))),
-                ),
-              ),
-          ]),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 }
@@ -534,7 +800,6 @@ class _HomeHintsState extends State<_HomeHints> with AutoListenMixin {
     listen(LocalFavoritesManager(), _refresh);
     listen(ComicSourceManager(), _refresh);
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -578,7 +843,11 @@ class _HintCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          HugeIcon(icon: HugeIcons.strokeRoundedBulb, size: 20, color: kcBrandAdaptive(context).withValues(alpha: 0.8)),
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedBulb,
+            size: 20,
+            color: kcBrandAdaptive(context).withValues(alpha: 0.8),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -595,4 +864,3 @@ class _HintCard extends StatelessWidget {
     );
   }
 }
-

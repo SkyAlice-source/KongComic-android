@@ -19,25 +19,25 @@ enum ImageSaveFormat {
 
 extension ImageSaveFormatLabel on ImageSaveFormat {
   String get label => switch (this) {
-        ImageSaveFormat.original => 'Original',
-        ImageSaveFormat.png => 'PNG',
-        ImageSaveFormat.jpg => 'JPG',
-      };
+    ImageSaveFormat.original => 'Original',
+    ImageSaveFormat.png => 'PNG',
+    ImageSaveFormat.jpg => 'JPG',
+  };
 
   /// 该格式对应的扩展名（自带前导点）。
   ///
   /// `original` 没有固定扩展名（取决于原图），返回空串，由调用方用嗅探结果补齐。
   String get ext => switch (this) {
-        ImageSaveFormat.original => '',
-        ImageSaveFormat.png => '.png',
-        ImageSaveFormat.jpg => '.jpg',
-      };
+    ImageSaveFormat.original => '',
+    ImageSaveFormat.png => '.png',
+    ImageSaveFormat.jpg => '.jpg',
+  };
 
   String get description => switch (this) {
-        ImageSaveFormat.original => 'Keep the original format',
-        ImageSaveFormat.png => 'Lossless, keeps transparency',
-        ImageSaveFormat.jpg => 'Smaller file, best compatibility',
-      };
+    ImageSaveFormat.original => 'Keep the original format',
+    ImageSaveFormat.png => 'Lossless, keeps transparency',
+    ImageSaveFormat.jpg => 'Smaller file, best compatibility',
+  };
 }
 
 /// 生成「漫画名_EP{话数}_P{页码}」形式的保存文件名（**不含扩展名**）。
@@ -98,9 +98,7 @@ Future<ImageSaveResult> prepareImageForSave(
   }
 
   try {
-    final bytes = await Isolate.run(
-      () => _reencode(data, format, jpegQuality),
-    );
+    final bytes = await Isolate.run(() => _reencode(data, format, jpegQuality));
     return ImageSaveResult(
       bytes,
       format == ImageSaveFormat.png
@@ -113,11 +111,7 @@ Future<ImageSaveResult> prepareImageForSave(
   }
 }
 
-Uint8List _reencode(
-  Uint8List data,
-  ImageSaveFormat format,
-  int quality,
-) {
+Uint8List _reencode(Uint8List data, ImageSaveFormat format, int quality) {
   final decoded = img.decodeImage(data);
   if (decoded == null) {
     throw const FormatException('Unsupported image format');

@@ -84,13 +84,15 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   DownloadTask? _downloadTask;
 
   void _findDownloadTask() {
-    var target = LocalManager().downloadingTasks.cast<DownloadTask?>().firstWhere(
-      (t) =>
-          t != null &&
-          t.id == widget.id &&
-          t.comicType == ComicType.fromKey(widget.sourceKey),
-      orElse: () => null,
-    );
+    var target = LocalManager().downloadingTasks
+        .cast<DownloadTask?>()
+        .firstWhere(
+          (t) =>
+              t != null &&
+              t.id == widget.id &&
+              t.comicType == ComicType.fromKey(widget.sourceKey),
+          orElse: () => null,
+        );
     if (target != _downloadTask) {
       _downloadTask?.removeListener(_onDownloadProgress);
       _downloadTask = target;
@@ -216,7 +218,9 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               onPressed: () {
                 scrollController.animateTo(
                   0,
-                  duration: AppAnimations.duration(const Duration(milliseconds: 400)),
+                  duration: AppAnimations.duration(
+                    const Duration(milliseconds: 400),
+                  ),
                   curve: kcSpring,
                 );
               },
@@ -227,20 +231,20 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
         child: SmoothCustomScrollView(
           controller: scrollController,
           slivers: [
-          ...buildTitle(),
-          buildActions(),
-          buildDescription(),
-          buildInfo(),
-          buildChapters(),
-          buildComments(),
-          buildThumbnails(),
-          buildRecommend(),
-          SliverPadding(
-            padding: EdgeInsets.only(
-              bottom: context.padding.bottom + 80,
-            ), // Add additional padding for FAB
-          ),
-        ],
+            ...buildTitle(),
+            buildActions(),
+            buildDescription(),
+            buildInfo(),
+            buildChapters(),
+            buildComments(),
+            buildThumbnails(),
+            buildRecommend(),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: context.padding.bottom + 80,
+              ), // Add additional padding for FAB
+            ),
+          ],
         ),
       ),
     );
@@ -259,7 +263,9 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       if (!mounted) return;
       setState(() {});
     } else {
-      context.showMessage(message: friendlyError(res.errorMessage ?? "Refresh Failed".tl));
+      context.showMessage(
+        message: friendlyError(res.errorMessage ?? "Refresh Failed".tl),
+      );
     }
   }
 
@@ -356,7 +362,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
           builder: (btnCtx) => IconButton(
             onPressed: () => _showCoverMenu(btnCtx),
             icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
-            tooltip: CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id)
+            tooltip:
+                CustomCoverManager.hasCustomCover(comic.sourceKey, comic.id)
                 ? "Change Cover".tl
                 : "Set Cover".tl,
           ),
@@ -408,7 +415,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SelectableText(comic.title, style: TextStyle(fontSize: kcSectionTitle)),
+                SelectableText(
+                  comic.title,
+                  style: TextStyle(fontSize: kcSectionTitle),
+                ),
                 if (comic.subTitle != null)
                   SelectableText(
                     comic.subTitle!,
@@ -449,7 +459,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               // 两个阅读入口并列，有历史时还会同时冒出「Start」和「Continue」两个。
               if (!isMobile)
                 _ActionButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedPlayCircle, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedPlayCircle,
+                    size: 18,
+                  ),
                   text: 'Start'.tl,
                   onPressed: read,
                   iconColor: kcBrandAdaptive(context),
@@ -468,7 +481,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 )
               else
                 _ActionButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedDownload04,
+                    size: 18,
+                  ),
                   text: 'Download'.tl,
                   onPressed: download,
                   isLoading: _downloadTask != null,
@@ -476,8 +492,14 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 ),
               if (data!.isLiked != null)
                 _ActionButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedThumbsUp, size: 18),
-                  activeIcon: HugeIcon(icon: HugeIcons.strokeRoundedThumbsUp, size: 20),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedThumbsUp,
+                    size: 18,
+                  ),
+                  activeIcon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedThumbsUp,
+                    size: 20,
+                  ),
                   isActive: isLiked,
                   text:
                       ((data!.likesCount != null)
@@ -489,17 +511,29 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                   iconColor: kcBrandAdaptive(context),
                 ),
               _ActionButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 20),
-                activeIcon: Icon(Icons.favorite, size: 20, color: kcBrandAdaptive(context)),
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedFavourite,
+                  size: 20,
+                ),
+                activeIcon: Icon(
+                  Icons.favorite,
+                  size: 20,
+                  color: kcBrandAdaptive(context),
+                ),
                 isActive: isFavorite || isAddToLocalFav,
-                text: (isFavorite || isAddToLocalFav) ? 'Favorited'.tl : 'Favorite'.tl,
+                text: (isFavorite || isAddToLocalFav)
+                    ? 'Favorited'.tl
+                    : 'Favorite'.tl,
                 onPressed: openFavPanel,
                 onLongPressed: quickFavorite,
                 iconColor: kcBrandColor,
               ),
               if (comicSource.commentsLoader != null)
                 _ActionButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedComment01,
+                    size: 18,
+                  ),
                   text: (comic.commentCount ?? 'Comments'.tl).toString(),
                   onPressed: showComments,
                   iconColor: kcBrandAdaptive(context),
@@ -586,7 +620,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
         );
       } else {
         groupName = chapters.groups.elementAt(h.group! - 1);
-        epName = chapters.getGroupByIndex(h.group! - 1).values.elementAt(h.ep - 1);
+        epName = chapters
+            .getGroupByIndex(h.group! - 1)
+            .values
+            .elementAt(h.ep - 1);
       }
     } catch (_) {
       // 章节信息解析失败时保留兜底文案（E<n>），不影响进度展示。
@@ -603,8 +640,9 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     }
     final desc = comic.description!;
     // 估算行数：超过 4 行时才提供折叠，避免短描述也显示「展开」按钮。
-    final baseStyle = DefaultTextStyle.of(context).style
-        .merge(const TextStyle(height: 1.5));
+    final baseStyle = DefaultTextStyle.of(
+      context,
+    ).style.merge(const TextStyle(height: 1.5));
     final painter = TextPainter(
       text: TextSpan(text: desc, style: baseStyle),
       textDirection: TextDirection.ltr,
@@ -631,9 +669,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               alignment: Alignment.centerLeft,
               child: Button.text(
                 onPressed: () => setState(() => _descExpanded = !_descExpanded),
-                child: Text(
-                  _descExpanded ? "Collapse".tl : "Show more".tl,
-                ),
+                child: Text(_descExpanded ? "Collapse".tl : "Show more".tl),
               ).paddingLeft(8),
             ),
           const SizedBox(height: 16),
@@ -685,8 +721,11 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       final amoled = appdata.isAmoledMode;
       // 用标签文本的稳定哈希取色：同一标签在任何页面/任何启动都是同一颜色，
       // 不再像旧版那样「按出现位置 i++ 取色」导致与卡片/分类页配色对不上。
-      final bgColor =
-          kcTagColor(kcStableHash(text.split(':').last), brightness, amoled: amoled);
+      final bgColor = kcTagColor(
+        kcStableHash(text.split(':').last),
+        brightness,
+        amoled: amoled,
+      );
       final textColor = kcTagTextColor(bgColor);
       final borderColor = bgColor.withValues(alpha: 0.35);
 
@@ -776,13 +815,13 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       return cleaned.isEmpty ? v : cleaned;
     }
 
-  Widget buildWrap({required List<Widget> children}) {
-    return Wrap(
-      runSpacing: 10,
-      spacing: 10,
-      children: children,
-    ).paddingHorizontal(16).paddingBottom(8);
-  }
+    Widget buildWrap({required List<Widget> children}) {
+      return Wrap(
+        runSpacing: 10,
+        spacing: 10,
+        children: children,
+      ).paddingHorizontal(16).paddingBottom(8);
+    }
 
     bool enableTranslation =
         App.locale.languageCode == 'zh' && comicSource.enableTagsTranslate;
@@ -891,10 +930,13 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   void _showCopyMenu(BuildContext context) {
     final renderBox = context.findRenderObject() as RenderBox?;
-    final offset = renderBox?.localToGlobal(Offset(renderBox.size.width, renderBox.size.height));
+    final offset = renderBox?.localToGlobal(
+      Offset(renderBox.size.width, renderBox.size.height),
+    );
     showMenuX(
       context,
-      offset ?? Offset(context.width - 16, kToolbarHeight + context.padding.top),
+      offset ??
+          Offset(context.width - 16, kToolbarHeight + context.padding.top),
       [
         MenuEntry(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 18),
@@ -918,10 +960,13 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   void _showCoverMenu(BuildContext context) {
     final renderBox = context.findRenderObject() as RenderBox?;
-    final offset = renderBox?.localToGlobal(Offset(renderBox.size.width, renderBox.size.height));
+    final offset = renderBox?.localToGlobal(
+      Offset(renderBox.size.width, renderBox.size.height),
+    );
     showMenuX(
       context,
-      offset ?? Offset(context.width - 16, kToolbarHeight + context.padding.top),
+      offset ??
+          Offset(context.width - 16, kToolbarHeight + context.padding.top),
       [
         MenuEntry(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
@@ -1059,11 +1104,7 @@ class _ActionButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isLoading ?? false)
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 1.8),
-                )
+                const KcInlineSpinner(size: 20)
               else
                 (isActive ?? false) ? (activeIcon ?? icon) : icon,
               const SizedBox(width: 8),
@@ -1167,7 +1208,9 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
                         const SizedBox(width: 4),
                         Text(
                           "Downloaded".tl,
-                          style: TextStyle(fontSize: kcCaption).withColor(cs.outline),
+                          style: TextStyle(
+                            fontSize: kcCaption,
+                          ).withColor(cs.outline),
                         ),
                       ],
                     ),
@@ -1232,20 +1275,20 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: Button.filled(
-                  onPressed: () {
-                    if (selected.isEmpty) return;
-                    widget.finishSelect(selected);
-                    context.pop();
-                  },
-                  color: selected.isEmpty
-                      ? context.colorScheme.surfaceContainerHighest
-                      : null,
-                  child: Text(
-                    "${"Download Selected".tl} (${selected.length})",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    onPressed: () {
+                      if (selected.isEmpty) return;
+                      widget.finishSelect(selected);
+                      context.pop();
+                    },
+                    color: selected.isEmpty
+                        ? context.colorScheme.surfaceContainerHighest
+                        : null,
+                    child: Text(
+                      "${"Download Selected".tl} (${selected.length})",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
                 ),
                 const SizedBox(width: 16),
               ],
@@ -1278,7 +1321,9 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
         children: [
           Text(
             "@n selected".tlParams({'n': "${selected.length}"}),
-            style: TextStyle(fontSize: kcCaption).withColor(cs.onSurfaceVariant),
+            style: TextStyle(
+              fontSize: kcCaption,
+            ).withColor(cs.onSurfaceVariant),
           ),
           const Spacer(),
           if (downloaded > 0)
@@ -1338,8 +1383,9 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
       child: Column(
         children: [
           Appbar(
-              title: Text(""),
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor),
+            title: Text(""),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          ),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1352,7 +1398,10 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (title != null)
-                      Text(title ?? "", style: TextStyle(fontSize: kcSectionTitle))
+                      Text(
+                        title ?? "",
+                        style: TextStyle(fontSize: kcSectionTitle),
+                      )
                     else
                       buildContainer(200, 25),
                     const SizedBox(height: 8),
@@ -1371,19 +1420,24 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Row(
                 children: [
-                  Expanded(child: buildContainer(null, 48, radius: kcPillRadius)),
+                  Expanded(
+                    child: buildContainer(null, 48, radius: kcPillRadius),
+                  ),
                   const SizedBox(width: 10),
                   buildContainer(108, 48, radius: kcPillRadius),
                 ],
               ),
             ),
           const Divider(),
+          // 这里原来还有一颗 24dp 的转圈，压在 Shimmer 灰块下面。骨架屏本身
+          // 已经在表达「正在载入」，再补一个独立动画是同一句话说两遍，而且
+          // 灰块会流动、转圈会转，两套节奏叠在一起看着更慢。
+          //
+          // 但只删掉也不行：骨架下方是一片空白，弱网时十几秒没有任何新信号，
+          // 读起来像卡死。换成 7s 后淡入的慢网络提示 —— 正常网络下不出现，
+          // 真慢的时候给的是「还能等」而不是「机器很忙」。
           const SizedBox(height: 8),
-          Center(
-            child: CircularProgressIndicator(
-              strokeWidth: 2.4,
-            ).fixHeight(24).fixWidth(24),
-          ),
+          const SlowLoadingHint(),
         ],
       ),
     );
@@ -1534,7 +1588,9 @@ class _ContinueReadingCard extends StatelessWidget {
                               fontSize: kcCaption,
                               fontWeight: FontWeight.w500,
                               color: cs.onSurfaceVariant,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
                             ),
                           ),
                         ],
@@ -1613,8 +1669,8 @@ class _DownloadStatusCard extends StatelessWidget {
     final barColor = failed
         ? cs.error
         : paused
-                  ? kcAccentColor(context).withValues(alpha: 0.45)
-                  : kcAccentColor(context);
+        ? kcAccentColor(context).withValues(alpha: 0.45)
+        : kcAccentColor(context);
 
     final title = failed ? 'Download failed'.tl : 'Downloading'.tl;
 
@@ -1655,7 +1711,9 @@ class _DownloadStatusCard extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: failed ? cs.errorContainer : cs.surfaceContainerLow,
+                      color: failed
+                          ? cs.errorContainer
+                          : cs.surfaceContainerLow,
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -1716,9 +1774,7 @@ class _DownloadStatusCard extends StatelessWidget {
                             fontSize: kcCaption,
                             fontWeight: FontWeight.w500,
                             color: cs.onSurfaceVariant,
-                            fontFeatures: const [
-                              FontFeature.tabularFigures(),
-                            ],
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ],
@@ -1903,11 +1959,7 @@ class _ReadProgressLine extends StatelessWidget {
                         width: full,
                         color: cs.surfaceContainerHighest,
                       ),
-                      Container(
-                        height: 3,
-                        width: full * pct,
-                        color: accent,
-                      ),
+                      Container(height: 3, width: full * pct, color: accent),
                     ],
                   );
                 },

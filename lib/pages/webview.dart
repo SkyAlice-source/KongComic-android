@@ -239,8 +239,11 @@ class _AppWebviewState extends State<AppWebview> {
       children: [
         Positioned.fill(child: body),
         if (_progress < 1.0)
+          // 首次打开网页时整块区域是空的（没有进度条可读），这里换爬行小人。
+          // 尺寸取 88 而不是整页档 110：WebView 加载常常只有一两秒，小人太大
+          // 反而像卡住。
           const Positioned.fill(
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(child: KcChibiCrawlLoading(charWidth: 88)),
           ),
       ],
     );

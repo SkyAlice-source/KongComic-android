@@ -30,10 +30,16 @@ final _resolver = MimeTypeResolver()
   // zip
   ..addMagicNumber([0x50, 0x4B], 'application/zip')
   // 7z
-  ..addMagicNumber([0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C], 'application/x-7z-compressed')
+  ..addMagicNumber([
+    0x37,
+    0x7A,
+    0xBC,
+    0xAF,
+    0x27,
+    0x1C,
+  ], 'application/x-7z-compressed')
   // rar
-  ..addMagicNumber([0x52, 0x61, 0x72, 0x21, 0x1A, 0x07], 'application/vnd.rar')
-;
+  ..addMagicNumber([0x52, 0x61, 0x72, 0x21, 0x1A, 0x07], 'application/vnd.rar');
 
 /// `mime` 包的扩展名表缺少部分格式（或给出无法用于分享的扩展名），这里补齐。
 const _kExtOverrides = <String, String>{
@@ -112,7 +118,11 @@ FileType? _sniffImageHeader(List<int> data) {
   }
   // ISO-BMFF：`ftyp` box 里的 major / compatible brand
   if (_matchesAt(data, 4, 'ftyp')) {
-    for (var offset = 8; offset + 4 <= data.length && offset < 40; offset += 4) {
+    for (
+      var offset = 8;
+      offset + 4 <= data.length && offset < 40;
+      offset += 4
+    ) {
       final brand = String.fromCharCodes(data.sublist(offset, offset + 4));
       final type = _kFtypBrands[brand];
       if (type != null) return type;

@@ -47,11 +47,11 @@ class LocalPathFallback {
   });
 
   Map<String, dynamic> toJson() => {
-        'originalPath': originalPath,
-        'fallbackPath': fallbackPath,
-        'reason': reason,
-        'time': time.millisecondsSinceEpoch,
-      };
+    'originalPath': originalPath,
+    'fallbackPath': fallbackPath,
+    'reason': reason,
+    'time': time.millisecondsSinceEpoch,
+  };
 
   static LocalPathFallback? fromJson(Object? raw) {
     if (raw is! Map) return null;
@@ -73,8 +73,10 @@ class LocalComic with HistoryMixin implements Comic {
     try {
       return List.from(jsonDecode(value as String));
     } catch (_) {
-      Log.error("LocalComic",
-          "Failed to decode list: ${value.toString().length > 200 ? value.toString().substring(0, 200) : value}");
+      Log.error(
+        "LocalComic",
+        "Failed to decode list: ${value.toString().length > 200 ? value.toString().substring(0, 200) : value}",
+      );
       return [];
     }
   }
@@ -143,36 +145,32 @@ class LocalComic with HistoryMixin implements Comic {
     ComicType? comicType,
     List<String>? downloadedChapters,
     DateTime? createdAt,
-  }) =>
-      LocalComic(
-        id: id ?? this.id,
-        title: title ?? this.title,
-        subtitle: subtitle ?? this.subtitle,
-        tags: tags ?? this.tags,
-        directory: directory ?? this.directory,
-        chapters: chapters ?? this.chapters,
-        cover: cover ?? this.cover,
-        comicType: comicType ?? this.comicType,
-        downloadedChapters: downloadedChapters ?? this.downloadedChapters,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  }) => LocalComic(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    subtitle: subtitle ?? this.subtitle,
+    tags: tags ?? this.tags,
+    directory: directory ?? this.directory,
+    chapters: chapters ?? this.chapters,
+    cover: cover ?? this.cover,
+    comicType: comicType ?? this.comicType,
+    downloadedChapters: downloadedChapters ?? this.downloadedChapters,
+    createdAt: createdAt ?? this.createdAt,
+  );
 
   LocalComic.fromRow(Row row)
-      : id = row[0] as String,
-        title = row[1] as String,
-        subtitle = row[2] as String,
-        tags = _safeDecodeList(row[3]),
-        directory = row[4] as String,
-        chapters = _safeDecodeChapters(row[5]),
-        cover = row[6] as String,
-        comicType = ComicType(row[7] as int),
-        downloadedChapters = _safeDecodeList(row[8]),
-        createdAt = DateTime.fromMillisecondsSinceEpoch(row[9] as int);
+    : id = row[0] as String,
+      title = row[1] as String,
+      subtitle = row[2] as String,
+      tags = _safeDecodeList(row[3]),
+      directory = row[4] as String,
+      chapters = _safeDecodeChapters(row[5]),
+      cover = row[6] as String,
+      comicType = ComicType(row[7] as int),
+      downloadedChapters = _safeDecodeList(row[8]),
+      createdAt = DateTime.fromMillisecondsSinceEpoch(row[9] as int);
 
-  File get coverFile => File(FilePath.join(
-        baseDir,
-        cover,
-      ));
+  File get coverFile => File(FilePath.join(baseDir, cover));
 
   String get baseDir => (directory.contains('/') || directory.contains('\\'))
       ? directory
@@ -209,10 +207,10 @@ class LocalComic with HistoryMixin implements Comic {
     if (downloadedChapters.isNotEmpty && chapters != null) {
       final chapters = this.chapters!;
       if (chapters.isGrouped) {
-        for (int i=0; i<chapters.groupCount; i++) {
+        for (int i = 0; i < chapters.groupCount; i++) {
           var group = chapters.getGroupByIndex(i);
           var keys = group.keys.toList();
-          for (int j=0; j<keys.length; j++) {
+          for (int j = 0; j < keys.length; j++) {
             var chapterId = keys[j];
             if (downloadedChapters.contains(chapterId)) {
               firstDownloadedChapter = j + 1;
@@ -240,15 +238,10 @@ class LocalComic with HistoryMixin implements Comic {
         initialChapter: history?.ep ?? firstDownloadedChapter,
         initialPage: history?.page,
         initialChapterGroup: history?.group ?? firstDownloadedChapterGroup,
-        history: history ??
-            History.fromModel(
-              model: this,
-              ep: 0,
-              page: 0,
-            ),
+        history: history ?? History.fromModel(model: this, ep: 0, page: 0),
         author: subtitle,
         tags: tags,
-      )
+      ),
     );
   }
 
@@ -357,6 +350,7 @@ class LocalManager with ChangeNotifier {
             }
             return n;
           }
+
           count = walk(directory);
         });
       });
@@ -385,7 +379,8 @@ class LocalManager with ChangeNotifier {
     }
     // Reject SAF / content URIs: dart:io Directory cannot operate on URIs.
     if (newPath.startsWith('content://') || newPath.startsWith('file://')) {
-      return "Please pick a regular file system directory, not a document tree".tl;
+      return "Please pick a regular file system directory, not a document tree"
+          .tl;
     }
     var newDir = Directory(newPath);
     bool exists;
@@ -407,9 +402,10 @@ class LocalManager with ChangeNotifier {
     final plainTarget = await _plainPathOf(newDir.path);
     if (p.equals(plainCurrent ?? directory.path, plainTarget ?? newDir.path)) {
       Log.warning(
-          "Local",
-          "Storage path '${newDir.path}' points to the current directory "
-              "'${directory.path}'; skipping migration.");
+        "Local",
+        "Storage path '${newDir.path}' points to the current directory "
+            "'${directory.path}'; skipping migration.",
+      );
       return null;
     }
     // 当前目录是「上次失效后临时切过去的目录」时，里面没有属于用户的文件
@@ -462,8 +458,11 @@ class LocalManager with ChangeNotifier {
   }) async {
     final oldRoot = directory.path;
     try {
-      final copied =
-          await _copyWithStrategy(directory, newDir, overwrite: overwrite);
+      final copied = await _copyWithStrategy(
+        directory,
+        newDir,
+        overwrite: overwrite,
+      );
       // 下一步就是清空旧目录：必须先确认文件真的落到新目录了。
       await _verifyCopy(directory, newDir, copied);
     } catch (e, s) {
@@ -480,8 +479,9 @@ class LocalManager with ChangeNotifier {
       Log.error("IO", "Failed to clean old directory: $e", s);
     }
     try {
-      await File(FilePath.join(App.dataPath, 'local_path'))
-          .writeAsString(newDir.path);
+      await File(
+        FilePath.join(App.dataPath, 'local_path'),
+      ).writeAsString(newDir.path);
     } catch (e, s) {
       Log.error("IO", "Failed to persist local_path: $e", s);
       _resumePausedTasks(paused, null, oldRoot);
@@ -499,7 +499,10 @@ class LocalManager with ChangeNotifier {
   }
 
   void _resumePausedTasks(
-      List<DownloadTask> tasks, String? newRoot, String oldRoot) {
+    List<DownloadTask> tasks,
+    String? newRoot,
+    String oldRoot,
+  ) {
     for (final task in tasks) {
       if (newRoot != null && task.path != null) {
         task.path = _remapRoot(task.path!, oldRoot, newRoot);
@@ -563,7 +566,8 @@ class LocalManager with ChangeNotifier {
                   // exists in the SAF tree, then resolve the file again so
                   // writeAsBytesSync has a valid descriptor to write to.
                   final parent = AndroidDirectory.fromPathSync(
-                      p.dirname(target.path));
+                    p.dirname(target.path),
+                  );
                   parent?.createSync(recursive: true);
                   return AndroidFile.fromPathSync(target.path);
                 })();
@@ -571,8 +575,9 @@ class LocalManager with ChangeNotifier {
                   // 绝不能静默跳过：调用方（迁移 / 收拢外部漫画）把「没抛异常」
                   // 当作复制成功，随后会清空旧目录 —— 文件就真没了。
                   throw FileSystemException(
-                      "Cannot create file in the selected folder",
-                      target.path);
+                    "Cannot create file in the selected folder",
+                    target.path,
+                  );
                 }
                 safFile.writeAsBytesSync(entity.readAsBytesSync());
               } else {
@@ -587,6 +592,7 @@ class LocalManager with ChangeNotifier {
             }
           }
         }
+
         walk(source, destination);
       });
       return copied;
@@ -700,8 +706,11 @@ class LocalManager with ChangeNotifier {
         used.add(name);
         var destination = Directory(FilePath.join(root, name));
         try {
-          final copied =
-              await _copyWithStrategy(source, destination, overwrite: false);
+          final copied = await _copyWithStrategy(
+            source,
+            destination,
+            overwrite: false,
+          );
           // 紧接着就删源目录：先复核文件真的搬过去了。
           await _verifyCopy(source, destination, copied);
           // 只有复制成功才删源，避免两头都不完整。
@@ -730,7 +739,9 @@ class LocalManager with ChangeNotifier {
       }
       if (failed > 0) {
         Log.warning(
-            "Local", "Moved $moved comic(s) into storage path, $failed failed.");
+          "Local",
+          "Moved $moved comic(s) into storage path, $failed failed.",
+        );
       }
       return null;
     } finally {
@@ -777,8 +788,9 @@ class LocalManager with ChangeNotifier {
   static Future<String?> publicStorageRoot() async {
     if (!App.isAndroid) return null;
     try {
-      final path = await const MethodChannel('kong_comic/method_channel')
-          .invokeMethod<String?>('getPublicStorageRoot');
+      final path = await const MethodChannel(
+        'kong_comic/method_channel',
+      ).invokeMethod<String?>('getPublicStorageRoot');
       if (path != null && path.isNotEmpty) return path;
     } catch (e) {
       Log.warning("IO", "Failed to read public storage root: $e");
@@ -795,8 +807,9 @@ class LocalManager with ChangeNotifier {
   static Future<bool> hasAllFilesAccess() async {
     if (!App.isAndroid) return false;
     try {
-      return await const MethodChannel('kong_comic/method_channel')
-              .invokeMethod<bool>('hasAllFilesAccess') ??
+      return await const MethodChannel(
+            'kong_comic/method_channel',
+          ).invokeMethod<bool>('hasAllFilesAccess') ??
           false;
     } catch (e) {
       Log.warning("IO", "Failed to query all-files access: $e");
@@ -813,8 +826,9 @@ class LocalManager with ChangeNotifier {
   static Future<bool> requestStoragePermission() async {
     if (!App.isAndroid) return false;
     try {
-      return await const MethodChannel('kong_comic/method_channel')
-              .invokeMethod<bool>('requestStoragePermission') ??
+      return await const MethodChannel(
+            'kong_comic/method_channel',
+          ).invokeMethod<bool>('requestStoragePermission') ??
           false;
     } catch (e) {
       Log.warning("IO", "Failed to request storage permission: $e");
@@ -823,13 +837,20 @@ class LocalManager with ChangeNotifier {
   }
 
   /// 打开系统的「所有文件访问」设置页，由用户自己决定是否授予。
-  static Future<void> openAllFilesAccessSettings() async {
-    if (!App.isAndroid) return;
+  ///
+  /// 返回是否真的跳转成功。原生侧会按「本应用专属页 → 全部应用列表 → 应用
+  /// 详情」逐级降级，全都打不开时返回 false —— 此时界面必须给出提示，否则
+  /// 用户点完按钮只会看到「什么都没发生」。
+  static Future<bool> openAllFilesAccessSettings() async {
+    if (!App.isAndroid) return false;
     try {
-      await const MethodChannel('kong_comic/method_channel')
-          .invokeMethod('openAllFilesAccessSettings');
+      return await const MethodChannel(
+            'kong_comic/method_channel',
+          ).invokeMethod<bool>('openAllFilesAccessSettings') ??
+          false;
     } catch (e) {
       Log.error("IO", "Failed to open all-files access settings: $e", null);
+      return false;
     }
   }
 
@@ -886,7 +907,10 @@ class LocalManager with ChangeNotifier {
   ///
   /// 之前这里是静默 `path = await findDefaultPath()`：文件还在原目录，界面却
   /// 什么都不剩，用户只会以为数据被 App 弄丢了。现在至少留一条可追踪的记录。
-  Future<void> _fallbackToDefaultPath(String previousPath, String reason) async {
+  Future<void> _fallbackToDefaultPath(
+    String previousPath,
+    String reason,
+  ) async {
     var fallback = await findDefaultPath();
     if (!await canWrite(fallback)) {
       // 兜底中的兜底：App 私有目录几乎不可能写不进去。
@@ -908,15 +932,17 @@ class LocalManager with ChangeNotifier {
     );
     _pendingFallback = record;
     try {
-      File(FilePath.join(App.dataPath, _pathFallbackFile))
-          .writeAsString(jsonEncode(record.toJson()));
+      File(
+        FilePath.join(App.dataPath, _pathFallbackFile),
+      ).writeAsString(jsonEncode(record.toJson()));
     } catch (e, s) {
       Log.error("IO", "Failed to persist invalid path flag: $e", s);
     }
     Log.warning(
-        "Local",
-        "Storage path is unavailable ($reason): '$previousPath'. "
-            "Falling back to '$fallback'. Files are still in the original folder.");
+      "Local",
+      "Storage path is unavailable ($reason): '$previousPath'. "
+          "Falling back to '$fallback'. Files are still in the original folder.",
+    );
     path = fallback;
   }
 
@@ -927,7 +953,9 @@ class LocalManager with ChangeNotifier {
         _pendingFallback = null;
         return;
       }
-      _pendingFallback = LocalPathFallback.fromJson(jsonDecode(file.readAsStringSync()));
+      _pendingFallback = LocalPathFallback.fromJson(
+        jsonDecode(file.readAsStringSync()),
+      );
       if (_pendingFallback == null) {
         // 内容损坏：宁可不提示，也不要拿半截路径去误导用户。
         file.deleteIgnoreError();
@@ -1075,8 +1103,9 @@ class LocalManager with ChangeNotifier {
       return "Cannot write to this directory".tl;
     }
     try {
-      await File(FilePath.join(App.dataPath, 'local_path'))
-          .writeAsString(newPath);
+      await File(
+        FilePath.join(App.dataPath, 'local_path'),
+      ).writeAsString(newPath);
     } catch (e, s) {
       Log.error("IO", "Failed to persist local_path: $e", s);
       return "Failed to save storage path. Please try again.".tl;
@@ -1183,10 +1212,15 @@ class LocalManager with ChangeNotifier {
       // 目标里到底有没有这些文件，否则紧接着清空源目录就是数据丢失。
       await _verifyCopy(source, destination, copied);
       Log.warning(
-          "Local", "Adopted $copied file(s) from '${source.path}' to '${destination.path}'");
+        "Local",
+        "Adopted $copied file(s) from '${source.path}' to '${destination.path}'",
+      );
     } catch (e, s) {
       Log.error(
-          "IO", "Failed to adopt files from '${pending.originalPath}': $e", s);
+        "IO",
+        "Failed to adopt files from '${pending.originalPath}': $e",
+        s,
+      );
       _resumePausedTasks(paused, null, target);
       return "Failed to move comics. Check storage permission and try again."
           .tl;
@@ -1265,7 +1299,9 @@ class LocalManager with ChangeNotifier {
       }
       if (expected > 0) {
         throw FileSystemException(
-            "Nothing was copied into the selected folder", src);
+          "Nothing was copied into the selected folder",
+          src,
+        );
       }
     }
   }
@@ -1287,9 +1323,7 @@ class LocalManager with ChangeNotifier {
   }
 
   Future<void> init() async {
-    _db = sqlite3.open(
-      '${App.dataPath}/local.db',
-    );
+    _db = sqlite3.open('${App.dataPath}/local.db');
     _db.execute('''
       CREATE TABLE IF NOT EXISTS comics (
         id TEXT NOT NULL,
@@ -1306,9 +1340,15 @@ class LocalManager with ChangeNotifier {
       );
     ''');
     // Performance: add indexes for high-frequency query columns
-    _db.execute('CREATE INDEX IF NOT EXISTS idx_comics_type ON comics(comic_type);');
-    _db.execute('CREATE INDEX IF NOT EXISTS idx_comics_directory ON comics(directory);');
-    _db.execute('CREATE INDEX IF NOT EXISTS idx_comics_title ON comics(title);');
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_comics_type ON comics(comic_type);',
+    );
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_comics_directory ON comics(directory);',
+    );
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_comics_title ON comics(title);',
+    );
     await _loadPathFallback();
     if (File(FilePath.join(App.dataPath, 'local_path')).existsSync()) {
       path = File(FilePath.join(App.dataPath, 'local_path')).readAsStringSync();
@@ -1348,7 +1388,9 @@ class LocalManager with ChangeNotifier {
       try {
         // 必须 await：不 await 的话 Future 的失败会绕过 catch 被完全吞掉，
         // 用户设置的存储路径丢失后无处排查（对齐 1145 行同类错误的日志规范）。
-        await File(FilePath.join(App.dataPath, 'local_path')).writeAsString(path);
+        await File(
+          FilePath.join(App.dataPath, 'local_path'),
+        ).writeAsString(path);
       } catch (e, s) {
         Log.error("IO", "Failed to persist local_path: $e", s);
       }
@@ -1397,10 +1439,10 @@ class LocalManager with ChangeNotifier {
   }
 
   void remove(String id, ComicType comicType) {
-    _db.execute(
-      'DELETE FROM comics WHERE id = ? AND comic_type = ?;',
-      [id, comicType.value],
-    );
+    _db.execute('DELETE FROM comics WHERE id = ? AND comic_type = ?;', [
+      id,
+      comicType.value,
+    ]);
     notifyListeners();
   }
 
@@ -1412,8 +1454,7 @@ class LocalManager with ChangeNotifier {
   /// 本地漫画总数（COUNT 聚合查询，收藏总览「本地」入口卡徽标用；
   /// 比 [getComics] 全量拉行再数长度便宜得多）。
   int get totalComics {
-    return _db.select('SELECT COUNT(*) FROM comics;').first.values.first
-        as int;
+    return _db.select('SELECT COUNT(*) FROM comics;').first.values.first as int;
   }
 
   List<LocalComic> getComics(LocalSortType sortType) {
@@ -1431,18 +1472,24 @@ class LocalManager with ChangeNotifier {
 
   /// Paginated version of [getComics].
   /// Returns at most [limit] comics starting from [offset].
-  List<LocalComic> getComicsPaginated(LocalSortType sortType,
-      {required int limit, required int offset}) {
+  List<LocalComic> getComicsPaginated(
+    LocalSortType sortType, {
+    required int limit,
+    required int offset,
+  }) {
     final orderBy = switch (sortType) {
       LocalSortType.name => 'title ASC',
       LocalSortType.timeAsc => 'created_at ASC',
       LocalSortType.timeDesc => 'created_at DESC',
     };
-    var res = _db.select('''
+    var res = _db.select(
+      '''
       SELECT * FROM comics
       ORDER BY $orderBy
       LIMIT ? OFFSET ?;
-    ''', [limit, offset]);
+    ''',
+      [limit, offset],
+    );
     return res.map((row) => LocalComic.fromRow(row)).toList();
   }
 
@@ -1503,11 +1550,14 @@ class LocalManager with ChangeNotifier {
   }
 
   LocalComic? findByName(String name) {
-    final res = _db.select('''
+    final res = _db.select(
+      '''
       SELECT * FROM comics
       WHERE title = ? OR directory = ?
       LIMIT 1;
-    ''', [name, name]);
+    ''',
+      [name, name],
+    );
     if (res.isEmpty) {
       return null;
     }
@@ -1518,48 +1568,66 @@ class LocalManager with ChangeNotifier {
     // Support search prefixes: src:xxx, id:xxx
     if (keyword.startsWith('src:')) {
       var sourceKey = keyword.substring(4);
-      final res = _db.select('''
+      final res = _db.select(
+        '''
         SELECT * FROM comics
         WHERE comic_type = ?
         ORDER BY created_at DESC;
-      ''', [sourceKey.hashCode]);
+      ''',
+        [sourceKey.hashCode],
+      );
       return res.map((row) => LocalComic.fromRow(row)).toList();
     }
     if (keyword.startsWith('id:')) {
       var comicId = keyword.substring(3);
-      final res = _db.select('''
+      final res = _db.select(
+        '''
         SELECT * FROM comics
         WHERE id = ?
         ORDER BY created_at DESC;
-      ''', [comicId]);
+      ''',
+        [comicId],
+      );
       return res.map((row) => LocalComic.fromRow(row)).toList();
     }
-    final res = _db.select('''
+    final res = _db.select(
+      '''
       SELECT * FROM comics
       WHERE title LIKE ? OR tags LIKE ? OR subtitle LIKE ?
       ORDER BY created_at DESC;
-    ''', ['%$keyword%', '%$keyword%', '%$keyword%']);
+    ''',
+      ['%$keyword%', '%$keyword%', '%$keyword%'],
+    );
     return res.map((row) => LocalComic.fromRow(row)).toList();
   }
 
   /// Paginated version of [search].
-  List<LocalComic> searchPaginated(String keyword,
-      {required int limit, required int offset}) {
-    final res = _db.select('''
+  List<LocalComic> searchPaginated(
+    String keyword, {
+    required int limit,
+    required int offset,
+  }) {
+    final res = _db.select(
+      '''
       SELECT * FROM comics
       WHERE title LIKE ? OR tags LIKE ? OR subtitle LIKE ?
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?;
-    ''', ['%$keyword%', '%$keyword%', '%$keyword%', limit, offset]);
+    ''',
+      ['%$keyword%', '%$keyword%', '%$keyword%', limit, offset],
+    );
     return res.map((row) => LocalComic.fromRow(row)).toList();
   }
 
   /// Count of comics matching the search keyword.
   int searchCount(String keyword) {
-    final res = _db.select('''
+    final res = _db.select(
+      '''
       SELECT COUNT(*) as cnt FROM comics
       WHERE title LIKE ? OR tags LIKE ? OR subtitle LIKE ?;
-    ''', ['%$keyword%', '%$keyword%', '%$keyword%']);
+    ''',
+      ['%$keyword%', '%$keyword%', '%$keyword%'],
+    );
     return res.first['cnt'] as int;
   }
 
@@ -1600,41 +1668,52 @@ class LocalManager with ChangeNotifier {
     return files.map((e) => "file://${e.path}").toList();
   }
 
-  bool isDownloaded(String id, ComicType type,
-      [int? ep, ComicChapters? chapters]) {
+  bool isDownloaded(
+    String id,
+    ComicType type, [
+    int? ep,
+    ComicChapters? chapters,
+  ]) {
     var comic = find(id, type);
     if (comic == null) return false;
     if (comic.chapters == null || ep == null) return true;
     if (chapters != null) {
       if (comic.chapters?.length != chapters.length) {
         // update
-        add(LocalComic(
-          id: comic.id,
-          title: comic.title,
-          subtitle: comic.subtitle,
-          tags: comic.tags,
-          directory: comic.directory,
-          chapters: chapters,
-          cover: comic.cover,
-          comicType: comic.comicType,
-          downloadedChapters: comic.downloadedChapters,
-          createdAt: comic.createdAt,
-        ));
+        add(
+          LocalComic(
+            id: comic.id,
+            title: comic.title,
+            subtitle: comic.subtitle,
+            tags: comic.tags,
+            directory: comic.directory,
+            chapters: chapters,
+            cover: comic.cover,
+            comicType: comic.comicType,
+            downloadedChapters: comic.downloadedChapters,
+            createdAt: comic.createdAt,
+          ),
+        );
       }
     }
-    return comic.downloadedChapters
-        .contains((chapters ?? comic.chapters)!.ids.elementAtOrNull(ep - 1));
+    return comic.downloadedChapters.contains(
+      (chapters ?? comic.chapters)!.ids.elementAtOrNull(ep - 1),
+    );
   }
 
   List<DownloadTask> downloadingTasks = [];
 
   bool isDownloading(String id, ComicType type) {
-    return downloadingTasks
-        .any((element) => element.id == id && element.comicType == type);
+    return downloadingTasks.any(
+      (element) => element.id == id && element.comicType == type,
+    );
   }
 
   Future<Directory> findValidDirectory(
-      String id, ComicType type, String name) async {
+    String id,
+    ComicType type,
+    String name,
+  ) async {
     var comic = find(id, type);
     if (comic != null) {
       return Directory(FilePath.join(path, comic.directory));
@@ -1718,11 +1797,12 @@ class LocalManager with ChangeNotifier {
       await _saveTasksLock!.future;
     }
     _saveTasksLock = Completer();
-    
+
     try {
       var tasks = downloadingTasks.map((e) => e.toJson()).toList();
-      await File(FilePath.join(App.dataPath, 'downloading_tasks.json'))
-          .writeAsString(jsonEncode(tasks));
+      await File(
+        FilePath.join(App.dataPath, 'downloading_tasks.json'),
+      ).writeAsString(jsonEncode(tasks));
     } finally {
       _saveTasksLock!.complete();
       _saveTasksLock = null;
@@ -1765,14 +1845,16 @@ class LocalManager with ChangeNotifier {
     var allComics = getComics(sort);
     var categories = appdata.settings['comicCategories'] as Map? ?? {};
     var comicIds = (categories[category] as List? ?? [])
-        .map((e) => e.toString()).toSet();
+        .map((e) => e.toString())
+        .toSet();
     return allComics.where((c) => comicIds.contains(c.id)).toList();
   }
 
   /// Add a comic to a category
   void addToCategory(String comicId, String category) {
     var categories = Map<String, dynamic>.from(
-        appdata.settings['comicCategories'] as Map? ?? {});
+      appdata.settings['comicCategories'] as Map? ?? {},
+    );
     var list = List<String>.from(categories[category] as List? ?? []);
     if (!list.contains(comicId)) {
       list.add(comicId);
@@ -1786,7 +1868,8 @@ class LocalManager with ChangeNotifier {
   /// Remove a comic from a category
   void removeFromCategory(String comicId, String category) {
     var categories = Map<String, dynamic>.from(
-        appdata.settings['comicCategories'] as Map? ?? {});
+      appdata.settings['comicCategories'] as Map? ?? {},
+    );
     var list = List<String>.from(categories[category] as List? ?? []);
     list.remove(comicId);
     if (list.isEmpty) {
@@ -1808,7 +1891,8 @@ class LocalManager with ChangeNotifier {
   /// Rename a category
   void renameCategory(String oldName, String newName) {
     var categories = Map<String, dynamic>.from(
-        appdata.settings['comicCategories'] as Map? ?? {});
+      appdata.settings['comicCategories'] as Map? ?? {},
+    );
     categories[newName] = categories[oldName];
     categories.remove(oldName);
     appdata.settings['comicCategories'] = categories;
@@ -1819,7 +1903,8 @@ class LocalManager with ChangeNotifier {
   /// Delete a category
   void deleteCategory(String name) {
     var categories = Map<String, dynamic>.from(
-        appdata.settings['comicCategories'] as Map? ?? {});
+      appdata.settings['comicCategories'] as Map? ?? {},
+    );
     categories.remove(name);
     appdata.settings['comicCategories'] = categories;
     appdata.saveData();
@@ -1875,24 +1960,19 @@ class LocalManager with ChangeNotifier {
     if (newDownloadedChapters.isNotEmpty) {
       _db.execute(
         'UPDATE comics SET downloadedChapters = ? WHERE id = ? AND comic_type = ?;',
-        [
-          jsonEncode(newDownloadedChapters),
-          c.id,
-          c.comicType.value,
-        ],
+        [jsonEncode(newDownloadedChapters), c.id, c.comicType.value],
       );
     } else {
-      _db.execute(
-        'DELETE FROM comics WHERE id = ? AND comic_type = ?;',
-        [c.id, c.comicType.value],
-      );
+      _db.execute('DELETE FROM comics WHERE id = ? AND comic_type = ?;', [
+        c.id,
+        c.comicType.value,
+      ]);
     }
     var shouldRemovedDirs = <Directory>[];
     for (var chapter in chapters) {
-      var dir = Directory(FilePath.join(
-        c.baseDir,
-        getChapterDirectoryName(chapter),
-      ));
+      var dir = Directory(
+        FilePath.join(c.baseDir, getChapterDirectoryName(chapter)),
+      );
       if (dir.existsSync()) {
         shouldRemovedDirs.add(dir);
       }
@@ -1903,7 +1983,11 @@ class LocalManager with ChangeNotifier {
     notifyListeners();
   }
 
-  void batchDeleteComics(List<LocalComic> comics, [bool removeFileOnDisk = true, bool removeFavoriteAndHistory = true]) {
+  void batchDeleteComics(
+    List<LocalComic> comics, [
+    bool removeFileOnDisk = true,
+    bool removeFavoriteAndHistory = true,
+  ]) {
     if (comics.isEmpty) {
       return;
     }
@@ -1918,13 +2002,12 @@ class LocalManager with ChangeNotifier {
             shouldRemovedDirs.add(dir);
           }
         }
-        _db.execute(
-          'DELETE FROM comics WHERE id = ? AND comic_type = ?;',
-          [c.id, c.comicType.value],
-        );
+        _db.execute('DELETE FROM comics WHERE id = ? AND comic_type = ?;', [
+          c.id,
+          c.comicType.value,
+        ]);
       }
-    }
-    catch(e, s) {
+    } catch (e, s) {
       Log.error("LocalManager", "Failed to batch delete comics: $e", s);
       _db.execute('ROLLBACK;');
       return;
@@ -1965,9 +2048,15 @@ class LocalManager with ChangeNotifier {
     var builder = StringBuffer();
     for (var i = 0; i < name.length; i++) {
       var char = name[i];
-      if (char == '/' || char == '\\' || char == ':' || char == '*' ||
-          char == '?'
-          || char == '"' || char == '<' || char == '>' || char == '|') {
+      if (char == '/' ||
+          char == '\\' ||
+          char == ':' ||
+          char == '*' ||
+          char == '?' ||
+          char == '"' ||
+          char == '<' ||
+          char == '>' ||
+          char == '|') {
         builder.write('_');
       } else {
         builder.write(char);

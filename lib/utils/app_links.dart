@@ -11,12 +11,12 @@ void handleLinks() {
 }
 
 Future<bool> handleAppLink(Uri uri) async {
-  for(var source in ComicSource.all()) {
-    if(source.linkHandler != null) {
-      if(source.linkHandler!.domains.contains(uri.host)) {
+  for (var source in ComicSource.all()) {
+    if (source.linkHandler != null) {
+      if (source.linkHandler!.domains.contains(uri.host)) {
         var id = source.linkHandler!.linkToId(uri.toString());
-        if(id != null) {
-          if(App.mainNavigatorKey == null) {
+        if (id != null) {
+          if (App.mainNavigatorKey == null) {
             await Future.delayed(const Duration(milliseconds: 200));
           }
           App.mainNavigatorKey!.currentContext?.to(() {

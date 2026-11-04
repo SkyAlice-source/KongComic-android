@@ -168,6 +168,11 @@ class Appdata with Init {
       settings._data["deviceId"] = const Uuid().v4();
       await saveData(false);
     }
+    // 旧版本「列表加载方式」存的是大写 'Continuous'，选项键已统一成小写。
+    // 不迁移的话设置页会显示原始值而不是中文选项，看起来像没选中任何一项。
+    if (settings['comicListDisplayMode'] == 'Continuous') {
+      settings._data['comicListDisplayMode'] = 'continuous';
+    }
     try {
       var implicitDataFile = File(FilePath.join(dataPath, 'implicitData.json'));
       if (await implicitDataFile.exists()) {

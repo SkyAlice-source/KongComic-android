@@ -44,8 +44,9 @@ class BookshelfLayout {
   /// Assign (or unassign with [categoryId] == null) a folder to a category.
   static void setCategory(String folder, String? categoryId) {
     final raw = appdata.settings[_kFolderCategory];
-    final map =
-        (raw is Map) ? Map<String, String>.from(raw) : <String, String>{};
+    final map = (raw is Map)
+        ? Map<String, String>.from(raw)
+        : <String, String>{};
     if (categoryId == null) {
       map.remove(folder);
     } else {
@@ -88,8 +89,7 @@ class BookshelfLayout {
   /// Reorders categories to match the given [ids] order.
   static void reorderCategories(List<String> ids) {
     final list = categories;
-    list.sort((a, b) =>
-        ids.indexOf(a['id']!).compareTo(ids.indexOf(b['id']!)));
+    list.sort((a, b) => ids.indexOf(a['id']!).compareTo(ids.indexOf(b['id']!)));
     appdata.settings[_kCategories] = list;
     appdata.saveData();
   }

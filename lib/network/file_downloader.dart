@@ -82,7 +82,7 @@ class FileDownloader {
     // whole resume. Missing blocks are treated as "re-download from scratch".
     _blocks = [
       for (var e in lines)
-        if (_DownloadBlock.isValid(e)) _DownloadBlock.fromString(e)
+        if (_DownloadBlock.isValid(e)) _DownloadBlock.fromString(e),
     ];
   }
 
@@ -141,12 +141,14 @@ class FileDownloader {
     var length = res.headers["content-length"]?.first;
     if (length == null) {
       throw Exception(
-          "Download failed: server did not provide Content-Length for $url");
+        "Download failed: server did not provide Content-Length for $url",
+      );
     }
     final parsedLength = int.tryParse(length);
     if (parsedLength == null) {
       throw Exception(
-          "Download failed: invalid Content-Length '$length' for $url");
+        "Download failed: invalid Content-Length '$length' for $url",
+      );
     }
     _fileSize = parsedLength;
 
@@ -154,8 +156,10 @@ class FileDownloader {
 
     if (File("$savePath.download").existsSync()) {
       await _readStatus();
-      _currentBytes = _blocks.fold<int>(0,
-          (previousValue, element) => previousValue + element.downloadedBytes);
+      _currentBytes = _blocks.fold<int>(
+        0,
+        (previousValue, element) => previousValue + element.downloadedBytes,
+      );
       // The .download state claims the file is already complete, but a prior
       // run may have been killed before the OS flushed every block to disk.
       // Verify the End Of Central Directory record really exists; if not,
@@ -244,8 +248,13 @@ class FileDownloader {
           statusTimer = null;
           return;
         }
-        resultStream.add(DownloadingStatus(
-            _currentBytes, _fileSize, _currentBytes - _lastBytes));
+        resultStream.add(
+          DownloadingStatus(
+            _currentBytes,
+            _fileSize,
+            _currentBytes - _lastBytes,
+          ),
+        );
         _lastBytes = _currentBytes;
       });
 
@@ -262,8 +271,12 @@ class FileDownloader {
 
       // check if download is finished
       if (_currentBytes < _fileSize) {
-        resultStream.addError(Exception("Download failed: Expected $_fileSize bytes, "
-            "but only $_currentBytes bytes downloaded."));
+        resultStream.addError(
+          Exception(
+            "Download failed: Expected $_fileSize bytes, "
+            "but only $_currentBytes bytes downloaded.",
+          ),
+        );
         resultStream.close();
         return;
       }
@@ -288,9 +301,11 @@ class FileDownloader {
         await Future.any(running);
         continue;
       }
-      final block = _blocks.firstWhereOrNull((element) =>
-          !element.downloading &&
-          element.end - element.start > element.downloadedBytes);
+      final block = _blocks.firstWhereOrNull(
+        (element) =>
+            !element.downloading &&
+            element.end - element.start > element.downloadedBytes,
+      );
       if (block == null) {
         break;
       }
@@ -433,8 +448,11 @@ class DownloadingStatus {
   final int bytesPerSecond;
 
   const DownloadingStatus(
-      this.downloadedBytes, this.totalBytes, this.bytesPerSecond,
-      [this.isFinished = false]);
+    this.downloadedBytes,
+    this.totalBytes,
+    this.bytesPerSecond, [
+    this.isFinished = false,
+  ]);
 
   @override
   String toString() {
@@ -456,10 +474,10 @@ class _DownloadBlock {
   }
 
   _DownloadBlock.fromString(String str)
-      : start = int.parse(str.split("-")[0]),
-        end = int.parse(str.split("-")[1]),
-        downloadedBytes = int.parse(str.split("-")[2]),
-        downloading = false;
+    : start = int.parse(str.split("-")[0]),
+      end = int.parse(str.split("-")[1]),
+      downloadedBytes = int.parse(str.split("-")[2]),
+      downloading = false;
 
   /// True only when [str] was produced by [toString] and can be parsed back
   /// without throwing (exactly three numeric fields). Used to skip corrupt

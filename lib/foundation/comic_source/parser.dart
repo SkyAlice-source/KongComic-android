@@ -215,12 +215,12 @@ class ComicSourceParser {
       // search/comic 块可能整体缺失（极简源），直接 _getValue 点路径会
       // TypeError，先做存在性下钻。
       (_checkExists("search.enableTagsSuggestions")
-          ? _getValue("search.enableTagsSuggestions")
-          : null) ??
+              ? _getValue("search.enableTagsSuggestions")
+              : null) ??
           false,
       (_checkExists("comic.enableTagsTranslate")
-          ? _getValue("comic.enableTagsTranslate")
-          : null) ??
+              ? _getValue("comic.enableTagsTranslate")
+              : null) ??
           false,
       _parseStarRatingFunc(),
       _parseArchiveDownloader(),
@@ -877,7 +877,7 @@ class ComicSourceParser {
         return const Res.error("Not login");
       }
       var res = await func();
-      if (res.error && res.errorMessage!.contains("Login expired")) {
+      if (res.error && (res.errorMessage ?? "").contains("Login expired")) {
         var reLoginRes = await ComicSource.find(_key!)!.reLogin();
         if (!reLoginRes) {
           return const Res.error("Login expired and re-login failed");
@@ -1069,7 +1069,7 @@ class ComicSourceParser {
       }
 
       var res = await func();
-      if (res.error && res.errorMessage!.contains("Login expired")) {
+      if (res.error && (res.errorMessage ?? "").contains("Login expired")) {
         var reLoginRes = await ComicSource.find(_key!)!.reLogin();
         if (!reLoginRes) {
           return const Res.error("Login expired and re-login failed");
@@ -1117,7 +1117,7 @@ class ComicSourceParser {
       }
 
       var res = await func();
-      if (res.error && res.errorMessage!.contains("Login expired")) {
+      if (res.error && (res.errorMessage ?? "").contains("Login expired")) {
         var reLoginRes = await ComicSource.find(_key!)!.reLogin();
         if (!reLoginRes) {
           return const Res.error("Login expired and re-login failed");

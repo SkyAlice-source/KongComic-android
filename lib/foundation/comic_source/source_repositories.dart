@@ -83,11 +83,7 @@ class SourceOrigin {
 /// origin recorded) into that repository, so later updates no longer need the
 /// slow "scan every catalog" fallback.
 class SourceUpdateTarget {
-  const SourceUpdateTarget({
-    required this.url,
-    this.repository,
-    this.entry,
-  });
+  const SourceUpdateTarget({required this.url, this.repository, this.entry});
 
   final String url;
 
@@ -158,7 +154,7 @@ class SourceRepositories extends ChangeNotifier {
   static const Duration catalogTtl = Duration(minutes: 5);
 
   final Map<String, ({SourceCatalog catalog, DateTime expiresAt})>
-      _catalogCache = {};
+  _catalogCache = {};
 
   /// Drop a cached catalog, e.g. after its URL was edited.
   void invalidate(String? repositoryId) {
@@ -191,7 +187,8 @@ class SourceRepositories extends ChangeNotifier {
     var updatable = 0;
     for (final entry in catalog.entries) {
       final installed = ComicSource.find(entry.key);
-      if (installed != null && compareSemVer(entry.version, installed.version)) {
+      if (installed != null &&
+          compareSemVer(entry.version, installed.version)) {
         updatable++;
       }
     }
@@ -219,8 +216,7 @@ class SourceRepositories extends ChangeNotifier {
         .toList();
   }
 
-  SourceRepository? find(String? id) =>
-      all.firstWhereOrNull((r) => r.id == id);
+  SourceRepository? find(String? id) => all.firstWhereOrNull((r) => r.id == id);
 
   SourceRepository? linkedRepository(String sourceKey) =>
       find(originFor(sourceKey)?.repositoryId);
@@ -295,13 +291,14 @@ class SourceRepositories extends ChangeNotifier {
         (appdata.settings['comicSourceSeededDefaults'] as List? ?? [])
             .whereType<String>()
             .toSet();
-    final records =
-        (appdata.settings['comicSourceRepositories'] as List? ?? [])
-            .whereType<Map>()
-            .map((record) => Map<String, String>.from(
-                  record.map((key, value) => MapEntry(key, value.toString())),
-                ))
-            .toList();
+    final records = (appdata.settings['comicSourceRepositories'] as List? ?? [])
+        .whereType<Map>()
+        .map(
+          (record) => Map<String, String>.from(
+            record.map((key, value) => MapEntry(key, value.toString())),
+          ),
+        )
+        .toList();
     final present = records
         .map((record) => record['url'] ?? '')
         .where((url) => url.isNotEmpty)
@@ -513,8 +510,7 @@ class SourceRepositories extends ChangeNotifier {
       if (all.any(
         (r) =>
             r.id != id &&
-            Uri.tryParse(r.url)?.removeFragment().toString() ==
-                normalizedUrl,
+            Uri.tryParse(r.url)?.removeFragment().toString() == normalizedUrl,
       )) {
         throw "This repository address has already been added.".tl;
       }
@@ -540,8 +536,9 @@ class SourceRepositories extends ChangeNotifier {
     } else {
       repositories[index] = repository;
     }
-    appdata.settings['comicSourceRepositories'] =
-        repositories.map((r) => r.toJson()).toList();
+    appdata.settings['comicSourceRepositories'] = repositories
+        .map((r) => r.toJson())
+        .toList();
     appdata.saveData();
     notifyListeners();
     return repository;
@@ -558,8 +555,9 @@ class SourceRepositories extends ChangeNotifier {
     if (newIndex < 0 || newIndex >= repositories.length) return;
     final moved = repositories.removeAt(oldIndex);
     repositories.insert(newIndex, moved);
-    appdata.settings['comicSourceRepositories'] =
-        repositories.map((r) => r.toJson()).toList();
+    appdata.settings['comicSourceRepositories'] = repositories
+        .map((r) => r.toJson())
+        .toList();
     await appdata.saveData();
     notifyListeners();
   }
@@ -572,10 +570,7 @@ class SourceRepositories extends ChangeNotifier {
     return order is List ? order.whereType<String>().toList() : const [];
   }
 
-  Future<void> setCatalogOrder(
-    String repositoryId,
-    List<String> keys,
-  ) async {
+  Future<void> setCatalogOrder(String repositoryId, List<String> keys) async {
     final current = appdata.settings['sourceCatalogOrder'];
     final orders = current is Map
         ? Map<String, dynamic>.from(current)
@@ -618,14 +613,13 @@ class SourceRepositories extends ChangeNotifier {
       appdata.settings['comicSourceOrigins'] = {
         for (final entry in currentOrigins.entries)
           entry.key:
-              entry.value is Map &&
-                      entry.value['repositoryId'] == repository.id
-                  ? {
-                      ...entry.value as Map,
-                      'repositoryId': null,
-                      'repositoryName': repository.name,
-                    }
-                  : entry.value,
+              entry.value is Map && entry.value['repositoryId'] == repository.id
+              ? {
+                  ...entry.value as Map,
+                  'repositoryId': null,
+                  'repositoryName': repository.name,
+                }
+              : entry.value,
       };
     }
     appdata.settings['comicSourceRepositories'] = all
@@ -697,8 +691,11 @@ class SourceRepositories extends ChangeNotifier {
     if (repository != null) {
       try {
         final catalog = await load(repository, fresh: true);
-        final match = matchEntry(catalog.entries, source,
-            preferredUrl: recordedUrl);
+        final match = matchEntry(
+          catalog.entries,
+          source,
+          preferredUrl: recordedUrl,
+        );
         if (match != null) {
           return SourceUpdateTarget(
             url: match.url,
@@ -714,7 +711,7 @@ class SourceRepositories extends ChangeNotifier {
                 "name": repository.name,
               })
             : "Multiple variants found. Choose a source in the repository again."
-                .tl;
+                  .tl;
       } catch (e) {
         linkedFailure = "Could not load @name: @error".tlParams({
           "name": repository.name,
@@ -738,8 +735,11 @@ class SourceRepositories extends ChangeNotifier {
         // 单个仓库不可达不应该挡住其它仓库里的同名源。
         continue;
       }
-      final exact = matchEntry(catalog.entries, source,
-          preferredUrl: recordedUrl);
+      final exact = matchEntry(
+        catalog.entries,
+        source,
+        preferredUrl: recordedUrl,
+      );
       if (exact != null) {
         return SourceUpdateTarget(
           url: exact.url,
@@ -807,8 +807,11 @@ class SourceRepositories extends ChangeNotifier {
         final repository = find(repositoryId);
         final catalog = catalogs[repositoryId];
         if (repository != null && catalog != null) {
-          chosen =
-              matchEntry(catalog.entries, source, preferredUrl: recordedUrl);
+          chosen = matchEntry(
+            catalog.entries,
+            source,
+            preferredUrl: recordedUrl,
+          );
           if (chosen != null) {
             if (compareSemVer(chosen.version, source.version)) {
               updates[source.key] = chosen.version;
@@ -828,9 +831,7 @@ class SourceRepositories extends ChangeNotifier {
       for (final repository in repositories) {
         final entries = catalogs[repository.id]?.entries;
         if (entries == null) continue;
-        final match = entries
-            .where((e) => e.key == source.key)
-            .toList();
+        final match = entries.where((e) => e.key == source.key).toList();
         if (match.isEmpty) continue;
         final exact = matchEntry(match, source, preferredUrl: recordedUrl);
         if (exact != null) {
@@ -856,7 +857,9 @@ class SourceRepositories extends ChangeNotifier {
     final repositoryFailures = <String>[];
     for (final repository in repositories) {
       final failure = loadFailures[repository.id];
-      if (failure != null) repositoryFailures.add('${repository.name}: $failure');
+      if (failure != null) {
+        repositoryFailures.add('${repository.name}: $failure');
+      }
     }
 
     return SourceUpdateCheck(

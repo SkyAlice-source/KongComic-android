@@ -13,14 +13,17 @@ class _ExploreSettingsState extends State<ExploreSettings> {
     return SmoothCustomScrollView(
       slivers: [
         SliverAppbar(title: Text("Explore".tl)),
+        // 三段：怎么显示 → 显示哪些页 / 搜哪些源 → 屏蔽什么。
+        // 以前 15 项平铺，页面管理和关键词过滤夹在显示项中间，找「屏蔽词」
+        // 得先滚过一堆开关。
+        _SettingPartTitle(
+          title: "Display".tl,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedGridView, size: 20),
+        ),
         SelectSetting(
           title: "Display mode of comic tile".tl,
           settingKey: "comicDisplayMode",
           optionTranslation: {"detailed": "Detailed".tl, "brief": "Brief".tl},
-        ).toSliver(),
-        _SwitchSetting(
-          title: "Show recommendations on explore".tl,
-          settingKey: "showRecommendOnExplore",
         ).toSliver(),
         _SliderSetting(
           title: "Size of comic tile".tl,
@@ -29,6 +32,32 @@ class _ExploreSettingsState extends State<ExploreSettings> {
           min: 0.5,
           max: 1.5,
         ).toSliver(),
+        _SwitchSetting(
+          title: "Show recommendations on explore".tl,
+          settingKey: "showRecommendOnExplore",
+        ).toSliver(),
+        _SwitchSetting(
+          title: "Show favorite status on comic tile".tl,
+          settingKey: "showFavoriteStatusOnTile",
+        ).toSliver(),
+        _SwitchSetting(
+          title: "Show history on comic tile".tl,
+          settingKey: "showHistoryStatusOnTile",
+        ).toSliver(),
+        SelectSetting(
+          title: "Load mode of comic list".tl,
+          settingKey: "comicListDisplayMode",
+          optionTranslation: {
+            "paging": "Paging".tl,
+            "continuous": "Continuous".tl,
+          },
+        ).toSliver(),
+        // 主页轮播来源（来自本地收藏文件夹）
+        _HomeBannerFoldersSetting().toSliver(),
+        _SettingPartTitle(
+          title: "Pages & search".tl,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 20),
+        ),
         _PopupWindowSetting(
           title: "Explore Pages".tl,
           builder: setExplorePagesWidget,
@@ -44,22 +73,6 @@ class _ExploreSettingsState extends State<ExploreSettings> {
         _PopupWindowSetting(
           title: "Search Sources".tl,
           builder: setSearchSourcesWidget,
-        ).toSliver(),
-        _SwitchSetting(
-          title: "Show favorite status on comic tile".tl,
-          settingKey: "showFavoriteStatusOnTile",
-        ).toSliver(),
-        _SwitchSetting(
-          title: "Show history on comic tile".tl,
-          settingKey: "showHistoryStatusOnTile",
-        ).toSliver(),
-        _PopupWindowSetting(
-          title: "Keyword blocking".tl,
-          builder: () => const _ManageBlockingWordView(),
-        ).toSliver(),
-        _PopupWindowSetting(
-          title: "Comment keyword blocking".tl,
-          builder: () => const _ManageBlockingCommentWordView(),
         ).toSliver(),
         SelectSetting(
           title: "Default Search Target".tl,
@@ -85,16 +98,18 @@ class _ExploreSettingsState extends State<ExploreSettings> {
             'japanese': "Japanese",
           },
         ).toSliver(),
-        SelectSetting(
-          title: "Load mode of comic list".tl,
-          settingKey: "comicListDisplayMode",
-          optionTranslation: {
-            "paging": "Paging".tl,
-            "Continuous": "Continuous".tl,
-          },
+        _SettingPartTitle(
+          title: "Content filtering".tl,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 20),
+        ),
+        _PopupWindowSetting(
+          title: "Keyword blocking".tl,
+          builder: () => const _ManageBlockingWordView(),
         ).toSliver(),
-        // 主页轮播来源（来自本地收藏文件夹）
-        _HomeBannerFoldersSetting().toSliver(),
+        _PopupWindowSetting(
+          title: "Comment keyword blocking".tl,
+          builder: () => const _ManageBlockingCommentWordView(),
+        ).toSliver(),
       ],
     );
   }

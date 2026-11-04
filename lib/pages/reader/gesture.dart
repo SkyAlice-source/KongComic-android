@@ -9,7 +9,8 @@ class _ReaderGestureDetector extends StatefulWidget {
   State<_ReaderGestureDetector> createState() => _ReaderGestureDetectorState();
 }
 
-class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDetector> {
+class _ReaderGestureDetectorState
+    extends AutomaticGlobalState<_ReaderGestureDetector> {
   late TapGestureRecognizer _tapGestureRecognizer;
 
   static const _kDoubleTapMaxTime = Duration(milliseconds: 200);
@@ -17,7 +18,6 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
   static const _kLongPressMinTime = Duration(milliseconds: 500);
 
   static const _kDoubleTapMaxDistanceSquared = 20.0 * 20.0;
-
 
   final _dragListeners = <_DragListener>[];
 
@@ -89,7 +89,9 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
         }
         Future.delayed(_kLongPressMinTime, () {
           if (!mounted) return;
-          if (_lastTapPointer == event.pointer && fingers == 1 && _lastTapMoveDistance != null) {
+          if (_lastTapPointer == event.pointer &&
+              fingers == 1 &&
+              _lastTapMoveDistance != null) {
             if (_lastTapMoveDistance!.distanceSquared >= 20.0 * 20.0) {
               _dragInProgress = true;
               for (var dragListener in _dragListeners) {
@@ -147,11 +149,13 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
     }
     if (context.reader.mode.key.startsWith('gallery')) {
       if (forward) {
-        if (!context.reader.toNextPage() && !context.reader.isLastChapterOfGroup) {
+        if (!context.reader.toNextPage() &&
+            !context.reader.isLastChapterOfGroup) {
           context.reader.toNextChapter();
         }
       } else {
-        if (!context.reader.toPrevPage() && !context.reader.isFirstChapterOfGroup) {
+        if (!context.reader.toPrevPage() &&
+            !context.reader.isFirstChapterOfGroup) {
           context.reader.toPrevChapter(toLastPage: true);
         }
       }
@@ -166,8 +170,11 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
 
   bool _dragInProgress = false;
 
-  bool get _enableDoubleTapToZoom =>
-      appdata.settings.getReaderSetting(reader.cid, reader.type.sourceKey, 'enableDoubleTapToZoom');
+  bool get _enableDoubleTapToZoom => appdata.settings.getReaderSetting(
+    reader.cid,
+    reader.type.sourceKey,
+    'enableDoubleTapToZoom',
+  );
 
   void onTapUp(TapUpDetails event) {
     if (event.globalPosition == Offset.zero &&
@@ -216,15 +223,18 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
         return;
       }
       if (appdata.settings.getReaderSetting(
-          reader.cid, reader.type.sourceKey, 'enableTapToTurnPages')) {
+        reader.cid,
+        reader.type.sourceKey,
+        'enableTapToTurnPages',
+      )) {
         final layout = appdata.settings['tapZoneLayout'] ?? 'default';
         final width = context.width;
         final height = context.height;
         final x = location.dx;
         final y = location.dy;
-        
+
         bool isLeft = false, isRight = false, isTop = false, isBottom = false;
-        
+
         switch (layout) {
           case 'leftRight':
             isLeft = x < width * 0.3;
@@ -244,12 +254,15 @@ class _ReaderGestureDetectorState extends AutomaticGlobalState<_ReaderGestureDet
             isTop = y < height * 0.3;
             isBottom = y > height * 0.7;
         }
-        
+
         bool isCenter = false;
         var prev = () => context.reader.toPrevPage();
         var next = () => context.reader.toNextPage();
         if (appdata.settings.getReaderSetting(
-            reader.cid, reader.type.sourceKey, 'reverseTapToTurnPages')) {
+          reader.cid,
+          reader.type.sourceKey,
+          'reverseTapToTurnPages',
+        )) {
           prev = () => context.reader.toNextPage();
           next = () => context.reader.toPrevPage();
         }

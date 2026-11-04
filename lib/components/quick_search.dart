@@ -170,11 +170,7 @@ class _QuickSearchDialogState extends State<QuickSearchDialog> {
           // 也是这条路径，这里不用为了它去重建一个完整 History 对象）。
           image: h.cover.isEmpty
               ? null
-              : CachedImageProvider(
-                  h.cover,
-                  sourceKey: h.sourceKey,
-                  cid: h.id,
-                ),
+              : CachedImageProvider(h.cover, sourceKey: h.sourceKey, cid: h.id),
           title: h.title,
           meta: [chapter, date].where((e) => e.isNotEmpty).join(' · '),
           hay: '${h.title} ${h.subtitle}',

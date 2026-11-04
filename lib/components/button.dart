@@ -1,8 +1,11 @@
 part of 'components.dart';
 
 class HoverBox extends StatefulWidget {
-  const HoverBox(
-      {super.key, required this.child, this.borderRadius = BorderRadius.zero});
+  const HoverBox({
+    super.key,
+    required this.child,
+    this.borderRadius = BorderRadius.zero,
+  });
 
   final Widget child;
 
@@ -24,10 +27,11 @@ class _HoverBoxState extends State<HoverBox> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-            color: isHover
-                ? Theme.of(context).colorScheme.surfaceContainerLow
-                : null,
-            borderRadius: widget.borderRadius),
+          color: isHover
+              ? Theme.of(context).colorScheme.surfaceContainerLow
+              : null,
+          borderRadius: widget.borderRadius,
+        ),
         child: widget.child,
       ),
     );
@@ -37,75 +41,77 @@ class _HoverBoxState extends State<HoverBox> {
 enum ButtonType { filled, outlined, text, normal }
 
 class Button extends StatefulWidget {
-  const Button(
-      {super.key,
-      required this.type,
-      required this.child,
-      this.isLoading = false,
-      this.width,
-      this.height,
-      this.padding,
-      this.color,
-      this.onPressedAt,
-      required this.onPressed});
+  const Button({
+    super.key,
+    required this.type,
+    required this.child,
+    this.isLoading = false,
+    this.width,
+    this.height,
+    this.padding,
+    this.color,
+    this.onPressedAt,
+    required this.onPressed,
+  });
 
-  const Button.filled(
-      {super.key,
-      required this.child,
-      required this.onPressed,
-      this.width,
-      this.height,
-      this.padding,
-      this.color,
-      this.onPressedAt,
-      this.isLoading = false})
-      : type = ButtonType.filled;
+  const Button.filled({
+    super.key,
+    required this.child,
+    required this.onPressed,
+    this.width,
+    this.height,
+    this.padding,
+    this.color,
+    this.onPressedAt,
+    this.isLoading = false,
+  }) : type = ButtonType.filled;
 
-  const Button.outlined(
-      {super.key,
-      required this.child,
-      required this.onPressed,
-      this.width,
-      this.height,
-      this.padding,
-      this.color,
-      this.onPressedAt,
-      this.isLoading = false})
-      : type = ButtonType.outlined;
+  const Button.outlined({
+    super.key,
+    required this.child,
+    required this.onPressed,
+    this.width,
+    this.height,
+    this.padding,
+    this.color,
+    this.onPressedAt,
+    this.isLoading = false,
+  }) : type = ButtonType.outlined;
 
-  const Button.text(
-      {super.key,
-      required this.child,
-      required this.onPressed,
-      this.width,
-      this.height,
-      this.padding,
-      this.color,
-      this.onPressedAt,
-      this.isLoading = false})
-      : type = ButtonType.text;
+  const Button.text({
+    super.key,
+    required this.child,
+    required this.onPressed,
+    this.width,
+    this.height,
+    this.padding,
+    this.color,
+    this.onPressedAt,
+    this.isLoading = false,
+  }) : type = ButtonType.text;
 
-  const Button.normal(
-      {super.key,
-      required this.child,
-      required this.onPressed,
-      this.width,
-      this.height,
-      this.padding,
-      this.color,
-      this.onPressedAt,
-      this.isLoading = false})
-      : type = ButtonType.normal;
+  const Button.normal({
+    super.key,
+    required this.child,
+    required this.onPressed,
+    this.width,
+    this.height,
+    this.padding,
+    this.color,
+    this.onPressedAt,
+    this.isLoading = false,
+  }) : type = ButtonType.normal;
 
-  static Widget icon(
-      {Key? key,
-        required Widget icon,
-        required VoidCallback onPressed,
-        double? size,
-        Color? color,
-        String? tooltip,
-        bool isLoading = false,
-        HitTestBehavior behavior = HitTestBehavior.deferToChild}) {
+  static Widget icon({
+    Key? key,
+    required Widget icon,
+    required VoidCallback onPressed,
+    double? size,
+    Color? color,
+    String? tooltip,
+    bool isLoading = false,
+    HitTestBehavior behavior = HitTestBehavior.deferToChild,
+  }) {
     return _IconButton(
       key: key,
       icon: icon,
@@ -155,8 +161,7 @@ class _ButtonState extends State<Button> {
 
   @override
   Widget build(BuildContext context) {
-    var padding = widget.padding ??
-        const EdgeInsets.symmetric(horizontal: 16);
+    var padding = widget.padding ?? const EdgeInsets.symmetric(horizontal: 16);
     var width = widget.width;
     if (width != null) {
       width = width - padding.horizontal;
@@ -166,21 +171,18 @@ class _ButtonState extends State<Button> {
       height = height - padding.vertical;
     }
     Widget child = IconTheme(
-      data: IconThemeData(
-        color: textColor,
-      ),
+      data: IconThemeData(color: textColor),
       child: DefaultTextStyle(
-        style: TextStyle(
-          color: textColor,
-          fontSize: kcBody,
-        ),
+        style: TextStyle(color: textColor, fontSize: kcBody),
         child: isLoading
-            ? CircularProgressIndicator(
-          color: widget.type == ButtonType.filled
-              ? kcOnAccentColor
-              : kcBrandAdaptive(context),
-          strokeWidth: 1.8,
-        ).fixWidth(16).fixHeight(16)
+            // 按钮里的转圈跟文字同色：实心按钮上是白色，其余跟品牌色。
+            // 尺寸固定 16，不再让按钮高度决定它多大。
+            ? KcInlineSpinner(
+                size: 16,
+                color: widget.type == ButtonType.filled
+                    ? kcOnAccentColor
+                    : kcBrandAdaptive(context),
+              )
             : widget.child,
       ),
     );
@@ -191,68 +193,67 @@ class _ButtonState extends State<Button> {
       button: true,
       enabled: !isLoading,
       child: MouseRegion(
-      onEnter: (_) => setState(() => isHover = true),
-      onExit: (_) => setState(() => isHover = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () {
-          if (isLoading) return;
-          widget.onPressed();
-          if (widget.onPressedAt != null) {
-            var renderBox = context.findRenderObject() as RenderBox;
-            var offset = renderBox.localToGlobal(Offset.zero);
-            widget.onPressedAt!(offset);
-          }
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: padding,
-          constraints: const BoxConstraints(
-            minWidth: 76,
-            minHeight: 32,
-          ),
-          decoration: BoxDecoration(
-            color: buttonColor,
-            borderRadius: BorderRadius.circular(kcRadius16),
-            boxShadow: (isHover && !isLoading && (widget.type == ButtonType.filled || widget.type == ButtonType.normal))
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    )
-                  ]
-                : null,
-            border: widget.type == ButtonType.outlined
-                ? Border.all(
-                    color: widget.color ??
-                        Theme.of(context).colorScheme.outlineVariant,
-                    width: 0.6,
-                  )
-                // AMOLED 实心按钮是「深灰底 + 白字」，若不描边就会和同色系的
-                // 弹窗底糊在一起（退出确认弹窗里几乎看不见按钮），补一道发丝线。
-                : (widget.type == ButtonType.filled &&
-                        widget.color == null &&
-                        kcIsAmoled()
-                    ? Border.all(
-                        color: Colors.white.withValues(alpha: 0.14),
-                        width: kcHairline,
-                      )
-                    : null),
-          ),
-          child: AnimatedSize(
+        onEnter: (_) => setState(() => isHover = true),
+        onExit: (_) => setState(() => isHover = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () {
+            if (isLoading) return;
+            widget.onPressed();
+            if (widget.onPressedAt != null) {
+              var renderBox = context.findRenderObject() as RenderBox;
+              var offset = renderBox.localToGlobal(Offset.zero);
+              widget.onPressedAt!(offset);
+            }
+          },
+          child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
-            child: SizedBox(
-              width: width,
-              height: height,
-              child: Center(
-                widthFactor: 1,
-                child: child,
+            padding: padding,
+            constraints: const BoxConstraints(minWidth: 76, minHeight: 32),
+            decoration: BoxDecoration(
+              color: buttonColor,
+              borderRadius: BorderRadius.circular(kcRadius16),
+              boxShadow:
+                  (isHover &&
+                      !isLoading &&
+                      (widget.type == ButtonType.filled ||
+                          widget.type == ButtonType.normal))
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
+                      ),
+                    ]
+                  : null,
+              border: widget.type == ButtonType.outlined
+                  ? Border.all(
+                      color:
+                          widget.color ??
+                          Theme.of(context).colorScheme.outlineVariant,
+                      width: 0.6,
+                    )
+                  // AMOLED 实心按钮是「深灰底 + 白字」，若不描边就会和同色系的
+                  // 弹窗底糊在一起（退出确认弹窗里几乎看不见按钮），补一道发丝线。
+                  : (widget.type == ButtonType.filled &&
+                            widget.color == null &&
+                            kcIsAmoled()
+                        ? Border.all(
+                            color: Colors.white.withValues(alpha: 0.14),
+                            width: kcHairline,
+                          )
+                        : null),
+            ),
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 160),
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: Center(widthFactor: 1, child: child),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -263,7 +264,8 @@ class _ButtonState extends State<Button> {
       // 不再退回 colorScheme.primary —— 浅色下 primary 是用户选的蓝/绿，
       // 会在红主色设计里冒出与品牌无关的蓝按钮（分页「前进」、弹窗确认都踩过）。
       // AMOLED 取 Highest 一档：弹窗底本身是 High 色，同级会糊成一片。
-      var color = widget.color ??
+      var color =
+          widget.color ??
           (kcIsAmoled()
               ? context.colorScheme.surfaceContainerHighest
               : kcAccentColor(context));
@@ -351,40 +353,41 @@ class _IconButtonState extends State<_IconButton> {
       child: widget.icon,
     );
     if (widget.isLoading) {
-      icon = const CircularProgressIndicator(
-        strokeWidth: 1.5,
+      // 图标按钮沿用图标位的尺寸，但收进 16/20 两档，和图标本身对齐。
+      icon = KcInlineSpinner(
+        size: iconSize >= 22 ? 20 : 16,
+        color: widget.color ?? kcBrandAdaptive(context),
       ).paddingAll(2).fixWidth(iconSize).fixHeight(iconSize);
     }
     return Semantics(
       button: true,
       enabled: !widget.isLoading,
       child: MouseRegion(
-      onEnter: (_) => setState(() => isHover = true),
-      onExit: (_) => setState(() => isHover = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: widget.behavior,
-        onTap: () {
-          if (widget.isLoading) return;
-          widget.onPressed();
-        },
-        child: Tooltip(
-          message: widget.tooltip ?? "",
-          child: Container(
-            decoration: BoxDecoration(
-              color: isHover
-                  ? Theme.of(context)
-                  .colorScheme
-                  .outlineVariant
-                  .withValues(alpha: 0.4)
-                  : null,
-              borderRadius: BorderRadius.circular((iconSize + 12) / 2),
+        onEnter: (_) => setState(() => isHover = true),
+        onExit: (_) => setState(() => isHover = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: widget.behavior,
+          onTap: () {
+            if (widget.isLoading) return;
+            widget.onPressed();
+          },
+          child: Tooltip(
+            message: widget.tooltip ?? "",
+            child: Container(
+              decoration: BoxDecoration(
+                color: isHover
+                    ? Theme.of(
+                        context,
+                      ).colorScheme.outlineVariant.withValues(alpha: 0.4)
+                    : null,
+                borderRadius: BorderRadius.circular((iconSize + 12) / 2),
+              ),
+              padding: const EdgeInsets.all(kcSpace6),
+              child: icon,
             ),
-            padding: const EdgeInsets.all(kcSpace6),
-            child: icon,
           ),
         ),
-      ),
       ),
     );
   }
@@ -414,11 +417,7 @@ class _MenuButtonState extends State<MenuButton> {
         onPressed: () {
           var renderBox = context.findRenderObject() as RenderBox;
           var offset = renderBox.localToGlobal(Offset.zero);
-          showMenuX(
-            context,
-            offset,
-            widget.entries,
-          );
+          showMenuX(context, offset, widget.entries);
         },
       ),
     );

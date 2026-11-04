@@ -43,8 +43,7 @@ abstract class GlobalState {
   }
 }
 
-abstract class AutomaticGlobalState<T extends StatefulWidget>
-    extends State<T> {
+abstract class AutomaticGlobalState<T extends StatefulWidget> extends State<T> {
   @override
   @mustCallSuper
   void initState() {

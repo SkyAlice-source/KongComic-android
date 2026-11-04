@@ -125,11 +125,7 @@ class ExploreRecommendPageState
     // 「换一批」：加载中转圈，否则是可点的图标 + 文字。做成方法是因为空状态
     // 与网格状态都要用，且空状态要跟着提示一起居中。
     Widget refreshButton() => _loading
-        ? const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
+        ? const KcInlineSpinner(size: 20)
         : TextButton.icon(
             // 空结果也给「换一批」：源偶尔超时/限流时，整页只剩一句
             // 「暂无推荐」，用户没有重新拉取的入口。

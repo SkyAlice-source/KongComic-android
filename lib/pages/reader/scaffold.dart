@@ -9,8 +9,7 @@ class _ReaderScaffold extends StatefulWidget {
   State<_ReaderScaffold> createState() => _ReaderScaffoldState();
 }
 
-class _ReaderScaffoldState extends State<_ReaderScaffold>
-    with AutoListenMixin {
+class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
   bool _isOpen = false;
 
   // 顶栏的「最小高度」基准。真实高度见 [topBarHeight]：系统字号放大后
@@ -31,14 +30,12 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
   /// 不能用常量，否则横屏下会出现「点了底栏却翻页」的穿透。
   double get bottomBarHeight =>
       MediaQuery.of(context).orientation == Orientation.landscape
-          ? kLandscapeBottomBarHeight
-          : kBottomBarHeight;
+      ? kLandscapeBottomBarHeight
+      : kBottomBarHeight;
 
   /// 当前章节标题（章节数据缺失时为 null）。
-  String? get _currentEpName =>
-      context.reader.widget.chapters?.titles.elementAtOrNull(
-        context.reader.chapter - 1,
-      );
+  String? get _currentEpName => context.reader.widget.chapters?.titles
+      .elementAtOrNull(context.reader.chapter - 1);
 
   /// 顶栏实际高度。
   ///
@@ -54,7 +51,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
     final content = _currentEpName == null
         ? scaler.scale(kcSectionTitle) * kcLineHeightFactor
         : scaler.scale(kcSubtitle) * kcLineHeightFactor +
-            scaler.scale(kcCaption) * kcLineHeightFactor;
+              scaler.scale(kcCaption) * kcLineHeightFactor;
     final estimated = content + 8;
     return estimated > kTopBarHeight ? estimated : kTopBarHeight;
   }
@@ -272,36 +269,41 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
               const BackButton(),
               const SizedBox(width: 8),
               Expanded(
-                child: epName == null ? Text(
-                  context.reader.widget.name,
-                  style: TextStyle(fontSize: kcSectionTitle),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ) : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      context.reader.widget.name,
-                      style: TextStyle(fontSize: kcSubtitle),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      epName,
-                      style: TextStyle(fontSize: kcCaption),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+                child: epName == null
+                    ? Text(
+                        context.reader.widget.name,
+                        style: TextStyle(fontSize: kcSectionTitle),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            context.reader.widget.name,
+                            style: TextStyle(fontSize: kcSubtitle),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            epName,
+                            style: TextStyle(fontSize: kcCaption),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
               ),
               const SizedBox(width: 8),
               if (shouldShowChapterComments())
                 Tooltip(
                   message: "Chapter Comments".tl,
                   child: IconButton(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 20),
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedComment01,
+                      size: 20,
+                    ),
                     onPressed: openChapterComments,
                   ),
                 ),
@@ -309,14 +311,20 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
                 Tooltip(
                   message: "Set as Cover".tl,
                   child: IconButton(
-                    icon: HugeIcon(icon: HugeIcons.strokeRoundedImage02, size: 20),
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedImage02,
+                      size: 20,
+                    ),
                     onPressed: pickPageForCover,
                   ),
                 ),
               Tooltip(
                 message: "Settings".tl,
                 child: IconButton(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 20),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedSettings01,
+                    size: 20,
+                  ),
                   onPressed: openSetting,
                 ),
               ),
@@ -471,7 +479,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
       update();
     } catch (e, stackTrace) {
       Log.error("Image Favorite", e, stackTrace);
-      showToast(message: "Failed to favorite image".tl, context: context, seconds: 1);
+      showToast(
+        message: "Failed to favorite image".tl,
+        context: context,
+        seconds: 1,
+      );
     }
   }
 
@@ -482,14 +494,22 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
       ]);
-      showToast(message: "Portrait lock enabled".tl, context: context, seconds: 1);
+      showToast(
+        message: "Portrait lock enabled".tl,
+        context: context,
+        seconds: 1,
+      );
     } else if (rotation == false) {
       setState(() => rotation = true);
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
-      showToast(message: "Landscape lock enabled".tl, context: context, seconds: 1);
+      showToast(
+        message: "Landscape lock enabled".tl,
+        context: context,
+        seconds: 1,
+      );
     } else {
       setState(() => rotation = null);
       SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -499,13 +519,12 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
 
   void _toggleAutoPage() {
     var wasOn = context.reader.autoPageTurningTimer != null;
-    context.reader.autoPageTurning(
-      context.reader.cid,
-      context.reader.type,
-    );
+    context.reader.autoPageTurning(context.reader.cid, context.reader.type);
     update();
     showToast(
-      message: wasOn ? "Auto page turning stopped".tl : "Auto page turning started".tl,
+      message: wasOn
+          ? "Auto page turning stopped".tl
+          : "Auto page turning started".tl,
       context: context,
       seconds: 1,
     );
@@ -544,8 +563,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
                     rotation == null
                         ? "Screen Rotation".tl
                         : rotation == false
-                            ? "Locked: Portrait".tl
-                            : "Locked: Landscape".tl,
+                        ? "Locked: Portrait".tl
+                        : "Locked: Landscape".tl,
                   ),
                 ],
               ),
@@ -606,7 +625,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
           onPressed: addImageFavorite,
           style: isLiked()
               ? IconButton.styleFrom(
-                  backgroundColor: kcBrandAdaptive(context).withValues(alpha: 0.12),
+                  backgroundColor: kcBrandAdaptive(
+                    context,
+                  ).withValues(alpha: 0.12),
                 )
               : null,
         ),
@@ -844,7 +865,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
     }
     var pageText = "${context.reader.page}/${context.reader.maxPage}";
     var remaining = context.reader.estimatedRemainingSeconds;
-    var timeText = remaining > 0 ? "  ~${(remaining / 60).ceil()}${"min".tl}" : "";
+    var timeText = remaining > 0
+        ? "  ~${(remaining / 60).ceil()}${"min".tl}"
+        : "";
     var text = context.reader.widget.chapters != null
         ? "$epName : $pageText$timeText"
         : "$pageText$timeText";
@@ -869,12 +892,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
             style: TextStyle(
               fontSize: kcBody,
               color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black54,
-                  blurRadius: 3,
-                ),
-              ],
+              shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
             ),
           ),
         ],
@@ -920,7 +938,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
     var (imageIndex, data) = result;
     // 弹窗要显示「原格式」下的真实后缀，先嗅探一次（带上图片 URL 兜底：
     // 极少数图片没有可识别头部，但 URL 上的扩展名可信）。
-    final hint = imageIndex >= 0 && imageIndex < (context.reader.images?.length ?? 0)
+    final hint =
+        imageIndex >= 0 && imageIndex < (context.reader.images?.length ?? 0)
         ? context.reader.images![imageIndex]
         : null;
     final originalExt = detectImageExt(data, nameHint: hint);
@@ -963,10 +982,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
       );
       if (!mounted || result == null) return;
       if (result.paths != null && result.paths!.isNotEmpty) {
-        await Share.shareFiles(
-          paths: result.paths!,
-          mimeTypes: result.mimes,
-        );
+        await Share.shareFiles(paths: result.paths!, mimeTypes: result.mimes);
         return;
       }
       final imageIndex = result.index;
@@ -979,7 +995,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
       var fileType = detectFileType(data, nameHint: hint);
       var filename =
           "${safeShareFileName(context.reader.widget.name)}_EP${context.reader.chapter}_P${imageIndex + 1}${fileType.ext}";
-      await Share.shareFile(data: data, filename: filename, mime: fileType.mime);
+      await Share.shareFile(
+        data: data,
+        filename: filename,
+        mime: fileType.mime,
+      );
     } catch (e) {
       // 不再退回「分享文字」—— 那会让用户拿到一段没法看的文本却以为分享成功。
       if (mounted) {
@@ -1136,7 +1156,8 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
           if (key == "quickCollectImage") {
             addDragListener();
           }
-          if (key == "showChapterComments" || key == "showChapterCommentsAtEnd") {
+          if (key == "showChapterComments" ||
+              key == "showChapterCommentsAtEnd") {
             update();
           }
           context.reader.update();
@@ -1234,7 +1255,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
   /// Show a thumbnail grid for image selection
   Future<int?> _showImageThumbnailGrid(List<int> imageIndices) async {
     if (imageIndices.isEmpty) return null;
-    
+
     int? selectedIndex;
     final thumbnailFutures = <String, Future<Uint8List?>>{};
 
@@ -1256,34 +1277,41 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
             itemBuilder: (context, index) {
               final imageIndex = imageIndices[index];
               final imageKey = context.reader.images![imageIndex];
-              
+
               return GestureDetector(
                 onTap: () {
                   selectedIndex = imageIndex;
                   Navigator.of(dialogContext).pop();
                 },
                 child: FutureBuilder<Uint8List?>(
-                  future: thumbnailFutures.putIfAbsent(imageKey, () => _loadThumbnail(imageKey)),
+                  future: thumbnailFutures.putIfAbsent(
+                    imageKey,
+                    () => _loadThumbnail(imageKey),
+                  ),
                   builder: (context, snapshot) {
                     if (snapshot.hasData) {
                       return Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.memory(
-                            snapshot.data!,
-                            fit: BoxFit.cover,
-                          ),
+                          Image.memory(snapshot.data!, fit: BoxFit.cover),
                           if (selectedIndex == imageIndex)
                             const Positioned(
                               right: 4,
                               top: 4,
-                              child: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 24, color: Colors.white),
+                              child: HugeIcon(
+                                icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                                size: 24,
+                                color: Colors.white,
+                              ),
                             ),
                         ],
                       );
                     } else {
+                      // 选图对话框的缩略图格子约 90dp 宽，用 44 的小人：轨道
+                      // 66 还能塞进格子，剪影可辨；换成默认尺寸的转圈时，三列
+                      // 九个格子同时转圈，视觉噪声比内容本身还抢眼。
                       return const Center(
-                        child: CircularProgressIndicator(),
+                        child: KcChibiCrawlLoading(charWidth: 44),
                       );
                     }
                   },
@@ -1300,7 +1328,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold>
         ],
       ),
     );
-    
+
     return selectedIndex;
   }
 
@@ -1422,25 +1450,65 @@ class _BatteryWidgetState extends State<_BatteryWidget> {
     Widget batteryIcon;
 
     if (state == BatteryState.charging) {
-      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryCharging01, size: 16, color: context.colorScheme.onSurface);
+      batteryIcon = HugeIcon(
+        icon: HugeIcons.strokeRoundedBatteryCharging01,
+        size: 16,
+        color: context.colorScheme.onSurface,
+      );
     } else if (batteryLevel >= 96) {
-      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryFull, size: 16, color: context.colorScheme.onSurface);
+      batteryIcon = HugeIcon(
+        icon: HugeIcons.strokeRoundedBatteryFull,
+        size: 16,
+        color: context.colorScheme.onSurface,
+      );
     } else if (batteryLevel >= 84) {
-      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryFull, size: 16, color: context.colorScheme.onSurface);
+      batteryIcon = HugeIcon(
+        icon: HugeIcons.strokeRoundedBatteryFull,
+        size: 16,
+        color: context.colorScheme.onSurface,
+      );
     } else if (batteryLevel >= 72) {
-      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryFull, size: 16, color: context.colorScheme.onSurface);
+      batteryIcon = HugeIcon(
+        icon: HugeIcons.strokeRoundedBatteryFull,
+        size: 16,
+        color: context.colorScheme.onSurface,
+      );
     } else if (batteryLevel >= 60) {
-      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryLow, size: 16, color: context.colorScheme.onSurface);
+      batteryIcon = HugeIcon(
+        icon: HugeIcons.strokeRoundedBatteryLow,
+        size: 16,
+        color: context.colorScheme.onSurface,
+      );
     } else if (batteryLevel >= 48) {
-      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryLow, size: 16, color: context.colorScheme.onSurface);
+      batteryIcon = HugeIcon(
+        icon: HugeIcons.strokeRoundedBatteryLow,
+        size: 16,
+        color: context.colorScheme.onSurface,
+      );
     } else if (batteryLevel >= 36) {
-      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryEmpty, size: 16, color: context.colorScheme.onSurface);
+      batteryIcon = HugeIcon(
+        icon: HugeIcons.strokeRoundedBatteryEmpty,
+        size: 16,
+        color: context.colorScheme.onSurface,
+      );
     } else if (batteryLevel >= 24) {
-      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryEmpty, size: 16, color: context.colorScheme.onSurface);
+      batteryIcon = HugeIcon(
+        icon: HugeIcons.strokeRoundedBatteryEmpty,
+        size: 16,
+        color: context.colorScheme.onSurface,
+      );
     } else if (batteryLevel >= 12) {
-      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryEmpty, size: 16, color: context.colorScheme.onSurface);
+      batteryIcon = HugeIcon(
+        icon: HugeIcons.strokeRoundedBatteryEmpty,
+        size: 16,
+        color: context.colorScheme.onSurface,
+      );
     } else {
-      batteryIcon = HugeIcon(icon: HugeIcons.strokeRoundedBatteryLow, size: 16, color: Colors.red);
+      batteryIcon = HugeIcon(
+        icon: HugeIcons.strokeRoundedBatteryLow,
+        size: 16,
+        color: Colors.red,
+      );
     }
 
     return Row(
@@ -1480,7 +1548,10 @@ class _ClockWidgetState extends State<_ClockWidget> {
     super.initState();
     _currentTime = _getCurrentTime();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) { timer.cancel(); return; }
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       final time = _getCurrentTime();
       if (_currentTime != time) {
         setState(() {
@@ -1526,8 +1597,10 @@ class _ClockWidgetState extends State<_ClockWidget> {
 class _ImagePickerResult {
   final int? index;
   final Uint8List? data;
+
   /// Multi-select share: temp file paths of all selected pages.
   final List<String>? paths;
+
   /// 与 [paths] 一一对应的 mime，用于分享时显式声明类型。
   final List<String>? mimes;
   const _ImagePickerResult({this.index, this.data, this.paths, this.mimes});
@@ -1558,7 +1631,8 @@ class _ChapterImagePickerPage extends StatefulWidget {
   });
 
   @override
-  State<_ChapterImagePickerPage> createState() => _ChapterImagePickerPageState();
+  State<_ChapterImagePickerPage> createState() =>
+      _ChapterImagePickerPageState();
 }
 
 class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
@@ -1568,14 +1642,17 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
 
   /// Multi-select mode (only used when [widget.allowSelectAll] is true).
   final Set<int> _selected = {};
+
   /// 在 [didChangeDependencies] 里用 initialScrollOffset 创建（需要 MediaQuery
   /// 的宽度来估算格子高度），因此这里先留空，build 时已必然初始化完毕。
   ScrollController? _scrollController;
 
   /// Images already held in memory: from cache preload OR on-demand download.
   final Map<int, Uint8List> _loadedImages = {};
+
   /// Indices whose image came from local cache (shown, but not in [_loadedImages]).
   final Set<int> _cachedLoaded = {};
+
   /// Indices currently being downloaded on demand (shows a spinner).
   final Set<int> _loading = {};
 
@@ -1673,7 +1750,9 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
       }
     } catch (e, s) {
       Log.error("Load reader image", e, s);
-      if (mounted) showToast(message: "Failed to load image".tl, context: context);
+      if (mounted) {
+        showToast(message: "Failed to load image".tl, context: context);
+      }
     } finally {
       if (mounted) setState(() => _loading.remove(index));
     }
@@ -1768,12 +1847,26 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
       );
       if (!mounted) return;
       if (success) {
-        showToast(message: "Cover updated successfully".tl, context: context, seconds: 1);
+        showToast(
+          message: "Cover updated successfully".tl,
+          context: context,
+          seconds: 1,
+        );
       } else {
-        showToast(message: "Failed to update cover".tl, context: context, seconds: 1);
+        showToast(
+          message: "Failed to update cover".tl,
+          context: context,
+          seconds: 1,
+        );
       }
     } catch (e) {
-      if (mounted) showToast(message: "Failed to update cover".tl, context: context, seconds: 1);
+      if (mounted) {
+        showToast(
+          message: "Failed to update cover".tl,
+          context: context,
+          seconds: 1,
+        );
+      }
     }
   }
 
@@ -1782,9 +1875,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     return Scaffold(
       // 复用标准 Appbar：返回键 ArrowLeft01(←)、玻璃模糊，与全站一致；
       // 默认 leading 即返回箭头（原 CloseButton × 改为 ←）。
-      appBar: Appbar(
-        title: Text(widget.title.tl),
-      ),
+      appBar: Appbar(title: Text(widget.title.tl)),
       body: Stack(
         children: [
           GridView.builder(
@@ -1793,7 +1884,10 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
               6,
               6,
               6,
-              6 + kBottomNavigationBarHeight + MediaQuery.of(context).padding.bottom + 16,
+              6 +
+                  kBottomNavigationBarHeight +
+                  MediaQuery.of(context).padding.bottom +
+                  16,
             ),
             addAutomaticKeepAlives: false,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -1817,8 +1911,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
             ),
         ],
       ),
-      bottomNavigationBar:
-          widget.allowSelectAll ? _buildActionBar() : null,
+      bottomNavigationBar: widget.allowSelectAll ? _buildActionBar() : null,
     );
   }
 
@@ -1878,10 +1971,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
         Container(
           decoration: selected
               ? BoxDecoration(
-                  border: Border.all(
-                    color: kcAccentColor(context),
-                    width: 2.5,
-                  ),
+                  border: Border.all(color: kcAccentColor(context), width: 2.5),
                   borderRadius: BorderRadius.circular(kcRadius6),
                 )
               : null,
@@ -1929,20 +2019,13 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             border: selected
-                ? Border.all(
-                    color: kcAccentColor(context),
-                    width: 2.5,
-                  )
+                ? Border.all(color: kcAccentColor(context), width: 2.5)
                 : null,
             borderRadius: BorderRadius.circular(kcRadius6),
           ),
           child: Center(
             child: loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const KcInlineSpinner(size: 16)
                 : Text(
                     "${index + 1}",
                     style: TextStyle(
@@ -1959,57 +2042,57 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
   }
 
   Widget _pageNumberBadge(int page) => Positioned(
-        bottom: 4,
-        left: 4,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(kcRadius4),
-          ),
-          child: Text(
-            "$page",
-            style: const TextStyle(color: Colors.white, fontSize: kcFont11),
-          ),
-        ),
-      );
+    bottom: 4,
+    left: 4,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(kcRadius4),
+      ),
+      child: Text(
+        "$page",
+        style: const TextStyle(color: Colors.white, fontSize: kcFont11),
+      ),
+    ),
+  );
 
   Widget _currentBadge() => Positioned(
-        top: 4,
-        left: 4,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-          decoration: BoxDecoration(
-            color: kcAccentColor(context),
-            borderRadius: BorderRadius.circular(kcRadius4),
-          ),
-          child: Text(
-            "Current".tl,
-            style: TextStyle(
-              color: kcOnAccentColor,
-              // 徽标类下限 11sp：10sp 的中文在缩略图上几乎读不出来。
-              fontSize: kcFont11,
-            ),
-          ),
+    top: 4,
+    left: 4,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: kcAccentColor(context),
+        borderRadius: BorderRadius.circular(kcRadius4),
+      ),
+      child: Text(
+        "Current".tl,
+        style: TextStyle(
+          color: kcOnAccentColor,
+          // 徽标类下限 11sp：10sp 的中文在缩略图上几乎读不出来。
+          fontSize: kcFont11,
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _selectedTick() => Positioned(
-        top: 4,
-        right: 4,
-        child: Container(
-          decoration: BoxDecoration(
-            color: kcAccentColor(context),
-            shape: BoxShape.circle,
-          ),
-          padding: const EdgeInsets.all(3),
-          child: HugeIcon(
-            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-            size: 14,
-            color: kcOnAccentColor,
-          ),
-        ),
-      );
+    top: 4,
+    right: 4,
+    child: Container(
+      decoration: BoxDecoration(
+        color: kcAccentColor(context),
+        shape: BoxShape.circle,
+      ),
+      padding: const EdgeInsets.all(3),
+      child: HugeIcon(
+        icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+        size: 14,
+        color: kcOnAccentColor,
+      ),
+    ),
+  );
 
   Widget _buildActionBar() {
     final total = widget.images.length;
@@ -2026,7 +2109,10 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
                 child: Text(
                   count == 0
                       ? "".tl
-                      : "@count/@total".tlParams({"count": count, "total": total}),
+                      : "@count/@total".tlParams({
+                          "count": count,
+                          "total": total,
+                        }),
                   style: TextStyle(
                     fontSize: kcCaption,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -2097,10 +2183,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      HugeIcon(
-                        icon: HugeIcons.strokeRoundedShare01,
-                        size: 14,
-                      ),
+                      HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 14),
                       const SizedBox(width: 6),
                       Text(
                         "Share (@count)".tlParams({"count": count}),

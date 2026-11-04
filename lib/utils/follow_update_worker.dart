@@ -37,8 +37,9 @@ Future<void> initFollowUpdateWorker() async {
     }
     final days = followUpdateIntervalDays;
     final signature = "$days";
-    final alreadyScheduled =
-        await Workmanager().isScheduledByUniqueName(followUpdateTaskKey);
+    final alreadyScheduled = await Workmanager().isScheduledByUniqueName(
+      followUpdateTaskKey,
+    );
     if (alreadyScheduled &&
         appdata.implicitData[_scheduledSignatureKey] == signature) {
       return;
@@ -52,8 +53,10 @@ Future<void> initFollowUpdateWorker() async {
     );
     appdata.implicitData[_scheduledSignatureKey] = signature;
     appdata.writeImplicitData();
-    Log.info("FollowUpdates",
-        "Scheduled background follow-up check every $days day(s)");
+    Log.info(
+      "FollowUpdates",
+      "Scheduled background follow-up check every $days day(s)",
+    );
   } catch (e, s) {
     Log.error("FollowUpdates", "Failed to schedule background check: $e\n$s");
   }
@@ -97,7 +100,10 @@ Future<void> runBackgroundFollowUpdateCheck() async {
     try {
       canNotify = await AppNotifications.isAllowed;
     } catch (e) {
-      Log.warning("FollowUpdates", "Notification availability check failed: $e");
+      Log.warning(
+        "FollowUpdates",
+        "Notification availability check failed: $e",
+      );
     }
 
     int? session;
@@ -129,8 +135,10 @@ Future<void> runBackgroundFollowUpdateCheck() async {
         );
       }
     }
-    Log.info("FollowUpdates",
-        "Background check finished: $updated updated, $errors errors");
+    Log.info(
+      "FollowUpdates",
+      "Background check finished: $updated updated, $errors errors",
+    );
   } catch (e, s) {
     Log.error("FollowUpdates", "Background check failed: $e\n$s");
   }

@@ -65,8 +65,7 @@ class UpdateHashException implements Exception {
   const UpdateHashException(this.expected, this.actual);
 
   @override
-  String toString() =>
-      "APK SHA-256 mismatch (expected $expected, got $actual)";
+  String toString() => "APK SHA-256 mismatch (expected $expected, got $actual)";
 }
 
 /// Thrown when the APK is intact but the system installer refused to open it.
@@ -244,8 +243,9 @@ class AppUpdate {
         final m = markerMatches[i];
         final lang = m.group(1)!;
         final start = m.end;
-        final end =
-            i + 1 < markerMatches.length ? markerMatches[i + 1].start : body.length;
+        final end = i + 1 < markerMatches.length
+            ? markerMatches[i + 1].start
+            : body.length;
         blocks[lang] = _stripDetailsTags(body.substring(start, end));
       }
       return blocks;
@@ -340,12 +340,10 @@ class AppUpdate {
       return cleaned;
     }
     final target = _targetLang();
-    final picked = blocks[target] ??
+    final picked =
+        blocks[target] ??
         blocks['en'] ??
-        blocks.values.firstWhere(
-          (s) => s.trim().isNotEmpty,
-          orElse: () => '',
-        );
+        blocks.values.firstWhere((s) => s.trim().isNotEmpty, orElse: () => '');
     final trimmed = picked.trim();
     // CI used to fall back to a bare "Release 1.5.14" placeholder when the
     // changelog file was missing. Rendering that is worse than showing nothing:
@@ -404,7 +402,8 @@ class AppUpdate {
         );
       } on DioException catch (e) {
         // Retry on timeout and connection errors; rethrow others immediately.
-        final retryable = e.type == DioExceptionType.connectionTimeout ||
+        final retryable =
+            e.type == DioExceptionType.connectionTimeout ||
             e.type == DioExceptionType.sendTimeout ||
             e.type == DioExceptionType.receiveTimeout ||
             e.type == DioExceptionType.connectionError ||
@@ -475,11 +474,7 @@ class AppUpdate {
       if (name.isEmpty || url.isEmpty) continue;
       if (!name.endsWith(".apk")) continue;
       var matchedAbi = false;
-      for (final abi in const [
-        "arm64-v8a",
-        "armeabi-v7a",
-        "x86_64",
-      ]) {
+      for (final abi in const ["arm64-v8a", "armeabi-v7a", "x86_64"]) {
         if (name.contains(abi)) {
           downloads[abi] = url;
           matchedAbi = true;
@@ -598,10 +593,7 @@ class AppUpdate {
     if (!_isValidApk(apk)) {
       throw const UpdateVerifyException();
     }
-    return App.installApkFromDownloads(
-      apk.path,
-      "KongComic-$version.apk",
-    );
+    return App.installApkFromDownloads(apk.path, "KongComic-$version.apk");
   }
 
   /// Core download-and-install logic for the direct GitHub asset URL.
@@ -685,13 +677,9 @@ class AppUpdate {
           } else if (handle != null && handle._stalled) {
             completer.completeError(const UpdateStalledException());
           } else if (handle != null && handle._canceled) {
-            completer.completeError(
-              StateError("Download canceled by user"),
-            );
+            completer.completeError(StateError("Download canceled by user"));
           } else {
-            completer.completeError(
-              Exception("Download stopped unexpectedly"),
-            );
+            completer.completeError(Exception("Download stopped unexpectedly"));
           }
         },
       );

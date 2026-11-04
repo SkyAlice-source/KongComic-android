@@ -1,13 +1,15 @@
 part of 'components.dart';
 
 class SideBarRoute<T> extends PopupRoute<T> {
-  SideBarRoute(this.widget,
-      {this.showBarrier = true,
-      this.useSurfaceTintColor = false,
-      this.dismissible = true,
-      required this.width,
-      this.addBottomPadding = true,
-      this.addTopPadding = true});
+  SideBarRoute(
+    this.widget, {
+    this.showBarrier = true,
+    this.useSurfaceTintColor = false,
+    this.dismissible = true,
+    required this.width,
+    this.addBottomPadding = true,
+    this.addTopPadding = true,
+  });
 
   final Widget widget;
 
@@ -33,8 +35,11 @@ class SideBarRoute<T> extends PopupRoute<T> {
   String? get barrierLabel => "exit";
 
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation) {
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     bool showSideBar = MediaQuery.of(context).size.width > width;
 
     Widget body = widget;
@@ -58,13 +63,15 @@ class SideBarRoute<T> extends PopupRoute<T> {
             ? const BorderRadius.horizontal(left: Radius.circular(kcRadius16))
             : null,
         color: Theme.of(context).colorScheme.surface,
-        boxShadow: context.brightness == ui.Brightness.dark ? [
-          BoxShadow(
-            color: Colors.white.withAlpha(50),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ] : null,
+        boxShadow: context.brightness == ui.Brightness.dark
+            ? [
+                BoxShadow(
+                  color: Colors.white.withAlpha(50),
+                  blurRadius: 10,
+                  offset: Offset(0, 2),
+                ),
+              ]
+            : null,
       ),
       clipBehavior: Clip.antiAlias,
       constraints: BoxConstraints(maxWidth: sideBarWidth),
@@ -75,13 +82,14 @@ class SideBarRoute<T> extends PopupRoute<T> {
             clipBehavior: Clip.antiAlias,
             child: Container(
               padding: EdgeInsets.fromLTRB(
-                  0,
-                  0,
-                  MediaQuery.of(context).padding.right,
-                  addBottomPadding
-                      ? MediaQuery.of(context).padding.bottom +
+                0,
+                0,
+                MediaQuery.of(context).padding.right,
+                addBottomPadding
+                    ? MediaQuery.of(context).padding.bottom +
                           MediaQuery.of(context).viewInsets.bottom
-                      : 0),
+                    : 0,
+              ),
               color: useSurfaceTintColor
                   ? Theme.of(context).colorScheme.primary.withAlpha(20)
                   : null,
@@ -102,36 +110,41 @@ class SideBarRoute<T> extends PopupRoute<T> {
       );
     }
 
-    return Align(
-      alignment: Alignment.centerRight,
-      child: body,
-    );
+    return Align(alignment: Alignment.centerRight, child: body);
   }
 
   @override
   Duration get transitionDuration => const Duration(milliseconds: 300);
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
-    var offset =
-        Tween<Offset>(begin: const Offset(1, 0), end: const Offset(0, 0));
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    var offset = Tween<Offset>(
+      begin: const Offset(1, 0),
+      end: const Offset(0, 0),
+    );
     return SlideTransition(
-      position: offset.animate(CurvedAnimation(
-        parent: animation,
-        curve: Curves.fastOutSlowIn,
-      )),
+      position: offset.animate(
+        CurvedAnimation(parent: animation, curve: Curves.fastOutSlowIn),
+      ),
       child: child,
     );
   }
 }
 
-Future<void> showSideBar(BuildContext context, Widget widget,
-    {bool showBarrier = true,
-    bool useSurfaceTintColor = false,
-    bool dismissible = true,
-    double width = 500,
-    bool addTopPadding = false}) {
+Future<void> showSideBar(
+  BuildContext context,
+  Widget widget, {
+  bool showBarrier = true,
+  bool useSurfaceTintColor = false,
+  bool dismissible = true,
+  double width = 500,
+  bool addTopPadding = false,
+}) {
   // Always push onto the main navigator (NaviPane's inner Navigator) when
   // available, so the SideBarRoute lives in the same stack as the page that
   // triggered it. Falling back to the root navigator only happens in single-
@@ -142,8 +155,8 @@ Future<void> showSideBar(BuildContext context, Widget widget,
   // previous "use nearest Navigator" approach broke callers that pass
   // `App.rootContext` (e.g. `_ComicPageActions.showComments`) since
   // `Navigator.of(rootContext)` would still resolve to the root navigator.
-  var navigatorState = App.mainNavigatorKey?.currentState ??
-      App.rootNavigatorKey.currentState!;
+  var navigatorState =
+      App.mainNavigatorKey?.currentState ?? App.rootNavigatorKey.currentState!;
   return navigatorState.push(
     SideBarRoute(
       widget,
@@ -215,10 +228,7 @@ Future<T?> showCenteredPanel<T>(
                 ],
               ),
               clipBehavior: Clip.antiAlias,
-              child: Material(
-                color: Colors.transparent,
-                child: widget,
-              ),
+              child: Material(color: Colors.transparent, child: widget),
             ),
           ),
         );

@@ -74,10 +74,12 @@ class _ChaptersViewState extends State<_ChaptersView> {
       final id = all[i].key;
       final title = all[i].value;
       if (_query.isNotEmpty && !title.toLowerCase().contains(q)) continue;
-      if (_dlFilter == _ChapterDlFilter.downloaded && !downloaded.contains(id)) {
+      if (_dlFilter == _ChapterDlFilter.downloaded &&
+          !downloaded.contains(id)) {
         continue;
       }
-      if (_dlFilter == _ChapterDlFilter.notDownloaded && downloaded.contains(id)) {
+      if (_dlFilter == _ChapterDlFilter.notDownloaded &&
+          downloaded.contains(id)) {
         continue;
       }
       indices.add(i);
@@ -104,7 +106,9 @@ class _ChaptersViewState extends State<_ChaptersView> {
                     : HugeIcons.strokeRoundedCancel01,
                 size: 18,
               ),
-              onPressed: _searching ? _exitSearch : () => Navigator.maybePop(context),
+              onPressed: _searching
+                  ? _exitSearch
+                  : () => Navigator.maybePop(context),
             ),
             title: _searching
                 ? TextField(
@@ -113,7 +117,9 @@ class _ChaptersViewState extends State<_ChaptersView> {
                     style: TextStyle(fontSize: kcSubtitle),
                     decoration: InputDecoration.collapsed(
                       hintText: "Search chapters".tl,
-                      hintStyle: TextStyle(fontSize: kcSubtitle).withColor(cs.onSurfaceVariant),
+                      hintStyle: TextStyle(
+                        fontSize: kcSubtitle,
+                      ).withColor(cs.onSurfaceVariant),
                     ),
                     onChanged: _setQuery,
                   )
@@ -122,7 +128,10 @@ class _ChaptersViewState extends State<_ChaptersView> {
               if (!_searching)
                 IconButton(
                   tooltip: "Search".tl,
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedSearch02,
+                    size: 18,
+                  ),
                   onPressed: () => setState(() => _searching = true),
                 ),
               Tooltip(
@@ -136,7 +145,15 @@ class _ChaptersViewState extends State<_ChaptersView> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      !desc ? HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18) : HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 18),
+                      !desc
+                          ? HugeIcon(
+                              icon: HugeIcons.strokeRoundedArrowUp01,
+                              size: 18,
+                            )
+                          : HugeIcon(
+                              icon: HugeIcons.strokeRoundedArrowDown01,
+                              size: 18,
+                            ),
                       const SizedBox(width: 6),
                       Text(!desc ? "Ascending".tl : "Descending".tl),
                     ],
@@ -165,36 +182,35 @@ class _ChaptersViewState extends State<_ChaptersView> {
                       selectedColor: kcAccentSurface(context),
                       showCheckmark: false,
                       selected: _dlFilter == _ChapterDlFilter.downloaded,
-                      onSelected: (_) => _setDlFilter(_ChapterDlFilter.downloaded),
+                      onSelected: (_) =>
+                          _setDlFilter(_ChapterDlFilter.downloaded),
                     ),
                     ChoiceChip(
                       label: Text("Not downloaded".tl),
                       selectedColor: kcAccentSurface(context),
                       showCheckmark: false,
                       selected: _dlFilter == _ChapterDlFilter.notDownloaded,
-                      onSelected: (_) => _setDlFilter(_ChapterDlFilter.notDownloaded),
+                      onSelected: (_) =>
+                          _setDlFilter(_ChapterDlFilter.notDownloaded),
                     ),
                   ],
                 ),
               ),
             ),
           SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final real = indices[index];
-                final entry = all[real];
-                return _ChapterListTile(
-                  onTap: () {
-                    widget.reader.toChapter(real + 1);
-                    Navigator.of(context).pop();
-                  },
-                  title: entry.value,
-                  isActive: current == real,
-                  isDownloaded: downloaded.contains(entry.key),
-                );
-              },
-              childCount: indices.length,
-            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final real = indices[index];
+              final entry = all[real];
+              return _ChapterListTile(
+                onTap: () {
+                  widget.reader.toChapter(real + 1);
+                  Navigator.of(context).pop();
+                },
+                title: entry.value,
+                isActive: current == real,
+                isDownloaded: downloaded.contains(entry.key),
+              );
+            }, childCount: indices.length),
           ),
           if (indices.isEmpty)
             SliverToBoxAdapter(
@@ -203,7 +219,9 @@ class _ChaptersViewState extends State<_ChaptersView> {
                 child: Center(
                   child: Text(
                     "No results".tl,
-                    style: TextStyle(fontSize: kcBody).withColor(cs.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: kcBody,
+                    ).withColor(cs.onSurfaceVariant),
                   ),
                 ),
               ),
@@ -259,7 +277,10 @@ class _GroupedChaptersViewState extends State<_GroupedChaptersView>
       index++;
     }
     index = index.clamp(1, groups.length);
-    final safeIndex = (index - 1).clamp(0, groups.isEmpty ? 0 : groups.length - 1);
+    final safeIndex = (index - 1).clamp(
+      0,
+      groups.isEmpty ? 0 : groups.length - 1,
+    );
     tabController = TabController(
       length: groups.length,
       vsync: this,
@@ -292,7 +313,9 @@ class _GroupedChaptersViewState extends State<_GroupedChaptersView>
                   style: TextStyle(fontSize: kcSubtitle),
                   decoration: InputDecoration.collapsed(
                     hintText: "Search chapters".tl,
-                    hintStyle: TextStyle(fontSize: kcSubtitle).withColor(cs.onSurfaceVariant),
+                    hintStyle: TextStyle(
+                      fontSize: kcSubtitle,
+                    ).withColor(cs.onSurfaceVariant),
                   ),
                   onChanged: (v) => setState(() => _query = v),
                 )
@@ -357,22 +380,19 @@ class _GroupedChaptersViewState extends State<_GroupedChaptersView>
     return SmoothCustomScrollView(
       slivers: [
         SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final real = indices[index];
-              final entry = all[real];
-              return _ChapterListTile(
-                onTap: () {
-                  widget.reader.toChapter(real + 1);
-                  context.pop();
-                },
-                title: entry.value,
-                isActive: widget.reader.chapter - 1 == real,
-                isDownloaded: downloaded.contains(entry.key),
-              );
-            },
-            childCount: indices.length,
-          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final real = indices[index];
+            final entry = all[real];
+            return _ChapterListTile(
+              onTap: () {
+                widget.reader.toChapter(real + 1);
+                context.pop();
+              },
+              title: entry.value,
+              isActive: widget.reader.chapter - 1 == real,
+              isDownloaded: downloaded.contains(entry.key),
+            );
+          }, childCount: indices.length),
         ),
         if (indices.isEmpty)
           SliverToBoxAdapter(
@@ -381,7 +401,9 @@ class _GroupedChaptersViewState extends State<_GroupedChaptersView>
               child: Center(
                 child: Text(
                   "No results".tl,
-                  style: TextStyle(fontSize: kcBody).withColor(cs.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: kcBody,
+                  ).withColor(cs.onSurfaceVariant),
                 ),
               ),
             ),
@@ -404,29 +426,26 @@ class _GroupedChaptersViewState extends State<_GroupedChaptersView>
       controller: initialGroupName == groupName ? _scrollController : null,
       slivers: [
         SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              var name = group.values.elementAt(index);
-              var i = 0;
-              for (var g in chapters.groups) {
-                if (g == groupName) {
-                  break;
-                }
-                i += chapters.getGroup(g).length;
+          delegate: SliverChildBuilderDelegate((context, index) {
+            var name = group.values.elementAt(index);
+            var i = 0;
+            for (var g in chapters.groups) {
+              if (g == groupName) {
+                break;
               }
-              i += index + 1;
-              return _ChapterListTile(
-                onTap: () {
-                  widget.reader.toChapter(i);
-                  context.pop();
-                },
-                title: name,
-                isActive: widget.reader.chapter == i,
-                isDownloaded: downloaded.contains(group.keys.elementAt(index)),
-              );
-            },
-            childCount: group.length,
-          ),
+              i += chapters.getGroup(g).length;
+            }
+            i += index + 1;
+            return _ChapterListTile(
+              onTap: () {
+                widget.reader.toChapter(i);
+                context.pop();
+              },
+              title: name,
+              isActive: widget.reader.chapter == i,
+              isDownloaded: downloaded.contains(group.keys.elementAt(index)),
+            );
+          }, childCount: group.length),
         ),
       ],
     );
@@ -465,7 +484,9 @@ class _ChapterListTile extends StatelessWidget {
         color: isActive
             // 深色/AMOLED 下 primary 贴近白色，同一透明度在纯黑底上的对比更弱，
             // 所以深色模式给得比浅色多一点。
-            ? kcAccentColor(context).withValues(alpha: context.isDarkMode ? 0.14 : 0.08)
+            ? kcAccentColor(
+                context,
+              ).withValues(alpha: context.isDarkMode ? 0.14 : 0.08)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(kcRadius8),
         child: InkWell(
@@ -484,7 +505,9 @@ class _ChapterListTile extends StatelessWidget {
                   width: 3,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: isActive ? kcAccentColor(context) : Colors.transparent,
+                    color: isActive
+                        ? kcAccentColor(context)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(kcRadius3),
                   ),
                 ),
@@ -495,8 +518,10 @@ class _ChapterListTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: isActive
-                        ? TextStyle(fontSize: kcSubtitle, color: kcBrandAdaptive(context))
-                            .bold
+                        ? TextStyle(
+                            fontSize: kcSubtitle,
+                            color: kcBrandAdaptive(context),
+                          ).bold
                         : TextStyle(fontSize: kcSubtitle),
                   ),
                 ),

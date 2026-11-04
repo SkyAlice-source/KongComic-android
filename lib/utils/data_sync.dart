@@ -131,10 +131,10 @@ class DataSync with ChangeNotifier {
         appdata.settings['dataVersion']++;
         await appdata.saveData(false);
         var data = await exportAppData(
-            appdata.settings['disableSyncFields'].toString().isNotEmpty
+          appdata.settings['disableSyncFields'].toString().isNotEmpty,
         );
-        var time =
-            (DateTime.now().millisecondsSinceEpoch ~/ 86400000).toString();
+        var time = (DateTime.now().millisecondsSinceEpoch ~/ 86400000)
+            .toString();
         var filename = time;
         filename += '-';
         filename += appdata.settings['dataVersion'].toString();
@@ -197,12 +197,17 @@ class DataSync with ChangeNotifier {
       try {
         var files = await client.readDir('/');
         files.sort((a, b) => b.name!.compareTo(a.name!));
-        var file = files.firstWhereOrNull((e) => e.name!.endsWith('.kongcomic'));
+        var file = files.firstWhereOrNull(
+          (e) => e.name!.endsWith('.kongcomic'),
+        );
         if (file == null) {
           throw 'No data file found';
         }
-        var version =
-            file.name!.split('-').elementAtOrNull(1)?.split('.').first;
+        var version = file.name!
+            .split('-')
+            .elementAtOrNull(1)
+            ?.split('.')
+            .first;
         if (version != null && int.tryParse(version) != null) {
           var currentVersion = appdata.settings['dataVersion'];
           if (currentVersion != null && int.parse(version) <= currentVersion) {

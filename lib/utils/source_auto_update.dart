@@ -22,8 +22,7 @@ Future<void> initAutoSourceUpdate() async {
   if (appdata.settings['autoUpdateSourcesEnabled'] != true) return;
   try {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final last =
-        appdata.implicitData['autoSourceUpdateLastRun'] as int? ?? 0;
+    final last = appdata.implicitData['autoSourceUpdateLastRun'] as int? ?? 0;
     if (now - last < _autoSourceUpdateThrottleMs) return;
     // 先记时间戳再跑：即便这次中途失败，24 小时内也不会重试，避免崩溃循环。
     appdata.implicitData['autoSourceUpdateLastRun'] = now;
@@ -63,7 +62,8 @@ Future<void> initAutoSourceUpdate() async {
 /// `已安装且版本较新` 的条目，逐条 [ComicSourcePage.updateFromEntry]
 /// （不带 loading、不单独 reload），全部跑完再统一 [ComicSourceManager.reload]
 /// 一次 —— 否则会把全部脚本重解析 N 遍。返回成功 / 失败 / 仓库未同步 / 总数。
-Future<({int ok, int fail, int stale, int total})> autoUpdateAllSources() async {
+Future<({int ok, int fail, int stale, int total})>
+autoUpdateAllSources() async {
   final repositories = SourceRepositories.instance.all;
   if (repositories.isEmpty) {
     return (ok: 0, fail: 0, stale: 0, total: 0);

@@ -35,7 +35,7 @@ class _App {
   final version = "1.6.4";
   // Populated from package_info_plus during [init] so the About page and the
   // update check always reflect the real build version (no manual bump needed).
-  String appVersion = "1.5.16";
+  String appVersion = "1.5.17";
 
   bool get isAndroid => Platform.isAndroid;
 
@@ -91,8 +91,10 @@ class _App {
 
   BuildContext get rootContext {
     final context = rootNavigatorKey.currentContext;
-    assert(context != null,
-        'rootContext accessed before the root navigator is mounted');
+    assert(
+      context != null,
+      'rootContext accessed before the root navigator is mounted',
+    );
     return context!;
   }
 
@@ -185,6 +187,40 @@ class _App {
     }
   }
 
+  /// 是否允许本应用安装 APK（Android 8.0+ 的「安装未知应用」开关）。
+  ///
+  /// 这不是运行时权限：没有申请接口，只能查询状态并把用户送到系统开关前。非
+  /// Android 平台恒为 true。
+  Future<bool> get canRequestPackageInstalls async {
+    if (!isAndroid) return true;
+    try {
+      const channel = MethodChannel("kong_comic/method_channel");
+      return await channel.invokeMethod<bool>("canRequestPackageInstalls") ??
+          true;
+    } catch (e) {
+      Log.warning("installPermission", "Failed to read install permission: $e");
+      return true;
+    }
+  }
+
+  /// 打开本应用的「安装未知应用」开关，返回是否成功跳转。
+  Future<bool> openInstallPermissionSettings() async {
+    if (!isAndroid) return false;
+    try {
+      const channel = MethodChannel("kong_comic/method_channel");
+      return await channel.invokeMethod<bool>(
+            "openInstallPermissionSettings",
+          ) ??
+          false;
+    } catch (e) {
+      Log.warning(
+        "installPermission",
+        "Failed to open install permission page: $e",
+      );
+      return false;
+    }
+  }
+
   /// Publish the APK at [path] to the public Download folder and ask the
   /// system to install it from there. This is the manual escape hatch when the
   /// in-app installer refuses to launch (ROM restrictions, broken FileProvider
@@ -196,10 +232,10 @@ class _App {
     if (!isAndroid) return "not_supported";
     try {
       const channel = MethodChannel("kong_comic/method_channel");
-      await channel.invokeMethod<void>(
-        "installApkFromDownloads",
-        {"path": path, "fileName": fileName},
-      );
+      await channel.invokeMethod<void>("installApkFromDownloads", {
+        "path": path,
+        "fileName": fileName,
+      });
       return null;
     } catch (e, s) {
       Log.error("installApkFromDownloads", e.toString(), s);

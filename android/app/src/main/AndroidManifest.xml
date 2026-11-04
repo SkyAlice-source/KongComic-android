@@ -13,11 +13,25 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- 后台追更检查与自动备份跑在 WorkManager 里。Doze / 厂商省电策略会把周期
+         任务推迟到「维护窗口」，在 MIUI、EMUI、ColorOS 上甚至直接不执行；用户看到
+         的现象是「设置里明明开着，从来没收到过更新通知」。
+         Mihon / Tachiyomi 同样把这一项放在设置里让用户手动豁免，我们保持一致：
+         声明权限只是为了能用 ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 弹系统
+         确认框，实际是否豁免始终由用户在系统对话框里决定，App 不会静默改设置。 -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:allowBackup="false">
+        android:allowBackup="false"
+        android:requestLegacyExternalStorage="true">
+        <!-- Android 10（API 29）上分区存储仍会按 targetSdk 生效：没有这个标志时
+             WRITE_EXTERNAL_STORAGE 即使授予了，也写不进公共 Download/Comic。
+             而 Dart 侧的 hasAllFilesAccess() 在 10 及以下就是读这个权限位，于是
+             设置页会显示「已授予」、切目录却失败。加上标志后两边语义才对得上。
+             Android 11+ 系统会忽略该标志（那里只认 MANAGE_EXTERNAL_STORAGE），
+             所以不会放宽新系统上的限制。 -->
         <!-- Impeller（Flutter 3.27+ Android 默认开启）在部分模拟器/低端 GPU 上
              大图纹理上传失败，封面会渲染成黄黑警示斜纹（DUMMY COVERAGE
              PATTERN）。回退 Skia 渲染，真机与模拟器都稳定。
@@ -90,6 +104,20 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Android 11（API 30）的包可见性过滤：没有这两条声明时，应用「看不见」
+             任何能处理 http/https 的浏览器，canLaunchUrl() 一律返回 false。应用里
+             所有「打开链接」入口（关于页、漫画源注册页、更新失败时打开 Release 页、
+             评论里的链接）都走 launchUrlString，一旦某个 ROM 上 url_launcher 先做
+             可解析性判断，按钮就会全部变成「点了没反应」。
+             这是 url_launcher 官方要求声明的 queries，与读取其它应用信息无关。 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
         </intent>
     </queries>
 </manifest>

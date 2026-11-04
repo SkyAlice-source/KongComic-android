@@ -71,22 +71,26 @@ mixin class JsUiApi {
       var callback = action['callback'] as JSInvokable;
       var text = action['text'].toString();
       var style = (action['style'] ?? 'text').toString();
-      actions.add(_JSCallbackButton(
-        text: text,
-        callback: JSAutoFreeFunction(callback),
-        style: style,
-        onCallbackFinished: () {
-          dialogContext?.pop();
-        },
-      ));
+      actions.add(
+        _JSCallbackButton(
+          text: text,
+          callback: JSAutoFreeFunction(callback),
+          style: style,
+          onCallbackFinished: () {
+            dialogContext?.pop();
+          },
+        ),
+      );
     }
     if (actions.isEmpty) {
-      actions.add(Button.text(
-        onPressed: () {
-          dialogContext?.pop();
-        },
-        child: Text('OK'.tl),
-      ));
+      actions.add(
+        Button.text(
+          onPressed: () {
+            dialogContext?.pop();
+          },
+          child: Text('OK'.tl),
+        ),
+      );
     }
     return showDialog(
       context: App.rootContext,
@@ -128,7 +132,11 @@ mixin class JsUiApi {
     controller?.close();
   }
 
-  Future<String?> _showInputDialog(String title, JSInvokable? validator, dynamic image) async {
+  Future<String?> _showInputDialog(
+    String title,
+    JSInvokable? validator,
+    dynamic image,
+  ) async {
     String? result;
     var func = validator == null ? null : JSAutoFreeFunction(validator);
     String? imageUrl;
@@ -229,21 +237,21 @@ class _JSCallbackButtonState extends State<_JSCallbackButton> {
   Widget build(BuildContext context) {
     return switch (widget.style) {
       "filled" => Button.filled(
-          onPressed: onClick,
-          isLoading: isLoading,
-          child: Text(widget.text),
-        ),
+        onPressed: onClick,
+        isLoading: isLoading,
+        child: Text(widget.text),
+      ),
       "danger" => Button.filled(
-          color: context.colorScheme.error,
-          onPressed: onClick,
-          isLoading: isLoading,
-          child: Text(widget.text),
-        ),
+        color: context.colorScheme.error,
+        onPressed: onClick,
+        isLoading: isLoading,
+        child: Text(widget.text),
+      ),
       _ => Button.text(
-          onPressed: onClick,
-          isLoading: isLoading,
-          child: Text(widget.text),
-        ),
+        onPressed: onClick,
+        isLoading: isLoading,
+        child: Text(widget.text),
+      ),
     };
   }
 }

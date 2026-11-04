@@ -35,15 +35,14 @@ class _CoverViewerState extends State<_CoverViewer> {
                   color: context.colorScheme.surface,
                 ),
                 loadingBuilder: (context, event) => Center(
-                  child: SizedBox(
-                    width: 24.0,
-                    height: 24.0,
-                    child: CircularProgressIndicator(
-                      value: event == null || event.expectedTotalBytes == null
-                          ? null
-                          : event.cumulativeBytesLoaded /
-                                event.expectedTotalBytes!,
-                    ),
+                  // 和阅读器里爬行小人脚下那条横条同款：能拿到总字节就显示
+                  // 真实百分比，拿不到（服务器没给 Content-Length）就退化成
+                  // 流光条，不编一个假的数字。
+                  child: KcTrackProgress(
+                    value: event == null || event.expectedTotalBytes == null
+                        ? null
+                        : event.cumulativeBytesLoaded /
+                              event.expectedTotalBytes!,
                   ),
                 ),
                 onTapUp: (context, details, controllerValue) {
@@ -92,7 +91,9 @@ class _CoverViewerState extends State<_CoverViewer> {
       // 流如果不 remove，多帧图（GIF / 动图封面）会再次回调，而 completer 只能
       // complete 一次 —— 第二次会抛 StateError，并把 State 一直挂在流上。
       listener = ImageStreamListener((ImageInfo info, bool _) async {
-        final byteData = await info.image.toByteData(format: ImageByteFormat.png);
+        final byteData = await info.image.toByteData(
+          format: ImageByteFormat.png,
+        );
         if (byteData != null && !completer.isCompleted) {
           completer.complete(byteData.buffer.asUint8List());
         }
@@ -102,7 +103,8 @@ class _CoverViewerState extends State<_CoverViewer> {
       final data = await completer.future;
       final fileType = detectFileType(data);
       await saveFile(
-        filename: "cover_${widget.title.replaceAll(RegExp(r'[\\/:"*?<>|]'), '_')}${fileType.ext}",
+        filename:
+            "cover_${widget.title.replaceAll(RegExp(r'[\\/:"*?<>|]'), '_')}${fileType.ext}",
         data: data,
       );
     } catch (e) {

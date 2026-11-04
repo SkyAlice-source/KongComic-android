@@ -593,7 +593,8 @@ class NaviPaneState extends State<NaviPane>
             // 各根 tab 的 SliverAppbar 标题逐项一致）。
             if (!hideTitle)
               Expanded(
-                child: pageTitle ??
+                child:
+                    pageTitle ??
                     Text(
                       widget.paneItems[currentPage].label,
                       style: TextStyle(
@@ -620,19 +621,19 @@ class NaviPaneState extends State<NaviPane>
             // 均无标签，与页面注入操作的 IconButton(tooltip:) 表现不一致）。
             if (!hideGlobalActions)
               for (var action in widget.paneActions)
-              if (action.menu != null)
-                PopupMenuButton<dynamic>(
-                  icon: action.icon,
-                  tooltip: action.label,
-                  itemBuilder: (_) => action.menu!,
-                  onSelected: action.onSelected,
-                )
-              else
-                IconButton(
-                  icon: action.icon,
-                  tooltip: action.label,
-                  onPressed: action.onTap,
-                ),
+                if (action.menu != null)
+                  PopupMenuButton<dynamic>(
+                    icon: action.icon,
+                    tooltip: action.label,
+                    itemBuilder: (_) => action.menu!,
+                    onSelected: action.onSelected,
+                  )
+                else
+                  IconButton(
+                    icon: action.icon,
+                    tooltip: action.label,
+                    onPressed: action.onTap,
+                  ),
           ],
         ),
       ),

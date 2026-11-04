@@ -196,10 +196,13 @@ class AppNotifications {
     if (!App.isAndroid) return;
     if (appdata.settings[_downloadChannelResetKey] == true) return;
     try {
-      final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       await androidPlugin?.deleteNotificationChannel(
-          channelId: _downloadChannelId);
+        channelId: _downloadChannelId,
+      );
       appdata.settings[_downloadChannelResetKey] = true;
       await appdata.saveData(false);
     } catch (e) {
@@ -211,8 +214,10 @@ class AppNotifications {
   static Future<bool> requestPermission() async {
     if (!App.isAndroid) return false;
     await init();
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     final granted = await androidPlugin?.requestNotificationsPermission();
     return granted ?? false;
   }
@@ -222,21 +227,33 @@ class AppNotifications {
   /// Android 13 起通知是运行时权限：用户一旦在首次弹窗里点了「不允许」，之后再
   /// [requestPermission] 系统不会重新弹窗。App 内必须留一条能回到系统开关的路，
   /// 否则用户既收不到下载/追更通知，也无从恢复。
-  static Future<void> openSettings() async {
-    if (!App.isAndroid) return;
+  ///
+  /// 返回是否真的跳转成功 —— 原生侧逐级降级仍失败时（极少数定制 ROM），
+  /// 界面要给提示，不能让用户以为按钮坏了。
+  static Future<bool> openSettings() async {
+    if (!App.isAndroid) return false;
     try {
-      await const MethodChannel('kong_comic/method_channel')
-          .invokeMethod('openNotificationSettings');
+      return await const MethodChannel(
+            'kong_comic/method_channel',
+          ).invokeMethod<bool>('openNotificationSettings') ??
+          false;
     } catch (e) {
-      Log.error("Notification", "Failed to open notification settings: $e", null);
+      Log.error(
+        "Notification",
+        "Failed to open notification settings: $e",
+        null,
+      );
+      return false;
     }
   }
 
   static Future<bool> get isAllowed async {
     if (!App.isAndroid) return false;
     await init();
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     final enabled = await androidPlugin?.areNotificationsEnabled();
     return enabled ?? false;
   }
@@ -333,16 +350,17 @@ class AppNotifications {
           priority: Priority.defaultPriority,
           // Without this the background download had no exit at all: the only
           // control was to wait for a 40 MB asset over a throttled link.
-          actions: [
-            AndroidNotificationAction('cancel', 'Cancel'.tl),
-          ],
+          actions: [AndroidNotificationAction('cancel', 'Cancel'.tl)],
         ),
       ),
       payload: 'app_update_download',
     );
   }
 
-  static Future<void> showAppUpdateComplete({String? error, String? version}) async {
+  static Future<void> showAppUpdateComplete({
+    String? error,
+    String? version,
+  }) async {
     await init();
     if (error != null) {
       await _plugin.show(
@@ -522,10 +540,11 @@ class AppNotifications {
           // 两种结果都要能自己消失：`autoCancel` 只在用户点击时生效，
           // 不设 timeoutAfter 的通知会一直挂在通知栏。有更新时给 10 秒
           // （够读完摘要且能点开），无更新时 5 秒。
-          timeoutAfter: (updated > 0
-                  ? _comicUpdateCompleteTimeout
-                  : _comicUpdateIdleTimeout)
-              .inMilliseconds,
+          timeoutAfter:
+              (updated > 0
+                      ? _comicUpdateCompleteTimeout
+                      : _comicUpdateIdleTimeout)
+                  .inMilliseconds,
         ),
       ),
       payload: 'comic_update',
@@ -663,16 +682,20 @@ class DownloadNotifier {
     if (_started) return;
     _started = true;
     LocalManager().addListener(_onListChanged);
-    _attach(LocalManager().downloadingTasks.isEmpty
-        ? null
-        : LocalManager().downloadingTasks.first);
+    _attach(
+      LocalManager().downloadingTasks.isEmpty
+          ? null
+          : LocalManager().downloadingTasks.first,
+    );
     _update();
   }
 
   static void _onListChanged() {
-    _attach(LocalManager().downloadingTasks.isEmpty
-        ? null
-        : LocalManager().downloadingTasks.first);
+    _attach(
+      LocalManager().downloadingTasks.isEmpty
+          ? null
+          : LocalManager().downloadingTasks.first,
+    );
     _update();
   }
 
@@ -704,7 +727,8 @@ class DownloadNotifier {
       AppNotifications.requestPermission();
     }
     final first = tasks.first;
-    final signature = '${first.title}|${first.message}|'
+    final signature =
+        '${first.title}|${first.message}|'
         '${(first.progress * 100).round()}|${first.isPaused}|${first.isError}';
     if (signature == _lastSignature) return;
     _lastSignature = signature;

@@ -43,21 +43,25 @@ class _MenuRoute<T> extends PopupRoute<T> {
   }
 
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation) {
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     // 宽度按内容定：有自定义行（分段控件）最宽；有图标行次之；纯文字最窄。
     // 240 保证日语排序标签（如「最近の追加」5 字）在三等分分段里不省略。
     var width = entries.any((e) => e.child != null)
         ? 240.0
         : entries.any((e) => e.icon != null)
-            ? 180.0
-            : 160.0;
+        ? 180.0
+        : 160.0;
     final size = MediaQuery.of(context).size;
     const margin = 10.0;
     const gap = 6.0;
     // 总高只用于定位估算；真正渲染时由 ConstrainedBox + 滚动兜底，
     // 大字号/长菜单在矮屏上不会再溢出到屏幕外。
-    final estimated = 16 + entries.fold<double>(0, (sum, e) => sum + _entryHeight(e));
+    final estimated =
+        16 + entries.fold<double>(0, (sum, e) => sum + _entryHeight(e));
     final maxHeight = math.max(120.0, size.height - margin * 2);
     final height = math.min(estimated, maxHeight);
 
@@ -70,7 +74,9 @@ class _MenuRoute<T> extends PopupRoute<T> {
     }
     if (left < margin) left = margin;
 
-    var top = anchorSize == null ? location.dy : location.dy + anchorSize!.height + gap;
+    var top = anchorSize == null
+        ? location.dy
+        : location.dy + anchorSize!.height + gap;
     if (top + height > size.height - margin) {
       // 下方放不下：翻到按钮上方；上方也放不下就贴底并交给滚动。
       final above = location.dy - height - gap;
@@ -170,12 +176,12 @@ class _MenuRoute<T> extends PopupRoute<T> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              if (entry.icon != null)
-                entry.icon!,
+              if (entry.icon != null) entry.icon!,
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  entry.text, overflow: TextOverflow.ellipsis,
+                  entry.text,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: entry.color),
                 ),
               ),
@@ -190,11 +196,16 @@ class _MenuRoute<T> extends PopupRoute<T> {
   Duration get transitionDuration => const Duration(milliseconds: 200);
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     return FadeTransition(
-      opacity: animation.drive(Tween<double>(begin: 0, end: 1)
-          .chain(CurveTween(curve: Curves.ease))),
+      opacity: animation.drive(
+        Tween<double>(begin: 0, end: 1).chain(CurveTween(curve: Curves.ease)),
+      ),
       child: child,
     );
   }
@@ -218,27 +229,27 @@ class MenuEntry {
   static void _noOp() {}
 
   MenuEntry({required this.text, this.icon, this.color, required this.onClick})
-      : isDivider = false,
-        child = null,
-        onCustomTap = null;
+    : isDivider = false,
+      child = null,
+      onCustomTap = null;
 
   /// 菜单内的分组分隔线。
   MenuEntry.divider()
-      : text = "",
-        icon = null,
-        color = null,
-        onClick = _noOp,
-        isDivider = true,
-        child = null,
-        onCustomTap = null;
+    : text = "",
+      icon = null,
+      color = null,
+      onClick = _noOp,
+      isDivider = true,
+      child = null,
+      onCustomTap = null;
 
   /// 自定义整行（分段控件、预览块等）。
   MenuEntry.custom(Widget rowChild, {void Function()? rowAction})
-      : text = "",
-        icon = null,
-        color = null,
-        onClick = _noOp,
-        isDivider = false,
-        child = rowChild,
-        onCustomTap = rowAction;
+    : text = "",
+      icon = null,
+      color = null,
+      onClick = _noOp,
+      isDivider = false,
+      child = rowChild,
+      onCustomTap = rowAction;
 }

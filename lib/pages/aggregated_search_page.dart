@@ -319,10 +319,7 @@ class _AggregatedResultsState extends State<_AggregatedResults> {
       return SliverToBoxAdapter(
         child: SizedBox(
           height: 240,
-          child: KcPageLoading(
-            charWidth: 88,
-            color: kcAccentColor(context),
-          ),
+          child: KcPageLoading(charWidth: 88, color: kcAccentColor(context)),
         ),
       );
     }
@@ -440,7 +437,7 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
         });
       } else {
         setState(() {
-          error = friendlyError(res.errorMessage ?? "Unknown error".tl);
+          error = rawSourceError(res.errorMessage);
           isLoading = false;
         });
       }
@@ -454,7 +451,7 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
         });
       } else {
         setState(() {
-          error = friendlyError(res.errorMessage ?? "Unknown error".tl);
+          error = rawSourceError(res.errorMessage);
           isLoading = false;
         });
       }

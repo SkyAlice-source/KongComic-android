@@ -325,9 +325,7 @@ Future<MirrorProbeResult> probeMirror(
     if (status != 200 && status != 206) {
       return fail("HTTP $status");
     }
-    final size = _totalFromContentRange(
-      res.headers.value('content-range'),
-    );
+    final size = _totalFromContentRange(res.headers.value('content-range'));
 
     final stream = res.data?.stream;
     if (stream == null) {

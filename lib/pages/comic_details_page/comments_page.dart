@@ -59,7 +59,11 @@ class _CommentsPageState extends State<CommentsPage> {
 
   void firstLoad() async {
     var res = await widget.source.commentsLoader!(
-        widget.data.comicId, widget.data.subId, 1, widget.replyComment?.id);
+      widget.data.comicId,
+      widget.data.subId,
+      1,
+      widget.replyComment?.id,
+    );
     if (!mounted) return;
     if (res.error) {
       setState(() {
@@ -67,8 +71,9 @@ class _CommentsPageState extends State<CommentsPage> {
         _loading = false;
       });
     } else {
-      var filteredComments =
-          res.data.where((c) => !_shouldBlockComment(c)).toList();
+      var filteredComments = res.data
+          .where((c) => !_shouldBlockComment(c))
+          .toList();
       setState(() {
         _comments = filteredComments;
         _loading = false;
@@ -91,10 +96,13 @@ class _CommentsPageState extends State<CommentsPage> {
       return;
     }
     if (res.error) {
-      context.showMessage(message: friendlyError(res.errorMessage ?? "Unknown Error".tl));
+      context.showMessage(
+        message: friendlyError(res.errorMessage ?? "Unknown Error".tl),
+      );
     } else {
-      var filteredComments =
-          res.data.where((c) => !_shouldBlockComment(c)).toList();
+      var filteredComments = res.data
+          .where((c) => !_shouldBlockComment(c))
+          .toList();
       setState(() {
         _comments!.addAll(filteredComments);
         _page++;
@@ -110,10 +118,7 @@ class _CommentsPageState extends State<CommentsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: Appbar(
-        title: Text("Comments".tl),
-        style: AppbarStyle.shadow,
-      ),
+      appBar: Appbar(title: Text("Comments".tl), style: AppbarStyle.shadow),
       body: buildBody(context),
     );
   }
@@ -206,7 +211,7 @@ class _CommentsPageState extends State<CommentsPage> {
               },
             ),
           ),
-          buildBottom(context)
+          buildBottom(context),
         ],
       );
     }
@@ -214,9 +219,7 @@ class _CommentsPageState extends State<CommentsPage> {
 
   Widget buildBottom(BuildContext context) {
     if (widget.source.sendCommentFunc == null) {
-      return const SizedBox(
-        height: 0,
-      );
+      return const SizedBox(height: 0);
     }
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -238,9 +241,10 @@ class _CommentsPageState extends State<CommentsPage> {
               child: TextField(
                 controller: controller,
                 decoration: InputDecoration(
-                    border: InputBorder.none,
-                    isCollapsed: true,
-                    hintText: "Comment".tl),
+                  border: InputBorder.none,
+                  isCollapsed: true,
+                  hintText: "Comment".tl,
+                ),
                 minLines: 1,
                 maxLines: 5,
               ),
@@ -248,13 +252,7 @@ class _CommentsPageState extends State<CommentsPage> {
             if (sending)
               const Padding(
                 padding: EdgeInsets.all(kcSpaceSm),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                  ),
-                ),
+                child: KcInlineSpinner(size: 20),
               )
             else
               IconButton(
@@ -267,10 +265,11 @@ class _CommentsPageState extends State<CommentsPage> {
                     sending = true;
                   });
                   var b = await widget.source.sendCommentFunc!(
-                      widget.data.comicId,
-                      widget.data.subId,
-                      controller.text,
-                      widget.replyComment?.id);
+                    widget.data.comicId,
+                    widget.data.subId,
+                    controller.text,
+                    widget.replyComment?.id,
+                  );
                   if (!mounted) return;
                   if (!b.error) {
                     controller.text = "";
@@ -282,15 +281,20 @@ class _CommentsPageState extends State<CommentsPage> {
                       maxPage = null;
                     });
                   } else {
-                    context.showMessage(message: friendlyError(b.errorMessage ?? "Error".tl));
+                    context.showMessage(
+                      message: friendlyError(b.errorMessage ?? "Error".tl),
+                    );
                     setState(() {
                       sending = false;
                     });
                   }
                 },
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedSent02, size: 18, color: Theme.of(context).colorScheme.secondary,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedSent02,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.secondary,
                 ),
-              )
+              ),
           ],
         ).paddingLeft(16).paddingRight(4),
       ),
@@ -343,9 +347,11 @@ class _CommentTileState extends State<_CommentTile> {
               height: 36,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(kcRadius18),
-                  color: Theme.of(context).colorScheme.secondaryContainer),
-              child: (widget.comment.avatar == null ||
+                borderRadius: BorderRadius.circular(kcRadius18),
+                color: Theme.of(context).colorScheme.secondaryContainer,
+              ),
+              child:
+                  (widget.comment.avatar == null ||
                       widget.comment.avatar!.isEmpty)
                   ? null
                   : AnimatedImage(
@@ -359,18 +365,18 @@ class _CommentTileState extends State<_CommentTile> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.comment.userName,
-                  style: ts.bold,
-                ),
+                Text(widget.comment.userName, style: ts.bold),
                 if (widget.comment.time != null)
-                  Text(widget.comment.time!, style: TextStyle(fontSize: kcCaption)),
+                  Text(
+                    widget.comment.time!,
+                    style: TextStyle(fontSize: kcCaption),
+                  ),
                 const SizedBox(height: 4),
                 _CommentContent(text: widget.comment.content),
                 buildActions(),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -469,7 +475,9 @@ class _CommentTileState extends State<_CommentTile> {
             isLiked = !isLiked;
             likes += isLiked ? 1 : -1;
           } else {
-            context.showMessage(message: friendlyError(res.errorMessage ?? "Error".tl));
+            context.showMessage(
+              message: friendlyError(res.errorMessage ?? "Error".tl),
+            );
           }
           setState(() {
             isLiking = false;
@@ -479,13 +487,12 @@ class _CommentTileState extends State<_CommentTile> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isLiking)
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(),
-              )
+              const KcInlineSpinner(size: 16)
             else if (isLiked)
-              HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 16, color: context.useTextColor(Colors.red),
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedFavourite,
+                size: 16,
+                color: context.useTextColor(Colors.red),
               )
             else
               HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 16),
@@ -534,7 +541,9 @@ class _CommentTileState extends State<_CommentTile> {
       widget.comment.voteStatus = voteStatus;
       widget.comment.score = res.data ?? widget.comment.score;
     } else {
-      context.showMessage(message: friendlyError(res.errorMessage ?? "Error".tl));
+      context.showMessage(
+        message: friendlyError(res.errorMessage ?? "Error".tl),
+      );
     }
     setState(() {
       isVotingUp = false;

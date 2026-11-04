@@ -24,10 +24,7 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
         SelectSetting(
           title: "Add new favorite to".tl,
           settingKey: "newFavoriteAddTo",
-          optionTranslation: {
-            "start": "Start".tl,
-            "end": "End".tl,
-          },
+          optionTranslation: {"start": "Start".tl, "end": "End".tl},
         ).toSliver(),
         SelectSetting(
           title: "Move favorite after reading".tl,
@@ -44,9 +41,7 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
           help:
               "Long press on the favorite button to quickly add to this folder"
                   .tl,
-          optionTranslation: {
-            for (var e in userFolderNames()) e: e
-          },
+          optionTranslation: {for (var e in userFolderNames()) e: e},
         ).toSliver(),
         _CallbackSetting(
           title: "Delete all unavailable local favorite items".tl,
@@ -66,7 +61,8 @@ class _LocalFavoritesSettingsState extends State<LocalFavoritesSettings> {
             }
             if (!context.mounted) return;
             context.showMessage(
-                message: "Deleted @a favorite items".tlParams({'a': count}));
+              message: "Deleted @a favorite items".tlParams({'a': count}),
+            );
           },
           actionTitle: 'Delete'.tl,
           destructive: true,
@@ -94,7 +90,8 @@ class _HomeBannerFoldersSettingState extends State<_HomeBannerFoldersSetting> {
   @override
   Widget build(BuildContext context) {
     final folders = userFolderNames();
-    final selected = (appdata.settings['homeBannerFolders'] as List).cast<String>();
+    final selected = (appdata.settings['homeBannerFolders'] as List)
+        .cast<String>();
     final subtitle = selected.isEmpty
         ? "All".tl
         : selected.where((f) => folders.contains(f)).join(", ");
@@ -113,63 +110,64 @@ class _HomeBannerFoldersSettingState extends State<_HomeBannerFoldersSetting> {
     showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder(builder: (context, setDialogState) {
-          final isAll = tempSelected.isEmpty;
-          return ContentDialog(
-            title: "Home banner folders".tl,
-            content: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 360),
-              child: SingleChildScrollView(
-                child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CheckboxListTile(
-                    title: Text("All".tl),
-                    value: isAll,
-                    onChanged: (value) {
-                      if (value == true) {
-                        tempSelected.clear();
-                      }
-                      setDialogState(() {});
-                    },
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isAll = tempSelected.isEmpty;
+            return ContentDialog(
+              title: "Home banner folders".tl,
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CheckboxListTile(
+                        title: Text("All".tl),
+                        value: isAll,
+                        onChanged: (value) {
+                          if (value == true) {
+                            tempSelected.clear();
+                          }
+                          setDialogState(() {});
+                        },
+                      ),
+                      if (folders.isNotEmpty) const Divider(height: 1),
+                      ...folders.map((folder) {
+                        return CheckboxListTile(
+                          title: Text(folder),
+                          value: tempSelected.contains(folder),
+                          onChanged: (value) {
+                            if (value == true) {
+                              tempSelected.add(folder);
+                            } else {
+                              tempSelected.remove(folder);
+                            }
+                            setDialogState(() {});
+                          },
+                        );
+                      }),
+                    ],
                   ),
-                  if (folders.isNotEmpty)
-                    const Divider(height: 1),
-                  ...folders.map((folder) {
-                    return CheckboxListTile(
-                      title: Text(folder),
-                      value: tempSelected.contains(folder),
-                      onChanged: (value) {
-                        if (value == true) {
-                          tempSelected.add(folder);
-                        } else {
-                          tempSelected.remove(folder);
-                        }
-                        setDialogState(() {});
-                      },
-                    );
-                  }),
-                ],
+                ),
               ),
-            ),
-            ),
-            actions: [
-              Button.text(
-                onPressed: () => context.pop(),
-                child: Text("Cancel".tl),
-              ),
-              Button.filled(
-                onPressed: () {
-                  appdata.settings['homeBannerFolders'] = tempSelected;
-                  appdata.saveData();
-                  setState(() {});
-                  context.pop();
-                },
-                child: Text("OK".tl),
-              ),
-            ],
-          );
-        });
+              actions: [
+                Button.text(
+                  onPressed: () => context.pop(),
+                  child: Text("Cancel".tl),
+                ),
+                Button.filled(
+                  onPressed: () {
+                    appdata.settings['homeBannerFolders'] = tempSelected;
+                    appdata.saveData();
+                    setState(() {});
+                    context.pop();
+                  },
+                  child: Text("OK".tl),
+                ),
+              ],
+            );
+          },
+        );
       },
     );
   }

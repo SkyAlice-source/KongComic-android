@@ -14,7 +14,9 @@ class ComicUpdateResult {
 }
 
 Future<ComicUpdateResult> updateComic(
-    FavoriteItemWithUpdateInfo c, String folder) async {
+  FavoriteItemWithUpdateInfo c,
+  String folder,
+) async {
   int retries = 3;
   while (true) {
     try {
@@ -51,9 +53,8 @@ Future<ComicUpdateResult> updateComic(
         id: c.id,
         name: newInfo.title,
         coverPath: newInfo.cover,
-        author: newInfo.subTitle ??
-            newInfo.tags['author']?.firstOrNull ??
-            c.author,
+        author:
+            newInfo.subTitle ?? newInfo.tags['author']?.firstOrNull ?? c.author,
         type: c.type,
         tags: newTags,
       );
@@ -93,8 +94,14 @@ class UpdateProgress {
   final FavoriteItemWithUpdateInfo? comic;
   final String? errorMessage;
 
-  UpdateProgress(this.total, this.current, this.errors, this.updated,
-      [this.comic, this.errorMessage]);
+  UpdateProgress(
+    this.total,
+    this.current,
+    this.errors,
+    this.updated, [
+    this.comic,
+    this.errorMessage,
+  ]);
 }
 
 /// A single comic-to-update task bound to the folder it lives in.
@@ -208,8 +215,8 @@ void _updateItemsBase(
           break;
         }
         // 源可能已被删除（comicSource 为 null）或属本地漫画，兜底用 value。
-        var sourceKey = t.comic.type.comicSource?.key ??
-            t.comic.type.value.toString();
+        var sourceKey =
+            t.comic.type.comicSource?.key ?? t.comic.type.value.toString();
         // 该源已达并发上限：持有任务等待空位。不能把任务 push 回 channel——
         // Channel 在 close 后 push 会静默丢弃任务，导致进度永远走不满。
         while ((inFlightPerSource[sourceKey] ?? 0) >= maxInFlightPerSource) {
@@ -217,8 +224,7 @@ void _updateItemsBase(
           await Future<void>.delayed(const Duration(milliseconds: 100));
         }
         if (canceled) break;
-        inFlightPerSource[sourceKey] =
-            (inFlightPerSource[sourceKey] ?? 0) + 1;
+        inFlightPerSource[sourceKey] = (inFlightPerSource[sourceKey] ?? 0) + 1;
         ComicUpdateResult result;
         try {
           // 单请求超时保护：源站卡住时若没有超时，worker 会被永久占用，
@@ -243,14 +249,16 @@ void _updateItemsBase(
         if (result.errorMessage != null) {
           errors++;
         }
-        addProgress(UpdateProgress(
-          total,
-          current,
-          errors,
-          updated,
-          t.comic,
-          result.errorMessage,
-        ));
+        addProgress(
+          UpdateProgress(
+            total,
+            current,
+            errors,
+            updated,
+            t.comic,
+            result.errorMessage,
+          ),
+        );
         if (canceled) break;
       }
     }();
@@ -280,7 +288,9 @@ Stream<UpdateProgress> updateFolder(String folder, bool ignoreCheckTime) {
 /// Update comics across multiple folders with a single aggregated progress
 /// stream. [folders] is the resolved list of folder names.
 Stream<UpdateProgress> updateFolders(
-    List<String> folders, bool ignoreCheckTime) {
+  List<String> folders,
+  bool ignoreCheckTime,
+) {
   var items = <_UpdateTask>[];
   for (var folder in folders) {
     for (var c in LocalFavoritesManager().getComicsWithUpdatesInfo(folder)) {
@@ -329,23 +339,29 @@ List<String> getEffectiveFollowFolders() {
   }
   return raw
       .whereType<String>()
-      .where((f) =>
-          f != kReadLaterFolder &&
-          LocalFavoritesManager().folderNames.contains(f))
+      .where(
+        (f) =>
+            f != kReadLaterFolder &&
+            LocalFavoritesManager().folderNames.contains(f),
+      )
       .toList();
 }
 
 Future<String> getUpdatedComicsAsJson(String folder) async {
   var comics = LocalFavoritesManager().getComicsWithUpdatesInfo(folder);
   var updatedComics = comics.where((c) => c.hasNewUpdate).toList();
-  var jsonList = updatedComics.map((c) => {
-    'id': c.id,
-    'name': c.name,
-    'coverUrl': c.coverPath,
-    'author': c.author,
-    'type': c.type.sourceKey,
-    'updateTime': c.updateTime,
-    'tags': c.tags,
-  }).toList();
+  var jsonList = updatedComics
+      .map(
+        (c) => {
+          'id': c.id,
+          'name': c.name,
+          'coverUrl': c.coverPath,
+          'author': c.author,
+          'type': c.type.sourceKey,
+          'updateTime': c.updateTime,
+          'tags': c.tags,
+        },
+      )
+      .toList();
   return jsonEncode(jsonList);
 }

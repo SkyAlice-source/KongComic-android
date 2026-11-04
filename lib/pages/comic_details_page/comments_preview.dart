@@ -1,10 +1,7 @@
 part of 'comic_page.dart';
 
 class _CommentsPart extends StatefulWidget {
-  const _CommentsPart({
-    required this.comments,
-    required this.showMore,
-  });
+  const _CommentsPart({required this.comments, required this.showMore});
 
   final List<Comment> comments;
 
@@ -43,7 +40,10 @@ class _CommentsPartState extends State<_CommentsPart> {
               children: [
                 IconButton(
                   tooltip: "Scroll Left".tl,
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowLeft01,
+                    size: 18,
+                  ),
                   onPressed: () {
                     scrollController.animateTo(
                       scrollController.position.pixels - 340,
@@ -54,7 +54,10 @@ class _CommentsPartState extends State<_CommentsPart> {
                 ),
                 IconButton(
                   tooltip: "Scroll Right".tl,
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 18),
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowRight01,
+                    size: 18,
+                  ),
                   onPressed: () {
                     scrollController.animateTo(
                       scrollController.position.pixels + 340,
@@ -88,7 +91,10 @@ class _CommentsPartState extends State<_CommentsPart> {
               ),
               const SizedBox(height: 8),
               _ActionButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedComment01,
+                  size: 18,
+                ),
                 text: "View more".tl,
                 onPressed: widget.showMore,
                 iconColor: context.useTextColor(Colors.green),
@@ -97,9 +103,7 @@ class _CommentsPartState extends State<_CommentsPart> {
             ],
           ),
         ),
-        const SliverToBoxAdapter(
-          child: Divider(),
-        ),
+        const SliverToBoxAdapter(child: Divider()),
       ],
     );
   }
@@ -153,7 +157,10 @@ class _CommentWidget extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           if (comment.time != null)
-            Text(comment.time!, style: TextStyle(fontSize: kcCaption)).toAlign(Alignment.centerLeft),
+            Text(
+              comment.time!,
+              style: TextStyle(fontSize: kcCaption),
+            ).toAlign(Alignment.centerLeft),
         ],
       ),
     );

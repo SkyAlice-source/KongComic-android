@@ -52,7 +52,7 @@ class _DownloadingPageState extends State<DownloadingPage>
       firstTask = currentFirstTask;
       firstTask?.addListener(update);
     }
-    if(mounted) {
+    if (mounted) {
       setState(() {});
     }
   }
@@ -118,15 +118,9 @@ class _DownloadingPageState extends State<DownloadingPage>
       child: Row(
         children: [
           if (first?.isError == true)
-            Text(
-              "Error".tl,
-              style: TextStyle(fontSize: kcSectionTitle).bold,
-            )
+            Text("Error".tl, style: TextStyle(fontSize: kcSectionTitle).bold)
           else if (first?.isPaused == true)
-            Text(
-              "Paused".tl,
-              style: TextStyle(fontSize: kcSectionTitle).bold,
-            )
+            Text("Paused".tl, style: TextStyle(fontSize: kcSectionTitle).bold)
           else
             Text(
               "${bytesToReadableString(speed)}/s",
@@ -184,7 +178,6 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile>
     listen(task, update);
     super.initState();
   }
-
 
   @override
   void didUpdateWidget(covariant _DownloadTaskTile oldWidget) {
@@ -272,14 +265,20 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile>
                           },
                         ),
                         MenuEntry(
-                          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
+                          icon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedCancel01,
+                            size: 18,
+                          ),
                           text: "Cancel".tl,
                           onClick: () {
                             widget.task.cancel();
                           },
                         ),
                         MenuEntry(
-                          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01, size: 18),
+                          icon: HugeIcon(
+                            icon: HugeIcons.strokeRoundedArrowUp01,
+                            size: 18,
+                          ),
                           text: "Move To First".tl,
                           onClick: () {
                             LocalManager().moveToFirst(widget.task);

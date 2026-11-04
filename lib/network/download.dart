@@ -20,6 +20,7 @@ import 'package:zip_flutter/zip_flutter.dart';
 
 import 'package:kong_comic/utils/translations.dart';
 import 'file_downloader.dart';
+
 abstract class DownloadTask with ChangeNotifier {
   /// 0-1
   double get progress;
@@ -129,8 +130,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
           }
           try {
             await Directory(path!).delete(recursive: true);
-          }
-          catch(e) {
+          } catch (e) {
             Log.error("Download", "Failed to delete directory: $e");
           }
         });
@@ -225,12 +225,14 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       }
       Directory saveTo;
       if (comic!.chapters != null) {
-        saveTo = Directory(FilePath.join(
-          path!,
-          LocalManager.getChapterDirectoryName(
-            _images!.keys.elementAt(_chapter),
+        saveTo = Directory(
+          FilePath.join(
+            path!,
+            LocalManager.getChapterDirectoryName(
+              _images!.keys.elementAt(_chapter),
+            ),
           ),
-        ));
+        );
         if (!saveTo.existsSync()) {
           saveTo.createSync(recursive: true);
         }
@@ -270,7 +272,10 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       var res = await _runWithRetry(() async {
         var r = await source.loadComicInfo!(comicId);
         if (r.error) {
-          throw r.errorMessage!;
+          // 源返回 {error: true} 但没给原因时 errorMessage 为空，强解包会抛
+          // 「Null check operator used on a null value」——用户看到的就是这句
+          // 技术串，既不知道是源的问题也没法处理。
+          throw r.errorMessage ?? sourceReturnedNothingError();
         } else {
           return r.data;
         }
@@ -279,7 +284,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         return;
       }
       if (res.error) {
-        _setError("${"Error".tl}: ${friendlyError(res.errorMessage!)}");
+        _setError("${"Error".tl}: ${friendlySourceError(res.errorMessage)}");
         return;
       } else {
         comic = res.data;
@@ -311,8 +316,10 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       notifyListeners();
       var res = await _runWithRetry(() async {
         Uint8List? data;
-        await for (var progress
-            in ImageDownloader.loadThumbnail(comic!.cover, source.key)) {
+        await for (var progress in ImageDownloader.loadThumbnail(
+          comic!.cover,
+          source.key,
+        )) {
           if (progress.imageBytes != null) {
             data = progress.imageBytes;
           }
@@ -326,8 +333,8 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         return "file://${file.path}";
       });
       if (res.error) {
-        Log.error("Download", res.errorMessage!);
-        _setError("${"Error".tl}: ${friendlyError(res.errorMessage!)}");
+        Log.error("Download", res.errorMessage ?? "");
+        _setError("${"Error".tl}: ${friendlySourceError(res.errorMessage)}");
         return;
       } else {
         _cover = res.data;
@@ -343,7 +350,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
         var res = await _runWithRetry(() async {
           var r = await source.loadComicPages!(comicId, null);
           if (r.error) {
-            throw r.errorMessage!;
+            throw r.errorMessage ?? sourceReturnedNothingError();
           } else {
             return r.data;
           }
@@ -352,8 +359,8 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
           return;
         }
         if (res.error) {
-          Log.error("Download", res.errorMessage!);
-          _setError("${"Error".tl}: ${friendlyError(res.errorMessage!)}");
+          Log.error("Download", res.errorMessage ?? "");
+          _setError("${"Error".tl}: ${friendlySourceError(res.errorMessage)}");
           return;
         } else {
           _images = {'': res.data};
@@ -378,7 +385,7 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
           var res = await _runWithRetry(() async {
             var r = await source.loadComicPages!(comicId, i);
             if (r.error) {
-              throw r.errorMessage!;
+              throw r.errorMessage ?? sourceReturnedNothingError();
             } else {
               return r.data;
             }
@@ -387,8 +394,10 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
             return;
           }
           if (res.error) {
-            Log.error("Download", res.errorMessage!);
-            _setError("${"Error".tl}: ${friendlyError(res.errorMessage!)}");
+            Log.error("Download", res.errorMessage ?? "");
+            _setError(
+              "${"Error".tl}: ${friendlySourceError(res.errorMessage)}",
+            );
             return;
           } else {
             _images![i] = res.data;
@@ -436,24 +445,26 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       // Sanitize the manga title once and use it as the CBZ filename prefix,
       // matching the "漫画名 + 章节名" naming convention so files stay
       // recognizable when copied out of the per-comic folder.
-      final mangaName =
-          sanitizeFileName(comic?.title ?? comicTitle ?? "Comic");
+      final mangaName = sanitizeFileName(comic?.title ?? comicTitle ?? "Comic");
       if (comic!.chapters != null) {
         // 多章节模式：每个章节文件夹打包为单独的 .cbz
         for (var chapterId in (chapters ?? comic!.chapters!.allChapters.keys)) {
-          var chapterDir = Directory(FilePath.join(
-            path!,
-            LocalManager.getChapterDirectoryName(chapterId),
-          ));
+          var chapterDir = Directory(
+            FilePath.join(
+              path!,
+              LocalManager.getChapterDirectoryName(chapterId),
+            ),
+          );
           if (!await chapterDir.exists()) continue;
           // allChapters: Map<chapterId, chapterTitle>
           // 用 .keys 拿到的是 ID（如 1221144），CBZ 名要用人能看懂的章节标题
-          final chapterTitle = comic!.chapters!.allChapters[chapterId] ?? chapterId;
-          final chapterName =
-              LocalManager.getChapterDirectoryName(chapterTitle);
+          final chapterTitle =
+              comic!.chapters!.allChapters[chapterId] ?? chapterId;
+          final chapterName = LocalManager.getChapterDirectoryName(
+            chapterTitle,
+          );
           final cbzFileName = '$mangaName - $chapterName.cbz';
-          var cbzPath =
-              FilePath.join(p.dirname(chapterDir.path), cbzFileName);
+          var cbzPath = FilePath.join(p.dirname(chapterDir.path), cbzFileName);
           try {
             final bytes = await _buildCbzFromDir(chapterDir);
             await _writeCbzBytes(cbzPath, bytes);
@@ -477,7 +488,10 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
               await dir.delete(recursive: true);
             }
           } catch (e, s) {
-            Log.error("Download", "Failed to package single chapter as CBZ: $e\n$s");
+            Log.error(
+              "Download",
+              "Failed to package single chapter as CBZ: $e\n$s",
+            );
           }
         }
       }
@@ -547,12 +561,13 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
     }
 
     return ImagesDownloadTask(
-      source: source,
-      comicId: json["comicId"],
-      comic:
-          json["comic"] == null ? null : ComicDetails.fromJson(json["comic"]),
-      chapters: ListOrNull.from(json["chapters"]),
-    )
+        source: source,
+        comicId: json["comicId"],
+        comic: json["comic"] == null
+            ? null
+            : ComicDetails.fromJson(json["comic"]),
+        chapters: ListOrNull.from(json["chapters"]),
+      )
       ..path = json["path"]
       .._cover = json["cover"]
       .._images = images
@@ -599,8 +614,10 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
   int get hashCode => Object.hash(comicId, source.key);
 }
 
-Future<Res<T>> _runWithRetry<T>(Future<T> Function() task,
-    {int retry = 3}) async {
+Future<Res<T>> _runWithRetry<T>(
+  Future<T> Function() task, {
+  int retry = 3,
+}) async {
   for (var i = 0; i < retry; i++) {
     try {
       return Res(await task());
@@ -653,7 +670,11 @@ class _ImageDownloadWrapper {
     int lastBytes = 0;
     try {
       await for (var p in ImageDownloader.loadComicImageUnwrapped(
-          image, task.source.key, task.comicId, chapter)) {
+        image,
+        task.source.key,
+        task.comicId,
+        chapter,
+      )) {
         if (isCancelled) {
           return;
         }
@@ -748,8 +769,11 @@ class ArchiveDownloadTask extends DownloadTask {
   ///
   /// Currently only support zip file and comics without chapters
   ArchiveDownloadTask(this.archiveUrl, this.comic) {
-    source = ComicSource.find(comic.sourceKey) ??
-        (throw Exception('Download failed: source not found for ${comic.sourceKey}'));
+    source =
+        ComicSource.find(comic.sourceKey) ??
+        (throw Exception(
+          'Download failed: source not found for ${comic.sourceKey}',
+        ));
   }
 
   FileDownloader? _downloader;
@@ -844,8 +868,9 @@ class ArchiveDownloadTask extends DownloadTask {
       path = dir.path;
     }
 
-    var archiveFile =
-        File(FilePath.join(App.dataPath, "archive_downloading.zip"));
+    var archiveFile = File(
+      FilePath.join(App.dataPath, "archive_downloading.zip"),
+    );
 
     Log.info("Download", "Downloading $archiveUrl");
 
@@ -929,9 +954,9 @@ class ArchiveDownloadTask extends DownloadTask {
       return null;
     }
     return ArchiveDownloadTask(
-      json["archiveUrl"],
-      ComicDetails.fromJson(json["comic"]),
-    )
+        json["archiveUrl"],
+        ComicDetails.fromJson(json["comic"]),
+      )
       ..path = json["path"]
       ..pausedByUser = json["pausedByUser"] == true;
   }
@@ -1000,8 +1025,8 @@ Future<Uint8List> _buildCbzFromDir(Directory dir) async {
 /// Write a CBZ byte buffer to [cbzPath], routing through AndroidFile so SAF
 /// tree URIs work the same as plain paths.
 Future<void> _writeCbzBytes(String cbzPath, Uint8List bytes) async {
-  final isSaf = cbzPath.startsWith('content://') ||
-      cbzPath.startsWith('android://');
+  final isSaf =
+      cbzPath.startsWith('content://') || cbzPath.startsWith('android://');
   if (isSaf) {
     var safFile = AndroidFile.fromPathSync(cbzPath);
     if (safFile == null) {

@@ -65,12 +65,12 @@ class CoverPlaceholder extends StatelessWidget {
                 ),
               )
             : (showIcon
-                ? HugeIcon(
-                    icon: icon ?? HugeIcons.strokeRoundedImage01,
-                    size: iconSize,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                  )
-                : const SizedBox()),
+                  ? HugeIcon(
+                      icon: icon ?? HugeIcons.strokeRoundedImage01,
+                      size: iconSize,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                    )
+                  : const SizedBox()),
       ),
     );
   }

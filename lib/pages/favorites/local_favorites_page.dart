@@ -961,7 +961,8 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
   }
 
   /// 当前收藏排序键（manual / recent / name）。
-  String get _sortKey => (appdata.settings['favoriteSort'] as String?) ?? 'recent';
+  String get _sortKey =>
+      (appdata.settings['favoriteSort'] as String?) ?? 'recent';
 
   /// 工具条上的排序短标签：只显示当前值，避免长文案把胶囊撑宽。
   String get _sortLabel {

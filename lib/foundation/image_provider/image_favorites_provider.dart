@@ -112,10 +112,13 @@ class ImageFavoritesProvider
     // `md5(imageKey)`), so files orphaned by older versions are reclaimed too.
     final names = <String>{
       _cacheFileName(imageFavorite),
-      md5.convert("ImageFavorites ${imageFavorite.imageKey}@"
-              "${imageFavorite.sourceKey}@${imageFavorite.id}@"
-              "${imageFavorite.eid}"
-              .codeUnits)
+      md5
+          .convert(
+            "ImageFavorites ${imageFavorite.imageKey}@"
+                    "${imageFavorite.sourceKey}@${imageFavorite.id}@"
+                    "${imageFavorite.eid}"
+                .codeUnits,
+          )
           .toString(),
       md5.convert(imageFavorite.imageKey.codeUnits).toString(),
     };
@@ -136,11 +139,13 @@ class ImageFavoritesProvider
   /// identifiers (id + sourceKey + eid + page) so it does not depend on the
   /// network image key.
   static File localImageFile(ImageFavorite f) {
-    return File(FilePath.join(
-      App.dataPath,
-      'image_favorites_local',
-      '${f.id}_${f.sourceKey}_${f.eid}_${f.page}',
-    ));
+    return File(
+      FilePath.join(
+        App.dataPath,
+        'image_favorites_local',
+        '${f.id}_${f.sourceKey}_${f.eid}_${f.page}',
+      ),
+    );
   }
 
   /// Download and persist a single favorited image to [localImageFile] so it
@@ -176,8 +181,10 @@ class ImageFavoritesProvider
   }
 
   Future<Uint8List?> getImageFromLocal() async {
-    var localComic =
-        LocalManager().find(sourceKey, ComicType.fromKey(sourceKey));
+    var localComic = LocalManager().find(
+      sourceKey,
+      ComicType.fromKey(sourceKey),
+    );
     if (localComic == null) {
       return null;
     }
@@ -199,14 +206,20 @@ class ImageFavoritesProvider
     StreamController<ImageChunkEvent>? chunkEvents,
     void Function()? checkStop,
   ) async {
-    await for (var progress
-        in ImageDownloader.loadComicImage(imageKey, sourceKey, cid, eid)) {
+    await for (var progress in ImageDownloader.loadComicImage(
+      imageKey,
+      sourceKey,
+      cid,
+      eid,
+    )) {
       checkStop?.call();
       if (chunkEvents != null) {
-        chunkEvents.add(ImageChunkEvent(
-          cumulativeBytesLoaded: progress.currentBytes,
-          expectedTotalBytes: progress.totalBytes,
-        ));
+        chunkEvents.add(
+          ImageChunkEvent(
+            cumulativeBytesLoaded: progress.currentBytes,
+            expectedTotalBytes: progress.totalBytes,
+          ),
+        );
       }
       if (progress.imageBytes != null) {
         return progress.imageBytes!;

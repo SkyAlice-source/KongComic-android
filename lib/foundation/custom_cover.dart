@@ -37,9 +37,9 @@ class CustomCoverManager {
   static Map<String, String> _getAll() {
     final data = appdata.implicitData[_key];
     if (data is Map) {
-      return Map<String, String>.from(data.map(
-        (k, v) => MapEntry(k.toString(), v.toString()),
-      ));
+      return Map<String, String>.from(
+        data.map((k, v) => MapEntry(k.toString(), v.toString())),
+      );
     }
     return {};
   }
@@ -51,7 +51,12 @@ class CustomCoverManager {
   }
 
   /// 设置自定义封面（从文件路径）
-  static Future<bool> setCustomCover(String sourceKey, String id, String? sourcePath, {Uint8List? data}) async {
+  static Future<bool> setCustomCover(
+    String sourceKey,
+    String id,
+    String? sourcePath, {
+    Uint8List? data,
+  }) async {
     try {
       final dir = Directory(_coversDir);
       if (!await dir.exists()) {

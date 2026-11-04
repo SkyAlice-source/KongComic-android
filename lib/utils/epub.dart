@@ -26,8 +26,11 @@ class EpubData {
 }
 
 Future<File> createEpubComic(
-    EpubData data, String cacheDir, String outFilePath,
-    {void Function(int current, int total)? onProgress}) async {
+  EpubData data,
+  String cacheDir,
+  String outFilePath, {
+  void Function(int current, int total)? onProgress,
+}) async {
   final workingDir = Directory(FilePath.join(cacheDir, 'epub'));
   if (workingDir.existsSync()) {
     workingDir.deleteSync(recursive: true);
@@ -39,8 +42,9 @@ Future<File> createEpubComic(
 
   // META-INF
   Directory(FilePath.join(workingDir.path, 'META-INF')).createSync();
-  File(FilePath.join(workingDir.path, 'META-INF', 'container.xml'))
-      .writeAsStringSync('''
+  File(
+    FilePath.join(workingDir.path, 'META-INF', 'container.xml'),
+  ).writeAsStringSync('''
 <?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
@@ -61,12 +65,17 @@ Future<File> createEpubComic(
       .writeAsBytesSync(data.cover.readAsBytesSync());
   int imgIndex = 0;
   int chapterIndex = 0;
-  final totalImages = data.chapters.values.fold(0, (sum, list) => sum + list.length);
+  final totalImages = data.chapters.values.fold(
+    0,
+    (sum, list) => sum + list.length,
+  );
   var manifestStrBuilder = StringBuffer();
   manifestStrBuilder.writeln(
-      '        <item id="cover_image" href="OEBPS/images/cover.$coverExt" media-type="$coverMime"/>');
+    '        <item id="cover_image" href="OEBPS/images/cover.$coverExt" media-type="$coverMime"/>',
+  );
   manifestStrBuilder.writeln(
-      '        <item id="toc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>');
+    '        <item id="toc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>',
+  );
   for (final chapter in data.chapters.keys) {
     var images = <String>[];
     for (final image in data.chapters[chapter]!) {
@@ -77,12 +86,14 @@ Future<File> createEpubComic(
       images.add('images/img$imgIndex.$ext');
       var mime = FileType.fromExtension(ext).mime;
       manifestStrBuilder.writeln(
-          '        <item id="img$imgIndex" href="OEBPS/images/img$imgIndex$ext" media-type="$mime"/>');
+        '        <item id="img$imgIndex" href="OEBPS/images/img$imgIndex$ext" media-type="$mime"/>',
+      );
       imgIndex++;
       onProgress?.call(imgIndex, totalImages);
     }
-    var html =
-        File(FilePath.join(workingDir.path, 'OEBPS', '$chapterIndex.html'));
+    var html = File(
+      FilePath.join(workingDir.path, 'OEBPS', '$chapterIndex.html'),
+    );
     html.writeAsStringSync('''
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" 
     "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
@@ -109,7 +120,8 @@ ${images.map((e) => '        <img src="$e" alt="$e"/>').join('\n')}
 </html>
     ''');
     manifestStrBuilder.writeln(
-        '        <item id="chapter$chapterIndex" href="OEBPS/$chapterIndex.html" media-type="application/xhtml+xml"/>');
+      '        <item id="chapter$chapterIndex" href="OEBPS/$chapterIndex.html" media-type="application/xhtml+xml"/>',
+    );
     chapterIndex++;
   }
 
@@ -147,10 +159,12 @@ ${spineStrBuilder.toString()}
   var playOrder = 2;
   final chapterNames = data.chapters.keys.toList();
   for (var i = 0; i < chapterIndex; i++) {
-    navMapStrBuilder
-        .writeln('        <navPoint id="chapter$i" playOrder="$playOrder">');
     navMapStrBuilder.writeln(
-        '            <navLabel><text>${chapterNames[i]}</text></navLabel>');
+      '        <navPoint id="chapter$i" playOrder="$playOrder">',
+    );
+    navMapStrBuilder.writeln(
+      '            <navLabel><text>${chapterNames[i]}</text></navLabel>',
+    );
     navMapStrBuilder.writeln('            <content src="OEBPS/$i.html"/>');
     navMapStrBuilder.writeln('        </navPoint>');
     playOrder++;
@@ -183,20 +197,24 @@ ${navMapStrBuilder.toString()}
 }
 
 Future<File> createEpubWithLocalComic(
-    LocalComic comic, String outFilePath,
-    {void Function(int current, int total)? onProgress}) async {
+  LocalComic comic,
+  String outFilePath, {
+  void Function(int current, int total)? onProgress,
+}) async {
   var chapters = <String, List<File>>{};
   if (comic.chapters == null) {
-    chapters[comic.title] =
-        (await LocalManager().getImages(comic.id, comic.comicType, 0))
-            .map((e) => File(e))
-            .toList();
+    chapters[comic.title] = (await LocalManager().getImages(
+      comic.id,
+      comic.comicType,
+      0,
+    )).map((e) => File(e)).toList();
   } else {
     for (var chapter in comic.downloadedChapters) {
-      chapters[comic.chapters![chapter]!] =
-          (await LocalManager().getImages(comic.id, comic.comicType, chapter))
-              .map((e) => File(e))
-              .toList();
+      chapters[comic.chapters![chapter]!] = (await LocalManager().getImages(
+        comic.id,
+        comic.comicType,
+        chapter,
+      )).map((e) => File(e)).toList();
     }
   }
   var data = EpubData(
@@ -235,8 +253,12 @@ Future<File> createEpubWithLocalComic(
         sendPort.send([current, total]);
       }
 
-      await createEpubComic(data, cacheDir, outFilePath,
-          onProgress: progressCallback);
+      await createEpubComic(
+        data,
+        cacheDir,
+        outFilePath,
+        onProgress: progressCallback,
+      );
       sendPort.send(outFilePath);
     }),
     receivePort.sendPort,

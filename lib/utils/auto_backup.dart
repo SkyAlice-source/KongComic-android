@@ -43,10 +43,10 @@ Future<void> initAutoBackup() async {
     final enabled = appdata.settings['autoBackupEnabled'] == true;
     final interval = _readInterval();
     if (enabled) {
-      final alreadyScheduled =
-          await Workmanager().isScheduledByUniqueName(autoBackupTaskKey);
-      final lastScheduled =
-          appdata.implicitData['autoBackupScheduledInterval'];
+      final alreadyScheduled = await Workmanager().isScheduledByUniqueName(
+        autoBackupTaskKey,
+      );
+      final lastScheduled = appdata.implicitData['autoBackupScheduledInterval'];
       if (!alreadyScheduled || lastScheduled != interval) {
         await Workmanager().registerPeriodicTask(
           autoBackupTaskKey,
@@ -57,7 +57,9 @@ Future<void> initAutoBackup() async {
         appdata.implicitData['autoBackupScheduledInterval'] = interval;
         appdata.writeImplicitData();
         Log.info(
-            "AutoBackup", "Scheduled periodic backup every $interval days");
+          "AutoBackup",
+          "Scheduled periodic backup every $interval days",
+        );
       }
     } else {
       await Workmanager().cancelByUniqueName(autoBackupTaskKey);
@@ -91,7 +93,10 @@ const _suffixChars = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 String _randomSuffix() {
   final rand = Random.secure();
-  return List.generate(6, (_) => _suffixChars[rand.nextInt(_suffixChars.length)]).join();
+  return List.generate(
+    6,
+    (_) => _suffixChars[rand.nextInt(_suffixChars.length)],
+  ).join();
 }
 
 /// 执行一次完整备份，写入「下载/KongComic/AutoBackup」目录。
@@ -121,8 +126,9 @@ Future<void> performAutoBackup() async {
     if (!dir.existsSync()) return;
     for (final entity in dir.listSync(recursive: true)) {
       if (entity is File) {
-        final rel =
-            entity.path.substring(absolute.length).replaceFirst('/', '');
+        final rel = entity.path
+            .substring(absolute.length)
+            .replaceFirst('/', '');
         addFile("$relative/$rel", entity.path);
       }
     }
@@ -191,10 +197,13 @@ Future<File> _writeBackup(List<int> bytes, String fileName) async {
       // 极端情况下（同一秒跑两次）文件名仍可能撞车，顺手错开。
       var attempt = 0;
       while (await out.exists() && attempt < 20) {
-        out = File(FilePath.join(
+        out = File(
+          FilePath.join(
             dir,
             "KongComic_auto_${DateTime.now().millisecondsSinceEpoch}_"
-                "${_randomSuffix()}.kongcomic"));
+            "${_randomSuffix()}.kongcomic",
+          ),
+        );
         attempt++;
       }
       await out.writeAsBytes(bytes, flush: true);
@@ -231,12 +240,15 @@ Future<void> _cleanupOldBackups(String backupDirPath) async {
       }
     }
     // 2) 数量维度（兜底）
-    final remaining = dir
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.name.endsWith('.kongcomic'))
-        .toList()
-      ..sort((a, b) => a.lastModifiedSync().compareTo(b.lastModifiedSync()));
+    final remaining =
+        dir
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.name.endsWith('.kongcomic'))
+            .toList()
+          ..sort(
+            (a, b) => a.lastModifiedSync().compareTo(b.lastModifiedSync()),
+          );
     while (remaining.length > autoBackupKeepCount) {
       try {
         remaining.first.deleteSync();
@@ -246,7 +258,7 @@ Future<void> _cleanupOldBackups(String backupDirPath) async {
         Log.warning(
           "AutoBackup",
           "Failed to delete old backup "
-          "${remaining.first.path}: $e",
+              "${remaining.first.path}: $e",
         );
         break;
       }

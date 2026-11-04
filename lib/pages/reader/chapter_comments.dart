@@ -3,7 +3,7 @@ part of 'reader.dart';
 bool _shouldBlockComment(Comment comment) {
   var blockedWords = (appdata.settings["blockedCommentWords"] as List?) ?? [];
   if (blockedWords.isEmpty) return false;
-  
+
   var content = comment.content.toLowerCase();
   for (var word in blockedWords) {
     if (content.contains(word.toString().toLowerCase())) {
@@ -80,8 +80,9 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
         _loading = false;
       });
     } else {
-      var filteredComments =
-          res.data.where((c) => !_shouldBlockComment(c)).toList();
+      var filteredComments = res.data
+          .where((c) => !_shouldBlockComment(c))
+          .toList();
       setState(() {
         _comments = filteredComments;
         _loading = false;
@@ -104,10 +105,13 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
       return;
     }
     if (res.error) {
-      context.showMessage(message: friendlyError(res.errorMessage ?? "Unknown Error".tl));
+      context.showMessage(
+        message: friendlyError(res.errorMessage ?? "Unknown Error".tl),
+      );
     } else {
-      var filteredComments =
-          res.data.where((c) => !_shouldBlockComment(c)).toList();
+      var filteredComments = res.data
+          .where((c) => !_shouldBlockComment(c))
+          .toList();
       setState(() {
         _comments!.addAll(filteredComments);
         _page++;
@@ -128,7 +132,10 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text("Chapter Comments".tl, style: TextStyle(fontSize: kcSectionTitle)),
+            Text(
+              "Chapter Comments".tl,
+              style: TextStyle(fontSize: kcSectionTitle),
+            ),
             Text(widget.chapterTitle, style: TextStyle(fontSize: kcCaption)),
           ],
         ),
@@ -198,7 +205,10 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
                                   ),
                                 ),
                               ),
-                              child: Text("Replies".tl, style: TextStyle(fontSize: kcSectionTitle)),
+                              child: Text(
+                                "Replies".tl,
+                                style: TextStyle(fontSize: kcSectionTitle),
+                              ),
                             ),
                           ],
                         );
@@ -270,11 +280,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
             if (sending)
               const Padding(
                 padding: EdgeInsets.all(kcSpaceSm),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                child: KcInlineSpinner(size: 20),
               )
             else
               IconButton(
@@ -306,13 +312,18 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
                     // after initState, so the panel would spin forever.
                     firstLoad();
                   } else {
-                    context.showMessage(message: friendlyError(b.errorMessage ?? "Error".tl));
+                    context.showMessage(
+                      message: friendlyError(b.errorMessage ?? "Error".tl),
+                    );
                     setState(() {
                       sending = false;
                     });
                   }
                 },
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedSent02, size: 18, color: Theme.of(context).colorScheme.secondary,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedSent02,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.secondary,
                 ),
               ),
           ],
@@ -374,7 +385,8 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
                 borderRadius: BorderRadius.circular(kcRadius18),
                 color: Theme.of(context).colorScheme.secondaryContainer,
               ),
-              child: (widget.comment.avatar == null ||
+              child:
+                  (widget.comment.avatar == null ||
                       widget.comment.avatar!.isEmpty)
                   ? null
                   : AnimatedImage(
@@ -390,7 +402,10 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
               children: [
                 Text(widget.comment.userName, style: ts.bold),
                 if (widget.comment.time != null)
-                  Text(widget.comment.time!, style: TextStyle(fontSize: kcCaption)),
+                  Text(
+                    widget.comment.time!,
+                    style: TextStyle(fontSize: kcCaption),
+                  ),
                 const SizedBox(height: 4),
                 _CommentContent(text: widget.comment.content),
                 buildActions(),
@@ -421,7 +436,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
               widget.source.likeCommentFunc != null)
             buildLike(),
           // Only show reply button if comment has both id and replyCount
-          if (widget.comment.replyCount != null && widget.comment.id != null) 
+          if (widget.comment.replyCount != null && widget.comment.id != null)
             buildReply(),
         ],
       ),
@@ -442,7 +457,8 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
         borderRadius: BorderRadius.circular(kcRadius16),
         onTap: () {
           // Get the parent page's widget to access comicTitle and chapterTitle
-          var parentState = context.findAncestorStateOfType<_ChapterCommentsPageState>();
+          var parentState = context
+              .findAncestorStateOfType<_ChapterCommentsPageState>();
           showSideBar(
             context,
             ChapterCommentsPage(
@@ -500,7 +516,9 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
             isLiked = !isLiked;
             likes += isLiked ? 1 : -1;
           } else {
-            context.showMessage(message: friendlyError(res.errorMessage ?? "Error".tl));
+            context.showMessage(
+              message: friendlyError(res.errorMessage ?? "Error".tl),
+            );
           }
           setState(() {
             isLiking = false;
@@ -510,13 +528,12 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isLiking)
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(),
-              )
+              const KcInlineSpinner(size: 16)
             else if (isLiked)
-              HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 16, color: context.useTextColor(Colors.red),
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedFavourite,
+                size: 16,
+                color: context.useTextColor(Colors.red),
               )
             else
               HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 16),
@@ -563,7 +580,9 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
       widget.comment.voteStatus = voteStatus;
       widget.comment.score = res.data ?? widget.comment.score;
     } else {
-      context.showMessage(message: friendlyError(res.errorMessage ?? "Error".tl));
+      context.showMessage(
+        message: friendlyError(res.errorMessage ?? "Error".tl),
+      );
     }
     setState(() {
       isVotingUp = false;
@@ -706,8 +725,9 @@ class _EmbeddedChapterCommentsPageState
         });
       }
     } else if (mounted) {
-      var filteredComments =
-          res.data.where((c) => !_shouldBlockComment(c)).toList();
+      var filteredComments = res.data
+          .where((c) => !_shouldBlockComment(c))
+          .toList();
       setState(() {
         _comments = filteredComments;
         _loading = false;
@@ -727,11 +747,14 @@ class _EmbeddedChapterCommentsPageState
     );
     if (res.error) {
       if (mounted) {
-        context.showMessage(message: friendlyError(res.errorMessage ?? "Unknown Error".tl));
+        context.showMessage(
+          message: friendlyError(res.errorMessage ?? "Unknown Error".tl),
+        );
       }
     } else if (mounted) {
-      var filteredComments =
-          res.data.where((c) => !_shouldBlockComment(c)).toList();
+      var filteredComments = res.data
+          .where((c) => !_shouldBlockComment(c))
+          .toList();
       setState(() {
         _comments!.addAll(filteredComments);
         _page++;
@@ -789,8 +812,14 @@ class _EmbeddedChapterCommentsPageState
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Chapter Comments".tl, style: TextStyle(fontSize: kcSectionTitle)),
-                Text(widget.chapterTitle, style: TextStyle(fontSize: kcCaption)),
+                Text(
+                  "Chapter Comments".tl,
+                  style: TextStyle(fontSize: kcSectionTitle),
+                ),
+                Text(
+                  widget.chapterTitle,
+                  style: TextStyle(fontSize: kcCaption),
+                ),
               ],
             ),
           ),
@@ -825,10 +854,11 @@ class _EmbeddedChapterCommentsPageState
   }
 
   Widget _buildCommentsList(bool showAvatar) {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final crossAxisCount = isLandscape ? 2 : 1;
     _scrollController ??= ScrollController();
-    
+
     return Scrollbar(
       controller: _scrollController!,
       thumbVisibility: true,
@@ -896,11 +926,7 @@ class _EmbeddedChapterCommentsPageState
             if (sending)
               const Padding(
                 padding: EdgeInsets.all(kcSpaceSm),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                child: KcInlineSpinner(size: 20),
               )
             else
               IconButton(
@@ -933,14 +959,19 @@ class _EmbeddedChapterCommentsPageState
                     firstLoad();
                   } else {
                     if (mounted) {
-                      context.showMessage(message: friendlyError(b.errorMessage ?? "Error".tl));
+                      context.showMessage(
+                        message: friendlyError(b.errorMessage ?? "Error".tl),
+                      );
                     }
                     setState(() {
                       sending = false;
                     });
                   }
                 },
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedSent02, size: 18, color: Theme.of(context).colorScheme.secondary,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedSent02,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.secondary,
                 ),
               ),
           ],

@@ -30,13 +30,14 @@ class CloudflareException implements DioException {
   }
 
   @override
-  DioException copyWith(
-      {RequestOptions? requestOptions,
-      Response<dynamic>? response,
-      DioExceptionType? type,
-      Object? error,
-      StackTrace? stackTrace,
-      String? message}) {
+  DioException copyWith({
+    RequestOptions? requestOptions,
+    Response<dynamic>? response,
+    DioExceptionType? type,
+    Object? error,
+    StackTrace? stackTrace,
+    String? message,
+  }) {
     return this;
   }
 
@@ -68,9 +69,11 @@ class CloudflareInterceptor extends Interceptor {
     // 大小写不敏感地找 cookie 头：源 JS 可能设置 'Cookie'（大写），而
     // CookieManagerSql 附加的是 'cookie'（小写），原实现只查小写会漏判，
     // 导致带 cf_clearance 的请求没换上浏览器 UA 而被 CF 拒绝。
-    final hasCfClearance = options.headers.entries.any((e) =>
-        e.key.toLowerCase() == 'cookie' &&
-        e.value.toString().contains('cf_clearance'));
+    final hasCfClearance = options.headers.entries.any(
+      (e) =>
+          e.key.toLowerCase() == 'cookie' &&
+          e.value.toString().contains('cf_clearance'),
+    );
     if (hasCfClearance) {
       options.headers['user-agent'] = appdata.implicitData['ua'] ?? webUA;
     }
@@ -120,7 +123,9 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
       uri,
       List<io.Cookie>.generate(cookies.length, (index) {
         var cookie = io.Cookie(
-            cookies.keys.elementAt(index), cookies.values.elementAt(index));
+          cookies.keys.elementAt(index),
+          cookies.values.elementAt(index),
+        );
         cookie.domain = domain;
         return cookie;
       }),
@@ -135,12 +140,13 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
       onTitleChange: (title, controller) async {
         var head =
             await controller.evaluateJavascript("document.head.innerHTML") ??
-                "";
+            "";
         var body =
             await controller.evaluateJavascript("document.body.innerHTML") ??
-                "";
+            "";
         Log.info("Cloudflare", "Checking head: $head");
-        var isChallenging = head.contains('#challenge-success-text') ||
+        var isChallenging =
+            head.contains('#challenge-success-text') ||
             head.contains("#challenge-error-text") ||
             head.contains("#challenge-form") ||
             body.contains("challenge-platform") ||
@@ -178,11 +184,13 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
     // 未知/异常时保守返回 true（仍视为在挑战中，继续等待用户处理）。
     Future<bool> pageIsChallenging(InAppWebViewController controller) async {
       try {
-        final head = await controller.evaluateJavascript(
+        final head =
+            await controller.evaluateJavascript(
               source: "document.head.innerHTML",
             ) ??
             "";
-        final body = await controller.evaluateJavascript(
+        final body =
+            await controller.evaluateJavascript(
               source: "document.body.innerHTML",
             ) ??
             "";
@@ -206,8 +214,9 @@ void passCloudflare(CloudflareException e, void Function() onFinished) async {
         var cookies = await controller.getCookies(url);
         if (success) return;
         if (cookies == null || cookies.isEmpty) return;
-        var cfClearance =
-            cookies.firstWhereOrNull((element) => element.name == 'cf_clearance');
+        var cfClearance = cookies.firstWhereOrNull(
+          (element) => element.name == 'cf_clearance',
+        );
         if (cfClearance == null) {
           // 页面已正常加载却不是挑战页，且始终没有 cf_clearance 可保存
           // （源站没下发验证 cookie，或验证只认浏览器指纹）。此时自动关闭并

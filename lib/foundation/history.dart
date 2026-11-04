@@ -72,34 +72,34 @@ class History implements Comic {
   @override
   int? maxPage;
 
-  History.fromModel(
-      {required HistoryMixin model,
-      required this.ep,
-      required this.page,
-      this.group,
-      Set<String>? readChapters,
-      DateTime? time})
-      : type = model.historyType,
-        title = model.title,
-        subtitle = model.subTitle ?? '',
-        cover = model.cover,
-        id = model.id,
-        readEpisode = readChapters ?? <String>{},
-        time = time ?? DateTime.now();
+  History.fromModel({
+    required HistoryMixin model,
+    required this.ep,
+    required this.page,
+    this.group,
+    Set<String>? readChapters,
+    DateTime? time,
+  }) : type = model.historyType,
+       title = model.title,
+       subtitle = model.subTitle ?? '',
+       cover = model.cover,
+       id = model.id,
+       readEpisode = readChapters ?? <String>{},
+       time = time ?? DateTime.now();
 
   History.fromMap(Map<String, dynamic> map)
-      : type = HistoryType(map["type"]),
-        time = DateTime.fromMillisecondsSinceEpoch(map["time"]),
-        title = map["title"],
-        subtitle = map["subtitle"],
-        cover = map["cover"],
-        ep = map["ep"],
-        page = map["page"],
-        id = map["id"],
-        readEpisode = Set<String>.from(
-            (map["readEpisode"] as List<dynamic>?)?.toSet() ??
-                const <String>{}),
-        maxPage = map["max_page"];
+    : type = HistoryType(map["type"]),
+      time = DateTime.fromMillisecondsSinceEpoch(map["time"]),
+      title = map["title"],
+      subtitle = map["subtitle"],
+      cover = map["cover"],
+      ep = map["ep"],
+      page = map["page"],
+      id = map["id"],
+      readEpisode = Set<String>.from(
+        (map["readEpisode"] as List<dynamic>?)?.toSet() ?? const <String>{},
+      ),
+      maxPage = map["max_page"];
 
   @override
   String toString() {
@@ -107,19 +107,21 @@ class History implements Comic {
   }
 
   History.fromRow(Row row)
-      : type = HistoryType(row["type"]),
-        time = DateTime.fromMillisecondsSinceEpoch(row["time"]),
-        title = row["title"],
-        subtitle = row["subtitle"],
-        cover = row["cover"],
-        ep = row["ep"],
-        page = row["page"],
-        id = row["id"],
-        readEpisode = Set<String>.from((row["readEpisode"] as String)
+    : type = HistoryType(row["type"]),
+      time = DateTime.fromMillisecondsSinceEpoch(row["time"]),
+      title = row["title"],
+      subtitle = row["subtitle"],
+      cover = row["cover"],
+      ep = row["ep"],
+      page = row["page"],
+      id = row["id"],
+      readEpisode = Set<String>.from(
+        (row["readEpisode"] as String)
             .split(',')
-            .where((element) => element != "")),
-        maxPage = row["max_page"],
-        group = row["chapter_group"];
+            .where((element) => element != ""),
+      ),
+      maxPage = row["max_page"],
+      group = row["chapter_group"];
 
   @override
   bool operator ==(Object other) {
@@ -132,23 +134,17 @@ class History implements Comic {
   @override
   String get description {
     var res = "";
-    if (group != null){
-      res += "${"Group @group".tlParams({
-        "group": group!,
-      })} - ";
+    if (group != null) {
+      res += "${"Group @group".tlParams({"group": group!})} - ";
     }
     if (ep >= 1) {
-      res += "Chapter @ep".tlParams({
-        "ep": ep,
-      });
+      res += "Chapter @ep".tlParams({"ep": ep});
     }
     if (page >= 1) {
       if (ep >= 1) {
         res += " - ";
       }
-      res += "Page @page".tlParams({
-        "page": page,
-      });
+      res += "Page @page".tlParams({"page": page});
     }
     return res;
   }
@@ -256,8 +252,12 @@ class HistoryManager with ChangeNotifier {
       """);
 
     // Performance: add indexes for high-frequency query columns
-    _db.execute("CREATE INDEX IF NOT EXISTS idx_history_time ON history(time);");
-    _db.execute("CREATE INDEX IF NOT EXISTS idx_history_type ON history(type);");
+    _db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_history_time ON history(time);",
+    );
+    _db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_history_type ON history(type);",
+    );
 
     var columns = _db.select("PRAGMA table_info(history);");
     if (!columns.any((element) => element["name"] == "chapter_group")) {
@@ -289,7 +289,7 @@ class HistoryManager with ChangeNotifier {
       newItem.page,
       newItem.readEpisode.join(','),
       newItem.maxPage,
-      newItem.group
+      newItem.group,
     ]);
     return Future.value();
   }
@@ -333,7 +333,7 @@ class HistoryManager with ChangeNotifier {
       newItem.page,
       newItem.readEpisode.join(','),
       newItem.maxPage,
-      newItem.group
+      newItem.group,
     ]);
     if (_cachedHistoryIds == null) {
       updateCache();
@@ -353,51 +353,54 @@ class HistoryManager with ChangeNotifier {
     notifyListeners();
   }
 
-void clearUnfavoritedHistory() {
-  _db.execute('BEGIN TRANSACTION;');
-  try {
-    final idAndTypes = _db.select("""
+  void clearUnfavoritedHistory() {
+    _db.execute('BEGIN TRANSACTION;');
+    try {
+      final idAndTypes = _db.select("""
       select id, type from history;
     """);
-    // Collect all (id, type) pairs to delete, then batch delete in one SQL.
-    final toDelete = <String, Set<int>>{};
-    for (var element in idAndTypes) {
-      final id = element["id"] as String;
-      final type = ComicType(element["type"] as int);
-      if (!LocalFavoritesManager().isExist(id, type)) {
-        toDelete.putIfAbsent(id, () => {}).add(type.value);
-      }
-    }
-    if (toDelete.isNotEmpty) {
-      // Build batch DELETE with parameterized VALUES.
-      final args = <dynamic>[];
-      final placeholders = <String>[];
-      for (var entry in toDelete.entries) {
-        for (var typeVal in entry.value) {
-          args.add(entry.key);
-          args.add(typeVal);
-          placeholders.add('(?, ?)');
+      // Collect all (id, type) pairs to delete, then batch delete in one SQL.
+      final toDelete = <String, Set<int>>{};
+      for (var element in idAndTypes) {
+        final id = element["id"] as String;
+        final type = ComicType(element["type"] as int);
+        if (!LocalFavoritesManager().isExist(id, type)) {
+          toDelete.putIfAbsent(id, () => {}).add(type.value);
         }
       }
-      _db.execute("""
+      if (toDelete.isNotEmpty) {
+        // Build batch DELETE with parameterized VALUES.
+        final args = <dynamic>[];
+        final placeholders = <String>[];
+        for (var entry in toDelete.entries) {
+          for (var typeVal in entry.value) {
+            args.add(entry.key);
+            args.add(typeVal);
+            placeholders.add('(?, ?)');
+          }
+        }
+        _db.execute("""
         delete from history
         where (id, type) IN (VALUES ${placeholders.join(', ')});
       """, args);
+      }
+      _db.execute('COMMIT;');
+    } catch (e) {
+      _db.execute('ROLLBACK;');
+      rethrow;
     }
-    _db.execute('COMMIT;');
-  } catch (e) {
-    _db.execute('ROLLBACK;');
-    rethrow;
+    updateCache();
+    notifyListeners();
   }
-  updateCache();
-  notifyListeners();
-}
 
   void remove(String id, ComicType type) async {
-    _db.execute("""
+    _db.execute(
+      """
       delete from history
       where id == ? and type == ?;
-    """, [id, type.value]);
+    """,
+      [id, type.value],
+    );
     updateCache();
     notifyListeners();
   }
@@ -431,10 +434,13 @@ void clearUnfavoritedHistory() {
       return item;
     }
 
-    var res = _db.select("""
+    var res = _db.select(
+      """
       select * from history
       where id == ? and type == ?;
-    """, [id, type.value]);
+    """,
+      [id, type.value],
+    );
     if (res.isEmpty) {
       return null;
     }
@@ -470,7 +476,9 @@ void clearUnfavoritedHistory() {
         WHERE excluded.time > history.time;
       """);
       var backupTables = _db
-          .select("SELECT name FROM backup.sqlite_master WHERE type == 'table';")
+          .select(
+            "SELECT name FROM backup.sqlite_master WHERE type == 'table';",
+          )
           .map((e) => e["name"] as String)
           .toList();
       if (backupTables.contains("image_favorites")) {
@@ -495,7 +503,9 @@ void clearUnfavoritedHistory() {
       updateCache();
     }
     // Filter to IDs that actually exist in history
-    var validIds = ids.where((id) => _cachedHistoryIds!.containsKey(id)).toSet();
+    var validIds = ids
+        .where((id) => _cachedHistoryIds!.containsKey(id))
+        .toSet();
     if (validIds.isEmpty) return {};
 
     // Check LRU cache first, collect uncached IDs
@@ -576,8 +586,11 @@ void clearUnfavoritedHistory() {
     final now = DateTime.now();
     switch (timeFilter) {
       case 'today':
-        final start =
-            DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+        final start = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).millisecondsSinceEpoch;
         where = 'where time >= ?';
         args.add(start);
       case '7d':
@@ -606,21 +619,27 @@ void clearUnfavoritedHistory() {
     required int limit,
     required int offset,
   }) {
-    var res = _db.select("""
+    var res = _db.select(
+      """
       select * from history
       where title like ? or subtitle like ?
       order by time DESC
       LIMIT ? OFFSET ?;
-    """, ['%$keyword%', '%$keyword%', limit, offset]);
+    """,
+      ['%$keyword%', '%$keyword%', limit, offset],
+    );
     return res.map((element) => History.fromRow(element)).toList();
   }
 
   /// 搜索历史记录的总数。
   int searchCount(String keyword) {
-    var res = _db.select("""
+    var res = _db.select(
+      """
       select COUNT(*) as cnt from history
       where title like ? or subtitle like ?;
-    """, ['%$keyword%', '%$keyword%']);
+    """,
+      ['%$keyword%', '%$keyword%'],
+    );
     return res.first['cnt'] as int;
   }
 
@@ -658,10 +677,13 @@ void clearUnfavoritedHistory() {
     _db.execute('BEGIN TRANSACTION;');
     try {
       for (var history in histories) {
-        _db.execute("""
+        _db.execute(
+          """
           delete from history
           where id == ? and type == ?;
-        """, [history.id, history.type.value]);
+        """,
+          [history.id, history.type.value],
+        );
       }
       _db.execute('COMMIT;');
     } catch (e) {
@@ -760,7 +782,9 @@ void clearUnfavoritedHistory() {
       if (history.sourceKey == 'local') {
         skipped++;
         current++;
-        controller.add(RefreshProgress(total, current, success, failed, skipped));
+        controller.add(
+          RefreshProgress(total, current, success, failed, skipped),
+        );
         continue;
       }
       historiesToRefresh.add(history);

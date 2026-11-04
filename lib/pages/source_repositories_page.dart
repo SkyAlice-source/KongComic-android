@@ -88,7 +88,6 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     }
   }
 
-
   void _update() {
     if (mounted) setState(() {});
   }
@@ -195,10 +194,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
             child: Text("Cancel".tl),
           ),
           Button.filled(
-            onPressed: () => Navigator.of(dialogContext).pop((
-              nameController.text,
-              urlController.text,
-            )),
+            onPressed: () => Navigator.of(
+              dialogContext,
+            ).pop((nameController.text, urlController.text)),
             child: Text("Save".tl),
           ),
         ],
@@ -299,7 +297,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
       // 报实际装上的版本，而不是仓库宣称的版本：脚本文件可能还停在旧版本
       // （CDN 缓存 / 作者忘了改），直接报宣称值会让人以为更新成功了。
       context.showMessage(
-        message: outcome == null ? "Updated source".tl : sourceUpdateMessage(outcome),
+        message: outcome == null
+            ? "Updated source".tl
+            : sourceUpdateMessage(outcome),
       );
     } catch (e, s) {
       Log.error("Comic source", e, s);
@@ -516,7 +516,12 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
               borderRadius: radius,
               border: Border.all(color: scheme.outlineVariant, width: 0.6),
             ),
-            padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceMd, kcSpaceMd, kcSpaceMd),
+            padding: const EdgeInsets.fromLTRB(
+              kcSpaceMd,
+              kcSpaceMd,
+              kcSpaceMd,
+              kcSpaceMd,
+            ),
             child: child,
           ),
         ),
@@ -530,7 +535,12 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     final banner = _buildRepoUpdateBanner();
     // 长按拖动排序：仓库的先后顺序即用户优先级，持久化在设置里。
     final list = ReorderableListView.builder(
-      padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceSm, kcSpaceMd, kcSpaceLg),
+      padding: const EdgeInsets.fromLTRB(
+        kcSpaceMd,
+        kcSpaceSm,
+        kcSpaceMd,
+        kcSpaceLg,
+      ),
       itemCount: all.length,
       proxyDecorator: _dragProxy,
       onReorderItem: repositories.reorder,
@@ -540,7 +550,12 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
       ),
     );
     if (banner == null) return list;
-    return Column(children: [banner, Expanded(child: list)]);
+    return Column(
+      children: [
+        banner,
+        Expanded(child: list),
+      ],
+    );
   }
 
   /// 整仓库更新的总进度条。
@@ -563,9 +578,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
             children: [
               Expanded(
                 child: Text(
-                  "Updating @name".tlParams({
-                    'name': repository?.name ?? '',
-                  }),
+                  "Updating @name".tlParams({'name': repository?.name ?? ''}),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -592,7 +605,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
               minHeight: 4,
               color: scheme.brightness == Brightness.dark
                   ? Color.alphaBlend(
-                      kcAccentColor(context).withValues(alpha: 0.34), scheme.surface)
+                      kcAccentColor(context).withValues(alpha: 0.34),
+                      scheme.surface,
+                    )
                   : kcAccentColor(context),
               backgroundColor: scheme.surfaceContainerHighest,
             ),
@@ -618,9 +633,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     final subtitle = stats == null
         ? repository.url
         : stats.updatable > 0
-            ? "${"N sources".tlParams({'count': stats.total})} · "
-                "${"sources updatable".tlParams({'count': stats.updatable})}"
-            : "N sources".tlParams({'count': stats.total});
+        ? "${"N sources".tlParams({'count': stats.total})} · "
+              "${"sources updatable".tlParams({'count': stats.updatable})}"
+        : "N sources".tlParams({'count': stats.total});
     final progress = _repoUpdates[repository.id];
     // 有更新时按钮染成主色，与副标题里的「N 个可更新」呼应；没有更新也保留
     // 这个按钮 —— 它同时是「检查这个仓库有没有新版」的入口。
@@ -663,14 +678,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
           IconButton(
             tooltip: "Update repository".tl,
             visualDensity: VisualDensity.compact,
-            onPressed:
-                repoBusy ? null : () => _updateRepository(repository),
+            onPressed: repoBusy ? null : () => _updateRepository(repository),
             icon: progress != null
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const KcInlineSpinner(size: 16)
                 : HugeIcon(
                     icon: HugeIcons.strokeRoundedRefresh,
                     size: 18,
@@ -711,13 +721,19 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
             Text(
               "No source repositories yet.".tl,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: kcSubtitle, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: kcSubtitle,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: kcSpaceSm),
             Text(
               "Add a repository to browse and install comic source scripts.".tl,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: kcBody, color: scheme.onSurfaceVariant),
+              style: TextStyle(
+                fontSize: kcBody,
+                color: scheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: kcSpaceLg),
             Button.filled(
@@ -732,13 +748,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
 
   Widget _buildCatalogView() {
     if (_loading) {
-      return const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
+      // 拉取仓库目录是整块内容在换，不是某个按钮在忙 —— 用整页档的小人。
+      // 这页除了标题栏就是一片空白，110 才不会在屏中间显得孤零零一点。
+      return const KcPageLoading();
     }
     if (_error != null) return _buildError();
     final catalog = _catalog;
@@ -746,7 +758,8 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     final filtered = _catalogEntriesForDisplay();
     return Column(
       children: [
-        if (!_selecting && catalog.entries.isNotEmpty) _buildCatalogFilterChips(),
+        if (!_selecting && catalog.entries.isNotEmpty)
+          _buildCatalogFilterChips(),
         Expanded(
           child: filtered.isEmpty
               ? _buildCatalogEmpty()
@@ -796,10 +809,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     if (oldIndex < 0 || oldIndex >= entries.length) return;
     final moved = entries.removeAt(oldIndex);
     entries.insert(newIndex, moved);
-    await repositories.setCatalogOrder(
-      repository.id,
-      [for (final entry in entries) entry.key],
-    );
+    await repositories.setCatalogOrder(repository.id, [
+      for (final entry in entries) entry.key,
+    ]);
     if (mounted) setState(() {});
   }
 
@@ -851,11 +863,11 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
   }
 
   String _catalogFilterLabel(_CatalogFilter filter) => switch (filter) {
-        _CatalogFilter.all => "All".tl,
-        _CatalogFilter.notInstalled => "Not installed".tl,
-        _CatalogFilter.installed => "Installed".tl,
-        _CatalogFilter.updatable => "Updatable".tl,
-      };
+    _CatalogFilter.all => "All".tl,
+    _CatalogFilter.notInstalled => "Not installed".tl,
+    _CatalogFilter.installed => "Installed".tl,
+    _CatalogFilter.updatable => "Updatable".tl,
+  };
 
   List<SourceCatalogEntry> _applyCatalogFilter(
     List<SourceCatalogEntry> entries,
@@ -864,13 +876,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
       case _CatalogFilter.all:
         return entries;
       case _CatalogFilter.notInstalled:
-        return entries
-            .where((e) => ComicSource.find(e.key) == null)
-            .toList();
+        return entries.where((e) => ComicSource.find(e.key) == null).toList();
       case _CatalogFilter.installed:
-        return entries
-            .where((e) => ComicSource.find(e.key) != null)
-            .toList();
+        return entries.where((e) => ComicSource.find(e.key) != null).toList();
       case _CatalogFilter.updatable:
         return entries.where((e) {
           final source = ComicSource.find(e.key);
@@ -908,11 +916,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
             ),
             const Spacer(),
             if (_busy)
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
+              const KcInlineSpinner(size: 20)
             else ...[
               Button.text(
                 onPressed: () {
@@ -921,10 +925,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
                 },
                 color: anyInstall
                     ? null
-                    : Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
-                        .withValues(alpha: 0.38),
+                    : Theme.of(
+                        context,
+                      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.38),
                 child: Text("Batch install".tl),
               ),
               const SizedBox(width: kcSpaceXs),
@@ -935,10 +938,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
                 },
                 color: anyUpdate
                     ? null
-                    : Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
-                        .withValues(alpha: 0.38),
+                    : Theme.of(
+                        context,
+                      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.38),
                 child: Text("Batch update".tl),
               ),
             ],
@@ -949,22 +951,22 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
   }
 
   void _enterSelect() => setState(() {
-        _selecting = true;
-        _selected.clear();
-      });
+    _selecting = true;
+    _selected.clear();
+  });
 
   void _exitSelect() => setState(() {
-        _selecting = false;
-        _selected.clear();
-      });
+    _selecting = false;
+    _selected.clear();
+  });
 
   void _toggleSelect(String key) => setState(() {
-        if (_selected.contains(key)) {
-          _selected.remove(key);
-        } else {
-          _selected.add(key);
-        }
-      });
+    if (_selected.contains(key)) {
+      _selected.remove(key);
+    } else {
+      _selected.add(key);
+    }
+  });
 
   Future<void> _batchInstall() async {
     final catalog = _catalog;
@@ -1050,7 +1052,8 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
       'fail': result.fail.toString(),
     });
     if (result.stale > 0) {
-      message += " · "
+      message +=
+          " · "
           "${"Repository out of sync: @n".tlParams({'n': result.stale.toString()})}";
     }
     return message;
@@ -1067,7 +1070,8 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     for (final entry in catalog.entries) {
       if (!keys.contains(entry.key)) continue;
       final installed = ComicSource.find(entry.key);
-      if (installed != null && compareSemVer(entry.version, installed.version)) {
+      if (installed != null &&
+          compareSemVer(entry.version, installed.version)) {
         targets.add((entry, installed));
       }
     }
@@ -1176,10 +1180,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
               style: TextStyle(fontSize: kcBody, color: scheme.error),
             ),
             const SizedBox(height: kcSpaceLg),
-            Button.filled(
-              onPressed: _load,
-              child: Text("Retry".tl),
-            ),
+            Button.filled(onPressed: _load, child: Text("Retry".tl)),
           ],
         ),
       ),
@@ -1191,7 +1192,8 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     final installed = ComicSource.find(entry.key);
     // 已经试过、而且确认下不到仓库宣称的那个版本：index 比脚本文件新
     // （作者漏改 / CDN 未同步），再点更新也是白点。见 [update] 的确认记录。
-    final outOfSync = installed != null &&
+    final outOfSync =
+        installed != null &&
         compareSemVer(entry.version, installed.version) &&
         ComicSourceManager().hasAcknowledgedUpdate(entry.key, entry.version);
 

@@ -15,11 +15,7 @@ part of 'components.dart';
 /// 动效只有一层：2.8s 的吸气/呼气（上下 2dp + 1.5% 缩放），幅度小于加载态
 /// 的爬行，避免空页面比有内容的页面更抢眼。系统开启「减少动态效果」时定格。
 class KcChibiIdle extends StatefulWidget {
-  const KcChibiIdle({
-    super.key,
-    this.width = 144,
-    this.semanticLabel,
-  });
+  const KcChibiIdle({super.key, this.width = 144, this.semanticLabel});
 
   /// 小人显示宽度，轨道宽度按 1.5 倍推导的规则在这里不适用 —— 空态没有
   /// 轨道，人物本身就是构图的全部，所以比加载态略大一点。

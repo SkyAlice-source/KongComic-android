@@ -54,7 +54,6 @@ class _MainPageState extends State<MainPage> with AutoListenMixin {
     if (mounted) setState(() {});
   }
 
-
   final _pages = [
     const CategoriesPage(key: PageStorageKey('categories')),
     const FavoritesPage(key: PageStorageKey('favorites')),
