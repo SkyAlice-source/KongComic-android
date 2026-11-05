@@ -52,8 +52,15 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
 
   bool get _isAggregated => _selectedSources.length > 1;
 
-  SearchPageData get currentSearchPageData =>
-      ComicSource.find(_selectedSources.first)!.searchPageData!;
+  /// 当前源的检索页数据。
+  ///
+  /// 三处都可能为 null：选中集合为空（所有源被禁用）、源已被删除但
+  /// `searchSources` 还没刷新、源本身没有 `searchPageData`。原来双强解包
+  /// 在这里会直接抛异常，改成可空后由调用方按「没有检索选项」处理。
+  SearchPageData? get currentSearchPageData {
+    if (_selectedSources.isEmpty) return null;
+    return ComicSource.find(_selectedSources.first)?.searchPageData;
+  }
 
   var focusNode = FocusNode();
 
@@ -237,7 +244,12 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
       }
     }
 
-    if (!ComicSource.find(_selectedSources.first)!.enableTagsSuggestions) {
+    // 所有源都被禁用时选中集合为空，`first` 会直接抛 StateError —— 这里必须
+    // 先判空，否则在搜索框里随手敲一个字符就崩。
+    final suggestionSource = _selectedSources.isEmpty
+        ? null
+        : ComicSource.find(_selectedSources.first);
+    if (!(suggestionSource?.enableTagsSuggestions ?? false)) {
       update();
       return;
     }
@@ -290,6 +302,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
         searchSources.contains(defaultSearchTarget)) {
       _selectedSources = {defaultSearchTarget};
     } else if (defaultSearchTarget == "_aggregated_") {
+      // 设置里的「默认聚合」直接体现为「全选胶囊被选中」，不再另立模式档。
       _selectedSources = searchSources.toSet();
     }
     if (_selectedSources.isNotEmpty) {
@@ -334,6 +347,10 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
     _selectedSources.removeWhere((s) => !searchSources.contains(s));
     if (_selectedSources.isEmpty && searchSources.isNotEmpty) {
       _selectedSources = {searchSources.first};
+    }
+    if (searchSources.length < 2 && _selectedSources.length > 1) {
+      // 源被删到只剩一个时多选已无意义，收回到这一个源。
+      _selectedSources = {_selectedSources.first};
     }
   }
 
@@ -423,58 +440,106 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
     }
   }
 
-  /// 源选择：铺开成两三排的填充胶囊。
+  /// 搜索范围卡片：一颗「全选」入口 + 各源胶囊。
   ///
-  /// 过去是一行横向滚动 + 右侧 24dp 渐隐：源一多就得往左滑，滑到哪都数不清
-  /// 还有几个，「选搜索源」这种需要一眼总览的动作反而要试探。改成 Wrap 自动
-  /// 换行后，常见 3~8 个源全部一屏可见，不滑、也不会被边缘硬切一半。
+  /// 「按源 / 聚合」这组前置模式档已撤掉：勾一个源就是单源搜，勾多个就是
+  /// 聚合搜；结果怎么摆交给结果页的后置分段控件，不在两处重复表达。
   ///
-  /// 高度上限 140dp（约 4 行）：源多到离谱时不会把下面的搜索历史/检索选项
-  /// 挤没，超出部分在胶囊区内部滚动，整页滚动位置不跟着跳。
+  /// 过去源区是一排裸胶囊直接怼在搜索框下面，和滚动区里的搜索历史胶囊长得
+  /// 一模一样、中间没有任何过渡 —— 两块连成一片，语义却完全不同，读起来就是
+  /// 「突然切了一刀」。现在把源区收进设置式浅卡片（12dp 圆角 + 发丝描边），
+  /// 卡片边界本身就是分隔；历史区留在卡片外，靠留白过渡，不用再画硬线。
+  ///
+  /// 胶囊区高度上限 116dp（约 3 行）：源多到离谱时不会把下面的历史挤没，
+  /// 超出部分在卡片内部滚动，整页滚动位置不跟着跳。
   Widget _buildSourceRow() {
-    final sources = searchSources.map((e) => ComicSource.find(e)!).toList();
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    // whereType 兜住「源已删除但 searchSources 还没刷新」：遍历源胶囊时
+    // 强解包会让整个搜索页白屏。
+    final sources = searchSources
+        .map(ComicSource.find)
+        .whereType<ComicSource>()
+        .toList();
     final allSelected = _selectedSources.length == searchSources.length;
     final chips = <Widget>[
+      // 「全选」是进入多源搜索的唯一入口：点它全选，再点收回单选。
+      // 不再有「按源 / 聚合」模式档 —— 勾几个源就是搜几个源。
       _SearchChip(
-        label: "ALL".tl,
+        label: "Select all".tl,
         selected: allSelected,
         onTap: () {
           setState(() {
             _selectedSources = allSelected
                 ? {searchSources.first}
                 : searchSources.toSet();
-            useDefaultOptions();
+            if (_selectedSources.length == 1) {
+              useDefaultOptions();
+            }
           });
         },
       ),
-      ...sources.map((source) {
-        final isSelected = _selectedSources.contains(source.key);
-        return _SearchChip(
+      for (final source in sources)
+        _SearchChip(
           label: source.name,
-          selected: isSelected,
+          selected: _selectedSources.contains(source.key),
           onTap: () {
             setState(() {
-              if (isSelected) {
-                // 至少留一个源，否则 search() 会静默什么都不做。
-                if (_selectedSources.length > 1) {
-                  _selectedSources.remove(source.key);
-                }
+              if (_selectedSources.length == 1) {
+                // 单源：点别的源直接换过去，并重建该源的检索选项。
+                _selectedSources = {source.key};
+                useDefaultOptions();
+                return;
+              }
+              // 多源：逐个勾选 / 取消，至少留一个，否则 search() 会静默什么都不做。
+              if (_selectedSources.contains(source.key)) {
+                _selectedSources.remove(source.key);
               } else {
                 _selectedSources.add(source.key);
               }
+              // 取消到只剩一个源时回到单选语义，检索选项跟着回来。
               if (_selectedSources.length == 1) {
                 useDefaultOptions();
               }
             });
           },
-        );
-      }),
+        ),
     ];
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 140),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: _gutter),
-        child: Wrap(spacing: 8, runSpacing: 8, children: chips),
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        // 深色下不能用 surfaceContainerLow（#181415）：它离页面底 #100D0F 只有
+        // 一档，卡片边界几乎看不出来，一片糊。抬到 surfaceContainer（#1F1A1C）
+        // 后卡片比底色明确浮起一层，卡内胶囊（surfaceContainerHigh）仍在它之上。
+        color: isDark ? cs.surfaceContainer : Colors.white,
+        borderRadius: BorderRadius.circular(kcCardRadius),
+        border: Border.all(
+          // 发丝描边深色下用 outline（#4A4244）半透明：outlineVariant 在这个
+          // 亮度差下只是一条看不到的暗线，抬一档才和「浅卡片」的边界感对齐。
+          color: isDark
+              ? cs.outline.withValues(alpha: 0.45)
+              : cs.outlineVariant.withValues(alpha: 0.9),
+          width: kcHairline,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 116),
+        child: SingleChildScrollView(
+          // SizedBox 撑满卡片宽度，Wrap 才能把整排胶囊居中；直接把 Wrap
+          // 放进 Center 会拿到无界宽度，胶囊全部挤成一行溢出。
+          child: SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: chips,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -484,7 +549,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
       options = [];
       return;
     }
-    final searchOptions = currentSearchPageData.searchOptions ?? [];
+    final searchOptions = currentSearchPageData?.searchOptions ?? [];
     options = searchOptions.map((e) => e.defaultValue).toList();
   }
 
@@ -495,7 +560,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
 
     var children = <Widget>[];
 
-    final searchOptions = currentSearchPageData.searchOptions ?? [];
+    final searchOptions = currentSearchPageData?.searchOptions ?? [];
     if (searchOptions.length != options.length) {
       useDefaultOptions();
     }
@@ -1010,7 +1075,7 @@ class SearchOptionWidget extends StatelessWidget {
   }
 }
 
-/// 全页唯一的胶囊样式 —— 源选择、搜索历史、检索选项共用。
+/// 全页唯一的胶囊样式 —— 源选择、检索选项共用。
 ///
 /// 之前源胶囊是纯填充、检索选项是描边，两种「按钮感」并存；统一成填充后，
 /// 选中态只靠「浅品牌底 + 品牌字 + 加粗」区分，页面里只剩一种标签语言。
@@ -1036,6 +1101,9 @@ class _SearchChip extends StatelessWidget {
             ? Duration.zero
             : const Duration(milliseconds: 150),
         height: 32,
+        // 短源名（两三个字）给一个最小宽度，居中排布时整排胶囊才不会
+        // 长短参差到像随机散落；长文案仍然按文字宽度自然撑开。
+        constraints: const BoxConstraints(minWidth: 56),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: selected
@@ -1045,13 +1113,14 @@ class _SearchChip extends StatelessWidget {
         ),
         // 宽度必须收到文字上。带 alignment 的 Container 在 Wrap（有界宽）里
         // 会拉满整行 —— 检索选项的 select / multi-select 就渲染成一排满宽
-        // 长条，跟源胶囊（横向 ListView，无界宽）判若两物。
-        // Center(widthFactor: 1) 只吃文字宽，同时在 32 高里垂直居中。
+        // 长条，跟源胶囊判若两物。Center(widthFactor: 1) 只吃文字宽，
+        // 同时在 32 高里把文字水平垂直都居中。
         child: Center(
           widthFactor: 1,
           child: Text(
             label,
             maxLines: 1,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: kcBody,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w400,

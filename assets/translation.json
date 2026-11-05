@@ -503,8 +503,8 @@
     "Switch to list view": "切换到列表视图",
     "Debug Info": "调试信息",
     "Set Cover": "设置封面",
-    "Aggregate & Dedupe": "聚合去重",
-    "By Source": "按源",
+    "Aggregate & Dedupe": "合并去重",
+    "By Source": "按源分组",
     "hits across": "条结果来自",
     "sources": "个源",
     "works": "部作品",
@@ -759,7 +759,6 @@
     "Current": "当前页",
     "No images available": "没有可用图片",
     "Failed to load image": "图片加载失败",
-    "ALL": "全部",
     "Reader Settings": "阅读器设置",
     "Reading mode, page turning, zoom": "阅读模式、翻页、缩放",
     "Theme, language": "主题、语言",
@@ -1054,7 +1053,8 @@
     "Reading mode, webtoon, image fit": "阅读模式、条漫、图片适配",
     "Page turning, gestures, interface": "翻页、手势、阅读界面",
     "Backup & sync, account": "备份同步、账号",
-    "Language, startup, storage, cache": "语言、启动页、存储、缓存"
+    "Language, startup, storage, cache": "语言、启动页、存储、缓存",
+    "Empty folders": "空文件夹"
   },
   "zh_TW": {
     "Previous page": "上一頁",
@@ -1522,8 +1522,8 @@
     "Switch to list view": "切換到列表視圖",
     "Debug Info": "偵錯資訊",
     "Set Cover": "設定封面",
-    "Aggregate & Dedupe": "聚合去重",
-    "By Source": "依來源",
+    "Aggregate & Dedupe": "合併去重",
+    "By Source": "依來源分組",
     "hits across": "條結果來自",
     "sources": "個源",
     "works": "部作品",
@@ -1816,7 +1816,6 @@
     "Current": "當前頁",
     "No images available": "沒有可用圖片",
     "Failed to load image": "圖片載入失敗",
-    "ALL": "全部",
     "Reader Settings": "閱讀器設置",
     "Reading mode, page turning, zoom": "閱讀模式、翻頁、縮放",
     "Theme, language": "主題、語言",
@@ -2111,7 +2110,8 @@
     "Reading mode, webtoon, image fit": "閱讀模式、條漫、圖片適配",
     "Page turning, gestures, interface": "翻頁、手勢、閱讀介面",
     "Backup & sync, account": "備份同步、帳號",
-    "Language, startup, storage, cache": "語言、啟動頁、儲存、快取"
+    "Language, startup, storage, cache": "語言、啟動頁、儲存、快取",
+    "Empty folders": "空資料夾"
   },
   "ja_JP": {
     "Previous page": "前のページ",
@@ -2614,8 +2614,8 @@
     "Switch to list view": "リスト表示に切り替え",
     "Debug Info": "デバッグ情報",
     "Set Cover": "表紙を設定",
-    "Aggregate & Dedupe": "集約・重複排除",
-    "By Source": "ソース別",
+    "Aggregate & Dedupe": "統合して重複排除",
+    "By Source": "ソース別に表示",
     "hits across": "件のヒット /",
     "sources": "ソース",
     "works": "作品",
@@ -2870,7 +2870,6 @@
     "Current": "現在",
     "No images available": "利用可能な画像がありません",
     "Failed to load image": "画像の読み込みに失敗しました",
-    "ALL": "すべて",
     "Reader Settings": "リーダー設定",
     "Reading mode, page turning, zoom": "閲覧モード、ページめくり、ズーム",
     "Theme, language": "テーマ、言語",
@@ -3168,6 +3167,7 @@
     "Reading mode, webtoon, image fit": "閲覧モード、縦読み、画像のフィット",
     "Page turning, gestures, interface": "ページ送り、ジェスチャー、画面表示",
     "Backup & sync, account": "バックアップと同期、アカウント",
-    "Language, startup, storage, cache": "言語、起動ページ、ストレージ、キャッシュ"
+    "Language, startup, storage, cache": "言語、起動ページ、ストレージ、キャッシュ",
+    "Empty folders": "空のフォルダ"
   }
 }

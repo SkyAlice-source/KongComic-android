@@ -59,7 +59,7 @@ class _SearchResultPageState extends State<SearchResultPage> {
   }
 
   void onChanged(String s) {
-    if (!ComicSource.find(sourceKey)!.enableTagsSuggestions) {
+    if (!(ComicSource.find(sourceKey)?.enableTagsSuggestions ?? false)) {
       return;
     }
     suggestionsController.findSuggestions();
@@ -486,7 +486,7 @@ class _SearchSettingsDialogState extends State<_SearchSettingsDialog> {
     var children = <Widget>[];
 
     final searchOptions =
-        ComicSource.find(searchTarget)!.searchPageData!.searchOptions ??
+        ComicSource.find(searchTarget)?.searchPageData?.searchOptions ??
         <SearchOptions>[];
     if (searchOptions.length != options.length) {
       options = searchOptions.map((e) => e.defaultValue).toList();

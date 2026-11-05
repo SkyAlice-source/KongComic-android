@@ -210,6 +210,7 @@ class KcEntryBox extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
+    this.subtitle,
     this.value,
     this.onTap,
     this.highlight = false,
@@ -217,6 +218,10 @@ class KcEntryBox extends StatelessWidget {
 
   final Widget icon;
   final String label;
+
+  /// 标签下方的一行小字，用来交代右侧数字的口径（如「本地 · 3 文件夹」）。
+  /// 为空时卡片与旧版完全一致，不留空行。
+  final String? subtitle;
   final String? value;
   final VoidCallback? onTap;
   final bool highlight;
@@ -252,16 +257,37 @@ class KcEntryBox extends StatelessWidget {
             ),
             const SizedBox(width: kcSpaceMd),
             Expanded(
-              child: Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: kcFont15,
-                  fontWeight: FontWeight.w500,
-                  height: 1.25,
-                  color: cs.onSurface,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    // 有副标题时收回一行：两行标签 + 副标题会把 84dp 卡撑满。
+                    maxLines: subtitle == null ? 2 : 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: kcFont15,
+                      fontWeight: FontWeight.w500,
+                      height: 1.25,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        subtitle!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: kcCaption,
+                          height: 1.25,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             if (value != null)

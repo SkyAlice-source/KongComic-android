@@ -382,6 +382,9 @@ class LocalManager with ChangeNotifier {
       return "Please pick a regular file system directory, not a document tree"
           .tl;
     }
+    // SAF 标识先折算，否则 Directory(...).exists() 恒为 false，会被误报成
+    // 「目录不存在」；折算失败（SD 卡等）保持原样，行为与之前一致。
+    newPath = await _asPlainPath(newPath);
     var newDir = Directory(newPath);
     bool exists;
     try {
@@ -1034,8 +1037,20 @@ class LocalManager with ChangeNotifier {
   Future<bool> _restoreOriginalPathIfUsable() async {
     final pending = _pendingFallback;
     if (pending == null) return false;
-    final original = pending.originalPath;
-    if (original.isEmpty || p.equals(original, path)) return false;
+    if (pending.originalPath.isEmpty) return false;
+    // 原目录可能是 SAF 标识：不折算的话 _exists / canWrite 都拿不到真实目录，
+    // 「权限补回来后自动恢复」这条路就永远走不通。
+    final original = await _asPlainPath(pending.originalPath);
+    if (p.equals(original, path)) {
+      // 当前目录就是用户当初选定的那个，只是写法不同（SAF 标识 vs 普通路径）。
+      // 文件从来没离开过，这条「原目录里还有文件」的提示属于误报：目录确实
+      // 可写就直接清掉，否则每次启动都会再挂出来。
+      if (await _probeWritable(path)) {
+        await clearPathFallback();
+        return true;
+      }
+      return false;
+    }
     // 必须先确认目录真的还在：canWrite 内部会 create(recursive: true)，对着一个
     // 已经被删掉的路径也能「成功」，那会把恢复变成一个空目录，问题反而被藏起来。
     final stillThere = await _exists(original);
@@ -1074,6 +1089,20 @@ class LocalManager with ChangeNotifier {
     return rel.isEmpty ? root : p.join(root, rel);
   }
 
+  /// 把 SAF 树标识折算成普通文件系统路径，普通路径原样返回。
+  ///
+  /// `local_path` 里可能存的是系统目录选择器交回来的 `android://primary:...`，
+  /// 而 [path] / [directory] 会被直接喂给 dart:io 的 Directory/File。dart:io 不
+  /// 认识 `android://`，`existsSync()` 恒为 false，于是每次启动都被判成「目录已
+  /// 删除」，红卡片「存储路径不可用」永远消不掉，「使用原文件夹」也会跟着报
+  /// 「目录不存在」—— 目录其实一直都在。
+  ///
+  /// 折算失败（非 primary 卷，例如 SD 卡）时保留原字符串，行为与之前一致。
+  Future<String> _asPlainPath(String raw) async {
+    if (!raw.startsWith('android://')) return raw;
+    return await _plainPathOf(raw) ?? raw;
+  }
+
   /// 只把存储目录切换到 [newPath]，**不搬运任何文件**。
   ///
   /// 用于「目录失效后找回原目录」：文件本来就在 [newPath] 里。若走
@@ -1088,6 +1117,9 @@ class LocalManager with ChangeNotifier {
       return "Please pick a regular file system directory, not a document tree"
           .tl;
     }
+    // SAF 标识先折算：不折算的话下面的 exists / canWrite 都拿不到真实目录，
+    // 「使用原文件夹」会永远返回「目录不存在」，红卡片因此消不掉。
+    newPath = await _asPlainPath(newPath);
     var dir = Directory(newPath);
     bool exists;
     try {
@@ -1352,6 +1384,8 @@ class LocalManager with ChangeNotifier {
     await _loadPathFallback();
     if (File(FilePath.join(App.dataPath, 'local_path')).existsSync()) {
       path = File(FilePath.join(App.dataPath, 'local_path')).readAsStringSync();
+      // SAF 标识必须先折算，否则下面所有目录探测都会失败（见 _asPlainPath）。
+      path = await _asPlainPath(path);
     } else {
       path = await findDefaultPath();
     }

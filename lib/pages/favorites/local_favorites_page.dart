@@ -537,9 +537,19 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       title = Text("Selected @c comics".tlParams({"c": selectedComics.length}));
       actions = _multiSelectActions();
     } else {
+      // 标题写当前文件夹名，而不是一律「收藏」。
+      //
+      // 顶栏是所有子页面共用的同一块区域，用户靠它认位置：进到「Reading」
+      // 里标题还写「收藏」，除了下面的胶囊条没有任何「我在哪」的锚点，多
+      // 文件夹来回切时尤其容易迷路。『全部』是跨表虚拟视图，用它的正式名字。
+      final titleText = isAllFolder
+          ? "All Favorites".tl
+          : (getFavoriteDataOrNull(widget.folder)?.title ?? widget.folder);
       // 签名必须包含排序键：工具条上的「手动/最近/标题」是状态显示，
       // 漏掉它就会出现「列表已按新排序重排、标签还停在旧值」。
-      sig = 'n_${readFilterSelect}_${networkSource ?? 'l'}_$_sortKey';
+      // 也必须包含文件夹名，否则换个文件夹进来标题不更新。
+      sig =
+          'n_${widget.folder}_${readFilterSelect}_${networkSource ?? 'l'}_$_sortKey';
       leading = Tooltip(
         message: "Favorites".tl,
         child: IconButton(
@@ -548,7 +558,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
         ),
       );
       title = Text(
-        "Favorites".tl,
+        titleText,
         style: TextStyle(fontSize: kcTitleMain, fontWeight: FontWeight.bold),
         overflow: TextOverflow.ellipsis,
       );

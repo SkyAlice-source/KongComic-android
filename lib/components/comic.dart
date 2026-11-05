@@ -214,6 +214,15 @@ class ComicTile extends StatelessWidget {
   }
 
   void showMenu(Offset location, BuildContext context) {
+    // 页面自带的菜单项里已经有同名动作时，不再插入内置的那一条。
+    // 历史页 / 本地漫画页都想把「添加到收藏」放在自己那组的首位（高频动作），
+    // 而内置项固定排在「复制标题」之后，于是同一份菜单里出现两条一模一样的
+    // 「添加到收藏」——用户不知道该点哪条，两条做的事还都一样。
+    final customTexts = {
+      for (final entry in menuOptions ?? const <MenuEntry>[])
+        if (entry.text.isNotEmpty) entry.text,
+    };
+    final favoriteText = 'Add to favorites'.tl;
     showMenuX(App.rootContext, location, [
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedBook01, size: 18),
@@ -237,13 +246,14 @@ class ComicTile extends StatelessWidget {
           App.rootContext.showMessage(message: 'Title copied'.tl);
         },
       ),
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
-        text: 'Add to favorites'.tl,
-        onClick: () {
-          addFavorite([comic]);
-        },
-      ),
+      if (!customTexts.contains(favoriteText))
+        MenuEntry(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
+          text: favoriteText,
+          onClick: () {
+            addFavorite([comic]);
+          },
+        ),
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
         text: 'Block'.tl,
@@ -465,11 +475,6 @@ class ComicTile extends StatelessWidget {
       final source = ComicSource.find(comic.sourceKey);
       text = source?.name ?? (comic.sourceKey.isEmpty ? null : comic.sourceKey);
     }
-    text = text
-        ?.split('|')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .join(' · ');
 
     // Floor the size at 11pt so the cover caption stays legible even on the
     // narrowest cards — the old 8pt floor was effectively unreadable.
@@ -479,9 +484,29 @@ class ComicTile extends StatelessWidget {
         ? 12.0
         : 13.0;
 
-    if (text == null || text.isEmpty) {
+    final style = TextStyle(
+      color: Colors.white,
+      fontSize: fontSize,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      shadows: [
+        Shadow(color: Colors.black.withValues(alpha: 0.60), blurRadius: 2),
+      ],
+    );
+
+    var parts = text
+        ?.split('|')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts == null || parts.isEmpty) {
       return const SizedBox();
     }
+    // 窄卡片上「来源 · 日期」整串放不下时，原来一律省略号收尾 —— 于是最该
+    // 读的日期被截成「2026-1…」，剩个没用的来源名。这里改成按段裁剪：放不下
+    // 就从**前面**丢，优先保住末尾的日期（收藏时间才是这一行的信息价值）。
+    parts = _fitMetadataParts(context, parts, style, constraints.maxWidth);
+    final resolved = parts.join(' · ');
 
     return ClipRRect(
       borderRadius: BorderRadius.only(
@@ -493,25 +518,38 @@ class ComicTile extends StatelessWidget {
         decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55)),
         child: Center(
           child: Text(
-            text,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: fontSize,
-              fontWeight: FontWeight.w600,
-              height: 1.2,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withValues(alpha: 0.60),
-                  blurRadius: 2,
-                ),
-              ],
-            ),
+            resolved,
+            style: style,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
     );
+  }
+
+  /// 从前往后丢段，直到整串能塞进 [maxWidth]；只剩一段时原样返回（交给
+  /// 省略号处理，不会再切）。
+  List<String> _fitMetadataParts(
+    BuildContext context,
+    List<String> parts,
+    TextStyle style,
+    double maxWidth,
+  ) {
+    final available = math.max(0.0, maxWidth - 8);
+    var current = parts;
+    while (current.length > 1) {
+      final painter = TextPainter(
+        text: TextSpan(text: current.join(' · '), style: style),
+        maxLines: 1,
+        textDirection: Directionality.of(context),
+      )..layout(maxWidth: available);
+      if (!painter.didExceedMaxLines && painter.width <= available) {
+        break;
+      }
+      current = current.sublist(1);
+    }
+    return current;
   }
 
   Widget _buildDetailedMode(
@@ -1446,22 +1484,84 @@ class _SliverGridComics extends StatelessWidget {
           if (selection == null) {
             return RepaintBoundary(child: comic);
           }
-          return AnimatedContainer(
+          return _SelectableComicCell(
             key: ValueKey(comics[index].id),
-            duration: const Duration(milliseconds: 150),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? Theme.of(
-                      context,
-                    ).colorScheme.secondaryContainer.withValues(alpha: 0.72)
-                  : null,
-              borderRadius: BorderRadius.circular(kcCardRadius),
-            ),
-            margin: const EdgeInsets.all(kcSpaceXs),
-            child: RepaintBoundary(child: comic),
+            selected: isSelected,
+            child: comic,
           );
         }, childCount: comics.length),
         gridDelegate: SliverGridDelegateWithComics(),
+      ),
+    );
+  }
+}
+
+/// 多选态的单元格外观：底色染一层 + 角上一颗勾选圆标。
+///
+/// 原来只有底色（`secondaryContainer` 72%）：浅色下是封面外一圈淡粉、勉强
+/// 能看出；深色下 secondaryContainer 是 #2A2022，压在 #100D0F 的页面上几乎
+/// 等于没有 —— 多选模式进去以后「到底选中了哪几本」完全看不出来，只有标题栏
+/// 的数量在变。补一颗品牌色勾选标 + 描边，两套主题都能一眼确认。
+///
+/// 描边在未选中态用同宽透明边：选中/取消切换时子树的可用尺寸不变，封面不会
+/// 因为加边而抖一下。
+class _SelectableComicCell extends StatelessWidget {
+  const _SelectableComicCell({
+    required this.selected,
+    required this.child,
+    super.key,
+  });
+
+  final bool selected;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      margin: const EdgeInsets.all(kcSpaceXs),
+      decoration: BoxDecoration(
+        color: selected
+            ? cs.secondaryContainer.withValues(alpha: isDark ? 0.9 : 0.72)
+            : null,
+        borderRadius: BorderRadius.circular(kcCardRadius),
+        border: Border.all(
+          color: selected ? kcBrandAdaptive(context) : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: Stack(
+        children: [
+          child,
+          if (selected)
+            Positioned(
+              top: 6,
+              left: 6,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: kcBrandColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.check_rounded,
+                  size: 15,
+                  color: kcOnAccentColor,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1997,7 +2097,10 @@ class ComicListState extends State<ComicList> {
     final body = _buildPagingBody();
     // 只有一页时不留那条 54dp 的底栏。`_maxPage == null`（源不上报总页数）
     // 必须留：这种源只能靠「下一页」往后翻，把底栏藏了就没法翻页了。
-    final showBar = _maxPage != 1;
+    //
+    // 错误态一并藏掉：主体此时整屏是重试提示，底栏还挂着「页面 1 / ?」和两颗
+    // 箭头，点了只会再失败一次 —— 是死控件，还占了错误说明的垂直空间。
+    final showBar = _maxPage != 1 && _error == null;
     if (!showBar) {
       return body;
     }
@@ -2952,19 +3055,10 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
           if (widget.selections == null) {
             return RepaintBoundary(child: tile);
           }
-          return AnimatedContainer(
+          return _SelectableComicCell(
             key: ValueKey(comic.id),
-            duration: const Duration(milliseconds: 150),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? Theme.of(
-                      context,
-                    ).colorScheme.secondaryContainer.withValues(alpha: 0.72)
-                  : null,
-              borderRadius: BorderRadius.circular(kcCardRadius),
-            ),
-            margin: const EdgeInsets.all(kcSpaceXs),
-            child: RepaintBoundary(child: tile),
+            selected: isSelected,
+            child: tile,
           );
         }, childCount: _comics.length + (showFooter ? 1 : 0)),
         gridDelegate: SliverGridDelegateWithComics(),

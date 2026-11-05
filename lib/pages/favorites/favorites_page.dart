@@ -492,12 +492,27 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
         final cardH = cardW / 0.7;
 
         final shelves = <Widget>[];
+        // 空文件夹不占货架（一排纯空白比看不见更像排版坏了），但也不能完全
+        // 不露面：新建完文件夹还没放书时，总览里什么都没有，用户会以为没建
+        // 成功。这里先收集，页面末尾收成一行胶囊。
+        final emptyFolders = <String>[];
         for (final f in folders) {
           final shelf = _buildShelf(f, cardW, cardH);
-          if (shelf != null) shelves.add(shelf);
+          if (shelf != null) {
+            shelves.add(shelf);
+          } else {
+            emptyFolders.add(f);
+          }
         }
 
-        final empty = shelves.isEmpty && _computeNetworkFolders().isEmpty;
+        // 网络收藏（已登录源下的分组）不在本地库里，上面按文件夹查的货架
+        // 根本查不到它们。原实现只拿这个列表参与「是否全空」判断，正文一行
+        // 都没渲染——已登录且有网络收藏的用户，总览永远只有一张「全部收藏」
+        // 卡加一片空白。这里补成独立分区（见 [_networkSection]）。
+        final netFolders = _computeNetworkFolders();
+
+        final empty =
+            shelves.isEmpty && emptyFolders.isEmpty && netFolders.isEmpty;
 
         return CustomScrollView(
           controller: _scrollController,
@@ -508,7 +523,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
             // 方案 A：总览顶部「收藏空间导航」——主页 _FlatBox 同款语言的
             // 入口卡 2×2（全部收藏 / 网络收藏 / 图片收藏 / 漫画源）。
             // 文件夹内容仍由下方货架承担，这里只做空间导航与统计。
-            if (!empty) ..._overviewEntryCards(),
+            if (!empty) ..._overviewEntryCards(folders.length),
             // 顶栏已并入 NaviPane 共享栏：标题「收藏」贴左，窄屏右上角
             // 保留「文件夹」入口（宽屏左栏常驻，无需重复）。原自绘
             // SliverAppbar 删除，样式由共享栏统一保证（同高/纯色/粗体标题）。
@@ -532,6 +547,12 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
               )
             else ...[
               for (final s in shelves) SliverToBoxAdapter(child: s),
+              if (netFolders.isNotEmpty)
+                SliverToBoxAdapter(child: _networkSection(netFolders)),
+              if (emptyFolders.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: _emptyFoldersSection(emptyFolders),
+                ),
             ],
             SliverToBoxAdapter(
               // 底栏是浮岛式、覆盖在页面之上的，必须按它的实际占位让出空间。
@@ -550,10 +571,17 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   /// 总览入口卡：只留「全部收藏」一张高卡（KcEntryBox）。
   ///
   /// 原方案 A 的 2×2（本地/网络/图片收藏）与下方货架、文件夹选择器职责
-  /// 重复，已按反馈瘦身：次频入口收进顶栏 ⋮ 菜单，网络收藏并进顶栏
-  /// 「文件夹」选择器；总览正文只承担「货架」这一件事。
-  List<Widget> _overviewEntryCards() {
+  /// 重复，已按反馈瘦身：次频入口收进顶栏 ⋮ 菜单，网络收藏单独成区（见
+  /// [_networkSection]）；总览正文只承担「货架」这一件事。
+  ///
+  /// [folderCount] 由调用方的已有列表传入：这里再查一次 `userFolderNames()`
+  /// 就是重复的同步 SQL。
+  List<Widget> _overviewEntryCards(int folderCount) {
     final total = LocalFavoritesManager().totalComics;
+    // 副标题解释「右边那个数字数的是什么」：它只统计本地收藏，和下方货架
+    // 的数量口径一致，但和网络收藏无关。不写清楚，用户会拿它跟货架总数对，
+    // 对不上就当成 bug。
+    final subtitle = "${"Local".tl} · $folderCount ${"Folders".tl}";
 
     return [
       SliverToBoxAdapter(
@@ -567,6 +595,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
               color: kcOnAccentColor,
             ),
             label: "All Favorites".tl,
+            subtitle: subtitle,
             value: "$total",
             highlight: true,
             onTap: () => setFolder(false, _localAllFolderLabel),
@@ -602,6 +631,152 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
       cardH: cardH,
       onOpenAll: () => setFolder(false, folder),
       onTap: _openComic,
+    );
+  }
+
+  /// 「网络收藏」分区：每个已登录源一行入口。
+  ///
+  /// 这里刻意不拉封面。网络收藏的条目要按源发请求才有，N 个源就是 N 个网络
+  /// 往返——总览是打开 App 后第一屏之一，开局一排骨架屏比少一层信息更糟。
+  /// 所以只给「有收藏的源」这一层入口，点进去再由 [NetworkFavoritePage] 拉。
+  Widget _networkSection(List<String> keys) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader(
+          context: context,
+          title: "Network Favorites".tl,
+          // 不给数量胶囊：货架上那颗数字是「本数」，这里的条目是「源」，同一
+          // 视觉元素承载两种口径会误导；行数本身就是数量。
+          topPadding: 28,
+        ),
+        for (final key in keys)
+          _folderEntryRow(
+            title: getFavoriteDataOrNull(key)?.title ?? key,
+            onTap: () => setFolder(true, key),
+          ),
+      ],
+    );
+  }
+
+  /// 「空文件夹」分区：一行胶囊，点进去是现成的空态页（带「浏览发现」）。
+  ///
+  /// 空文件夹如果各占一排货架，三四个就能把首屏撑成大片空白；收成一行胶囊
+  /// 既说明「文件夹还在」，又不抢货架的视觉位置。
+  Widget _emptyFoldersSection(List<String> folders) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader(
+          context: context,
+          title: "Empty folders".tl,
+          total: folders.length,
+          topPadding: 28,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final f in folders)
+                InkWell(
+                  onTap: () => setFolder(false, f),
+                  borderRadius: BorderRadius.circular(kcPillRadius),
+                  child: Container(
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(kcPillRadius),
+                      border: Border.all(
+                        color: cs.outlineVariant,
+                        width: kcHairline,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HugeIcon(
+                          icon: HugeIcons.strokeRoundedFolder01,
+                          size: 14,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 6),
+                        // Wrap 里的 Row 拿到的是无界宽度，长文件夹名会把胶囊
+                        // 撑出屏幕（进而被 Wrap 裁掉）。按「屏宽 − 左右留白 −
+                        // 图标与内边距」给个上限，超了省略。
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.sizeOf(context).width - 96,
+                          ),
+                          child: Text(
+                            getFavoriteDataOrNull(f)?.title ?? f,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: kcCaption,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 一行文件夹入口（网络源分组用）。与货架标题行保持同一套左右基准线。
+  Widget _folderEntryRow({
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(kcRadius10),
+        child: Container(
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(kcRadius10),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.7),
+              width: kcHairline,
+            ),
+          ),
+          child: Row(
+            children: [
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedFolder01,
+                size: 16,
+                color: cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: kcFont13, color: cs.onSurface),
+                ),
+              ),
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowRight01,
+                size: 14,
+                color: cs.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
