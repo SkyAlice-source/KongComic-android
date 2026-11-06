@@ -250,7 +250,7 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
       return const SizedBox(height: 0);
     }
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: kcSpaceSm, horizontal: kcSpaceSm),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(
@@ -372,7 +372,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: kcSpaceSm, horizontal: kcSpaceLg),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -445,7 +445,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
 
   Widget buildReply() {
     return Container(
-      margin: const EdgeInsets.only(left: 8),
+      margin: const EdgeInsets.only(left: kcSpaceSm),
       decoration: BoxDecoration(
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -479,7 +479,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
             const SizedBox(width: 8),
             Text(widget.comment.replyCount.toString()),
           ],
-        ).padding(const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+        ).padding(const EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: kcSpaceXs)),
       ),
     );
   }
@@ -490,7 +490,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
 
   Widget buildLike() {
     return Container(
-      margin: const EdgeInsets.only(left: 8),
+      margin: const EdgeInsets.only(left: kcSpaceSm),
       decoration: BoxDecoration(
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -540,7 +540,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
             const SizedBox(width: 8),
             Text(likes.toString()),
           ],
-        ).padding(const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+        ).padding(const EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: kcSpaceXs)),
       ),
     );
   }
@@ -601,7 +601,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(left: 8),
+      margin: const EdgeInsets.only(left: kcSpaceSm),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(kcRadius16),
         border: Border.all(
@@ -786,7 +786,7 @@ class _EmbeddedChapterCommentsPageState
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: kcSpaceSm),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -868,7 +868,7 @@ class _EmbeddedChapterCommentsPageState
         crossAxisCount: crossAxisCount,
         mainAxisSpacing: 0,
         crossAxisSpacing: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm),
         itemCount: _comments!.length + 1,
         itemBuilder: (context, index) {
           if (index == _comments!.length) {
@@ -896,7 +896,7 @@ class _EmbeddedChapterCommentsPageState
       return const SizedBox(height: 0);
     }
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: kcSpaceSm, horizontal: kcSpaceSm),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(

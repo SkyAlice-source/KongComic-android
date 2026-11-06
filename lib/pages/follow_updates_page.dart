@@ -85,26 +85,26 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SmoothCustomScrollView(
-        slivers: [
-          SliverAppbar(title: Text('Follow Updates'.tl)),
-          if (folders.isEmpty)
-            buildNotConfigured(context)
-          else
-            buildConfigured(context),
-          const SliverPadding(padding: EdgeInsets.only(top: 8)),
-          ...buildUpdatedComics(),
-          ...buildAllComics(),
-        ],
-      ),
+    // 骨架归一：顶栏 / 标题基准 / 底部让位全部交给 KcPageScaffold，
+    // 不再自己搭 Scaffold + SmoothCustomScrollView + SliverAppbar。
+    return KcPageScaffold(
+      title: Text('Follow Updates'.tl),
+      slivers: [
+        if (folders.isEmpty)
+          buildNotConfigured(context)
+        else
+          buildConfigured(context),
+        const SliverPadding(padding: EdgeInsets.only(top: kcSpaceSm)),
+        ...buildUpdatedComics(),
+        ...buildAllComics(),
+      ],
     );
   }
 
   Widget buildNotConfigured(BuildContext context) {
     return SliverToBoxAdapter(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: kcSpaceSm),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerLow,
           border: Border.all(
@@ -160,8 +160,8 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
     final isAllFolders = rawSelection is List && rawSelection.contains('*');
     return SliverToBoxAdapter(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        margin: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: kcSpaceSm),
+        padding: const EdgeInsets.fromLTRB(14, kcSpaceMd, 14, kcSpaceMd),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerLow,
           border: Border.all(color: scheme.outlineVariant, width: 0.6),
@@ -289,7 +289,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
   Widget _sourceHeader(String source, int count) {
     return SliverToBoxAdapter(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpaceXs),
         child: Row(
           children: [
             HugeIcon(
@@ -301,7 +301,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             Text(source, style: TextStyle(fontSize: kcSubtitle)),
             const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: 2),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(kcRadius8),
@@ -322,7 +322,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
   Widget _folderHeader(String folder, int total, int updated) {
     return SliverToBoxAdapter(
       child: Container(
-        margin: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 4),
+        margin: const EdgeInsets.only(left: kcSpaceLg, right: kcSpaceLg, top: kcSpaceMd, bottom: kcSpaceXs),
         child: Row(
           children: [
             HugeIcon(
@@ -334,7 +334,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             Text(folder, style: TextStyle(fontSize: kcSubtitle)),
             const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: 2),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(kcRadius8),
@@ -347,7 +347,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
             if (updated > 0) ...[
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: 2),
                 decoration: BoxDecoration(
                   // 用品牌强调浅染而非 errorContainer：
                   // 1) 语义上「有更新」不是错误；2) AMOLED 下 errorContainer 被
@@ -411,13 +411,13 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
   List<Widget> buildUpdatedComics() {
     final header = SliverToBoxAdapter(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: kcRowInsetH, vertical: kcSpaceSm),
+        padding: const EdgeInsets.symmetric(vertical: kcSpaceXs),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-              width: 0.6,
+              color: kcHairlineColor(context),
+              width: kcHairline,
             ),
           ),
         ),
@@ -542,13 +542,13 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
 
     final header = SliverToBoxAdapter(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: kcRowInsetH, vertical: kcSpaceSm),
+        padding: const EdgeInsets.symmetric(vertical: kcSpaceXs),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-              width: 0.6,
+              color: kcHairlineColor(context),
+              width: kcHairline,
             ),
           ),
         ),
@@ -916,7 +916,7 @@ class _FollowComicRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(kcCardRadius),
       onTap: _open,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+        padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpace6, kcSpaceLg, kcSpace6),
         child: Row(
           children: [
             Container(
@@ -1007,7 +1007,7 @@ class _FollowComicRow extends StatelessWidget {
               AppBadge(
                 "NEW",
                 type: AppBadgeType.neutral,
-                backgroundColor: kcBrandColor,
+                backgroundColor: kcAccentColor(context),
                 fontSize: kcCaption,
               ),
             ],

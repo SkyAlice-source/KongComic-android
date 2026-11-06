@@ -153,7 +153,7 @@ class _NormalComicChaptersState extends State<_NormalComicChapters> {
                 maxCrossAxisExtent: 250,
                 itemHeight: 48,
               ),
-            ).sliverPadding(const EdgeInsets.symmetric(horizontal: 16)),
+            ).sliverPadding(const EdgeInsets.symmetric(horizontal: kcSpaceLg)),
             if (!canShowAll)
               SliverToBoxAdapter(
                 child: Align(
@@ -335,7 +335,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                 tabs: chapters.groups.map((e) => Tab(text: e)).toList(),
               ),
             ),
-            SliverPadding(padding: const EdgeInsets.only(top: 8)),
+            SliverPadding(padding: const EdgeInsets.only(top: kcSpaceSm)),
             SliverGrid(
               delegate: SliverChildBuilderDelegate(childCount: length, (
                 context,
@@ -377,7 +377,7 @@ class _GroupedComicChaptersState extends State<_GroupedComicChapters>
                 maxCrossAxisExtent: 250,
                 itemHeight: 48,
               ),
-            ).sliverPadding(const EdgeInsets.symmetric(horizontal: 16)),
+            ).sliverPadding(const EdgeInsets.symmetric(horizontal: kcSpaceLg)),
             if (!canShowAll)
               SliverToBoxAdapter(
                 child: Align(
@@ -487,7 +487,7 @@ Widget _buildChapterTile(
   // 主题 primary，同一颗「当前章节」的描边会和阅读按钮分成两套颜色。
   final accent = kcAccentColor(context);
   return Padding(
-    padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+    padding: const EdgeInsets.fromLTRB(kcSpaceXs, kcSpaceXs, kcSpaceXs, kcSpaceXs),
     child: Material(
       color: isCurrent
           // 极淡红染而不是整块 primaryContainer：既点出「当前」，又不会在

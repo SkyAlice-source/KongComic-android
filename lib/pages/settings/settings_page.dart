@@ -259,7 +259,7 @@ class _SettingSectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 3),
+      padding: const EdgeInsets.fromLTRB(kcRowInsetH, kcSpaceMd, kcRowInsetH, kcSpaceXs),
       child: Text(
         text,
         style: TextStyle(
@@ -397,6 +397,17 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
     super.initState();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 宽屏进设置页时详情区原先恒为空（currentPage = -1 → SizedBox），
+    // 实拍 53 里右侧 60% 白底就是它。默认落在第 0 类，胶囊与内容同时
+    // 有选中态；窄屏仍是「点分类进子页」，不受影响。
+    if (enableTwoViews && currentPage == -1) {
+      currentPage = 0;
+    }
+  }
+
   void _onSettingsChange() {
     if (mounted) setState(() {});
   }
@@ -413,59 +424,123 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
   }
 
   Widget buildBody() {
-    if (enableTwoViews) {
-      return Row(
-        children: [
-          SizedBox(width: 280, height: double.infinity, child: buildLeft()),
-          Container(
-            height: double.infinity,
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(
-                  color: context.colorScheme.outlineVariant,
-                  width: 0.6,
+    // 搜索态始终走单栏结果列表，胶囊 + 详情那套编排不参与搜索。
+    if (enableTwoViews && !_searchActive) {
+      // 骨架归一：宽屏不再叠「全局侧栏 + 设置 280dp 分类栏 + 空详情区」
+      // 三层（实拍 53：右侧 60% 白底）。改为单一内容列：统一顶栏 +
+      // 分类胶囊 + 当前分类详情，详情收敛到 kcContentMaxWidth 后居中。
+      return Material(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: Column(
+          children: [
+            _buildTopBar(),
+            _buildCategoryChips(),
+            const SizedBox(height: kcSpaceSm),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: kcReduceMotion(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 200),
+                child: KeyedSubtree(
+                  key: ValueKey<int>(currentPage),
+                  child: KcPageContent(child: buildRight()),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) {
-                return LayoutBuilder(
-                  builder: (context, constrains) {
-                    return AnimatedBuilder(
-                      animation: animation,
-                      builder: (context, _) {
-                        var width = constrains.maxWidth;
-                        var value = animation.isForwardOrCompleted
-                            ? 1 - animation.value
-                            : 1;
-                        var left = width * value;
-                        return Stack(
-                          children: [
-                            Positioned(
-                              top: 0,
-                              bottom: 0,
-                              left: left,
-                              width: width,
-                              child: child,
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-              child: buildRight(),
-            ),
-          ),
-        ],
+          ],
+        ),
       );
-    } else {
-      return buildLeft();
     }
+    return buildLeft();
+  }
+
+  /// 宽屏分类导航：11 类收成一行横向胶囊，取代原来独占 280dp 的第三层左栏。
+  /// 胶囊本身是既有 KcPillChip（32dp 视觉 / 48dp 命中区），外观不变。
+  Widget _buildCategoryChips() {
+    final cats = _categories();
+    return SizedBox(
+      height: kcMinTapTarget,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: kcRowInsetH),
+        itemCount: cats.length,
+        separatorBuilder: (_, __) => const SizedBox(width: kcSpaceSm),
+        itemBuilder: (context, i) => KcPillChip(
+          label: cats[i],
+          selected: i == currentPage,
+          onTap: () => setState(() => currentPage = i),
+        ),
+      ),
+    );
+  }
+
+  /// 二级页统一顶栏：56dp、kcTitleMain、kcBackIconSize 返回键。
+  /// 宽屏单栏与窄屏分类列表共用这一条，不再有两套 header。
+  Widget _buildTopBar() {
+    return Column(
+      children: [
+        SizedBox(height: MediaQuery.of(context).padding.top),
+        SizedBox(
+          height: kcRootTopBarHeight,
+          child: Row(
+            children: [
+              const SizedBox(width: kcSpaceSm),
+              Tooltip(
+                message: "Back".tl,
+                child: IconButton(
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowLeft01,
+                    size: kcBackIconSize,
+                  ),
+                  onPressed: context.pop,
+                ),
+              ),
+              const SizedBox(width: kcSpaceLg),
+              Expanded(
+                child: _searchActive
+                    ? TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocus,
+                        onChanged: (_) => setState(() {}),
+                        textInputAction: TextInputAction.search,
+                        style: TextStyle(fontSize: kcSubtitle),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: "Search settings".tl,
+                          hintStyle: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      )
+                    : Text(
+                        "Settings".tl,
+                        style: const TextStyle(
+                          fontSize: kcTitleMain,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: kcSpaceXs),
+              IconButton(
+                icon: HugeIcon(
+                  icon: _searchActive
+                      ? HugeIcons.strokeRoundedCancel01
+                      : HugeIcons.strokeRoundedSearch02,
+                  size: 22,
+                ),
+                tooltip: _searchActive ? "Close".tl : "Search settings".tl,
+                onPressed: _searchActive ? _closeSearch : _openSearch,
+              ),
+              const SizedBox(width: kcSpaceSm),
+            ],
+          ),
+        ),
+        const SizedBox(height: kcSpaceXs),
+      ],
+    );
   }
 
   Widget buildLeft() {
@@ -473,63 +548,7 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
-          SizedBox(height: MediaQuery.of(context).padding.top),
-          SizedBox(
-            height: 56,
-            child: Row(
-              children: [
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: "Back".tl,
-                  child: IconButton(
-                    icon: HugeIcon(
-                      icon: HugeIcons.strokeRoundedArrowLeft01,
-                      size: 22,
-                    ),
-                    onPressed: context.pop,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _searchActive
-                      ? TextField(
-                          controller: _searchController,
-                          focusNode: _searchFocus,
-                          onChanged: (_) => setState(() {}),
-                          textInputAction: TextInputAction.search,
-                          style: TextStyle(fontSize: kcSubtitle),
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            hintText: "Search settings".tl,
-                            hintStyle: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        )
-                      : Text(
-                          "Settings".tl,
-                          style: TextStyle(fontSize: kcTitleMain),
-                        ),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: HugeIcon(
-                    icon: _searchActive
-                        ? HugeIcons.strokeRoundedCancel01
-                        : HugeIcons.strokeRoundedSearch02,
-                    size: 22,
-                  ),
-                  tooltip: _searchActive ? "Close".tl : "Search settings".tl,
-                  onPressed: _searchActive ? _closeSearch : _openSearch,
-                ),
-                const SizedBox(width: 8),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
+          _buildTopBar(),
           Expanded(child: buildCategories()),
         ],
       ),
@@ -545,7 +564,7 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
       final cs = Theme.of(context).colorScheme;
 
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: 2),
         child: InkWell(
           borderRadius: BorderRadius.circular(kcCardRadius),
           onTap: () {
@@ -556,7 +575,7 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
             }
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(kcCardRadius),
               border: Border.all(
@@ -718,12 +737,12 @@ class _SettingsPageState extends State<SettingsPage> with AutoListenMixin {
             ? subs[e.category].tl
             : (e.subtitle?.tl ?? cats[e.category].tl);
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: 2),
           child: InkWell(
             borderRadius: BorderRadius.circular(kcCardRadius),
             onTap: () => _goToCategory(e.category),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: 10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(kcCardRadius),
                 border: Border.all(

@@ -199,9 +199,9 @@ class SliverAppbar extends StatelessWidget {
 
   /// 栏体高度（不含状态栏内边距）。
   ///
-  /// 默认 52 是内页（带返回箭头）的常规高度。自绘顶栏的根 tab 传
-  /// [kcRootTopBarHeight]（48，与共享顶栏同值），否则标题会比相邻 tab 低 2dp，
-  /// 切页时肉眼可见地窜一下。
+  /// 默认 56 与 [kcRootTopBarHeight]（共享顶栏）保持一致：M3 标准 AppBar
+  /// 高度，也是 48dp 工具胶囊上下各留 4dp 的下限。旧值 52/48 两套并存时，
+  /// 切 tab 会肉眼可见地窜 2–4dp。
   final double height;
 
   /// 内容滚到栏体下方时是否投影（[AppbarStyle.shadow] 才有效）。
@@ -246,7 +246,7 @@ class SliverAppbar extends StatelessWidget {
   }
 }
 
-const _kAppBarHeight = 52.0;
+const _kAppBarHeight = kcRootTopBarHeight;
 
 class _MySliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget? leading;
@@ -424,7 +424,7 @@ class _AppTabBarState extends State<AppTabBar> {
 
   static const _kTabHeight = 48.0;
 
-  static const tabPadding = EdgeInsets.symmetric(horizontal: 6, vertical: 6);
+  static const tabPadding = EdgeInsets.symmetric(horizontal: kcSpace6, vertical: kcSpace6);
 
   static const tabRadius = 16.0;
 
@@ -593,7 +593,9 @@ class _AppTabBarState extends State<AppTabBar> {
     );
     scrollController.animateTo(
       scrollOffset,
-      duration: const Duration(milliseconds: 200),
+      duration: kcReduceMotion(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
     );
   }
@@ -612,7 +614,7 @@ class _AppTabBarState extends State<AppTabBar> {
       child: KeyedSubtree(
         key: keys[i],
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
           child: DefaultTextStyle(
             style: DefaultTextStyle.of(context).style.copyWith(
               color: i == _controller.animation?.value.round()
@@ -964,7 +966,7 @@ class _SliverSearchBarDelegate extends SliverPersistentHeaderDelegate {
     this.focusNode,
   });
 
-  static const _kAppBarHeight = 52.0;
+  static const _kAppBarHeight = kcRootTopBarHeight;
 
   @override
   Widget build(
@@ -990,7 +992,7 @@ class _SliverSearchBarDelegate extends SliverPersistentHeaderDelegate {
           const BackButton(),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm),
               child: TextField(
                 focusNode: focusNode,
                 controller: editingController,
@@ -1100,7 +1102,7 @@ class _SearchBarState extends State<AppSearchBar> with _SearchBarMixin {
           const BackButton(),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm),
               child: TextField(
                 controller: _editingController,
                 decoration: InputDecoration(
@@ -1171,7 +1173,7 @@ class TabActionButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(kcRadius8),
       child: Container(
         height: _kTabHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
         child: IconTheme(
           data: IconThemeData(size: 20, color: fg),
           child: Row(

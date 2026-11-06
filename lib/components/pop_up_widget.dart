@@ -63,7 +63,8 @@ class PopUpWidget<T> extends PopupRoute<T> {
   }
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 350);
+  Duration get transitionDuration =>
+      AppAnimations.duration(const Duration(milliseconds: 350));
 
   @override
   Widget buildTransitions(

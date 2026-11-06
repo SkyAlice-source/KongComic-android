@@ -57,7 +57,7 @@ class _DownloadSettingsState extends State<DownloadSettings>
         ).toSliver(),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpaceSm),
             child: Text(
               "Higher thread count speeds up downloads but increases memory and network load. 3-8 is recommended."
                   .tl,

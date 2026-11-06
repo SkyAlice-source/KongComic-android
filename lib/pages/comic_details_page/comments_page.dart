@@ -117,7 +117,9 @@ class _CommentsPageState extends State<CommentsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      // 默认 resizeToAvoidBottomInset=true：键盘弹起时 Scaffold 会把 body
+      // 顶到 IME 之上，底部输入条与「发送」才可点。此前显式设 false 又没补
+      // viewInsets，评论页完全无法输入。
       appBar: Appbar(title: Text("Comments".tl), style: AppbarStyle.shadow),
       body: buildBody(context),
     );
@@ -221,8 +223,17 @@ class _CommentsPageState extends State<CommentsPage> {
     if (widget.source.sendCommentFunc == null) {
       return const SizedBox(height: 0);
     }
+    // 底部系统手势条 / 导航栏留白放进 Container 自己的 padding，留白区域
+    // 仍是同一块 surface 底色，不会露出一条异色边。键盘由 Scaffold 顶起，
+    // viewInsets 不参与这里；viewPadding 不随 IME 变化，两者不会重复叠加。
+    final bottomSafe = MediaQuery.of(context).viewPadding.bottom;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      padding: EdgeInsets.only(
+        left: kcSpaceSm,
+        top: kcSpaceSm,
+        right: kcSpaceSm,
+        bottom: kcSpaceSm + bottomSafe,
+      ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(
@@ -337,7 +348,7 @@ class _CommentTileState extends State<_CommentTile> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: kcSpaceSm, horizontal: kcSpaceLg),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -408,7 +419,7 @@ class _CommentTileState extends State<_CommentTile> {
 
   Widget buildReply() {
     return Container(
-      margin: const EdgeInsets.only(left: 8),
+      margin: const EdgeInsets.only(left: kcSpaceSm),
       decoration: BoxDecoration(
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -436,7 +447,7 @@ class _CommentTileState extends State<_CommentTile> {
             const SizedBox(width: 8),
             Text(widget.comment.replyCount.toString()),
           ],
-        ).padding(const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+        ).padding(const EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: kcSpaceXs)),
       ),
     );
   }
@@ -449,7 +460,7 @@ class _CommentTileState extends State<_CommentTile> {
 
   Widget buildLike() {
     return Container(
-      margin: const EdgeInsets.only(left: 8),
+      margin: const EdgeInsets.only(left: kcSpaceSm),
       decoration: BoxDecoration(
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -499,7 +510,7 @@ class _CommentTileState extends State<_CommentTile> {
             const SizedBox(width: 8),
             Text(likes.toString()),
           ],
-        ).padding(const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+        ).padding(const EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: kcSpaceXs)),
       ),
     );
   }
@@ -562,7 +573,7 @@ class _CommentTileState extends State<_CommentTile> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(left: 8),
+      margin: const EdgeInsets.only(left: kcSpaceSm),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(kcRadius16),
         border: Border.all(

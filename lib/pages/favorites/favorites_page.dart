@@ -38,10 +38,6 @@ part 'side_bar.dart';
 part 'local_favorites_page.dart';
 part 'network_favorites_page.dart';
 
-const _kLeftBarWidth = 256.0;
-
-const _kTwoPanelChangeWidth = 720.0;
-
 /// 相邻两本书之间的基础间距（倾斜外扩另算）。
 const double _kShelfBookGap = 6.0;
 
@@ -261,22 +257,13 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
     return FavoriteBadgeScope.disabled(
       child: Stack(
         children: [
-          AnimatedPositioned(
-            left: context.width <= _kTwoPanelChangeWidth ? -_kLeftBarWidth : 0,
-            top: 0,
-            bottom: 0,
-            duration: const Duration(milliseconds: 200),
-            child: Container(
-              width: _kLeftBarWidth,
-              color: Theme.of(context).colorScheme.surface,
-              child: const _LeftBar(),
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: context.width <= _kTwoPanelChangeWidth ? 0 : _kLeftBarWidth,
-            right: 0,
-            bottom: 0,
+          // 常驻文件夹左栏已移除：NaviPane 在 >changePoint(600dp) 就提供侧栏
+          // （600–840dp 折叠 72dp，>840dp 展开 224dp），而本页左栏原来只在
+          // >720dp 出现 —— 两者必然叠成双层，窄左栏下方约九成是空白，内容被
+          // 挤到屏幕右侧（平板实拍已证实）。文件夹切换统一走顶栏「文件夹」
+          // 按钮的弹层（同一个 _LeftBar，含本地/网络管理菜单），宽窄屏交互
+          // 一致，内容区也多出 256dp。
+          Positioned.fill(
             child: NotificationListener<ScrollNotification>(
               onNotification: _onScroll,
               child: buildBody(),
@@ -420,12 +407,11 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
         .where((f) => !hidden.contains(f))
         .toList();
 
-    // 总览态顶栏：标题「收藏」+ 统一工具胶囊（方向 A：全站根 tab 一种顶栏
-    // 语言）。窄屏 [文件夹 | 搜索 | ⋮]，宽屏左栏已有文件夹管理，收成
-    // [搜索 | ⋮]；设置收进 ⋮ 菜单，不再让全局裸图标散在标题旁。
-    final narrow = context.width <= _kTwoPanelChangeWidth;
+    // 总览态顶栏：标题「收藏」+ 统一工具胶囊。常驻左栏移除后宽屏也走同一个
+    // 文件夹弹层，不再按宽度分档，恒为 [文件夹 | 搜索 | ⋮]；设置收进 ⋮
+    // 菜单，不再让全局裸图标散在标题旁。
     pushTopBar(
-      sig: 'ov_${narrow ? 'n' : 'w'}',
+      sig: 'ov',
       title: Text(
         "Favorites".tl,
         style: TextStyle(fontSize: kcTitleMain, fontWeight: FontWeight.bold),
@@ -434,12 +420,11 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
       actions: [
         ToolsPill(
           children: [
-            if (narrow)
-              ToolsPillButton(
-                icon: HugeIcons.strokeRoundedFolder01,
-                tooltip: "Folders".tl,
-                onPressed: showFolderSelector,
-              ),
+            ToolsPillButton(
+              icon: HugeIcons.strokeRoundedFolder01,
+              tooltip: "Folders".tl,
+              onPressed: showFolderSelector,
+            ),
             ToolsPillButton(
               icon: HugeIcons.strokeRoundedSearch02,
               tooltip: "Search".tl,
@@ -481,10 +466,16 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 卡片宽度按内容区（而不是整屏）算：宽屏下左栏已占 256，
+        // 卡片宽度按内容区（而不是整屏）算：宽屏下 NaviPane 侧栏已占 224，
         // 用 MediaQuery 会把卡片算大一圈，一行连第 4 张的边都露不出来。
         // -52 = 左侧留白 16 + 右侧让位 24 + 两张卡间距 12。
-        final cardW = math.max(96.0, (constraints.maxWidth - 52) / 3.3);
+        // 只有下限没有上限时，1600dp 平板会把封面放大到 324×463dp，一排只
+        // 露 3 本、滚动手感也变重。封面上限 160dp 是「看得清封面 + 一屏能
+        // 看到多排」的折中；宽屏多出来的宽度留给排数而不是单本尺寸。
+        final cardW = math.min(
+          160.0,
+          math.max(96.0, (constraints.maxWidth - 52) / 3.3),
+        );
         // cardH 只是**封面**高度，按 0.7 宽高比（接近标准封面 2:3，减少裁切）。
         // 书名行的开销由 [_shelf] 自己按 [comicTileTitleBlock] 加上去——写死在
         // 这里就会和 ComicTile 的实际排版对不上，多出来的高度表现为整排下面的
@@ -551,7 +542,10 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
                 SliverToBoxAdapter(child: _networkSection(netFolders)),
               if (emptyFolders.isNotEmpty)
                 SliverToBoxAdapter(
-                  child: _emptyFoldersSection(emptyFolders),
+                  child: _emptyFoldersSection(
+                    emptyFolders,
+                    constraints.maxWidth,
+                  ),
                 ),
             ],
             SliverToBoxAdapter(
@@ -586,7 +580,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
     return [
       SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceMd, kcSpaceLg, 0),
           child: KcEntryBox(
             icon: HugeIcon(
               icon: HugeIcons.strokeRoundedFavourite,
@@ -648,7 +642,7 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
           title: "Network Favorites".tl,
           // 不给数量胶囊：货架上那颗数字是「本数」，这里的条目是「源」，同一
           // 视觉元素承载两种口径会误导；行数本身就是数量。
-          topPadding: 28,
+          topPadding: kcSectionGap(context),
         ),
         for (final key in keys)
           _folderEntryRow(
@@ -663,8 +657,11 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   ///
   /// 空文件夹如果各占一排货架，三四个就能把首屏撑成大片空白；收成一行胶囊
   /// 既说明「文件夹还在」，又不抢货架的视觉位置。
-  Widget _emptyFoldersSection(List<String> folders) {
+  /// [contentWidth] 由上层 LayoutBuilder 传入（已是扣掉 NaviPane 侧栏后的
+  /// 内容列宽）；不能用 MediaQuery 的整屏宽，否则宽屏右栏装不下长名胶囊。
+  Widget _emptyFoldersSection(List<String> folders, double contentWidth) {
     final cs = Theme.of(context).colorScheme;
+    final chipTextMaxWidth = math.max(120.0, contentWidth - 96);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -672,10 +669,10 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
           context: context,
           title: "Empty folders".tl,
           total: folders.length,
-          topPadding: 28,
+          topPadding: kcSectionGap(context),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          padding: const EdgeInsets.fromLTRB(kcSpaceLg, 0, kcSpaceLg, 0),
           child: Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -684,43 +681,57 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
                 InkWell(
                   onTap: () => setFolder(false, f),
                   borderRadius: BorderRadius.circular(kcPillRadius),
-                  child: Container(
-                    height: 32,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(kcPillRadius),
-                      border: Border.all(
-                        color: cs.outlineVariant,
-                        width: kcHairline,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        HugeIcon(
-                          icon: HugeIcons.strokeRoundedFolder01,
-                          size: 14,
-                          color: cs.onSurfaceVariant,
+                  // 视觉仍是 32dp 胶囊，命中区补到 48dp：Wrap 里相邻胶囊只隔
+                  // 8dp，单手 / 大字号下 32dp 热区很容易点进隔壁文件夹。
+                  child: SizedBox(
+                    height: kcMinTapTarget,
+                    // widthFactor:1 让 Center 的宽度收回到胶囊自身。只给高度
+                    // 的 SizedBox 会把 Wrap 的「整行最大宽」透传给 Center，
+                    // Center 再撑满并把 32dp 胶囊推到行中间——分区标题、入口
+                    // 卡、胶囊三条左边缘就此错开。形状 / 描边 / 48dp 热区不变。
+                    child: Center(
+                      widthFactor: 1,
+                      child: Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: kcSpaceMd,
                         ),
-                        const SizedBox(width: 6),
-                        // Wrap 里的 Row 拿到的是无界宽度，长文件夹名会把胶囊
-                        // 撑出屏幕（进而被 Wrap 裁掉）。按「屏宽 − 左右留白 −
-                        // 图标与内边距」给个上限，超了省略。
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: MediaQuery.sizeOf(context).width - 96,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(kcPillRadius),
+                          border: Border.all(
+                            color: kcHairlineColor(context),
+                            width: kcHairline,
                           ),
-                          child: Text(
-                            getFavoriteDataOrNull(f)?.title ?? f,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: kcCaption,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            HugeIcon(
+                              icon: HugeIcons.strokeRoundedFolder01,
+                              size: 14,
                               color: cs.onSurfaceVariant,
                             ),
-                          ),
+                            const SizedBox(width: 6),
+                            // Wrap 里的 Row 拿到的是无界宽度，长文件夹名会把胶囊
+                            // 撑出内容列（进而被 Wrap 裁掉）。按「内容列宽 − 左右
+                            // 留白 − 图标与内边距」给个上限，超了省略。
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: chipTextMaxWidth,
+                              ),
+                              child: Text(
+                                getFavoriteDataOrNull(f)?.title ?? f,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: kcCaption,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -738,17 +749,17 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
   }) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(kcSpaceLg, 0, kcSpaceLg, kcSpaceSm),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(kcRadius10),
         child: Container(
-          height: 46,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          height: kcMinTapTarget,
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(kcRadius10),
             border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.7),
+              color: kcHairlineColor(context),
               width: kcHairline,
             ),
           ),
@@ -765,7 +776,9 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: kcFont13, color: cs.onSurface),
+                  // 同一「文件夹名」在货架与入口行曾分别是 16 / 13 两种字号；
+                  // kcFont13 仅限固定高度/等宽容器例外，这里回正文档。
+                  style: TextStyle(fontSize: kcBody, color: cs.onSurface),
                 ),
               ),
               HugeIcon(

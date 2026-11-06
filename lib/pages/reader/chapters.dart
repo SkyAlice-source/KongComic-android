@@ -165,7 +165,7 @@ class _ChaptersViewState extends State<_ChaptersView> {
           if (hasFilterRow)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceXs, kcSpaceMd, kcSpaceSm),
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -479,7 +479,7 @@ class _ChapterListTile extends StatelessWidget {
     // 一条悬在边缘的竖线，看着像溢出。改成整行浅主色底 + 内缩圆头色条，
     // 色条不再碰卡片边缘，行与行之间也有了「块」的区分。
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm),
       child: Material(
         color: isActive
             // 深色/AMOLED 下 primary 贴近白色，同一透明度在纯黑底上的对比更弱，
@@ -527,7 +527,7 @@ class _ChapterListTile extends StatelessWidget {
                 ),
                 if (isDownloaded)
                   Padding(
-                    padding: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.only(left: kcSpaceSm),
                     child: HugeIcon(
                       icon: HugeIcons.strokeRoundedDownload04,
                       // 已下载只是辅助信息，不该用 secondary 抢当前章的主色。

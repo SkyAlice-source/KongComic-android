@@ -24,18 +24,28 @@ class AppAnimations {
   /// 返回动画时长；系统开启「减少动态效果」时归零。
   static Duration duration(Duration d) => reduceMotion ? Duration.zero : d;
 
-  /// 初始化：读取系统无障碍设置（需在 WidgetsBinding 初始化后调用）。
-  static void init() {
-    reduceMotion =
+  /// 与系统无障碍设置同步一次，返回本次取值是否发生变化。
+  ///
+  /// 启动时由 main() 调用；运行中由 `_MyAppState.didChangeAccessibilityFeatures`
+  /// 调用（用户在系统设置里开关「移除动画」时即时生效）。返回值用于决定
+  /// 是否需要 rebuild —— `duration()` 是静态读取，必须重建才会重新取值。
+  static bool sync() {
+    final value =
         WidgetsBinding.instance.accessibilityFeatures.disableAnimations;
+    final changed = value != reduceMotion;
+    reduceMotion = value;
+    return changed;
   }
+
+  /// 初始化：读取系统无障碍设置（需在 WidgetsBinding 初始化后调用）。
+  static void init() => sync();
 }
 
 class _App {
   final version = "1.6.4";
   // Populated from package_info_plus during [init] so the About page and the
   // update check always reflect the real build version (no manual bump needed).
-  String appVersion = "1.5.18";
+  String appVersion = "1.5.19";
 
   bool get isAndroid => Platform.isAndroid;
 

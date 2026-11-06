@@ -163,7 +163,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
         onSecondaryTapDown: onSecondaryTap,
         borderRadius: BorderRadius.circular(kcRadius8),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: kcSpaceSm),
           child: Row(
             children: [
               Expanded(
@@ -189,7 +189,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.secondaryContainer,
                   borderRadius: BorderRadius.circular(kcRadius8),
@@ -203,7 +203,9 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
               IconButton(
                 icon: AnimatedRotation(
                   turns: _expanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 200),
+                  duration: kcReduceMotion(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 200),
                   child: HugeIcon(
                     icon: HugeIcons.strokeRoundedArrowDown01,
                     size: 18,
@@ -230,7 +232,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      padding: const EdgeInsets.fromLTRB(kcSpaceSm, kcSpaceXs, kcSpaceSm, kcSpaceSm),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cross,
         mainAxisSpacing: 8,
@@ -294,7 +296,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
                 return Align(
                   alignment: Alignment.topRight,
                   child: Container(
-                    margin: const EdgeInsets.all(4),
+                    margin: const EdgeInsets.all(kcSpaceXs),
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
                       color: kcBrandAdaptive(context),
@@ -312,14 +314,16 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
             if (widget.multiSelectMode)
               Positioned.fill(
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
+                  duration: kcReduceMotion(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(kcRadius8),
                     border: Border.all(
                       color: isSelected
                           ? kcBrandAdaptive(context)
-                          : cs.outline.withValues(alpha: 0.45),
+                          : kcHairlineColor(context),
                       width: isSelected ? 2.5 : 1,
                     ),
                     color: isSelected

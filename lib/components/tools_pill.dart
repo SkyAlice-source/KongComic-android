@@ -6,7 +6,14 @@ part of "components.dart";
 /// 设计语义：红只用于「激活 / 危险」这类状态，默认图标一律 onSurfaceVariant，
 /// 避免出现「一排红图标 + 一颗红选中胶囊」的同屏多红噪音。
 class ToolsPill extends StatelessWidget {
-  const ToolsPill({super.key, required this.children, this.height = 36});
+  const ToolsPill({
+    super.key,
+    required this.children,
+    // 48dp 命中区 + 上下各 0.8dp 发丝描边：BoxDecoration.border 会从 child
+    // 的可用高度里扣掉边框宽度，只给 48 的话按钮实测只有 46.4dp（回归测试
+    // 抓到），恰好又掉回 48 以下。顶栏 56dp 仍有约 3dp 上下留白。
+    this.height = kcMinTapTarget + 2 * kcHairline,
+  });
 
   final List<Widget> children;
 
@@ -19,16 +26,20 @@ class ToolsPill extends StatelessWidget {
     for (var i = 0; i < children.length; i++) {
       kids.add(children[i]);
       if (i < children.length - 1) {
-        kids.add(Container(width: 1, height: 20, color: cs.outlineVariant));
+        kids.add(Container(
+          width: kcHairline,
+          height: 20,
+          color: kcHairlineColor(context),
+        ));
       }
     }
     return Container(
       height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      padding: const EdgeInsets.symmetric(horizontal: kcSpace6),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(kcPillRadius),
-        border: Border.all(color: cs.outlineVariant, width: kcHairline),
+        border: Border.all(color: kcHairlineColor(context), width: kcHairline),
       ),
       clipBehavior: Clip.antiAlias,
       child: Row(mainAxisSize: MainAxisSize.min, children: kids),
@@ -36,7 +47,9 @@ class ToolsPill extends StatelessWidget {
   }
 }
 
-/// 胶囊条内的单个图标按钮：紧凑 36×36、中性色；[active] 时走 accent 红。
+/// 胶囊条内的单个图标按钮：48×48 命中区、中性色；[active] 时走 accent 红。
+/// 视觉上仍是紧凑胶囊（按钮之间只隔一条 1px 发丝线），但每颗按钮各有独立
+/// 的 48dp 命中区，不会出现「两颗按钮挤在 38dp 里、指腹落 seam 就误触邻居」。
 class ToolsPillButton extends StatelessWidget {
   const ToolsPillButton({
     super.key,
@@ -73,9 +86,12 @@ class ToolsPillButton extends StatelessWidget {
       icon: HugeIcon(icon: icon, size: size),
       color: color ?? (active ? kcBrandAdaptive(context) : cs.onSurfaceVariant),
       tooltip: tooltip,
-      constraints: const BoxConstraints(minWidth: 38, minHeight: 36),
+      constraints: const BoxConstraints(
+        minWidth: kcMinTapTarget,
+        minHeight: kcMinTapTarget,
+      ),
       padding: EdgeInsets.zero,
-      splashRadius: 20,
+      splashRadius: 24,
       onPressed: onPressed,
     );
   }
@@ -256,9 +272,12 @@ class _ToolsPillLayoutButtonState extends State<ToolsPillLayoutButton>
       ),
       // tooltip 描述**动作**（点完会切到哪种），图标描述**现状**。
       tooltip: _detailed ? "Switch to grid view".tl : "Switch to list view".tl,
-      constraints: const BoxConstraints(minWidth: 38, minHeight: 36),
+      constraints: const BoxConstraints(
+        minWidth: kcMinTapTarget,
+        minHeight: kcMinTapTarget,
+      ),
       padding: EdgeInsets.zero,
-      splashRadius: 20,
+      splashRadius: 24,
       onPressed: () {
         appdata.settings['comicDisplayMode'] = _detailed ? 'brief' : 'detailed';
         appdata.saveData();
@@ -300,9 +319,12 @@ class ToolsPillMoreButton extends StatelessWidget {
           size: 18,
         ),
         color: cs.onSurfaceVariant,
-        constraints: const BoxConstraints(minWidth: 38, minHeight: 36),
+        constraints: const BoxConstraints(
+          minWidth: kcMinTapTarget,
+          minHeight: kcMinTapTarget,
+        ),
         padding: EdgeInsets.zero,
-        splashRadius: 20,
+        splashRadius: 24,
         onPressed: () {
           final rb = ctx.findRenderObject() as RenderBox;
           showMenuX(
@@ -348,7 +370,7 @@ class ToolsPillValueChip extends StatelessWidget {
     // 左右各留 4：图标按钮是固定 38 宽、自带留白，标签是自适应宽，不加这
     // 圈 margin 会直接贴住两侧的 1px 分隔线（实测很挤）。
     final chip = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: kcSpaceXs),
       child: Builder(
         builder: (ctx) => Material(
           // 比胶囊底色深一档的极淡中性底：让它读起来像「标签」而不是「按钮」。
@@ -370,7 +392,7 @@ class ToolsPillValueChip extends StatelessWidget {
               // 左多右少：视觉重心压在文字上，箭头只做「可展开」的提示。
               // 垂直 5 让标签高度约 25dp —— 比 36dp 的图标按钮矮一档，读起来
               // 是「贴在工具条里的状态」，而不是又一个按钮。
-              padding: const EdgeInsets.fromLTRB(9, 5, 4, 5),
+              padding: const EdgeInsets.fromLTRB(9, 5, kcSpaceXs, 5),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

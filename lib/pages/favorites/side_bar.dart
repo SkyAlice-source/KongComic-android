@@ -825,7 +825,7 @@ class _GroupPillsState extends State<_GroupPills> with AutoListenMixin {
     return Container(
       // 作为 pinned header 时会盖住滚动内容，底色必须与页面同源，否则封面透上来。
       color: Theme.of(context).scaffoldBackgroundColor,
-      padding: const EdgeInsets.only(top: 4, bottom: 10),
+      padding: const EdgeInsets.only(top: kcSpaceXs, bottom: 10),
       child: SingleChildScrollView(
         // 不用 PageStorageKey：横向滚动位置无需持久化，也避开与纵向列表共用
         // PageStorage 标识导致的 `as double?` 崩溃（见 1.5.x 修复记录）。

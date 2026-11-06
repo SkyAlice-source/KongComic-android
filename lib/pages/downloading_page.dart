@@ -108,7 +108,7 @@ class _DownloadingPageState extends State<DownloadingPage>
     // 靠卡与卡之间的间隙 + 发丝描边分隔，比压线明显得多。
     return Container(
       height: 52,
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      margin: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceSm, kcSpaceMd, kcSpaceXs),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
@@ -199,8 +199,8 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 136,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: kcSpaceXs),
+      padding: const EdgeInsets.all(kcSpaceMd),
       decoration: BoxDecoration(
         // 每个任务一张独立胶囊卡：填充面 + 0.6 发丝描边 + 大圆角，
         // 卡间留 8dp 间隙。比原来那条几乎看不见的底线明显，也和主页胶囊同语言。

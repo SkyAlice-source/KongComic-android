@@ -14,6 +14,11 @@ const changePoint2 = 840;
 const webUA =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36";
 
+/// 根 tab 页序的唯一事实来源。
+/// 「默认启动页」「主页底栏常驻」「滚动收起白名单」都引用它；页序调整时只改
+/// 这里，别在组件里再写死 2 / 3 / 4。
+const int kHomeTabIndex = 2;
+
 /// Pages for all comics is started from this value.
 const firstPage = 1;
 

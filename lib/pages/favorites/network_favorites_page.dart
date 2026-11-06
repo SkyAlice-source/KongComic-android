@@ -19,8 +19,10 @@ Future<bool> _deleteComic(
   String cid,
   String? fid,
   String sourceKey,
-  String? favId,
-) async {
+  String? favId, {
+  /// 撤销成功后重新拉一次列表（调用方持有 ComicListState 的 key）。
+  VoidCallback? onRefresh,
+}) async {
   var source = ComicSource.find(sourceKey);
   if (source == null) {
     return false;
@@ -40,6 +42,10 @@ Future<bool> _deleteComic(
               "Remove comic from favorite?".tl,
             ).paddingHorizontal(16),
             actions: [
+              Button.text(
+                onPressed: context.pop,
+                child: Text("Cancel".tl),
+              ),
               Button.filled(
                 isLoading: loading,
                 color: context.colorScheme.error,
@@ -57,9 +63,27 @@ Future<bool> _deleteComic(
                   if (res.success) {
                     // Invalidate network cache so next loads fetch fresh data
                     NetworkCacheManager().clear();
-                    context.showMessage(message: "Deleted".tl);
                     result = true;
                     context.pop();
+                    // 删除是远端写操作，误删后重新搜索很贵：给 5 秒反悔窗口。
+                    // 撤销重新调用同一接口把收藏加回，成功后只刷新列表做
+                    // 界面内反馈；失败才提示错误（showUndoMessage 内部用
+                    // App.rootContext，不依赖已 pop 的 dialog context）。
+                    showUndoMessage(
+                      message: "Deleted".tl,
+                      onUndo: () async {
+                        final undo = await source.favoriteData!
+                            .addOrDelFavorite!(cid, fid ?? '', true, favId);
+                        if (!undo.success) {
+                          App.rootContext.showMessage(
+                            message: friendlySourceError(undo.errorMessage),
+                          );
+                          return;
+                        }
+                        NetworkCacheManager().clear();
+                        onRefresh?.call();
+                      },
+                    );
                   } else {
                     setState(() {
                       loading = false;
@@ -244,6 +268,9 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
                 null,
                 comic.sourceKey,
                 comic.favoriteId,
+                onRefresh: () {
+                  comicListKey.currentState?.refresh();
+                },
               );
               if (res) {
                 comicListKey.currentState!.remove(comic);
@@ -334,6 +361,10 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
 
   Widget _buildBody(BuildContext context) {
     final favPage = context.findAncestorStateOfType<_FavoritesPageState>()!;
+    // 文件夹行是按 1.0 字号的 52dp 定高的；系统字号放大后文字会换行把
+    // 固定行格撑破。行格随 textScaler 一起放大，名称仍强制单行省略。
+    final rowScale =
+        MediaQuery.textScalerOf(context).scale(kcSubtitle) / kcSubtitle;
     var sliverAppBar = SliverAppbar(
       style: context.width < changePoint
           ? AppbarStyle.shadow
@@ -349,7 +380,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         ),
       ),
       title: GestureDetector(
-        onTap: context.width < _kTwoPanelChangeWidth ? showFolders : null,
+        onTap: showFolders,
         child: Text(widget.data.title),
       ),
     );
@@ -366,7 +397,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
         ),
       ),
       title: GestureDetector(
-        onTap: context.width < _kTwoPanelChangeWidth ? showFolders : null,
+        onTap: showFolders,
         child: Text(widget.data.title),
       ),
     );
@@ -444,7 +475,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
               }
             }),
             maxCrossAxisExtent: 450,
-            itemHeight: 52,
+            itemHeight: 52 * rowScale,
           ),
           if (widget.data.addFolder != null)
             SliverToBoxAdapter(
@@ -533,6 +564,7 @@ class _FolderTile extends StatelessWidget {
                     fontSize: kcSubtitle,
                     fontWeight: FontWeight.w500,
                   ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -631,7 +663,7 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
       content: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            padding: const EdgeInsets.fromLTRB(kcSpaceLg, 0, kcSpaceLg, 0),
             child: TextField(
               controller: controller,
               decoration: kcInputDecoration(context, labelText: "name".tl),
@@ -754,6 +786,9 @@ class _FavoriteFolder extends StatelessWidget {
                 null,
                 comic.sourceKey,
                 comic.favoriteId,
+                onRefresh: () {
+                  comicListKey.currentState?.refresh();
+                },
               );
               if (res) {
                 comicListKey.currentState!.remove(comic);

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:flutter/material.dart';
 import 'package:kong_comic/components/components.dart';
@@ -21,10 +22,6 @@ import 'local_comics_page.dart';
 /// 平板/宽屏下英雄卡（封面大卡）的最大宽度，避免随屏宽线性放大导致卡片过大。
 /// 手机屏宽 * 0.54 恒定小于此值，故手机版外观完全不变。
 const double _maxHeroCardWidth = 420;
-
-/// 平板/宽屏下主页内容列的最大宽度，超出则居中留白，避免单列拉满全屏。
-/// 手机屏宽 < 该值，约束等价为不约束，外观与手机版一致。
-const double _maxHomeContentWidth = 900;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -53,19 +50,32 @@ class _HomePageState extends State<HomePage> {
     final content = LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight;
-        // dock 浮层高度（含底部安全区），内容需避让以免被遮挡
-        final dockHeight = 58.0 + MediaQuery.of(context).padding.bottom;
-        // 中间卡片内在高度：主卡宽 sw*0.54、高 cardW*1.4
-        final sw = MediaQuery.of(context).size.width;
-        final cardW = (sw * 0.54).clamp(0.0, _maxHeroCardWidth);
-        final cardHeight = cardW * 1.4;
-        // 可用内容区高度（减去顶部状态栏和底部dock）
-        final contentArea = availableHeight - context.padding.top - dockHeight;
-        // 按比例分配：banner 占内容区 ~42%，其余 58% 给信息区+按钮+两行框
-        // 这样无论分辨率如何，整块英雄区都能完整显示在一屏内
-        final bannerHeight = (contentArea * 0.42).clamp(
-          cardHeight * 0.8,
-          cardHeight * 1.15,
+        // dock 浮层高度跟随自适应底栏（大字号下栏体会长高），写死 58dp
+        // 会让末行被浮岛底栏压住；bottomBarHeight 已含系统手势区。
+        final dockHeight = NaviPane.of(context).bottomBarHeight;
+        // 中间卡片内在高度：主卡宽 sw*0.54、高 cardW*1.4。
+        // 用 LayoutBuilder 的内容列宽，而不是 MediaQuery 的整屏宽：宽屏下
+        // 内容列被限到 900dp 并居中，按整屏算装饰卡会错位 112dp 并被裁。
+        final sw = constraints.maxWidth;
+        // 可用内容区高度（减去顶部状态栏和底部 dock）。
+        final contentArea = math.max(
+          0.0,
+          availableHeight - context.padding.top - dockHeight,
+        );
+        // 手机竖屏首屏还要容下标题区 + CTA + 两行入口卡，banner 按整屏
+        // 42% 会把 Follow Updates / Image Favorites 推进玻璃 dock 的覆盖区
+        // （实拍 62/65）。Compact 收到 32%，平板仍保持 42%。再往下压虽能多
+        // 挤一点首屏，但封面会小到失去主视觉，1.3 字号仍容不下两行入口，
+        // 因此 32% 是「卡片可读 / 入口可见」的折中，余下靠滚动到底查看。
+        final compact = MediaQuery.sizeOf(context).shortestSide < 600;
+        final bannerHeight = contentArea * (compact ? 0.32 : 0.42);
+        // 骨架归一：卡片高度必须完整落在 banner 内。旧版 cardW 只按屏宽算，
+        // cardW*1.4 常大于 bannerHeight，Stack 又是 Clip.none，于是 5 张
+        // 半透明封面互相叠压、主卡溢出压住标题和底部入口（实拍 42/46/50）。
+        // 现在由 banner 高度反算 cardW，再交给唯一的 _Banner。
+        final cardW = math.min(
+          math.min(sw * 0.54, _maxHeroCardWidth),
+          math.max(0.0, (bannerHeight - kcSpaceMd) / 1.4),
         );
         return _BannerProvider(
           bannerHeight: bannerHeight,
@@ -79,13 +89,19 @@ class _HomePageState extends State<HomePage> {
                 _Banner(
                   key: _bannerKey,
                   height: bannerHeight,
+                  width: sw,
+                  cardWidth: cardW,
                   currentComicNotifier: _currentComic,
                 ),
                 _ComicInfoSection(currentComicNotifier: _currentComic),
                 const _HomeHints(),
                 const _HomeCapsules(),
                 const _BottomModules(),
-                SliverPadding(padding: EdgeInsets.only(bottom: dockHeight)),
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    bottom: dockHeight + kcPageBottomGap + kcSpaceLg,
+                  ),
+                ),
               ],
             ),
           ),
@@ -97,7 +113,7 @@ class _HomePageState extends State<HomePage> {
     if (context.width > changePoint) {
       return Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _maxHomeContentWidth),
+          constraints: const BoxConstraints(maxWidth: kcContentMaxWidth),
           child: content,
         ),
       );
@@ -116,10 +132,20 @@ class _BannerProvider extends InheritedWidget {
 
 class _Banner extends StatefulWidget {
   final double height;
+
+  /// 内容列的宽度（由主页 LayoutBuilder 传入），不是整屏宽。
+  /// 装饰卡按它居中，才不会在 900dp 内容列里按整屏宽偏出去 112dp 并被裁。
+  final double width;
+
+  /// 由主页 LayoutBuilder 统一算好的主卡宽度（受 banner 高度上限约束）。
+  /// _Banner 不再自己按屏宽算，避免父子两套 cardW 不一致导致溢出。
+  final double cardWidth;
   final ValueNotifier<FavoriteItem?> currentComicNotifier;
   const _Banner({
     super.key,
     this.height = 360,
+    required this.width,
+    required this.cardWidth,
     required this.currentComicNotifier,
   });
   @override
@@ -178,10 +204,24 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     _startTimer();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 只把 AnimatedSwitcher 归零是不够的：Timer 照跑会变成每 4 秒**瞬切**
+    // 一张封面，比原来的淡入更刺眼。减少动效时必须让轮播彻底停摆。
+    // MediaQuery 变化会重新触发这里，用户运行中改设置也能立即生效。
+    if (kcReduceMotion(context)) {
+      _timer?.cancel();
+      _timer = null;
+    } else if (_timer == null && !_pauseAutoPlay) {
+      _startTimer();
+    }
+  }
+
   void _startTimer() {
     _timer?.cancel();
     // 手动滑动切换后暂停自动轮播（下拉刷新重建页面后恢复）
-    if (_pauseAutoPlay) return;
+    if (_pauseAutoPlay || AppAnimations.reduceMotion) return;
     _timer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _comics.length < 2) return;
       setState(() {
@@ -221,7 +261,11 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
             children: [
               GestureDetector(
                 onTap: () => _navigateToComic(_comics[_currentIndex]),
-                child: _buildSingleCard(context, _comics[_currentIndex]),
+                child: _buildSingleCard(
+                  context,
+                  _comics[_currentIndex],
+                  width: widget.cardWidth,
+                ),
               ),
             ],
           ),
@@ -229,18 +273,14 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
       );
     }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sw = MediaQuery.of(context).size.width;
-    final cardW = (sw * 0.54).clamp(0.0, _maxHeroCardWidth);
+    final cardW = widget.cardWidth;
     return SliverToBoxAdapter(
       child: SizedBox(
         height: widget.height,
         child: Stack(
-          clipBehavior: Clip.none,
+          clipBehavior: Clip.hardEdge,
           alignment: Alignment.topCenter,
           children: [
-            // Decorative stacked cards (background)
-            ..._buildStackedCards(isDark, cardW, sw),
             // Main card with in-place replacement (AnimatedSwitcher)
             Positioned(
               top: 0,
@@ -300,65 +340,13 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     );
   }
 
-  List<Widget> _buildStackedCards(bool isDark, double cardW, double sw) {
-    final items = <Widget>[];
-    final overlap = cardW * 0.30;
-    for (final layer in [-2, -1, 2, 1]) {
-      int idx = (_currentIndex + layer) % _comics.length;
-      if (idx < 0) idx += _comics.length;
-      final comic = _comics[idx];
-      final scale = 1.0 - layer.abs() * 0.1;
-      final topOff = layer.abs() * 2.0;
-      final pos = sw * 0.5 + layer * overlap - cardW * 0.5;
-      items.add(
-        Positioned(
-          left: pos,
-          top: topOff,
-          width: cardW,
-          child: Transform.scale(
-            scale: scale,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(kcRadius10),
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4),
-                    width: 3.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isDark ? 0.3 : 0.15,
-                      ),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                  borderRadius: BorderRadius.circular(kcRadius10),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(kcRadius8),
-                  child: SizedBox(
-                    height: cardW * 1.4,
-                    child: _buildCover(comic, decorative: true),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    return items;
-  }
-
   Widget _buildSingleCard(
     BuildContext context,
     FavoriteItem comic, {
     double? width,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sw = MediaQuery.of(context).size.width;
+    final sw = widget.width;
     final cardW = width ?? (sw * 0.54).clamp(0.0, _maxHeroCardWidth);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -430,6 +418,10 @@ class _ComicInfoSection extends StatelessWidget {
       builder: (context, comic, _) {
         if (comic == null) return const SliverToBoxAdapter(child: SizedBox());
         final cs = Theme.of(context).colorScheme;
+        // 漫画名固定 72dp 是按 1.0 字号两行算的；系统字号 1.3 时两行需约
+        // 88.7dp。按实际 textScaler 放大预留高度，避免第二行被裁。
+        final titleScale =
+            MediaQuery.textScalerOf(context).scale(kcTitleLarge) / kcTitleLarge;
         final history = HistoryManager().find(comic.id, comic.type);
         final progress = history != null
             ? "Chapter %s · %s chapters read".tl
@@ -441,13 +433,13 @@ class _ComicInfoSection extends StatelessWidget {
             : null;
         return SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceXs, kcSpaceLg, kcSpaceXs),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 漫画名占三行高度
+                // 漫画名占两行高度（随系统字号缩放）
                 SizedBox(
-                  height: 72,
+                  height: 60 * titleScale,
                   child: Align(
                     alignment: Alignment.bottomLeft,
                     child: Text(
@@ -465,7 +457,7 @@ class _ComicInfoSection extends StatelessWidget {
                 const SizedBox(height: 6),
                 if (comic.author.isNotEmpty || comic.tags.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.only(bottom: kcSpaceXs),
                     child: Text(
                       comic.author.isNotEmpty ? comic.author : comic.tags.first,
                       maxLines: 1,
@@ -478,7 +470,7 @@ class _ComicInfoSection extends StatelessWidget {
                   ),
                 if (progress != null)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.only(bottom: kcSpaceXs),
                     child: Text(
                       progress,
                       style: TextStyle(fontSize: kcBody, color: cs.onSurface),
@@ -495,7 +487,7 @@ class _ComicInfoSection extends StatelessWidget {
                 ),
                 if (updatedTime != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.only(top: kcSpaceXs),
                     child: Text(
                       "Updated @time".tlParams({'time': updatedTime}),
                       style: TextStyle(
@@ -618,7 +610,7 @@ class _HomeCapsulesState extends State<_HomeCapsules> with AutoListenMixin {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpaceXs),
             child: Row(
               children: [
                 Expanded(
@@ -662,7 +654,7 @@ class _BottomModules extends StatelessWidget {
     final imgCount = ImageFavoriteManager().length;
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpaceXs),
         child: Row(
           children: [
             Expanded(
@@ -711,8 +703,13 @@ class _FlatBox extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            // 大字号下「Follow Updates / Image Favorites」会换行，写死 48dp
+            // 时第二行与数字徽章会溢出，并被玻璃 dock 盖住（实拍 46/50）。
+            constraints: BoxConstraints(
+              minHeight: kcMinTapTarget *
+                  MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.6),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(kcRadius22),
               color: cs.surfaceContainerLow,
@@ -724,12 +721,14 @@ class _FlatBox extends StatelessWidget {
                 Expanded(
                   child: Text(
                     label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: kcBody, color: cs.onSurface),
                   ),
                 ),
                 if (value != null)
                   Container(
-                    margin: const EdgeInsets.only(right: 12),
+                    margin: const EdgeInsets.only(right: kcSpaceMd),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
@@ -815,7 +814,7 @@ class _HomeHintsState extends State<_HomeHints> with AutoListenMixin {
 
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: 20),
         child: Column(
           children: shown.map((hint) => _HintCard(text: hint)).toList(),
         ),
@@ -834,7 +833,7 @@ class _HintCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: 14),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(kcRadius18),

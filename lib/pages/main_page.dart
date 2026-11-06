@@ -9,6 +9,7 @@ import 'package:kong_comic/utils/translations.dart';
 
 import '../components/components.dart';
 import '../foundation/app.dart';
+import '../foundation/consts.dart';
 import 'explore_page.dart';
 import 'favorites/favorites_page.dart';
 import 'home_page.dart';
@@ -62,11 +63,17 @@ class _MainPageState extends State<MainPage> with AutoListenMixin {
     const HistoryPage(key: PageStorageKey('history')),
   ];
 
-  var index = 2; // Home tab (index 2)
+  var index = kHomeTabIndex; // 默认落在主页，页序见 kHomeTabIndex
 
-  /// 列表/网格切换按钮仅在「收藏(1)/发现(3)/历史(4)」显示，
-  /// 这三个页面都用 comicDisplayMode 渲染漫画。
-  bool get _showLayoutToggle => index == 3 || index == 4;
+  /// 列表/网格切换只在真正用漫画网格渲染的根页出现。原先写死 3/4，
+  /// 页序一调就会错位；改成按页面类型判断，与页序解耦。
+  bool get _showLayoutToggle {
+    final page = _pages[index];
+    // 历史页已在自己的 ToolsPill 里放了 ToolsPillLayoutButton，
+    // 再挂一颗全局裸 IconButton 就是同一功能两个入口。只有发现页
+    // 还没有页内胶囊，保留全局项。
+    return page is ExplorePage;
+  }
 
   /// 当前是否为详细列表模式（detailed）。否则为简洁网格（brief）。
   bool get _isDetailedLayout => appdata.settings['comicDisplayMode'] != 'brief';
@@ -155,16 +162,9 @@ class _MainPageState extends State<MainPage> with AutoListenMixin {
       pageBuilder: (index) {
         return _pages[index];
       },
-      // 收藏页 / 历史页均自绘完整顶栏（标题 + 胶囊工具条），共享顶栏整体让位，
-      // 避免「两排工具栏」的层叠观感。
-      //
-      // 名单由页面自己声明：实现 [SelfTopBarPage] 的 tab 自动被排除，这里按
-      // [_pages] 的实际顺序汇总。不再手写 `[1, 4]` 这类魔法索引 —— 调整底栏
-      // 顺序或插入新 tab 时不会再把别的页面顶栏误伤掉。
-      topBarHiddenPages: [
-        for (var i = 0; i < _pages.length; i++)
-          if (_pages[i] is SelfTopBarPage) i,
-      ],
+      // 5 个根 tab 全部走 NaviPane 的共享顶栏：收藏 / 历史通过
+      // pageTitle / pageActions / pageHideGlobalActionsNotifier 注入标题与
+      // 工具胶囊，不再自绘整条顶栏，因此不需要「隐藏共享顶栏」的页索引名单。
     );
   }
 }

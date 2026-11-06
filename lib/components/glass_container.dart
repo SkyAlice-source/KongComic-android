@@ -14,15 +14,61 @@ class KcGlassActivity {
 
   static Timer? _timer;
 
+  /// 当前 Timer 的到期时间戳（ms）。只有需要把截止时间顺延超过 50ms 时
+  /// 才重建 Timer：滚动通知是每帧到达的，原来 60fps 下每秒要 cancel + new
+  /// 60 次 Timer，纯属无谓分配。
+  static int _deadline = 0;
+
   /// 由页面容器（NaviPane）在收到滚动通知时调用。
   static void markScrolling() {
     if (!scrolling.value) {
       scrolling.value = true;
     }
+    const idle = 150;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final desired = now + idle;
+    if (desired - _deadline < 50) return;
+    _deadline = desired;
     _timer?.cancel();
-    _timer = Timer(const Duration(milliseconds: 150), () {
-      scrolling.value = false;
+    _timer = Timer(const Duration(milliseconds: idle), () {
+      if (DateTime.now().millisecondsSinceEpoch >= _deadline) {
+        scrolling.value = false;
+      }
     });
+  }
+}
+
+/// 带「滚动降级 + 恢复渐入」的模糊层。
+///
+/// [GlassContainer] 早就接入了 KcGlassActivity，[GlassCard] 却一直每帧跑
+/// 高斯模糊；同时降级是二值硬切，停止滚动瞬间模糊度跳变会闪一下。
+/// 这里让 sigma 在滚动中降到 0、停止后 150ms 平滑回到目标值；减少动效时
+/// 直接切换，不给前庭敏感用户额外补间。
+class _KcAdaptiveBlur extends StatelessWidget {
+  const _KcAdaptiveBlur({required this.sigma, required this.child});
+
+  final double sigma;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: KcGlassActivity.scrolling,
+      builder: (context, scrolling, _) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(end: scrolling ? 0.0 : sigma),
+          duration: kcReduceMotion(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          builder: (context, value, blurChild) => BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: value, sigmaY: value),
+            child: blurChild,
+          ),
+          child: child,
+        );
+      },
+    );
   }
 }
 
@@ -61,7 +107,10 @@ class GlassContainer extends StatefulWidget {
     this.tintColor,
     this.alignment,
     this.clipBehavior = Clip.antiAlias,
-    this.enableLiquidEffect = true,
+    // 纯装饰的 6s 无限渐变默认关闭：弹窗常驻时它每帧重建渐变 + 跑一次
+    // sigma=35 的高斯模糊，耗电掉帧却没有信息量。想要流动光泽的调用方显式
+    // 传 true；系统开启「移除动画」时无论传什么都会停摆（见 State）。
+    this.enableLiquidEffect = false,
   });
 
   /// 浅色 Liquid Glass 颜色
@@ -82,12 +131,11 @@ class GlassContainer extends StatefulWidget {
 
   /// iOS 26 Liquid Glass 边框 — 极细、半透明
   static Border iosBorder(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
+    // 深色白 @0.12 在近黑底上几乎看不见；与全站共用同一套发丝线
+    // 色阶（深色 onSurface@0.38 ≈ 3:1）与线宽（kcHairline）。
     return Border.all(
-      color: brightness == Brightness.light
-          ? Colors.white.withValues(alpha: 0.6)
-          : Colors.white.withValues(alpha: 0.12),
-      width: 0.4,
+      color: kcHairlineColor(context),
+      width: kcHairline,
     );
   }
 
@@ -121,6 +169,7 @@ class GlassContainer extends StatefulWidget {
 class _GlassContainerState extends State<GlassContainer>
     with SingleTickerProviderStateMixin {
   late AnimationController _liquidController;
+  bool _animating = false;
 
   @override
   void initState() {
@@ -128,7 +177,35 @@ class _GlassContainerState extends State<GlassContainer>
     _liquidController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 6),
-    )..repeat(reverse: true);
+      // 定格在中点：静态表面也留一层柔和光泽，而不是纯平的色块。
+      value: 0.5,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // MediaQuery 变化（系统「移除动画」开关）会重新触发这里，运行中即可停摆。
+    _syncLiquidAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant GlassContainer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncLiquidAnimation();
+  }
+
+  void _syncLiquidAnimation() {
+    final shouldAnimate =
+        widget.enableLiquidEffect && !MediaQuery.of(context).disableAnimations;
+    if (shouldAnimate == _animating) return;
+    _animating = shouldAnimate;
+    if (shouldAnimate) {
+      _liquidController.repeat(reverse: true);
+    } else {
+      _liquidController.stop();
+      _liquidController.value = 0.5;
+    }
   }
 
   @override
@@ -156,7 +233,7 @@ class _GlassContainerState extends State<GlassContainer>
           tileMode: ui.TileMode.mirror,
         ),
         child: _LiquidGlassSurface(
-          animation: widget.enableLiquidEffect ? _liquidController : null,
+          animation: _animating ? _liquidController : null,
           brightness: brightness,
           opacity: widget.opacity,
           tintColor: widget.tintColor,
@@ -413,16 +490,16 @@ class GlassCard extends StatelessWidget {
     if (isDark) {
       card = ClipRRect(
         borderRadius: effectiveBorderRadius,
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: _KcAdaptiveBlur(
+          sigma: 20,
           child: Container(
             padding: padding ?? const EdgeInsets.all(kcSpaceLg),
             decoration: BoxDecoration(
               color: cs.surfaceContainerHigh,
               borderRadius: effectiveBorderRadius,
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.06),
-                width: 0.5,
+                color: kcHairlineColor(context),
+                width: kcHairline,
               ),
               boxShadow: [
                 BoxShadow(
@@ -454,8 +531,8 @@ class GlassCard extends StatelessWidget {
     } else {
       card = ClipRRect(
         borderRadius: effectiveBorderRadius,
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: _KcAdaptiveBlur(
+          sigma: 10,
           child: Container(
             padding: padding ?? const EdgeInsets.all(kcSpaceLg),
             decoration: BoxDecoration(
@@ -469,8 +546,8 @@ class GlassCard extends StatelessWidget {
                 end: Alignment.bottomRight,
               ),
               border: Border.all(
-                color: primary.withValues(alpha: 0.2),
-                width: 0.5,
+                color: kcHairlineColor(context),
+                width: kcHairline,
               ),
               boxShadow: [
                 BoxShadow(

@@ -17,9 +17,9 @@ part of 'settings_page.dart';
 //   _kcSliderTheme   细轨 + 小圆点的滑块主题
 // ════════════════════════════════════════════════════════════════════
 
-/// 行内容的左右内缩。比旧版 ListTile 的 16 略宽，配合底部细线后
-/// 文字与线之间留出呼吸，长列表也不显得挤。
-const double _kcRowInset = 20;
+// 行内容的左右内缩统一走全库唯一令牌 kcRowInsetH（components/list_tile.dart）。
+// 此前这里另有一份 `kcRowInsetH = 20`，与 KcSectionHeader 重复定义，
+// 分类/发现/设置三页因此出现 16 / 20 / 28 三套栅格。
 
 /// 弱化箭头：设置行里的箭头是「可以进去」的提示，不该和正文抢注意力，
 /// 因此统一压低到 onSurfaceVariant 的 42%。
@@ -58,7 +58,7 @@ class _KcRowDivider extends StatelessWidget {
       alpha: isDark ? 0.085 : 0.06,
     );
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: _kcRowInset),
+      padding: const EdgeInsets.symmetric(horizontal: kcRowInsetH),
       child: SizedBox(
         height: 0.7,
         // 显式撑满：Column 的交叉轴是松约束，只给高度的 Container 会量到 0 宽。
@@ -220,7 +220,7 @@ class _KcSettingTile extends StatelessWidget {
                 : Colors.black.withValues(alpha: 0.025),
             child: Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: _kcRowInset,
+                horizontal: kcRowInsetH,
                 // 56dp 行是「有右侧控件」的舒适高度；紧凑模式下行高交给外层网格。
                 vertical: compact ? 6 : 12,
               ),
@@ -547,7 +547,7 @@ class _SelectSettingState extends State<SelectSetting> {
         return PopupMenuItem(
           value: key,
           height: App.isMobile ? 44 : 38,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
           child: Row(
             children: [
               // 选中项前放一枚主色对勾：菜单里也能一眼看出当前值。
@@ -655,7 +655,7 @@ class _SliderSettingState extends State<_SliderSetting> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(_kcRowInset, 12, _kcRowInset, 0),
+            padding: const EdgeInsets.fromLTRB(kcRowInsetH, kcSpaceMd, kcRowInsetH, 0),
             child: Row(
               children: [
                 Expanded(
@@ -679,7 +679,7 @@ class _SliderSettingState extends State<_SliderSetting> {
           Padding(
             // 轨道两端与标题文字对齐（左 20 / 右 20）。Slider 默认还会再
             // 自带 24dp 水平内边距，因此内部再清零，避免二次缩进或溢出到屏幕边缘。
-            padding: const EdgeInsets.symmetric(horizontal: _kcRowInset),
+            padding: const EdgeInsets.symmetric(horizontal: kcRowInsetH),
             child: SliderTheme(
               data: _kcSliderThemeData(context),
               child: Slider(
@@ -1019,7 +1019,9 @@ class _KcDangerButton extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: kcCaption + 1,
+                // 固定尺寸的色点标签属于 kcFont13 的「等宽容器」例外，
+                // 用阶梯常量而不是算式，避免再造一个非阶梯字号。
+                fontSize: kcFont13,
                 fontWeight: FontWeight.w600,
                 color: fg,
               ),
@@ -1071,43 +1073,14 @@ class _SettingPartTitle extends StatelessWidget {
   const _SettingPartTitle({required this.title, required this.icon});
 
   final String title;
-
   final Widget icon;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    // 分区标题全库唯一实现：字号 / 字重 / 字距 / 颜色 / 内缩都由
+    // KcSectionHeader 决定，这里只保留「包成 sliver」这一层差异。
     return SliverToBoxAdapter(
-      child: Padding(
-        // 分组标题只做「轻分隔」：小一号、灰色、带一点字距，避免和正文标题
-        // 抢层级；上边距比下边距大，形成组的呼吸感。
-        padding: const EdgeInsets.fromLTRB(_kcRowInset, 18, _kcRowInset, 6),
-        child: Row(
-          children: [
-            IconTheme.merge(
-              data: IconThemeData(
-                size: 16,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-              ),
-              child: icon,
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: kcCaption,
-                  height: 1.35,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.75),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: KcSectionHeader(title: title, icon: icon),
     );
   }
 }

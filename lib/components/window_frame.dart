@@ -598,7 +598,7 @@ class _VirtualWindowFrameState extends State<VirtualWindowFrame>
     return DragToResizeArea(
       enableResizeEdges: (_isMaximized || _isFullScreen) ? [] : null,
       child: Padding(
-        padding: EdgeInsets.all(_isMaximized ? 0 : 4),
+        padding: EdgeInsets.all(_isMaximized ? 0 : kcSpaceXs),
         child: _buildVirtualWindowFrame(context),
       ),
     );

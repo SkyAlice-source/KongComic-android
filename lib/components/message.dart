@@ -19,6 +19,67 @@ void showToast({
   Timer(Duration(seconds: seconds ?? 2), () => state?.remove(newEntry));
 }
 
+/// 破坏性操作后的「撤销」提示。
+///
+/// 复用 [showToast] 的 Overlay 通道与外观，但窗口拉长到 5 秒并提供明确的
+/// Undo 按钮：确认弹窗只能防误触，删完之后发现删错仍需重新搜索，这一步
+/// 补的是「反悔」。成功撤销由调用方用界面内反馈（列表刷新）表达，不再叠
+/// 第二条 Toast；只有撤销失败才提示错误。
+void showUndoMessage({
+  required String message,
+  required VoidCallback onUndo,
+  int seconds = 5,
+}) {
+  final context = App.rootContext;
+  final state = context.findAncestorStateOfType<OverlayWidgetState>();
+  if (state == null) return;
+
+  late final OverlayEntry entry;
+  Timer? timer;
+  var dismissed = false;
+  void dismiss() {
+    if (dismissed) return;
+    dismissed = true;
+    // 点了 Undo 就把自动收起的 Timer 一起取消，否则它还会挂满 5 秒并
+    // 持有已移除的 entry（页面销毁后尤其容易变成悬挂回调）。
+    timer?.cancel();
+    state.remove(entry);
+  }
+
+  entry = OverlayEntry(
+    builder: (_) => _ToastOverlay(
+      message: message,
+      trailing: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          dismiss();
+          onUndo();
+        },
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: kcMinTapTarget,
+            minHeight: kcMinTapTarget,
+          ),
+          child: Center(
+            child: Text(
+              "Undo".tl,
+              style: TextStyle(
+                // inverseSurface 底上的强调色：M3 保证与底色有足够对比，
+                // 不需要再猜浅/深色该用哪一级灰。
+                color: Theme.of(context).colorScheme.inversePrimary,
+                fontSize: kcSubtitle,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  state.addOverlay(entry);
+  timer = Timer(Duration(seconds: seconds), dismiss);
+}
+
 class _ToastOverlay extends StatelessWidget {
   const _ToastOverlay({required this.message, this.icon, this.trailing});
 
@@ -149,7 +210,11 @@ class _UpdateBannerOverlay extends StatelessWidget {
         top: false,
         child: TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: -1.2, end: 0),
-          duration: const Duration(milliseconds: 320),
+          // 后台触发的横幅本来就会突然滑入；「移除动画」时改为原地出现，
+          // 避免整块内容从屏幕外掉下来（自动消失的 4s 计时保持不变）。
+          duration: kcReduceMotion(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 320),
           curve: Curves.easeOutCubic,
           builder: (context, value, child) => Transform.translate(
             offset: Offset(0, value * (top + 120)),
@@ -309,6 +374,13 @@ Future<void> showConfirmDialog({
       title: title,
       content: Text(content).paddingHorizontal(16).paddingVertical(8),
       actions: [
+        // 破坏性确认必须有一个**明确的**取消按钮：只靠遮罩 / 返回键 / 左上 ×
+        // 用户并不知道哪些能退出，误触的成本就是一次不可逆删除。
+        // 放在确认左侧、用文字按钮，危险按钮仍由调用方传 error 色。
+        Button.text(
+          onPressed: context.pop,
+          child: Text("Cancel".tl),
+        ),
         Button.filled(
           color: btnColor,
           onPressed: () {
@@ -443,7 +515,7 @@ LoadingDialogController showLoadingDialog(
             shadowColor: context.colorScheme.shadow.withValues(alpha: 0.18),
             backgroundColor: context.colorScheme.surfaceContainerHigh,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              padding: const EdgeInsets.fromLTRB(20, kcSpaceLg, 20, kcSpaceSm),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -595,7 +667,7 @@ class ContentDialog extends StatelessWidget {
   final EdgeInsetsGeometry? contentPadding;
 
   /// 对话框正文推荐的水平内边距（与 `ListTile` 默认的一致，16dp）。
-  static const EdgeInsets hPadding = EdgeInsets.symmetric(horizontal: 16);
+  static const EdgeInsets hPadding = EdgeInsets.symmetric(horizontal: kcSpaceLg);
 
   /// 富头部：图标徽章 + 标题 + 说明（见 [subtitle] / [headerIcon]）。
   ///
@@ -606,7 +678,7 @@ class ContentDialog extends StatelessWidget {
     final accent = kcBrandAdaptive(context);
     return Padding(
       // 左右收到 16：与正文（contentPadding: hPadding）左缘对齐。
-      padding: const EdgeInsets.fromLTRB(16, 16, 12, 0),
+      padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceLg, kcSpaceMd, 0),
       child: Row(
         children: [
           if (headerIcon != null)
@@ -677,7 +749,7 @@ class ContentDialog extends StatelessWidget {
               Padding(
                 // 关闭键左内边距收到 8：图标自带的点击热区已经是一圈留白，
                 // 再叠 16 会让标题被推得离边缘太远，正文与标题的左缘也错开。
-                padding: const EdgeInsets.fromLTRB(8, 10, 16, 0),
+                padding: const EdgeInsets.fromLTRB(kcSpaceSm, 10, kcSpaceLg, 0),
                 child: Row(
                   children: [
                     if (showClose)
@@ -740,13 +812,15 @@ class ContentDialog extends StatelessWidget {
       ),
       // 窄屏下 minWidth 已是「屏宽 - 16」，边距必须 ≤8，否则卡片会比可用宽度更宽而溢出屏外。
       insetPadding: context.width < 420
-          ? const EdgeInsets.symmetric(horizontal: 8)
-          : const EdgeInsets.symmetric(horizontal: 16),
+          ? const EdgeInsets.symmetric(horizontal: kcSpaceSm)
+          : const EdgeInsets.symmetric(horizontal: kcSpaceLg),
       elevation: 6,
       shadowColor: context.colorScheme.shadow.withValues(alpha: 0.18),
       backgroundColor: context.colorScheme.surfaceContainerHigh,
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 200),
+        duration: kcReduceMotion(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 200),
         alignment: Alignment.topCenter,
         child: IntrinsicWidth(
           child: ConstrainedBox(
@@ -888,7 +962,7 @@ Future<int?> showSelectDialog({
           return ContentDialog(
             title: title,
             content: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpaceMd),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

@@ -230,7 +230,7 @@ class _CategoryPage extends StatelessWidget {
       children.add(
         Padding(
           // 6 + chip 的 10 = 16，与下面的分组标题同一条轴线。
-          padding: const EdgeInsets.fromLTRB(6, 12, 6, 12),
+          padding: const EdgeInsets.fromLTRB(kcSpace6, kcSpaceMd, kcSpace6, kcSpaceMd),
           child: Wrap(
             children: [
               if (data.enableRankingPage)
@@ -289,7 +289,7 @@ class _CategoryPage extends StatelessWidget {
 
   Widget buildTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 5, 10),
+      padding: const EdgeInsets.fromLTRB(kcRowInsetH, kcSpaceMd, kcRowInsetH, kcSpaceMd),
       child: Text(
         title.tl,
         style: const TextStyle(
@@ -302,7 +302,7 @@ class _CategoryPage extends StatelessWidget {
 
   Widget buildTitleWithRefresh(String title, void Function() onRefresh) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 5, 10),
+      padding: const EdgeInsets.fromLTRB(kcRowInsetH, kcSpaceMd, kcRowInsetH, kcSpaceMd),
       child: Row(
         children: [
           Text(
@@ -327,7 +327,7 @@ class _CategoryPage extends StatelessWidget {
     return Padding(
       // 6 + chip 自身的 10 = 16：与 [buildTitle] 的左内边距对齐，否则每组
       // 胶囊比它上面的标题整体右移 4dp，整列看起来是歪的。
-      padding: const EdgeInsets.fromLTRB(6, 0, 6, 16),
+      padding: const EdgeInsets.fromLTRB(kcSpace6, 0, kcSpace6, kcSpaceLg),
       child: Wrap(
         children: List<Widget>.generate(
           categories.length,
@@ -361,7 +361,7 @@ class _CategoryPage extends StatelessWidget {
 
   Widget buildTag(String label, VoidCallback onClick, {String? sourceKey}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      padding: const EdgeInsets.fromLTRB(10, kcSpace6, 10, kcSpace6),
       child: Builder(
         builder: (context) {
           final brightness = Theme.of(context).brightness;
@@ -383,10 +383,10 @@ class _CategoryPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(kcRadius10),
                   border: Border.all(
                     color: bg.withValues(alpha: 0.35),
-                    width: 0.5,
+                    width: kcHairline,
                   ),
                 ),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceSm, kcSpaceLg, kcSpaceSm),
                 child: Text(
                   label,
                   style: TextStyle(fontSize: kcBody, color: kcTagTextColor(bg)),

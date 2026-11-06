@@ -17,6 +17,14 @@ import 'foundation/appdata.dart';
 /// 品牌主色 Kong Coral，用于收藏红心、收藏角标等强调色。
 const Color kcBrandColor = Color(0xFFD4381B);
 
+/// 三套外观的实际底色 / 前景色（唯一事实来源）。
+///
+/// `main.dart` 的 getTheme 与设置页的外观预览卡曾各自硬抄一份，改主题时
+/// 「预览卡是 A 色、真实界面是 B 色」；现在两处都只引用这三个常量。
+const Color kcDarkBackground = Color(0xFF100D0F);
+const Color kcAmoledBackground = Color(0xFF0A0A0A);
+const Color kcDarkForeground = Color(0xFFEDEAEB);
+
 /// 可选主题色板：key 与 `settings['color']` 一一对应，值为 (primary, secondary)。
 ///
 /// **唯一事实来源**：`main.dart` 用它生成 ColorScheme，设置页用它画色点。
@@ -71,6 +79,18 @@ Color kcAccentColor(BuildContext context) {
 Color kcBrandAdaptive(BuildContext context) {
   final cs = Theme.of(context).colorScheme;
   return kcIsAmoled() ? cs.primary : kcBrandColor;
+}
+
+/// 状态语义色（可达绿 / 超时黄）：集中到这里，AMOLED「零彩色」下退化为
+/// 中性灰，靠文案与底色深浅区分；深色主题再向白提亮一档保证小字对比度。
+/// 组件层不要自己写 `Color(0xFF2FA45A)` / `Color(0xFFD9A005)`。
+Color kcStatusColor(BuildContext context, {required bool ok}) {
+  final cs = Theme.of(context).colorScheme;
+  if (kcIsAmoled()) return cs.onSurfaceVariant;
+  final base = ok ? const Color(0xFF2FA45A) : const Color(0xFFD9A005);
+  return cs.brightness == Brightness.dark
+      ? Color.lerp(base, Colors.white, 0.18)!
+      : base;
 }
 
 /// 品牌红之上的前景色（按钮文字 / 图标 / 选中态文字）。
@@ -202,6 +222,29 @@ const double kcSurfaceRadius = 24;
 /// 收口为 token，取代散落各处的 `width: 0.8` 魔数。
 const double kcHairline = 0.8;
 
+/// 发丝描边**颜色**：明暗两端都要看得见，全站唯一来源。
+///
+/// 历史上深浅两套写法正好相反：深色用 `outline@0.45`（#4A4244 半透明叠在
+/// #100D0F 上，有效亮度差约 2:1，边界几乎消失，深色实拍已证实），浅色反而
+/// 用较淡的 `outlineVariant@0.9`。这里统一：深色改用 `onSurface` 的低透明度
+/// 叠色（约 3:1，过 WCAG 1.4.11 非文本对比），浅色沿用品牌中性淡灰。
+/// 注意不要直接取 `outlineVariant` —— 它从主色种子派生，选绿/蓝主题时描边
+/// 会泛色；`onSurface` 是中性色，任何主题下都是纯灰。
+Color kcHairlineColor(BuildContext context) =>
+    kcHairlineColorFromScheme(Theme.of(context).colorScheme);
+
+/// 同上，但直接吃构造中的 [ColorScheme]。
+///
+/// `main.dart` 里 PopupMenuThemeData 是在 `ThemeData(...)` 构造过程中配置，
+/// 那时 `Theme.of(context)` 拿到的还是**外层**主题，不能用来判明暗；此重载
+/// 让主题构造期也能复用同一份描边逻辑，避免明暗判断分叉。
+Color kcHairlineColorFromScheme(ColorScheme cs) {
+  if (cs.brightness == Brightness.dark) {
+    return cs.onSurface.withValues(alpha: 0.38);
+  }
+  return cs.outline.withValues(alpha: 0.45);
+}
+
 /// 可点击目标的最小高度 / 宽度（M3 & WCAG 无障碍下限 48dp）。
 ///
 /// 列表行按 `kcBody(14) × 1.35 + 12 × 2` 算出来只有 42.9dp，指腹落在两行
@@ -216,12 +259,47 @@ const double kcSpace6 = 6;
 const double kcSpaceSm = 8;
 const double kcSpaceMd = 12;
 const double kcSpaceLg = 16;
+const double kcSpace18 = 18;
+
+/// 分区头与上一块内容的竖向间距。
+///
+/// [kcSectionGapWide] 是既有值（收藏页两个分区头原先写死的 28dp），宽屏 /
+/// 平板保持不变；手机（短边 < 600dp）收紧到 [kcSectionGapCompact]，避免
+/// 360dp 竖屏里「84dp 入口卡 → 28dp 空档 → 32dp 胶囊」把首屏拉得过于松散。
+/// 只改间距，不动任何卡片的形状、圆角、面色与字号。
+const double kcSectionGapWide = 28;
+const double kcSectionGapCompact = 20;
+double kcSectionGap(BuildContext context) =>
+    MediaQuery.sizeOf(context).shortestSide < 600
+        ? kcSectionGapCompact
+        : kcSectionGapWide;
 
 /// 根页共享顶栏（`NaviPane.buildTop`）的栏体高度，不含状态栏内边距。
 ///
-/// 自绘顶栏的根 tab（收藏 / 历史）必须用同一个值：`SliverAppbar` 默认的
-/// 52dp 会把标题整体下移 2dp，与相邻 tab 切换时标题会上下跳一下。
-const double kcRootTopBarHeight = 48;
+/// 56 是 M3 / Android 标准 AppBar 高度，也是让 [kcMinTapTarget] 的 48dp
+/// 工具胶囊上下各留 4dp 呼吸空间的最小值。自绘顶栏的根 tab（收藏 / 历史）
+/// 必须用同一个值，否则切 tab 时标题会上下跳一下（旧值 48 时胶囊贴满栏体、
+/// 圆角被挤到边缘，且按钮命中区只剩 36dp）。
+const double kcRootTopBarHeight = 56;
+
+// ── 页面外壳编排（方案 E/F：主页之外所有页面共用同一副骨架）──────
+/// 内容列的最大宽度。主页早先已按 900 收敛，其余页面没有上限，
+/// 平板 2560dp 时网格会被拉成 7 列、右侧留出大片空白。
+/// Compact（短边 < 600dp）下由 `kcPageContentWidth` 自动退化为全宽。
+const double kcContentMaxWidth = 900;
+
+/// 按可用宽度求统一内容列宽：全宽与 [kcContentMaxWidth] 取小。
+double kcPageContentWidth(double availableWidth) =>
+    availableWidth < kcContentMaxWidth ? availableWidth : kcContentMaxWidth;
+
+/// 二级页返回键图标大小。此前搜索页 / 设置页是 22、标准 Appbar 是 18、
+/// 还有一处原生 `BackButton()`，三套并存。全库统一到这一档。
+const double kcBackIconSize = 18;
+
+/// 页面底部统一让位：悬浮玻璃 dock 高度 + 一段呼吸空间。
+/// 原先有 `bottomBarHeight` / `padding.bottom + 80` / 仅 kcSpaceSm /
+/// 仅 context.padding.bottom 四套写法，主页大字号下模块因此被压住。
+const double kcPageBottomGap = 16;
 
 // ── 圆角（精确值令牌，覆盖散落字面量，零视觉改动）──────
 const double kcRadius3 = 3;

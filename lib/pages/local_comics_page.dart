@@ -92,7 +92,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
     // 做成主页「追更 / 本地」同款胶囊（填充 + 大圆角 + 发丝描边）：
     // 之前是一条裸行直接贴在网格上方，既没有边界，也不像可点的入口。
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceSm, kcSpaceLg, kcSpace6),
       child: Material(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(kcRadius22),
@@ -198,7 +198,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 16, 6),
+                          padding: const EdgeInsets.fromLTRB(20, kcSpaceLg, kcSpaceLg, kcSpace6),
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
@@ -233,7 +233,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                          padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceXs, kcSpaceMd, kcSpaceMd),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
@@ -381,7 +381,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
         headerIcon: HugeIcons.strokeRoundedFolderImport,
         showClose: false,
         // 顶部 4：紧跟富头部的 8dp 间隙，避免第一张卡片被推得离标题太远。
-        contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+        contentPadding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceXs, kcSpaceLg, 0),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -708,7 +708,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 16, 4),
+                          padding: const EdgeInsets.fromLTRB(20, kcSpaceLg, kcSpaceLg, kcSpaceXs),
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
@@ -740,7 +740,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
                           controlAffinity: ListTileControlAffinity.leading,
                         ),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                          padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceXs, kcSpaceMd, kcSpaceMd),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
@@ -1083,7 +1083,7 @@ class _DeleteChaptersDialogState extends State<_DeleteChaptersDialog> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceSm, kcSpaceMd, kcSpaceMd),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [

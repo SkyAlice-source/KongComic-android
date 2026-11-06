@@ -161,7 +161,7 @@ class _ButtonState extends State<Button> {
 
   @override
   Widget build(BuildContext context) {
-    var padding = widget.padding ?? const EdgeInsets.symmetric(horizontal: 16);
+    var padding = widget.padding ?? const EdgeInsets.symmetric(horizontal: kcSpaceLg);
     var width = widget.width;
     if (width != null) {
       width = width - padding.horizontal;
@@ -410,7 +410,7 @@ class _MenuButtonState extends State<MenuButton> {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'more'.tl,
+      message: 'More'.tl,
       child: Button.icon(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal, size: 18),
         color: widget.color,

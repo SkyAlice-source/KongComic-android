@@ -21,9 +21,9 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
   String get _color => appdata.settings['color'] as String? ?? 'system';
 
   /// 深色与 AMOLED 的实际底色（与 main.dart 的 getTheme 保持一致）。
-  static const _darkBg = Color(0xFF100D0F);
-  static const _amoledBg = Color(0xFF0A0A0A);
-  static const _darkFg = Color(0xFFEDEAEB);
+  static const _darkBg = kcDarkBackground;
+  static const _amoledBg = kcAmoledBackground;
+  static const _darkFg = kcDarkForeground;
 
   void _write(String key, String value) {
     if (appdata.settings[key] == value) return;
@@ -47,7 +47,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: _kcRowInset),
+            padding: const EdgeInsets.symmetric(horizontal: kcRowInsetH),
             child: Row(
               spacing: 8,
               children: [
@@ -63,7 +63,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: _kcRowInset),
+            padding: const EdgeInsets.symmetric(horizontal: kcRowInsetH),
             child: Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -78,7 +78,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         // 不写这句，用户在深色外观里换色「看不出变化」，只会当成 bug。
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(_kcRowInset, 12, _kcRowInset, 0),
+            padding: const EdgeInsets.fromLTRB(kcRowInsetH, kcSpaceMd, kcRowInsetH, 0),
             child: Text(
               "Applies to light appearance. Dark always uses brand red, AMOLED is pure grayscale."
                   .tl,
@@ -104,13 +104,13 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       selected: selected,
       label: _modeLabel(mode),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kcCardRadius),
         onTap: () => _write('theme_mode', mode),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(kcSpaceXs),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(kcCardRadius),
             color: selected
                 ? accent.withValues(alpha: 0.07)
                 : Colors.transparent,
@@ -123,7 +123,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kcRadius8),
                 child: AspectRatio(
                   aspectRatio: 1.15,
                   child: _buildPreview(mode),
@@ -194,7 +194,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         height: 4,
         decoration: BoxDecoration(
           color: fg.withValues(alpha: alpha),
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BorderRadius.circular(kcRadius3),
         ),
       ),
     );
@@ -217,7 +217,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
               height: 4,
               decoration: BoxDecoration(
                 color: accent,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(kcRadius3),
               ),
             ),
           ),

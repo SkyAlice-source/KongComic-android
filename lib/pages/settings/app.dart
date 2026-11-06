@@ -631,7 +631,7 @@ class _StoragePathFallbackBannerState
     final usingFallbackPath = LocalManager().path == fallback.fallbackPath;
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpaceXs),
       padding: const EdgeInsets.all(kcSpaceSm),
       decoration: BoxDecoration(
         color: colorScheme.errorContainer,
@@ -838,7 +838,7 @@ class _LogsPageState extends State<LogsPage> {
         itemBuilder: (context, index) {
           index = logToShow.length - index - 1;
           return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.fromLTRB(kcSpaceLg, 0, kcSpaceLg, kcSpaceSm),
             child: SelectionArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -74,6 +74,10 @@ void main(List<String> args) {
     runZonedGuarded(
       () async {
         WidgetsFlutterBinding.ensureInitialized();
+        // 必须在 ensureInitialized 之后、任何动效构造之前读取系统「移除动画」，
+        // 否则 AppAnimations.duration() 的静态量恒为 false，20+ 处动效不响应
+        // 无障碍设置（见 foundation/app.dart）。
+        AppAnimations.init();
         await Workmanager().initialize(appBackgroundDispatcher);
         await _initSentry();
         await init();
@@ -122,9 +126,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     App.registerForceRebuild(forceRebuild);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    // runApp 前系统设置可能已变化（例如从后台被系统重启），再同步一次。
+    AppAnimations.sync();
     WidgetsBinding.instance.addObserver(this);
     checkUpdates();
     super.initState();
+  }
+
+  @override
+  void didChangeAccessibilityFeatures() {
+    // 用户在系统设置里开关「移除动画」时即时生效：
+    // AppAnimations.duration() 是静态读取，必须 rebuild 才会重新取值。
+    // MediaQuery.disableAnimations 那一路（kcReduceMotion）由框架自动刷新。
+    if (AppAnimations.sync()) {
+      setState(() {});
+    }
+    super.didChangeAccessibilityFeatures();
   }
 
   @override
@@ -264,7 +281,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // · AMOLED：纯黑 + 纯灰阶，全站零彩色。
     final bool grayscale = isDark && amoled;
     final Color bg = isDark
-        ? (amoled ? const Color(0xFF0A0A0A) : const Color(0xFF100D0F))
+        ? (amoled ? kcAmoledBackground : kcDarkBackground)
         : Colors.white;
 
     final ColorScheme scheme;
@@ -484,13 +501,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         surfaceTintColor: Colors.transparent,
         elevation: 3,
         shadowColor: Colors.black.withValues(alpha: isDark ? 0.55 : 0.14),
-        menuPadding: const EdgeInsets.symmetric(vertical: 6),
+        menuPadding: const EdgeInsets.symmetric(vertical: kcSpace6),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kcRadius16),
           side: BorderSide(
-            color: isDark
-                ? scheme.outlineVariant
-                : scheme.outline.withValues(alpha: 0.45),
+            color: kcHairlineColorFromScheme(scheme),
             width: kcHairline,
           ),
         ),
@@ -773,10 +788,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   MediaQuery.of(context).viewPadding.top > 200;
 
               if (isPaddingCheckError && Platform.isAndroid) {
+                // 只补状态栏顶部：原先整份 viewPadding/padding 被替换成
+                // EdgeInsets.only(top:15,bottom:15)，横屏挖孔区的左右 insets
+                // 与底部手势区一起被抹掉，内容会钻进刘海 / 压住导航条。
+                final mq = MediaQuery.of(context);
                 widget = MediaQuery(
-                  data: MediaQuery.of(context).copyWith(
-                    viewPadding: const EdgeInsets.only(top: 15, bottom: 15),
-                    padding: const EdgeInsets.only(top: 15, bottom: 15),
+                  data: mq.copyWith(
+                    viewPadding: mq.viewPadding.copyWith(top: 15),
+                    padding: mq.padding.copyWith(top: 15),
                   ),
                   child: widget,
                 );

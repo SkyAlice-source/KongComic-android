@@ -105,8 +105,9 @@ class FlyoutState extends State<Flyout> {
         fullscreenDialog: true,
         barrierDismissible: true,
         opaque: false,
-        transitionDuration: _fastAnimationDuration,
-        reverseTransitionDuration: _fastAnimationDuration,
+        // 「移除动画」时统一归零：菜单/侧栏/弹层转场也归 AppAnimations 管。
+        transitionDuration: AppAnimations.duration(_fastAnimationDuration),
+        reverseTransitionDuration: AppAnimations.duration(_fastAnimationDuration),
         pageBuilder: (context, animation, secondaryAnimation) {
           var left = rect.left;
           var top = rect.bottom;
@@ -199,7 +200,7 @@ class FlyoutContent extends StatelessWidget {
           color: context.colorScheme.surface.withValues(alpha: 0.82),
           child: Container(
             constraints: const BoxConstraints(minWidth: minFlyoutWidth),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: kcSpaceSm, horizontal: kcSpaceLg),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(kcRadius8),
               border: context.brightness == ui.Brightness.dark

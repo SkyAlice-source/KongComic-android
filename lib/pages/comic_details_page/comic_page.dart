@@ -211,19 +211,40 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   @override
   Widget buildContent(BuildContext context, ComicDetails data) {
+    final hasReadHistory =
+        history != null && (history!.ep > 1 || history!.page > 1);
     return Scaffold(
+      // 长章节列表滚下去之后，页面上部那颗「Read / Continue」早就看不见了，
+      // 原来只剩一颗回顶 FAB，单手无法直接开始阅读。滚动后补一颗常驻的
+      // 扩展 CTA，与回顶竖排放在右下拇指区；两者各有独立 heroTag。
       floatingActionButton: showFAB
-          ? ScrollTopFab(
-              heroTag: 'comicScrollTopFab',
-              onPressed: () {
-                scrollController.animateTo(
-                  0,
-                  duration: AppAnimations.duration(
-                    const Duration(milliseconds: 400),
-                  ),
-                  curve: kcSpring,
-                );
-              },
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                ScrollTopFab(
+                  heroTag: 'comicScrollTopFab',
+                  onPressed: () {
+                    scrollController.animateTo(
+                      0,
+                      duration: AppAnimations.duration(
+                        const Duration(milliseconds: 400),
+                      ),
+                      // 弹簧曲线在回顶这种长距离滚动上会顿一下；改匀速收尾。
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                ),
+                const SizedBox(height: kcSpaceSm),
+                FloatingActionButton.extended(
+                  heroTag: 'comicReadFab',
+                  backgroundColor: kcAccentColor(context),
+                  foregroundColor: kcOnAccentColor,
+                  onPressed: hasReadHistory ? continueRead : () => read(),
+                  icon: const Icon(Icons.menu_book_rounded),
+                  label: Text((hasReadHistory ? 'Continue' : 'Read').tl),
+                ),
+              ],
             )
           : null,
       body: RefreshIndicator(
@@ -371,7 +392,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       ],
     );
 
-    yield const SliverPadding(padding: EdgeInsets.only(top: 8));
+    yield const SliverPadding(padding: EdgeInsets.only(top: kcSpaceSm));
 
     yield SliverLazyToBoxAdapter(
       child: Row(
@@ -445,7 +466,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
           ListView(
             scrollDirection: Axis.horizontal,
             // 12 + chip 自带 4 = 16dp，与下方主按钮、进度注脚的左右边距对齐。
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
             children: [
               if (hasHistory && !isMobile)
                 _ActionButton(
@@ -526,7 +547,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                     : 'Favorite'.tl,
                 onPressed: openFavPanel,
                 onLongPressed: quickFavorite,
-                iconColor: kcBrandColor,
+                iconColor: kcBrandAdaptive(context),
               ),
               if (comicSource.commentsLoader != null)
                 _ActionButton(
@@ -542,7 +563,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 icon: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 18),
                 text: 'Share'.tl,
                 onPressed: share,
-                iconColor: kcBrandColor,
+                iconColor: kcBrandAdaptive(context),
               ),
             ],
           ).fixHeight(48),
@@ -559,7 +580,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
           else if (isMobile)
             // 没有阅读历史时没有进度可合并，回到一颗满宽实心按钮。
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+              padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceMd, kcSpaceLg, 2),
               child: SizedBox(
                 width: double.infinity,
                 child: Button.filled(
@@ -657,7 +678,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
         children: [
           KcSectionHeader(title: "Description".tl),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
             child: SelectableText(
               desc,
               style: const TextStyle(height: 1.5),
@@ -698,7 +719,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       // 类目标题 chip：中性灰底，退到背景层，不与值 chip 抢色，建立「标签：值」层级
       if (isTitle) {
         final borderRadius = BorderRadius.circular(kcRadius10);
-        const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+        const padding = EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: kcSpaceSm);
         final Widget titleWidget = Text(
           text,
           style: TextStyle(
@@ -730,7 +751,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       final borderColor = bgColor.withValues(alpha: 0.35);
 
       final borderRadius = BorderRadius.circular(kcRadius10);
-      const padding = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+      const padding = EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: kcSpaceSm);
 
       Widget textWidget = Text(
         text,
@@ -1080,7 +1101,7 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: kcSpaceXs, vertical: kcSpace6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(kcRadius18),
         border: Border.all(
@@ -1145,7 +1166,7 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
           // 状态栏高度的空白、把标题往下推。这里用与 ContentDialog 完全一致的
           // 轻量标题栏（柔和圆形关闭 + 标题），零系统留白。
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 10, 16, 0),
+            padding: const EdgeInsets.fromLTRB(kcSpaceSm, 10, kcSpaceLg, 0),
             child: Row(
               children: [
                 Button.icon(
@@ -1222,7 +1243,7 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
                       ? kcAccentColor(context).withValues(alpha: 0.10)
                       : Colors.transparent,
                   child: CheckboxListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
                     title: Text(
                       widget.eps[i],
                       maxLines: 1,
@@ -1308,7 +1329,7 @@ class _SelectDownloadChapterState extends State<_SelectDownloadChapter> {
     final cs = context.colorScheme;
     final downloaded = widget.downloadedEps.length;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.fromLTRB(kcSpaceLg, 10, kcSpaceLg, 10),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -1380,6 +1401,7 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
 
     return Shimmer(
       color: context.isDarkMode ? Colors.grey.shade600 : Colors.white,
+      enabled: !kcReduceMotion(context),
       child: Column(
         children: [
           Appbar(
@@ -1417,7 +1439,7 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
             // 48dp 高、胶囊圆角。旧骨架是两条等宽 36dp 圆角 18 的灰条，加载完成
             // 后换成「宽实心 + 窄描边」会跳一下。
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceMd, kcSpaceLg, kcSpaceXs),
               child: Row(
                 children: [
                   Expanded(
@@ -1523,7 +1545,7 @@ class _ContinueReadingCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 11, 10, 0),
+                padding: const EdgeInsets.fromLTRB(kcSpaceMd, 11, 10, 0),
                 child: Row(
                   children: [
                     Container(
@@ -1608,7 +1630,7 @@ class _ContinueReadingCard extends StatelessWidget {
               // 进度线内缩 12dp 并圆头收尾，和卡片内文字左边缘对齐；不做通栏
               // 出血，否则看起来像下拉刷新的边缘指示器而不是「这一话的进度」。
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+                padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceSm, kcSpaceMd, 10),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(kcPillRadius),
                   child: LayoutBuilder(
@@ -1704,7 +1726,7 @@ class _DownloadStatusCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 8, 0),
+              padding: const EdgeInsets.fromLTRB(kcSpaceMd, 10, kcSpaceSm, 0),
               child: Row(
                 children: [
                   Container(
@@ -1807,7 +1829,7 @@ class _DownloadStatusCard extends StatelessWidget {
             // 细线内缩 12dp、圆头收尾，和文字左边缘对齐；不做通栏出血，
             // 否则会和卡片下边框糊成一条。
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+              padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceSm, kcSpaceMd, 10),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(kcPillRadius),
                 child: TweenAnimationBuilder<double>(
@@ -1903,7 +1925,7 @@ class _ReadProgressLine extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(kcRadius8),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 2, 4, 4),
+        padding: const EdgeInsets.fromLTRB(kcSpaceXs, 2, kcSpaceXs, kcSpaceXs),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -280,12 +280,25 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             title: "Remove from favorites".tl,
             content: "Remove this comic from favorites?".tl,
             btnColor: context.colorScheme.error,
-            onConfirm: () => LocalFavoritesManager().deleteComicWithId(
+            onConfirm: () {
+              final manager = LocalFavoritesManager();
               // 「全部」视图下条目是 FavoriteItemWithFolderInfo，自带所属文件夹。
-              c is FavoriteItemWithFolderInfo ? c.folder : widget.folder,
-              c.id,
-              (c as FavoriteItem).type,
-            ),
+              final folder = c is FavoriteItemWithFolderInfo
+                  ? c.folder
+                  : widget.folder;
+              final item = c as FavoriteItem;
+              manager.deleteComicWithId(folder, item.id, item.type);
+              // 撤销用这份内存快照原样加回：deleteComicWithId 只按 id/type
+              // 删，事后没法从数据库还原作者 / 封面 / 标签。
+              showUndoMessage(
+                message: "Deleted".tl,
+                onUndo: () {
+                  if (manager.existsFolder(folder)) {
+                    manager.addComic(folder, item);
+                  }
+                },
+              );
+            },
           );
         },
       ),
@@ -579,7 +592,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
   ///
   /// 精简后只保留高频直操：布局切换、（网络文件夹的）同步、搜索；
   /// 排序/筛选与文件夹管理一起收进「更多」菜单 —— 六个槽位在窄屏上
-  /// 会把共享顶栏的标题挤没（448dp 实测）。
+  /// 会把共享顶栏的标题压成「日…」（实拍 51，448dp 实测）。
   List<Widget> _normalPillChildren() {
     return [
       // 布局切换单图标：形状即当前布局（2×2 方块 = 网格 / 左封面+三行 = 列表），
@@ -589,11 +602,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       // 排序直显：只写当前值（手动 / 最近 / 标题）+ 下拉箭头，点开三段切换。
       // 不再在前面塞排序图标 —— 那个图标是几根横线，跟左边布局图标的横线
       // 挨在一起像同一族；文字 + 箭头反而更像「当前状态」。
-      ToolsPillValueChip(
-        label: _sortLabel,
-        tooltip: "Sort".tl,
-        entries: [MenuEntry.custom(_sortSegmentRow(_sortKey))],
-      ),
       if (networkSource != null && !isAllFolder)
         Tooltip(
           message: "Sync".tl,
@@ -635,8 +643,8 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
                   ),
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
+                    minWidth: kcMinTapTarget,
+                    minHeight: kcMinTapTarget,
                   ),
                   padding: EdgeInsets.zero,
                   splashRadius: 20,
@@ -760,7 +768,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
           return PopUpWidgetScaffold(
             title: favPage.folder ?? "Unselected".tl,
             body: Padding(
-              padding: EdgeInsets.only(bottom: context.padding.bottom + 16),
+              padding: EdgeInsets.only(bottom: context.padding.bottom + kcSpaceLg),
               child: Container(
                 constraints: const BoxConstraints(
                   maxHeight: 700,
@@ -974,24 +982,14 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
   String get _sortKey =>
       (appdata.settings['favoriteSort'] as String?) ?? 'recent';
 
-  /// 工具条上的排序短标签：只显示当前值，避免长文案把胶囊撑宽。
-  String get _sortLabel {
-    switch (_sortKey) {
-      case 'manual':
-        return "Manual".tl;
-      case 'name':
-        return "Title".tl;
-      default:
-        return "Recent".tl;
-    }
-  }
-
   /// 「更多」菜单项：分组为「视图 → 文件夹管理 → 危险操作」，组间用分隔线隔开，
   /// 删除文件夹前后都有线隔离。
   ///
-  /// 排序（单选状态）已从菜单移到工具条上的直显按钮，菜单里不再重复。
+  /// 排序（单选状态）此前是工具条直显按钮，六个槽位在窄屏把标题压没，
+  /// 现收进「更多」的首项：单选分段仍可直接点，不增加一层弹窗。
   List<MenuEntry> _buildMoreEntries() {
     return [
+      MenuEntry.custom(_sortSegmentRow(_sortKey)),
       MenuEntry(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 18),
         text: "Filter".tl,
@@ -1126,7 +1124,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
   Widget _filterBanner() {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(kcSpaceLg, 4, kcSpaceSm, 0),
+      padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceXs, kcSpaceSm, 0),
       child: Row(
         children: [
           HugeIcon(
@@ -1306,7 +1304,10 @@ class _ReorderComicsPageState extends State<_ReorderComicsPage> {
             builder: (context, _) => GridView(
               key: _key,
               controller: _scrollController,
-              gridDelegate: SliverGridDelegateWithComics(),
+              gridDelegate: SliverGridDelegateWithComics(
+                textScale:
+                    MediaQuery.textScalerOf(context).scale(kcBody) / kcBody,
+              ),
               children: children,
             ),
           );

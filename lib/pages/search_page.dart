@@ -145,7 +145,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                padding: const EdgeInsets.fromLTRB(20, kcSpaceLg, 20, kcSpaceSm),
                 child: Text(
                   "Multiple sources matched".tl,
                   style: TextStyle(
@@ -156,7 +156,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
                 child: Text(
                   id,
                   style: TextStyle(
@@ -403,6 +403,10 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
     if (searchSources.isEmpty) {
       return buildEmpty();
     }
+    // 头部搜索框保持原位（不整页抬起），但滚动区必须知道键盘高度：原来
+    // removeViewInsets 把 IME inset 从整棵子树抹掉，键盘弹出后建议/历史的
+    // 下半屏被盖住且滚不到。改成在 slivers 末尾补一段与键盘等高的留白。
+    final imeInset = MediaQuery.viewInsetsOf(context).bottom;
     return MediaQuery.removeViewInsets(
       context: context,
       removeBottom: true,
@@ -412,7 +416,14 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
             _buildHeader(),
             _buildSourceRow(),
             Expanded(
-              child: SmoothCustomScrollView(slivers: buildSlivers().toList()),
+              child: SmoothCustomScrollView(
+                slivers: [
+                  ...buildSlivers(),
+                  SliverPadding(
+                    padding: EdgeInsets.only(bottom: imeInset),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -434,7 +445,9 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
       }
       yield const _LocalSearchEntry();
       yield SliverAnimatedPaintExtent(
-        duration: const Duration(milliseconds: 200),
+        duration: kcReduceMotion(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 200),
         child: buildSearchOptions(),
       );
     }
@@ -507,8 +520,8 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
     ];
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, kcSpaceMd),
+      padding: const EdgeInsets.all(kcSpaceMd),
       decoration: BoxDecoration(
         // 深色下不能用 surfaceContainerLow（#181415）：它离页面底 #100D0F 只有
         // 一档，卡片边界几乎看不出来，一片糊。抬到 surfaceContainer（#1F1A1C）
@@ -516,11 +529,9 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
         color: isDark ? cs.surfaceContainer : Colors.white,
         borderRadius: BorderRadius.circular(kcCardRadius),
         border: Border.all(
-          // 发丝描边深色下用 outline（#4A4244）半透明：outlineVariant 在这个
-          // 亮度差下只是一条看不到的暗线，抬一档才和「浅卡片」的边界感对齐。
-          color: isDark
-              ? cs.outline.withValues(alpha: 0.45)
-              : cs.outlineVariant.withValues(alpha: 0.9),
+          // 深色下 outline@0.45 与近黑底几乎同色，统一走 [kcHairlineColor]
+          // 由令牌保证明暗两端都有足够对比（详见令牌定义）。
+          color: kcHairlineColor(context),
           width: kcHairline,
         ),
       ),
@@ -587,7 +598,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
         width: double.infinity,
         // 上 8 + 首组自带 16 = 24，与设置页分区标题的 18 / 6 节奏同量级；
         // 组间 16、标签到胶囊 8，形成「块松、组中、标签贴身」的三级节奏。
-        padding: const EdgeInsets.fromLTRB(_gutter, 8, _gutter, 24),
+        padding: const EdgeInsets.fromLTRB(_gutter, kcSpaceSm, _gutter, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: children,
@@ -743,11 +754,18 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
             ),
             if (!showMethod) const SizedBox(width: 12),
             if (!showMethod && showTranslation)
-              Text(
-                subTitle,
-                style: TextStyle(
-                  fontSize: kcBody,
-                  color: Theme.of(context).colorScheme.outline,
+              // 平板/横屏分支里译文直接贴在标题后面，长 tag 会把 Row 撑破。
+              // 给宽度上限 + 单行省略；outline 深色下约 2:1，改副标题角色色。
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: Text(
+                  subTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: kcBody,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
           ],
@@ -815,16 +833,16 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
       children: [
         SizedBox(height: topPad),
         SizedBox(
-          height: 52,
+          height: kcRootTopBarHeight,
           child: Row(
             children: [
-              const SizedBox(width: 8),
+              const SizedBox(width: kcSpaceSm),
               Tooltip(
                 message: "Back".tl,
                 child: IconButton(
-                  icon: HugeIcon(
+                  icon: const HugeIcon(
                     icon: HugeIcons.strokeRoundedArrowLeft01,
-                    size: 22,
+                    size: kcBackIconSize,
                   ),
                   onPressed: () => Navigator.maybePop(context),
                 ),
@@ -837,7 +855,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: kcTitleMain,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                     color: cs.onSurface,
                   ),
                 ),
@@ -971,7 +989,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
                     },
                     behavior: HitTestBehavior.opaque,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 12, 14, 12),
+                      padding: const EdgeInsets.fromLTRB(kcSpaceSm, kcSpaceMd, 14, kcSpaceMd),
                       child: Text(
                         "Search".tl,
                         style: TextStyle(
@@ -1015,12 +1033,12 @@ class SearchOptionWidget extends StatelessWidget {
       // 横向内缩由外层（`buildSearchOptions` 的 20）统一处理，这里只留纵向
       // 节奏 —— 之前两层各加 16/20，标签和胶囊比页面其它内容多缩进了 16。
       // 上 16 对应「组与组之间」，组内标签到胶囊固定 8。
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: kcSpaceLg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: kcSpaceSm),
             child: Text(
               option.label.ts(sourceKey),
               style: TextStyle(
@@ -1093,38 +1111,51 @@ class _SearchChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // 视觉仍是 32dp 胶囊，外层 48dp 是命中区：源胶囊之间只隔 8dp，
+    // 原来 32dp 热区在大字号 / 单手操作时容易点空或误点邻项。
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: kcReduceMotion(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 150),
-        height: 32,
-        // 短源名（两三个字）给一个最小宽度，居中排布时整排胶囊才不会
-        // 长短参差到像随机散落；长文案仍然按文字宽度自然撑开。
-        constraints: const BoxConstraints(minWidth: 56),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? kcAccentSurface(context, alpha: 0.18)
-              : cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(kcRadius22),
-        ),
-        // 宽度必须收到文字上。带 alignment 的 Container 在 Wrap（有界宽）里
-        // 会拉满整行 —— 检索选项的 select / multi-select 就渲染成一排满宽
-        // 长条，跟源胶囊判若两物。Center(widthFactor: 1) 只吃文字宽，
-        // 同时在 32 高里把文字水平垂直都居中。
+      child: SizedBox(
+        height: kcMinTapTarget,
         child: Center(
-          widthFactor: 1,
-          child: Text(
-            label,
-            maxLines: 1,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: kcBody,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              color: selected ? kcBrandAdaptive(context) : cs.onSurfaceVariant,
+          child: AnimatedContainer(
+            duration: kcReduceMotion(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 150),
+            height: 32,
+            // 短源名（两三个字）给一个最小宽度，居中排布时整排胶囊才不会
+            // 长短参差到像随机散落；长文案仍然按文字宽度自然撑开。
+            constraints: const BoxConstraints(minWidth: 56),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
+            decoration: BoxDecoration(
+              color: selected
+                  ? kcAccentSurface(context, alpha: 0.18)
+                  : cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(kcRadius22),
+            ),
+            // 宽度必须收到文字上。带 alignment 的 Container 在 Wrap（有界宽）里
+            // 会拉满整行 —— 检索选项的 select / multi-select 就渲染成一排满宽
+            // 长条，跟源胶囊判若两物。Center(widthFactor: 1) 只吃文字宽，
+            // 同时在 32 高里把文字水平垂直都居中。
+            child: Center(
+              widthFactor: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: kcBody,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected
+                        ? kcBrandAdaptive(context)
+                        : cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -1224,7 +1255,7 @@ class _OptionDropdown extends StatelessWidget {
             ? Duration.zero
             : const Duration(milliseconds: 150),
         height: 32,
-        padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
+        padding: const EdgeInsets.fromLTRB(kcSpaceMd, 0, kcSpaceSm, 0),
         decoration: BoxDecoration(
           color: cs.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(kcRadius22),
@@ -1342,41 +1373,52 @@ class _HistoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // 视觉胶囊 40dp、整行命中 48dp；右侧删除 X 单独给 40×40 热区，
+    // 原来是 12dp 图标 + 6dp padding ≈ 24dp，最容易点空或误触整条历史。
     return GestureDetector(
       onTap: onTap,
       onLongPress: onRemove,
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.fromLTRB(12, 0, 4, 0),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(kcRadius22),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                item,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: kcBody, color: cs.onSurface),
-              ),
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        height: kcMinTapTarget,
+        child: Center(
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.only(left: kcSpaceMd),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(kcRadius22),
             ),
-            const SizedBox(width: 2),
-            GestureDetector(
-              onTap: onRemove,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: HugeIcon(
-                  icon: HugeIcons.strokeRoundedCancel01,
-                  size: 12,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    item,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: kcBody, color: cs.onSurface),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 2),
+                GestureDetector(
+                  onTap: onRemove,
+                  behavior: HitTestBehavior.opaque,
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Center(
+                      child: HugeIcon(
+                        icon: HugeIcons.strokeRoundedCancel01,
+                        size: 16,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

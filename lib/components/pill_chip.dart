@@ -36,45 +36,64 @@ class KcPillChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(kcPillRadius),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          height: height,
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-          decoration: BoxDecoration(
-            color: selected ? kcAccentColor(context) : Colors.transparent,
-            borderRadius: BorderRadius.circular(kcPillRadius),
-            border: Border.all(
-              color: selected ? Colors.transparent : cs.outlineVariant,
-              width: kcHairline,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                HugeIcon(
-                  icon: icon!,
-                  size: 15,
-                  color: selected ? kcOnAccentColor : cs.onSurfaceVariant,
-                ),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                label,
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: kcBody,
-                  height: 1.2,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: selected ? kcOnAccentColor : cs.onSurfaceVariant,
+    // 视觉仍是 32dp 的窄胶囊，但外层 48dp 命中区补齐触控下限：过去
+    // InkWell 只有 32dp 高，相邻胶囊靠得很近时极易点空。
+    return SizedBox(
+      height: kcMinTapTarget,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(kcPillRadius),
+          child: Center(
+            child: AnimatedContainer(
+              duration: kcReduceMotion(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 160),
+              height: height,
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              decoration: BoxDecoration(
+                color: selected ? kcAccentColor(context) : Colors.transparent,
+                borderRadius: BorderRadius.circular(kcPillRadius),
+                border: Border.all(
+                  color: selected
+                      ? Colors.transparent
+                      : kcHairlineColor(context),
+                  width: kcHairline,
                 ),
               ),
-            ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    HugeIcon(
+                      icon: icon!,
+                      size: 15,
+                      color: selected ? kcOnAccentColor : cs.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  // 长源名 / 长译文不能把胶囊撑到压住相邻控件：给一个
+                  // 明确上限并省略，比 Flexible 依赖父级约束更稳。
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 180),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: kcBody,
+                        height: 1.2,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        color: selected ? kcOnAccentColor : cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

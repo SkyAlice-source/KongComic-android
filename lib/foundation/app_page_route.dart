@@ -123,6 +123,26 @@ mixin _AppRouteTransitionMixin<T> on PageRoute<T> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    final transitionChild = enableIOSGesture && App.isIOS
+        ? IOSBackGestureDetector(
+            gestureWidth: _kBackGestureWidth,
+            enabledCallback: () => _isPopGestureEnabled<T>(this),
+            onStartPopGesture: () => _startPopGesture(this),
+            child: child,
+          )
+        : child;
+
+    // 系统「移除动画」：不做任何位移 / 视差，只保留 crossfade。
+    // transitionDuration 已由 AppAnimations.duration() 归零，这里是双保险 ——
+    // 即使路由被复用、动画曲线来自别处，也不会退回 300ms 侧滑或 iOS parallax。
+    // Android 的 PredictiveBack 是系统手势而非装饰动效，仅在未开启减少动效时启用。
+    final reduceMotion =
+        AppAnimations.reduceMotion ||
+        (MediaQuery.maybeOf(context)?.disableAnimations ?? false);
+    if (reduceMotion) {
+      return FadeTransition(opacity: animation, child: transitionChild);
+    }
+
     PageTransitionsBuilder builder;
     if (App.isAndroid) {
       builder = PredictiveBackPageTransitionsBuilder();
@@ -135,14 +155,7 @@ mixin _AppRouteTransitionMixin<T> on PageRoute<T> {
       context,
       animation,
       secondaryAnimation,
-      enableIOSGesture && App.isIOS
-          ? IOSBackGestureDetector(
-              gestureWidth: _kBackGestureWidth,
-              enabledCallback: () => _isPopGestureEnabled<T>(this),
-              onStartPopGesture: () => _startPopGesture(this),
-              child: child,
-            )
-          : child,
+      transitionChild,
     );
   }
 

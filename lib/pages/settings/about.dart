@@ -190,7 +190,7 @@ class _MirrorSettingState extends State<_MirrorSetting> {
             return PopupMenuItem<String>(
               value: key,
               height: App.isMobile ? 44 : 38,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
               child: Row(
                 children: [
                   // 选中项前放一枚主色对勾，菜单里也能一眼看出当前值。
@@ -277,7 +277,7 @@ class _MirrorTestTileState extends State<_MirrorTestTile> {
                   ? kcBrandAdaptive(context)
                   : Theme.of(context).colorScheme.error;
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
+                padding: const EdgeInsets.symmetric(vertical: kcSpace6),
                 child: Row(
                   children: [
                     Expanded(child: Text(r.mirror.name)),
@@ -414,7 +414,7 @@ Future<void> _showUpdateDialog(AppUpdateInfo info) async {
             ).paddingHorizontal(16).fixWidth(double.infinity),
             if (info.releaseNotes.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceSm, kcSpaceLg, kcSpaceSm),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 180),
                   child: SingleChildScrollView(
@@ -737,7 +737,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
           ).paddingHorizontal(16).fixWidth(double.infinity),
           if (widget.info.releaseNotes.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceSm, kcSpaceLg, kcSpaceSm),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 180),
                 child: SingleChildScrollView(
@@ -749,7 +749,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
               ),
             ).fixWidth(double.infinity),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceSm, kcSpaceLg, 0),
             child: _buildProgressSection(colorScheme),
           ),
         ],

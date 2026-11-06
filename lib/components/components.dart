@@ -69,6 +69,7 @@ part 'comic.dart';
 part 'effects.dart';
 part 'gesture.dart';
 part 'code.dart';
+part 'kc_page_scaffold.dart';
 
 /// 统一的友好空状态组件 —— 用于各 tab 的"无数据"展示。
 /// 与 NetworkError（红色错误图标）区分：本组件传达"这里还没有内容"而非"出错了"。

@@ -91,7 +91,7 @@ class Select extends StatelessWidget {
               color: kcBrandAdaptive(context),
             ),
           ],
-        ).padding(const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+        ).padding(const EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: kcSpaceXs)),
       ),
     );
   }
@@ -160,7 +160,7 @@ class _FilterChipFixedWidthState extends State<FilterChipFixedWidth> {
             borderRadius: const BorderRadius.all(Radius.circular(kcRadius8)),
             color: bg,
           ),
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceSm, kcSpaceMd, kcSpaceSm),
           child: labelWidth == null ? firstBuild() : buildContent(),
         ),
       ),
@@ -314,7 +314,7 @@ class OptionChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(kcRadius8),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpace6),
             child: Text(text, style: TextStyle(color: textColor)),
           ),
         ),

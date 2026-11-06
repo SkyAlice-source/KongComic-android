@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import "package:flutter/material.dart";
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
@@ -6,6 +8,7 @@ import "package:kong_comic/foundation/app.dart";
 import "package:kong_comic/foundation/appdata.dart";
 import "package:kong_comic/foundation/comic_source/comic_source.dart";
 import "package:kong_comic/pages/comic_details_page/comic_page.dart";
+import "package:kong_comic/pages/comic_source_page.dart";
 import "package:kong_comic/pages/search_result_page.dart";
 import "package:kong_comic/utils/translations.dart";
 
@@ -190,7 +193,7 @@ class _AggregatedSearchPageState extends State<AggregatedSearchPage> {
           ),
         ),
         if (_aggregated)
-          _AggregatedResults(queries: _queries)
+          _AggregatedResults(queries: _queries, onRetry: () => _startSearch())
         else
           SliverList(
             delegate: SliverChildBuilderDelegate((context, index) {
@@ -228,18 +231,19 @@ class _ViewModeSwitch extends StatelessWidget {
     final reduced = kcReduceMotion(context);
     return Padding(
       // 下留 16dp：分段条自身的槽边界已经是一层，不再套浅卡片变成两层框。
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceXs, kcSpaceLg, kcSpaceLg),
       child: Container(
-        height: 38,
+        // 48dp 命中区：旧的 38dp 在 1.3 倍字号下既截字、热区又只有 32dp。
+        height: kcMinTapTarget,
         width: double.infinity,
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(kcSpaceXs),
         decoration: BoxDecoration(
           // 深色下槽要比背景亮一点、又比滑块暗一级；用 surfaceContainerLow
           // 时槽几乎融进纯黑背景，整条控件只剩选中块可见，分段感就没了。
           color: isDark ? cs.surfaceContainer : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(kcRadius10),
           border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.55),
+            color: kcHairlineColor(context),
             width: kcHairline,
           ),
         ),
@@ -261,26 +265,13 @@ class _ViewModeSwitch extends StatelessWidget {
                   width: segmentWidth,
                   child: Container(
                     decoration: BoxDecoration(
-                      // 深色下槽压暗、滑块提亮两级，选中块才看得见。
-                      color: isDark
-                          ? cs.surfaceContainerHighest
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isDark
-                            ? kcBrandAdaptive(context).withValues(alpha: 0.45)
-                            : cs.outlineVariant.withValues(alpha: 0.9),
-                        width: kcHairline,
-                      ),
-                      boxShadow: isDark
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.07),
-                                blurRadius: 3,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
+                      // 选中 = 实心品牌红，与全站「当前项 / 开关 ON 用
+                      // kcAccentColor」的契约一致（此前白灰滑块与下方红色
+                      // 胶囊语言冲突，用户难一眼看出哪档生效）。AMOLED 下
+                      // 该色自动退化为中性灰面，仍保持零彩色。实心块已足够
+                      // 表达选中，不再叠描边 + 投影三层。
+                      color: kcAccentColor(context),
+                      borderRadius: BorderRadius.circular(kcRadius8),
                     ),
                   ),
                 ),
@@ -323,22 +314,29 @@ class _ViewModeSegment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final color = selected ? cs.onSurface : cs.onSurfaceVariant;
+    // 选中块是实心品牌红（AMOLED 下为深灰面），文字必须走 kcOnAccentColor
+    // 白字才有 4.8:1；沿用 cs.onSurface 会在红底上糊成一片。
+    final color = selected ? kcOnAccentColor : cs.onSurfaceVariant;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: SizedBox.expand(
           child: Center(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: kcBody,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: color,
+            child: FittedBox(
+              // 大字号 / 窄屏下先等比缩到放得下，而不是直接省略号截掉半句
+              // 「Aggregate & Dedupe」。只缩不放，正常字号不受影响。
+              fit: BoxFit.scaleDown,
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: kcBody,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: color,
+                ),
               ),
             ),
           ),
@@ -354,9 +352,12 @@ class _ViewModeSegment extends StatelessWidget {
 ///
 /// 纯展示：数据由父级统一拉取（[_SourceResult]），这里不再自己发请求。
 class _AggregatedResults extends StatelessWidget {
-  const _AggregatedResults({required this.queries});
+  const _AggregatedResults({required this.queries, required this.onRetry});
 
   final List<_SourceResult> queries;
+
+  /// 空态 / 错误态的唯一出口：重跑同一批源，而不是让用户退回上一页再搜一次。
+  final VoidCallback onRetry;
 
   void _openDetail(Comic c, int heroID) {
     App.mainNavigatorKey?.currentContext?.to(
@@ -385,7 +386,7 @@ class _AggregatedResults extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(kcSpaceLg),
               child: Text(
                 entry.representative.title,
                 style: const TextStyle(fontWeight: FontWeight.bold),
@@ -433,12 +434,12 @@ class _AggregatedResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 只要还有源在路上就继续转圈；先回来的源不抢着渲染，避免列表成批跳动。
+    // 只要还有源在路上就继续显示骨架；先回来的源不抢着渲染，避免列表成批跳动。
+    // 与「按源」视图共用同一套骨架横排，切分段不再从转圈跳成骨架屏。
     if (queries.any((q) => q.isLoading)) {
       return SliverToBoxAdapter(
-        child: SizedBox(
-          height: 240,
-          child: KcPageLoading(charWidth: 88, color: kcAccentColor(context)),
+        child: _ShimmerShelf(
+          height: _SliverSearchResult.comicHeightOf(context),
         ),
       );
     }
@@ -452,19 +453,22 @@ class _AggregatedResults extends StatelessWidget {
       // 否则是「确实没搜到」。
       final error = queries.map((q) => q.error).whereType<String>().firstOrNull;
       return SliverToBoxAdapter(
-        child: SizedBox(
-          height: 200,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                error ?? "No search results found".tl,
-                textAlign: TextAlign.center,
-                style: error == null
-                    ? TextStyle(color: context.colorScheme.outline)
-                    : null,
-              ),
+        child: ConstrainedBox(
+          // 只给下限，长错误文案（Cloudflare 一串）可以自己撑高，不再被
+          // 固定 200dp 裁掉；EmptyState 的副标题已带 maxLines:3。
+          constraints: const BoxConstraints(minHeight: 240),
+          child: EmptyState(
+            icon: Icon(
+              error == null
+                  ? Icons.search_off_rounded
+                  : Icons.cloud_off_rounded,
             ),
+            title: error == null ? "No search results found".tl : "Error".tl,
+            subtitle: error ?? "Please check your settings".tl,
+            actionLabel: "Retry".tl,
+            onAction: onRetry,
+            secondaryLabel: "Manage".tl,
+            onSecondary: () => context.to(() => const ComicSourcePage()),
           ),
         ),
       );
@@ -497,17 +501,23 @@ class _AggregatedResults extends StatelessWidget {
         .where((q) => q.comics?.isNotEmpty ?? false)
         .length;
 
-    final works = "works".tl;
-    final hitsAcross = "hits across".tl;
     final sourcesLabel = "sources".tl;
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
             // 卡片下沿 12dp 之后再来这一行说明，别让它紧贴着胶囊读成同一组。
-            padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+            padding: const EdgeInsets.fromLTRB(kcSpaceLg, 2, kcSpaceLg, 10),
             child: Text(
-              "${list.length} $works · ${all.length} $hitsAcross $sourceHits $sourcesLabel",
+              // 统计行整句翻译：三个碎片 key 硬拼时日文会读成
+              // 「12 作品 · 30 件のヒット / 3 ソース」这种夹生语序，
+              // 交给译文决定数字与名词的顺序。
+              "@worksCount works · @hitsCount hits across @sourceCount sources"
+                  .tlParams({
+                    "worksCount": "${list.length}",
+                    "hitsCount": "${all.length}",
+                    "sourceCount": "$sourceHits",
+                  }),
               style: TextStyle(
                 fontSize: kcCaption,
                 color: context.colorScheme.onSurfaceVariant,
@@ -539,6 +549,57 @@ class _AggregatedResults extends StatelessWidget {
   }
 }
 
+/// 「聚合 / 按源」两个结果视图共用的骨架横排。
+///
+/// 以前聚合视图是 240dp 的转圈、按源视图是 164dp 的 Shimmer 封面排，切一次
+/// 分段就从转圈跳成骨架、高度还跟着跳。现在共用同一形态与同一高度函数，
+/// 大字号下也一起长高；减少动效时 Shimmer 定格成静态占位。
+class _ShimmerShelf extends StatelessWidget {
+  const _ShimmerShelf({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: Shimmer(
+        enabled: !kcReduceMotion(context),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const itemWidth = _SliverSearchResult._comicWidth +
+                _SliverSearchResult._kLeftPadding;
+            final count = math.max(
+              1,
+              (constraints.maxWidth / itemWidth).ceil(),
+            );
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: List.generate(
+                  count,
+                  (_) => Container(
+                    height: height,
+                    width: _SliverSearchResult._comicWidth,
+                    margin: const EdgeInsets.only(
+                      left: _SliverSearchResult._kLeftPadding,
+                    ),
+                    decoration: BoxDecoration(
+                      color: context.colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(kcRadius8),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 /// 「按源」视图里的一行：源名 + 该源结果横向列表。
 ///
 /// 纯展示，数据来自父级的 [_SourceResult] —— 这里不再发请求，所以来回切
@@ -554,23 +615,20 @@ class _SliverSearchResult extends StatelessWidget {
   /// 点源名进入单源结果页时要带的词。
   final String keyword;
 
-  static const _kComicHeight = 164.0;
+  // 136dp 封面 + 4dp 间距 + 24dp 标题槽 = 164dp。标题槽按系统字号缩放：
+  // 固定 164dp 时 1.3 倍字号会把单行标题挤出 RenderFlex。
+  static const _kCoverHeight = 136.0;
+  static const _kTitleSlot = 24.0;
+  static const _kComicHeight = _kCoverHeight + 4 + _kTitleSlot;
+
+  static double comicHeightOf(BuildContext context) =>
+      _kCoverHeight +
+      4 +
+      _kTitleSlot * MediaQuery.textScalerOf(context).scale(kcBody) / kcBody;
 
   static const _comicWidth = _kComicHeight * 0.7;
 
   static const _kLeftPadding = 16.0;
-
-  Widget _buildPlaceHolder(BuildContext context) {
-    return Container(
-      height: _kComicHeight,
-      width: _comicWidth,
-      margin: const EdgeInsets.only(left: _kLeftPadding),
-      decoration: BoxDecoration(
-        color: context.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(kcRadius8),
-      ),
-    );
-  }
 
   Widget _buildComic(Comic c) {
     return SimpleComicTile(
@@ -600,39 +658,13 @@ class _SliverSearchResult extends StatelessWidget {
         children: [
           KcListTile(showDivider: false, title: Text(source.name)),
           if (query.isLoading)
-            SizedBox(
-              height: _kComicHeight,
-              width: double.infinity,
-              child: Shimmer(
-                child: LayoutBuilder(
-                  builder: (context, constrains) {
-                    var itemWidth = _comicWidth + _kLeftPadding;
-                    var items = (constrains.maxWidth / itemWidth).ceil();
-                    return Stack(
-                      children: [
-                        Positioned(
-                          left: 0,
-                          top: 0,
-                          bottom: 0,
-                          child: Row(
-                            children: List.generate(
-                              items,
-                              (index) => _buildPlaceHolder(context),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            )
+            _ShimmerShelf(height: comicHeightOf(context))
           else if (error != null || comics == null || comics.isEmpty)
             // 原来这里用 SizedBox(height: _kComicHeight) 撑满一个封面的高度，
             // 再用 Spacer 把提示顶到顶部：三个源都没结果时，整页变成三大片
             // 空白，看着像排版坏了或加载卡住。提示只占一行，高度随内容走。
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+              padding: const EdgeInsets.fromLTRB(kcSpaceLg, 10, kcSpaceLg, kcSpaceSm),
               child: Row(
                 children: [
                   HugeIcon(
@@ -652,7 +684,7 @@ class _SliverSearchResult extends StatelessWidget {
             )
           else
             SizedBox(
-              height: _kComicHeight,
+              height: comicHeightOf(context),
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [for (var c in comics) _buildComic(c)],

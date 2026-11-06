@@ -102,15 +102,15 @@ class KcContinueHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = context.colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceSm, kcSpaceLg, kcSpaceXs),
       child: Material(
         color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(kcRadius20),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onOpen,
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(kcSpaceMd),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -136,7 +136,7 @@ class KcContinueHero extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: kcTitleLarge - 7, // 15：介于正文与标题之间
+                          fontSize: kcFont15, // 15：介于正文与标题之间，走阶梯档不写算式
                           fontWeight: FontWeight.bold,
                           height: 1.25,
                         ),
@@ -155,7 +155,7 @@ class KcContinueHero extends StatelessWidget {
                           ),
                         ),
                       Padding(
-                        padding: const EdgeInsets.only(top: 6, bottom: 8),
+                        padding: const EdgeInsets.only(top: kcSpace6, bottom: kcSpaceSm),
                         child: KcPageProgressBar(history: history),
                       ),
                       Material(
@@ -235,7 +235,7 @@ class KcEntryBox extends StatelessWidget {
         // 设计稿高卡：84dp，给图标底座与两行标题留足呼吸感（旧版 48dp 扁条
         // 压不出层级，已废弃）。
         height: 84,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(kcRadius16),
           color: cs.surfaceContainerLow,
@@ -292,7 +292,7 @@ class KcEntryBox extends StatelessWidget {
             ),
             if (value != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: kcSpaceXs),
                 constraints: const BoxConstraints(minWidth: 24),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerHigh,
@@ -336,13 +336,13 @@ class KcGroupHeaderDelegate extends SliverPersistentHeaderDelegate {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.only(left: 16, right: 16),
+      padding: const EdgeInsets.only(left: kcSpaceLg, right: kcSpaceLg),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             height: 26,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(kcPillRadius),
               border: Border.all(color: cs.outlineVariant, width: kcHairline),
@@ -351,12 +351,17 @@ class KcGroupHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    label,
-                    style: TextStyle(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
                       fontSize: kcCaption,
                       fontWeight: FontWeight.w600,
-                      color: cs.onSurface,
+                        color: cs.onSurface,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 5),
@@ -420,7 +425,7 @@ class KcHistoryTile extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPressed,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpaceSm),
           child: Row(
             children: [
               Stack(
@@ -429,7 +434,7 @@ class KcHistoryTile extends StatelessWidget {
                     width: 56,
                     height: 74,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(kcRadius8),
                       color: cs.surfaceContainerHighest,
                     ),
                     clipBehavior: Clip.antiAlias,

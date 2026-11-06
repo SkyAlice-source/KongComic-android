@@ -141,7 +141,7 @@ class _MenuRoute<T> extends PopupRoute<T> {
     // 分组分隔线：不响应点击，只画一条发丝线把不同性质的操作隔开。
     if (entry.isDivider) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: 3),
         child: Divider(
           height: 1,
           thickness: 0.6,
@@ -159,7 +159,7 @@ class _MenuRoute<T> extends PopupRoute<T> {
           entry.onCustomTap?.call();
         },
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
+          padding: const EdgeInsets.fromLTRB(kcSpaceSm, 2, kcSpaceSm, kcSpaceSm),
           child: entry.child,
         ),
       );
@@ -173,7 +173,7 @@ class _MenuRoute<T> extends PopupRoute<T> {
       child: SizedBox(
         height: entryHeight,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
           child: Row(
             children: [
               if (entry.icon != null) entry.icon!,
@@ -193,7 +193,8 @@ class _MenuRoute<T> extends PopupRoute<T> {
   }
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 200);
+  Duration get transitionDuration =>
+      AppAnimations.duration(const Duration(milliseconds: 200));
 
   @override
   Widget buildTransitions(

@@ -578,12 +578,12 @@ class _BodyState extends State<_Body> with AutoListenMixin {
     return SliverToBoxAdapter(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+        padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpace6, kcSpaceMd, kcSpaceSm),
         child: Row(
           children: [
             for (final f in _SourceFilter.values)
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(right: kcSpaceSm),
                 child: _filterPill(f),
               ),
           ],
@@ -1076,7 +1076,7 @@ class _BodyState extends State<_Body> with AutoListenMixin {
               itemBuilder: (context, index) {
                 final (name, reason) = failures[index];
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  padding: const EdgeInsets.symmetric(vertical: kcSpace6),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1125,7 +1125,7 @@ class _BodyState extends State<_Body> with AutoListenMixin {
           })
         : "@n sources".tlParams({"n": all.length.toString()});
     return Padding(
-      padding: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.only(left: kcSpaceSm),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1172,8 +1172,8 @@ class _BodyState extends State<_Body> with AutoListenMixin {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SliverToBoxAdapter(
       child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        margin: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceSm, kcSpaceMd, kcSpaceSm),
+        padding: const EdgeInsets.fromLTRB(kcSpaceMd, 10, kcSpaceMd, kcSpaceMd),
         decoration: BoxDecoration(
           // 浅色用纯白 + 描边（和源卡片同层，不靠灰底区分）；暗色用 Low 一档。
           color: isDark ? cs.surfaceContainerLow : Colors.white,
@@ -1286,7 +1286,7 @@ class _BodyState extends State<_Body> with AutoListenMixin {
         child: Container(
           height: 38,
           alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpace6),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(kcRadius10),
@@ -1817,7 +1817,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
         // 深色 surfaceContainerLow。卡片内部仍是「标题 / 信息 / 动作」三段：
         // 信息是「读」的、动作是「点」的，各占一行，长文案（更新到 x.y.z）
         // 不会把标签挤到换行。
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: kcSpaceMd, vertical: kcSpaceXs),
         decoration: BoxDecoration(
           color: selected
               ? accent.withValues(alpha: isDark ? 0.10 : 0.055)
@@ -1850,7 +1850,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                     child: Tooltip(
                       message: "Drag to reorder".tl,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 8, 2, 8),
+                        padding: const EdgeInsets.fromLTRB(10, kcSpaceSm, 2, kcSpaceSm),
                         child: HugeIcon(
                           icon: HugeIcons.strokeRoundedDrag01,
                           size: 18,
@@ -1996,7 +1996,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             if (_expanded && _hasDetailContent)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.only(left: kcSpaceSm),
                 decoration: BoxDecoration(
                   border: Border(
                     left: BorderSide(
@@ -2053,7 +2053,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     // 卡片里所有信息都是同一枚小胶囊：同高、同圆角、同字号。
     Widget metaBadge(String text, {Color? bg, Color? fg, bool dim = false}) {
       final chip = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceSm, vertical: 3),
         decoration: BoxDecoration(
           color:
               bg ??
@@ -2115,19 +2115,19 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
         return const KcInlineSpinner(size: 12);
       }
       if (health == 'ok') {
-        return statusChip("Reachable".tl, const Color(0xFF2FA45A));
+        return statusChip("Reachable".tl, kcStatusColor(context, ok: true));
       }
       if (health == 'proxy') {
         return statusChip("Proxy required".tl, cs.error);
       }
       if (health == 'timeout') {
-        return statusChip("Timeout".tl, const Color(0xFFD9A005));
+        return statusChip("Timeout".tl, kcStatusColor(context, ok: false));
       }
       if (health == 'http') {
         final label = detail.isNotEmpty
             ? "HTTP @code".tlParams({"code": detail})
             : "HTTP Error".tl;
-        return statusChip(label, const Color(0xFFD9A005));
+        return statusChip(label, kcStatusColor(context, ok: false));
       }
       // 未测试('') → 「未测试」，与已测试但失败的「未连通」区分，
       // 否则卡片显示「未连通」而「未连通」筛选却查不到（health 为空）。
@@ -2190,7 +2190,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     return Padding(
       // 信息行与动作行分开排：信息是「读」的，动作是「点」的，
       // 混在同一行会让长文案（更新到 x.y.z）把标签挤到换行。
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      padding: const EdgeInsets.fromLTRB(kcSpaceMd, 0, kcSpaceMd, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2354,7 +2354,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
       });
 
     yield Padding(
-      padding: const EdgeInsets.only(left: 16, right: 8, top: 4),
+      padding: const EdgeInsets.only(left: kcSpaceLg, right: kcSpaceSm, top: kcSpaceXs),
       child: Row(
         children: [
           HugeIcon(icon: icon, size: 15, color: scheme.onSurfaceVariant),
@@ -2384,7 +2384,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     for (final entry in sorted) {
       final on = current.contains(entry.value);
       yield KcListTile(
-        contentPadding: const EdgeInsets.only(left: 20, right: 8),
+        contentPadding: const EdgeInsets.only(left: 20, right: kcSpaceSm),
         title: Text(
           entry.label,
           maxLines: 1,

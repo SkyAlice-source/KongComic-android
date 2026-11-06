@@ -200,7 +200,7 @@ class _NetworkSettingsState extends State<NetworkSettings> {
                   showDivider: false,
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceSm, kcSpaceLg, kcSpaceSm),
                   child: Button.filled(
                     onPressed: () {
                       _saveProxy();

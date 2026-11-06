@@ -16,11 +16,13 @@ import 'package:kong_comic/components/components.dart';
 //   KcRowDivider     发丝分隔线（两端渐隐，AMOLED 下不消失）
 //   KcValueChip      行内当前值胶囊
 //   KcChevron        弱化的右 / 下箭头
-//   KcEmptyState     统一空态
+// 空态不再在这里另起一套：全 App 统一用 components.dart 的 EmptyState
+// （角色插画 + 标题 + 副标题 + 主/次 CTA），避免两套空态字重与内边距漂移。
 // 后续可把设置页的私有件也改走这里，彻底去重。
 // ════════════════════════════════════════════════════════════════════
 
-/// 行的左右内缩。与设置页 _kcRowInset 一致，文字与发丝线之间留出呼吸。
+/// 行的左右内缩：全库页面外壳的唯一水平栅格。
+/// 设置 / 分类 / 发现 / 速搜各页都读这个值，不再各自写 20 / 28 / 16。
 const double kcRowInsetH = 20;
 
 /// 弱化的右 / 下箭头：列表行里的箭头是「可以进去」的提示，不该和正文抢注意力，
@@ -125,6 +127,10 @@ class KcSectionHeader extends StatelessWidget {
     this.icon,
     this.trailing,
     this.onTap,
+    this.topPadding,
+    this.padding,
+    this.showDivider = false,
+    this.fontSize,
   });
 
   final String title;
@@ -132,27 +138,48 @@ class KcSectionHeader extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
 
+  /// 分区与上一块内容的竖向间距。默认 [kcSpace18]；宽屏应显式传
+  /// `kcSectionGap(context)`，让 20/28 两档随尺寸类别切换。
+  final double? topPadding;
+
+  /// 完全覆盖内缩（少数侧栏里的分区头有自己的栅格），优先级高于 [topPadding]。
+  final EdgeInsetsGeometry? padding;
+
+  /// 是否在标题下方补一条发丝线。追更页两处带下边框的分组标题走这个开关，
+  /// 线宽 / 颜色统一到 `kcHairline` + `kcHairlineColor`。
+  final bool showDivider;
+
+  /// 大分区标题可显式升档（如追更页的 `kcSectionTitle`），默认 [kcCaption]。
+  /// 只允许用 kc* 语义阶梯，不再各自写 12 / 16 / 17 / 22。
+  final double? fontSize;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final header = Padding(
-      padding: const EdgeInsets.fromLTRB(kcRowInsetH, 18, kcRowInsetH, 6),
+      padding: padding ??
+          EdgeInsets.fromLTRB(
+            kcRowInsetH,
+            topPadding ?? kcSpace18,
+            kcRowInsetH,
+            kcSpace6,
+          ),
       child: Row(
         children: [
           if (icon != null)
             IconTheme.merge(
               data: IconThemeData(
-                size: 16,
+                size: kcSpaceLg,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.65),
               ),
               child: icon!,
             ),
-          if (icon != null) const SizedBox(width: 8),
+          if (icon != null) const SizedBox(width: kcSpaceSm),
           Expanded(
             child: Text(
               title,
               style: TextStyle(
-                fontSize: kcCaption,
+                fontSize: fontSize ?? kcCaption,
                 height: 1.35,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.3,
@@ -165,7 +192,20 @@ class KcSectionHeader extends StatelessWidget {
         ],
       ),
     );
-    if (onTap == null) return header;
+    final decorated = showDivider
+        ? DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: kcHairlineColor(context),
+                  width: kcHairline,
+                ),
+              ),
+            ),
+            child: header,
+          )
+        : header;
+    if (onTap == null) return decorated;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -174,7 +214,7 @@ class KcSectionHeader extends StatelessWidget {
         highlightColor: cs.brightness == Brightness.dark
             ? Colors.white.withValues(alpha: 0.035)
             : Colors.black.withValues(alpha: 0.025),
-        child: header,
+        child: decorated,
       ),
     );
   }
@@ -301,57 +341,6 @@ class KcListTile extends StatelessWidget {
   }
 }
 
-/// 统一空态：图标 + 标题 + 可选副标题 / 操作，替代各处不一致的「空白提示」。
-class KcEmptyState extends StatelessWidget {
-  const KcEmptyState({
-    super.key,
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.action,
-  });
-
-  final Widget icon;
-  final String title;
-  final String? subtitle;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            icon,
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: kcSubtitle,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-            if (subtitle != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  subtitle!,
-                  style: TextStyle(
-                    fontSize: kcCaption,
-                    color: cs.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            if (action != null)
-              Padding(padding: const EdgeInsets.only(top: 16), child: action!),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// KcEmptyState 已移除：原先它（500 字重 / 14·12 字号 / 32+48 内缩）与
+// EmptyState（600 字重 / 14 副标题 / 40 内缩 / 角色插画 + 双 CTA）并存，
+// 却全库零引用。空态只有一种，统一到 components.dart 的 EmptyState。

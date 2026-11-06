@@ -345,7 +345,7 @@ class _SuggestionsState extends State<_Suggestions> {
         ),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
             itemCount: widget.controller.suggestions.length,
             itemBuilder: (context, index) =>
                 buildItem(widget.controller.suggestions[index]),
@@ -512,7 +512,7 @@ class _SearchSettingsDialogState extends State<_SearchSettingsDialog> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

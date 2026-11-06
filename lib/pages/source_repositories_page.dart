@@ -165,7 +165,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceSm, kcSpaceLg, 0),
               child: TextField(
                 controller: nameController,
                 autofocus: true,
@@ -176,7 +176,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceMd, kcSpaceLg, 0),
               child: TextField(
                 controller: urlController,
                 decoration: kcInputDecoration(
@@ -235,7 +235,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
       builder: (dialogContext) => ContentDialog(
         title: "Delete".tl,
         content: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
           child: Text(
             "Delete repository '@name' ?".tlParams({'name': repository.name}),
           ),
@@ -328,7 +328,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
       builder: (dialogContext) => ContentDialog(
         title: "Reinstall".tl,
         content: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
           child: Text("Reinstall confirm".tlParams({'name': entry.name})),
         ),
         actions: [
@@ -357,7 +357,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
       builder: (dialogContext) => ContentDialog(
         title: "Uninstall".tl,
         content: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
           child: Text("Uninstall confirm".tlParams({'name': entry.name})),
         ),
         actions: [
@@ -849,9 +849,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
               label: Text(_catalogFilterLabel(filter)),
               selected: selected,
               onSelected: (_) => setState(() => _catalogFilter = filter),
-              selectedColor: kcBrandColor,
+              selectedColor: kcAccentColor(context),
               labelStyle: TextStyle(
-                color: selected ? Colors.white : scheme.onSurface,
+                color: selected ? kcOnAccentColor : scheme.onSurface,
                 fontSize: kcBody,
               ),
               visualDensity: VisualDensity.compact,

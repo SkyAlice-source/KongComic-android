@@ -307,6 +307,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
       children: [
         _sectionHeader(context, "Network".tl),
         Shimmer(
+          enabled: !kcReduceMotion(context),
           child: Column(
             children: List.generate(3, (index) {
               return KcListTile(
@@ -325,7 +326,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
                 title: Container(
                   height: 20,
                   width: double.infinity,
-                  margin: const EdgeInsets.only(right: 16),
+                  margin: const EdgeInsets.only(right: kcSpaceLg),
                   child: FractionallySizedBox(
                     widthFactor: _skeletonWidths[index],
                     alignment: Alignment.centerLeft,
@@ -644,7 +645,7 @@ class _FavoriteStatePill extends StatelessWidget {
         : (isFavorite ? scheme.errorContainer : Colors.transparent);
     return AnimatedContainer(
       duration: AppAnimations.duration(const Duration(milliseconds: 200)),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: kcSpaceXs),
       decoration: BoxDecoration(
         color: isLoading ? scheme.surfaceContainerHighest : bg,
         borderRadius: BorderRadius.circular(kcPillRadius),
@@ -678,19 +679,11 @@ class _FavoriteStatePill extends StatelessWidget {
 /// 对话框里标题若用品牌红，会和右侧一排操作胶囊抢注意力；这里降级为
 /// 安静的分组标签，让「文件夹行」本身成为唯一的视觉主体。
 Widget _sectionHeader(BuildContext context, String title) {
-  final scheme = context.colorScheme;
-  return Padding(
-    // 底部不再留白：dense 行本身自带内边距，标题贴近所属分组才不会「悬空」。
-    padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceMd, kcSpaceLg, 0),
-    child: Text(
-      title,
-      style: TextStyle(
-        fontSize: kcCaption,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.3,
-        color: scheme.onSurfaceVariant,
-      ),
-    ),
+  // 底部不再留白：dense 行本身自带内边距，标题贴近所属分组才不会「悬空」。
+  // 排版交给全库唯一的 KcSectionHeader，这里只覆盖内缩。
+  return KcSectionHeader(
+    title: title,
+    padding: const EdgeInsets.fromLTRB(kcRowInsetH, kcSpaceMd, kcRowInsetH, 0),
   );
 }
 
@@ -700,10 +693,10 @@ Widget _sectionDivider(BuildContext context) {
     padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
     child: Divider(
       height: kcSpaceMd,
-      thickness: 0.6,
-      // 不叠 alpha：0.6dp 的发丝线再降到 0.7 透明度，在白底上基本看不见，
-      // 分组就白做了。用 outlineVariant 原色，细而可辨。
-      color: context.colorScheme.outlineVariant,
+      thickness: kcHairline,
+      // 全站唯一发丝色：深色用 onSurface@0.38，浅色用中性 outline，
+      // 不叠 alpha，保证白底 / AMOLED 下这条分组线都看得见。
+      color: kcHairlineColor(context),
     ),
   );
 }

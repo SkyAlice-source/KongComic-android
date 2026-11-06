@@ -191,7 +191,7 @@ class _PermissionsSettingsState extends State<PermissionsSettings>
         SliverAppbar(title: Text("Permissions".tl)),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(_kcRowInset, 12, _kcRowInset, 6),
+            padding: const EdgeInsets.fromLTRB(kcRowInsetH, kcSpaceMd, kcRowInsetH, kcSpace6),
             child: Text(
               "These permissions are optional. Denying one only affects the matching feature - the app itself keeps working."
                   .tl,
@@ -207,9 +207,9 @@ class _PermissionsSettingsState extends State<PermissionsSettings>
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(
-                _kcRowInset,
+                kcRowInsetH,
                 8,
-                _kcRowInset,
+                kcRowInsetH,
                 8,
               ),
               child: Text(

@@ -276,7 +276,7 @@ class _QuickSearchDialogState extends State<QuickSearchDialog> {
             .clamp(hasHits ? 160.0 : 220.0, maxHeight);
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 48),
+      insetPadding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: 48),
       backgroundColor: cs.surface,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
@@ -317,7 +317,7 @@ class _QuickSearchDialogState extends State<QuickSearchDialog> {
 
   Widget _buildInput(ColorScheme cs) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceXs, kcSpaceSm, kcSpaceXs),
       child: Row(
         children: [
           HugeIcon(
@@ -404,7 +404,7 @@ class _QuickSearchDialogState extends State<QuickSearchDialog> {
       ],
     ];
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: kcSpaceMd),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       itemCount: items.length,
       itemBuilder: (context, i) {
@@ -417,27 +417,18 @@ class _QuickSearchDialogState extends State<QuickSearchDialog> {
   }
 
   Widget _sectionHeader(ColorScheme cs, String label, int count) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: kcCaption,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '$count',
-            style: TextStyle(
-              fontSize: kcCaption,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-            ),
-          ),
-        ],
+    // 与设置 / 详情 / 搜索结果页共用同一套分区标题，只保留「数量」作为尾部。
+    return KcSectionHeader(
+      title: label,
+      padding: const EdgeInsets.fromLTRB(
+        kcRowInsetH, kcSpaceMd, kcRowInsetH, kcSpaceXs,
+      ),
+      trailing: Text(
+        '$count',
+        style: TextStyle(
+          fontSize: kcCaption,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+        ),
       ),
     );
   }
@@ -447,7 +438,7 @@ class _QuickSearchDialogState extends State<QuickSearchDialog> {
     return InkWell(
       onTap: () => _openHit(hit),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpace6),
         child: Row(
           children: [
             ClipRRect(
@@ -565,7 +556,7 @@ class _QuickSearchDialogState extends State<QuickSearchDialog> {
         InkWell(
           onTap: _openWebSearch,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: 13),
             child: Row(
               children: [
                 HugeIcon(

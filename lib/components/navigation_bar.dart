@@ -36,13 +36,6 @@ class PaneActionEntry {
   });
 }
 
-/// 自绘整条顶栏（标题 + 工具栏）的根 Tab 页面标记。
-///
-/// 实现该接口的页面由 [NaviPane] 自动让位共享顶栏，不需要在
-/// `topBarHiddenPages` 里手写页索引 —— 页面自己声明意图，底栏顺序怎么调
-/// 都不会串位（此前 `const [1, 4]` 硬编码索引，加一个 Tab 就会指错页）。
-abstract interface class SelfTopBarPage {}
-
 class NaviPane extends StatefulWidget {
   const NaviPane({
     required this.paneItems,
@@ -58,10 +51,6 @@ class NaviPane extends StatefulWidget {
     /// the duplicated title label for these tabs.
     this.topBarTitleHiddenPages = const [],
 
-    /// 整条共享顶栏都不显示的页面（页面自绘顶栏）。
-    /// 与 [topBarTitleHiddenPages] 的区别：后者仍显示操作按钮、只隐藏标题；
-    /// 本参数连操作按钮一起让位给页面自己的 AppBar，避免出现「两排工具栏」。
-    this.topBarHiddenPages = const [],
     super.key,
   });
 
@@ -75,10 +64,6 @@ class NaviPane extends StatefulWidget {
   /// Page indices that render their own AppBar title and should not show the
   /// duplicated title in the shared top bar on mobile.
   final List<int> topBarTitleHiddenPages;
-
-  /// Page indices whose root tab renders a full self-contained AppBar
-  /// (title + actions). The shared top bar is hidden entirely for them.
-  final List<int> topBarHiddenPages;
 
   final int initialPage;
 
@@ -176,13 +161,14 @@ class NaviPaneState extends State<NaviPane>
   /// 用 `_canPop` 当判据会让共享顶栏 / 底栏在这些正常根页态下一起消失。
   bool get isRootTabPage => widget.observer.routes.length <= 1;
 
-  /// Whether the shared mobile top bar should be rendered.
+  /// Whether the shared top bar should be rendered.
   ///
-  /// Pages that draw their own full AppBar ([NaviPane.topBarHiddenPages])
-  /// opt out entirely, otherwise the screen would show two toolbars.
-  /// 注意：底栏不受此影响（见 [isRootTabPage]），否则隐藏共享顶栏的页面会连底栏一起丢。
-  bool get showTopBarInMobile =>
-      isRootTabPage && !widget.topBarHiddenPages.contains(currentPage);
+  /// 判据只有「当前是根 tab 页」这一条。**与屏幕宽度无关** —— 宽屏侧栏模式
+  /// 同样需要这条顶栏：各根 tab 页把标题 / 工具胶囊注入 pageTitle /
+  /// pageActions，侧栏只承载全局 paneActions，不渲染这些页面级内容。
+  /// 此前宽屏整条不渲染，平板收藏页变成无标题、无「文件夹 / 速搜 / 更多」入口。
+  /// 注意：底栏不受此影响（见 [isRootTabPage]）。
+  bool get showSharedTopBar => isRootTabPage;
 
   late int _currentPage = widget.initialPage;
 
@@ -572,7 +558,9 @@ class NaviPaneState extends State<NaviPane>
     return widget.pageBuilder(currentPage);
   }
 
-  Widget buildTop() {
+  /// [includeGlobalActions] 为 false 时只渲染页面注入的标题 / 工具，
+  /// 用于宽屏：全局 paneActions 已在左侧栏底部有一份，顶栏不再重复。
+  Widget buildTop({bool includeGlobalActions = true}) {
     final hideTitle = widget.topBarTitleHiddenPages.contains(currentPage);
     final pageActions = pageActionsNotifier.value;
     final pageLeading = pageLeadingNotifier.value;
@@ -581,7 +569,7 @@ class NaviPaneState extends State<NaviPane>
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Container(
-        padding: const EdgeInsets.only(left: 16, right: 16),
+        padding: const EdgeInsets.only(left: kcSpaceLg, right: kcSpaceLg),
         height: _kTopBarHeight,
         width: double.infinity,
         child: Row(
@@ -619,7 +607,7 @@ class NaviPaneState extends State<NaviPane>
             // （映射到无障碍 content-desc）；外层 Tooltip 的 message 只进
             // tooltipText 通道，读屏与 uiautomator 都拿不到（实证 3 次重采
             // 均无标签，与页面注入操作的 IconButton(tooltip:) 表现不一致）。
-            if (!hideGlobalActions)
+            if (includeGlobalActions && !hideGlobalActions)
               for (var action in widget.paneActions)
                 if (action.menu != null)
                   PopupMenuButton<dynamic>(
@@ -785,7 +773,7 @@ class _SideNaviWidget extends StatelessWidget {
         child: AnimatedContainer(
           duration: AppAnimations.duration(const Duration(milliseconds: 260)),
           curve: kcSpring,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
           height: 38,
           decoration: BoxDecoration(
             color: enabled ? colorScheme.primaryContainer : null,
@@ -837,7 +825,7 @@ class _PaneActionWidget extends StatelessWidget {
         child: AnimatedContainer(
           duration: AppAnimations.duration(const Duration(milliseconds: 260)),
           curve: kcSpring,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
           height: 38,
           child: showTitle
               ? Row(
@@ -946,7 +934,7 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
         // 横向 padding 从 16 收到 10：448dp 宽的手机屏（如 1344×2992@480）分 5 格
         // 后每格约 83dp，16 的 padding 只剩 51dp，11sp 的 "Categories"（约 57dp）
         // 放不下，会在底部导航里溢出约 7px（文字被裁成 "Categorie"）。
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: kcSpaceXs),
         decoration: BoxDecoration(
           // 选中态背景交给底栏的「液体选中框」滑动药丸（_LiquidIndicator），
           // 这里只保留文字/图标的高亮色，避免两层背景叠加。
@@ -1011,6 +999,9 @@ class _LiquidIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // 全局最高频动效：每次切 tab 都跑一次 420ms 弹性过冲，是前庭敏感用户
+    // 最容易不适的一处。「移除动画」时直接瞬切 + 线性，连液体拉伸一起关掉。
+    final reduced = kcReduceMotion(context);
     final itemW = width / count;
     // ValueListenableBuilder + TweenAnimationBuilder：直接监听当前页，页面一变
     // 就从旧位置弹性滑到新位置，不依赖父级重建；Positioned 直接挂在 Stack 下生效。
@@ -1019,13 +1010,17 @@ class _LiquidIndicator extends StatelessWidget {
       builder: (context, page, _) {
         return TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: page.toDouble(), end: page.toDouble()),
-          duration: const Duration(milliseconds: 420),
-          curve: Curves.elasticOut,
+          duration: reduced
+              ? Duration.zero
+              : const Duration(milliseconds: 420),
+          curve: reduced ? Curves.linear : Curves.elasticOut,
           builder: (context, value, _) {
             final left = value * itemW;
             // 移动途中（value 非整数）横向微拉伸模拟液体；静止时 frac=0 → 不拉伸。
             final frac = value - value.floorToDouble();
-            final stretch = 1 + 0.08 * math.sin(frac * math.pi);
+            final stretch = reduced
+                ? 1.0
+                : 1 + 0.08 * math.sin(frac * math.pi);
             return Positioned(
               left: left,
               top: 0,
@@ -1038,7 +1033,9 @@ class _LiquidIndicator extends StatelessWidget {
                     child: Container(
                       // 显式尺寸：药丸需要包住 item 的「图标 22 + 间隙 3 + 文字」，
                       // 不能靠 padding 撑（无 child 时只有 32×8 的小点，看不见）。
-                      width: 62,
+                      // 320dp 窄屏 5 tab 时 itemW 只有 64dp，写死 62
+                      // 加上拉伸会越过格边界；跟实际格宽取小值。
+                      width: math.min(62.0, itemW - 8),
                       height: height,
                       decoration: BoxDecoration(
                         color: cs.primary.withValues(alpha: 0.18),
@@ -1179,7 +1176,7 @@ class _ExitConfirmDialog extends StatelessWidget {
             borderRadius: BorderRadius.circular(kcRadius10),
             onTap: toggle,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(4, 2, 8, 2),
+              padding: const EdgeInsets.fromLTRB(kcSpaceXs, 2, kcSpaceSm, 2),
               child: Row(
                 children: [
                   Checkbox(
@@ -1241,19 +1238,19 @@ class _NaviMainViewState extends State<_NaviMainView> {
   void onScroll(double offset) {
     // 滚动只收起底栏，顶栏永远固定。
     //
-    // 顶栏很薄（48px），收掉换来的空间很少，却会连标题和操作入口一起丢；
+    // 顶栏只有 56dp，收掉换来的空间很少，却会连标题和操作入口一起丢；
     // 更重要的是：共享顶栏只出现在根 tab 页（子页自带 AppBar），所以
     // 「顶栏还在」本身就是「我在根页」的标识 —— 这正是底栏可以放心
     // 收起的前提，也是本方案能保住沉浸感又不至于让人迷路的关键。
     //
     // 三种情况不碰这个状态：
-    // · 主页（index 2）：默认首屏，底栏常驻。
+    // · 主页（kHomeTabIndex）：默认首屏，底栏常驻。
     // · 子页（isRootTabPage == false）：已有 AppBar + 返回箭头交代层级；
     //   且子页的滚动通知会冒泡到这里的 NotificationListener，不挡住会被
     //   误记成「根页也收起了」。
     // · 宽屏（>= changePoint）：用左侧栏导航，根本没有底栏；iOS 宽屏侧滑
     //   会把「收起的底栏」当作要恢复的对象，结果侧滑像没反应。
-    if (state.currentPage == 2 ||
+    if (state.currentPage == kHomeTabIndex ||
         !state.isRootTabPage ||
         state.controller.value >= 2) {
       return;
@@ -1289,11 +1286,15 @@ class _NaviMainViewState extends State<_NaviMainView> {
 
   @override
   Widget build(BuildContext context) {
-    // On mobile the shared top bar is visible only on root tab pages.
-    // When a child page is shown it supplies its own AppBar, so we hide this
-    // top bar to avoid double titles/actions.
-    var shouldShowAppBar =
-        state.controller.value < 2 && state.showTopBarInMobile;
+    // 共享顶栏只在根 tab 页显示；子页自带 AppBar，隐藏它避免双标题。
+    //
+    // 之前这里还叠了 `controller.value < 2`，把顶栏限定为手机窄屏。但宽屏
+    // 侧栏只放全局 paneActions，页面注入的 title / actions / leading 没有
+    // 任何其它宿主 —— 平板上收藏页因此连「Favorites」标题和文件夹 / 速搜 /
+    // 更多工具胶囊都消失；600–720dp 还形成「顶栏已隐、左栏未出」的死区。
+    // 现在宽屏也保留一条顶栏，仅去掉与左栏重复的全局操作。
+    var shouldShowAppBar = state.showSharedTopBar;
+    final isWide = state.controller.value >= 2;
     // 底栏只跟「是否根 tab 页」有关：自绘顶栏的页面（如历史）仍需要底部导航，
     // 早前与顶栏共用同一个条件，导致隐藏共享顶栏时底栏一起消失。
     var shouldShowBottomBar = state.controller.value < 2 && state.isRootTabPage;
@@ -1317,8 +1318,10 @@ class _NaviMainViewState extends State<_NaviMainView> {
                   ),
                   curve: Curves.easeInOut,
                   alignment: Alignment.topCenter,
-                  // 顶栏在手机上就是「根 tab 页」的标志，永不收起。
-                  child: state.buildTop().paddingTop(context.padding.top),
+                  // 顶栏是「根 tab 页」的标志，手机 / 宽屏都不随滚动收起。
+                  child: state
+                      .buildTop(includeGlobalActions: !isWide)
+                      .paddingTop(context.padding.top),
                 ),
               Expanded(
                 child: MediaQuery.removePadding(

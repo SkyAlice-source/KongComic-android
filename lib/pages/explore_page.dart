@@ -300,8 +300,12 @@ class _ExplorePageState extends State<ExplorePage>
           child: ValueListenableBuilder<bool>(
             valueListenable: showFB,
             builder: (context, visible, _) => AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              reverseDuration: const Duration(milliseconds: 150),
+              duration: kcReduceMotion(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 150),
+              reverseDuration: kcReduceMotion(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 150),
               child: visible ? buildFAB() : const SizedBox(),
               transitionBuilder: (widget, animation) {
                 var tween = Tween<Offset>(
@@ -440,7 +444,9 @@ class _SingleExplorePageState extends AutomaticGlobalState<_SingleExplorePage>
     if (scrollController.hasClients) {
       scrollController.animateTo(
         scrollController.position.minScrollExtent,
-        duration: const Duration(milliseconds: 200),
+        duration: kcReduceMotion(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
       );
     }
@@ -535,7 +541,7 @@ Iterable<Widget> _buildExplorePagePart(
       child: SizedBox(
         height: 60,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 5, 10),
+          padding: const EdgeInsets.fromLTRB(kcRowInsetH, kcSpaceMd, kcRowInsetH, kcSpaceMd),
           child: Row(
             children: [
               Text(

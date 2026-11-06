@@ -76,7 +76,11 @@ class SliverGridDelegateWithFixedHeight extends SliverGridDelegate {
 }
 
 class SliverGridDelegateWithComics extends SliverGridDelegate {
-  SliverGridDelegateWithComics();
+  SliverGridDelegateWithComics({this.textScale = 1.0});
+
+  /// 系统字号倍率（由调用方从 MediaQuery.textScalerOf 传入）。详细列表卡
+  /// 里含标题 / 评分 / 标签多行文字，固定 152dp 在 1.3 倍字号下会溢出。
+  final double textScale;
 
   final bool useBriefMode = appdata.settings['comicDisplayMode'] == 'brief';
 
@@ -96,7 +100,7 @@ class SliverGridDelegateWithComics extends SliverGridDelegate {
     double scale,
   ) {
     const minCrossAxisExtent = 360;
-    final itemHeight = 152 * scale;
+    final itemHeight = 152 * scale * textScale;
     final width = constraints.crossAxisExtent;
     var crossItems = width ~/ minCrossAxisExtent;
     crossItems = math.max(1, crossItems);
@@ -146,6 +150,7 @@ class SliverGridDelegateWithComics extends SliverGridDelegate {
   bool shouldRelayout(covariant SliverGridDelegate oldDelegate) {
     if (oldDelegate is! SliverGridDelegateWithComics) return true;
     if (oldDelegate.scale != scale ||
+        oldDelegate.textScale != textScale ||
         oldDelegate.useBriefMode != useBriefMode) {
       return true;
     }

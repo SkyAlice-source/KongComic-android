@@ -253,7 +253,10 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
           }
         },
         child: Scaffold(
-          body: SmoothCustomScrollView(
+          // 骨架归一：hero 与网格共用 900dp 内容列并居中，平板不再出现
+          // 「7 列后孤行 + 右半空白」。手机宽度不足 900，等价于不约束。
+          body: KcPageContent(
+            child: SmoothCustomScrollView(
             controller: _scrollController,
             slivers: [
               // 方案 A：续读英雄卡 —— 主页英雄卡语言的移植，取最近一条历史。
@@ -307,6 +310,7 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
                 ..._groupedSlivers(),
             ],
           ),
+            ),
           floatingActionButton: _buildScrollTopFab(),
         ),
       ),

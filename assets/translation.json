@@ -190,7 +190,6 @@
     "Rename": "重命名",
     "Reorder": "重新排序",
     "Network": "网络",
-    "more": "更多",
     "Select a folder": "选择一个文件夹",
     "Folder": "文件夹",
     "Confirm": "确认",
@@ -381,6 +380,7 @@
     "Too many requests. Please try again later.": "请求过于频繁，请稍后重试。",
     "Move To First": "移动到最前",
     "Cancel": "取消",
+    "Undo": "撤销",
     "Paused": "已暂停",
     "Pause": "暂停",
     "Operation": "操作",
@@ -1054,7 +1054,8 @@
     "Page turning, gestures, interface": "翻页、手势、阅读界面",
     "Backup & sync, account": "备份同步、账号",
     "Language, startup, storage, cache": "语言、启动页、存储、缓存",
-    "Empty folders": "空文件夹"
+    "Empty folders": "空文件夹",
+    "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 部作品 · @hitsCount 条结果来自 @sourceCount 个源"
   },
   "zh_TW": {
     "Previous page": "上一頁",
@@ -1251,7 +1252,6 @@
     "Rename": "重新命名",
     "Reorder": "重新排序",
     "Network": "網路",
-    "more": "更多",
     "Select a folder": "選擇一個資料夾",
     "Folder": "資料夾",
     "Confirm": "確認",
@@ -1438,6 +1438,7 @@
     "Too many requests. Please try again later.": "請求過於頻繁，請稍後重試。",
     "Move To First": "移動到最前",
     "Cancel": "取消",
+    "Undo": "撤銷",
     "Paused": "已暫停",
     "Pause": "暫停",
     "Operation": "操作",
@@ -2111,7 +2112,8 @@
     "Page turning, gestures, interface": "翻頁、手勢、閱讀介面",
     "Backup & sync, account": "備份同步、帳號",
     "Language, startup, storage, cache": "語言、啟動頁、儲存、快取",
-    "Empty folders": "空資料夾"
+    "Empty folders": "空資料夾",
+    "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 部作品 · @hitsCount 條結果來自 @sourceCount 個源"
   },
   "ja_JP": {
     "Previous page": "前のページ",
@@ -2303,7 +2305,6 @@
     "Rename": "名前を変更",
     "Reorder": "並べ替え",
     "Network": "ネットワーク",
-    "more": "もっと見る",
     "Select a folder": "フォルダを選択",
     "Folder": "フォルダ",
     "Confirm": "確認",
@@ -2492,6 +2493,7 @@
     "Too many requests. Please try again later.": "リクエストが多すぎます。後でもう一度お試しください。",
     "Move To First": "先頭へ移動",
     "Cancel": "キャンセル",
+    "Undo": "元に戻す",
     "Paused": "一時停止中",
     "Pause": "一時停止",
     "Operation": "操作",
@@ -3168,6 +3170,7 @@
     "Page turning, gestures, interface": "ページ送り、ジェスチャー、画面表示",
     "Backup & sync, account": "バックアップと同期、アカウント",
     "Language, startup, storage, cache": "言語、起動ページ、ストレージ、キャッシュ",
-    "Empty folders": "空のフォルダ"
+    "Empty folders": "空のフォルダ",
+    "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 作品 · @hitsCount 件のヒット / @sourceCount ソース"
   }
 }

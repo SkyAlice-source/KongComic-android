@@ -771,7 +771,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
   Widget _buildPageChip(String text) {
     return Container(
       height: 24,
-      padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
+      padding: const EdgeInsets.fromLTRB(kcSpace6, 2, kcSpace6, 0),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.tertiaryContainer,
         borderRadius: BorderRadius.circular(kcRadius8),
@@ -804,7 +804,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
             const SizedBox(width: 8),
             if (!compact)
               Padding(
-                padding: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.only(right: kcSpaceXs),
                 child: _buildPageChip(text),
               ),
             for (var button in buttons)
@@ -835,7 +835,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
       epName = "${epName.substring(0, 14)}...";
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: kcSpaceXs),
       child: SizedBox(
         height: 48,
         child: CustomSlider(
@@ -1266,10 +1266,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
         contentPadding: ContentDialog.hPadding,
         content: SizedBox(
           width: double.maxFinite,
-          height: 300,
+          height: (MediaQuery.sizeOf(dialogContext).height * 0.5)
+              .clamp(200.0, 360.0),
           child: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 160,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
             ),
@@ -1890,8 +1891,8 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
                   16,
             ),
             addAutomaticKeepAlives: false,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 160,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
               childAspectRatio: 0.72,
@@ -2101,7 +2102,7 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
     return SafeArea(
       child: BottomAppBar(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
           child: Row(
             children: [
               // Selected count text — short and flex, won't push buttons out

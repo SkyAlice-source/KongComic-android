@@ -430,8 +430,8 @@ class ComicTile extends StatelessWidget {
         height: 19,
         padding: const EdgeInsets.symmetric(horizontal: 7),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(9.5),
-          color: kcBrandColor,
+          borderRadius: BorderRadius.circular(kcRadius8),
+          color: kcAccentColor(context),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.25),
@@ -627,7 +627,7 @@ class ComicTile extends StatelessWidget {
           onLongPress: enableLongPressed ? () => _onLongPressed(context) : null,
           onSecondaryTapDown: (detail) => onSecondaryTap(detail, context),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
+            padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceSm, 24, kcSpaceSm),
             child: Row(
               children: [
                 image,
@@ -742,7 +742,7 @@ class ComicTile extends StatelessWidget {
                           padding: constraints.maxWidth < 80
                               ? const EdgeInsets.fromLTRB(3, 1, 3, 1)
                               : constraints.maxWidth < 150
-                              ? const EdgeInsets.fromLTRB(4, 2, 4, 2)
+                              ? const EdgeInsets.fromLTRB(kcSpaceXs, 2, kcSpaceXs, 2)
                               : const EdgeInsets.fromLTRB(5, 2, 5, 2),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(kcRadius8),
@@ -835,7 +835,7 @@ class ComicTile extends StatelessWidget {
                             padding: constraints.maxWidth < 80
                                 ? const EdgeInsets.fromLTRB(3, 1, 3, 1)
                                 : constraints.maxWidth < 150
-                                ? const EdgeInsets.fromLTRB(4, 2, 4, 2)
+                                ? const EdgeInsets.fromLTRB(kcSpaceXs, 2, kcSpaceXs, 2)
                                 : const EdgeInsets.fromLTRB(5, 2, 5, 2),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(kcRadius8),
@@ -898,10 +898,14 @@ class ComicTile extends StatelessWidget {
                               fontSize: titleFont,
                               fontWeight: FontWeight.w600,
                               height: 1.2,
-                              shadows: const [
-                                // 封面底部渐变上叠白字的投影：35% 黑 scrim，
-                                // 语义同上（可读性投影，非主题色）。
-                                Shadow(color: Color(0x59000000), blurRadius: 2),
+                              // 封面底部渐变上叠白字的投影：35% 黑 scrim，
+                              // 语义同上（可读性投影，非主题色）。不再把
+                              // 带 alpha 的字面色值写进 const 列表里。
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  blurRadius: 2,
+                                ),
                               ],
                             ),
                           ),
@@ -929,7 +933,7 @@ class ComicTile extends StatelessWidget {
               ),
               if (!showTitleAtBottom)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+                  padding: const EdgeInsets.fromLTRB(kcSpaceXs, kcSpaceXs, kcSpaceXs, 0),
                   child: Text(
                     comic.title.replaceAll('\n', ''),
                     maxLines: 1,
@@ -1490,7 +1494,10 @@ class _SliverGridComics extends StatelessWidget {
             child: comic,
           );
         }, childCount: comics.length),
-        gridDelegate: SliverGridDelegateWithComics(),
+        gridDelegate: SliverGridDelegateWithComics(
+                textScale:
+                    MediaQuery.textScalerOf(context).scale(kcBody) / kcBody,
+              ),
       ),
     );
   }
@@ -1544,7 +1551,7 @@ class _SelectableComicCell extends StatelessWidget {
                 width: 22,
                 height: 22,
                 decoration: BoxDecoration(
-                  color: kcBrandColor,
+                  color: kcAccentColor(context),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
@@ -1600,19 +1607,27 @@ class _ComicGridSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.of(context).size.width;
-    // 与 SliverGridDelegateWithComics 列数估算接近，占位与真实网格同尺寸
-    final crossAxisCount = (w / 150).floor().clamp(2, 6);
-    // 弱网时骨架屏也会挂十秒，叠一层慢网络提示，让用户知道不是在卡死。
-    return SlowLoadingOverlay(
-      child: GridView.count(
-        crossAxisCount: crossAxisCount,
-        childAspectRatio: 0.7,
-        padding: const EdgeInsets.all(kcSpaceMd),
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        children: List.generate(12, (_) => const _ShimmerCard()),
-      ),
+    // 列数按**内容区**宽算：宽屏有侧栏时整屏宽会多算列，加载完成的真实
+    // 网格换列会横向跳一下。LayoutBuilder 拿到的是父级给的剩余宽度。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 与 SliverGridDelegateWithComics 列数估算接近，占位与真实网格同尺寸
+        // 不封顶 6：平板/横屏内容宽超过 900dp 时真实网格本来就有 6+ 列，
+        // 骨架封顶会让「加载完成瞬间跳列」。下限 2 防窄屏退化成单列。
+        final crossAxisCount =
+            math.max(2, (constraints.maxWidth / 150).floor());
+        // 弱网时骨架屏也会挂十秒，叠一层慢网络提示，让用户知道不是在卡死。
+        return SlowLoadingOverlay(
+          child: GridView.count(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: 0.7,
+            padding: const EdgeInsets.all(kcSpaceMd),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            children: List.generate(12, (_) => const _ShimmerCard()),
+          ),
+        );
+      },
     );
   }
 }
@@ -1629,7 +1644,25 @@ class _ShimmerCardState extends State<_ShimmerCard>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1100),
-  )..repeat(reverse: true);
+    // 定格在偏亮的一档，静态占位仍然可辨（不暗到像禁用态）。
+    value: 0.7,
+  );
+
+  bool _animating = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final shouldAnimate = !MediaQuery.of(context).disableAnimations;
+    if (shouldAnimate == _animating) return;
+    _animating = shouldAnimate;
+    if (shouldAnimate) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
+      _controller.value = 0.7;
+    }
+  }
 
   @override
   void dispose() {
@@ -3061,7 +3094,10 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
             child: tile,
           );
         }, childCount: _comics.length + (showFooter ? 1 : 0)),
-        gridDelegate: SliverGridDelegateWithComics(),
+        gridDelegate: SliverGridDelegateWithComics(
+                textScale:
+                    MediaQuery.textScalerOf(context).scale(kcBody) / kcBody,
+              ),
       ),
     );
   }

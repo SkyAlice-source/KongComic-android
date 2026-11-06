@@ -212,7 +212,7 @@ class _CoverRetryButton extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
+        padding: const EdgeInsets.fromLTRB(kcSpaceSm, 5, 10, 5),
         decoration: BoxDecoration(
           // 半透明面板：不管封面是深是浅，按钮都能读出来。
           color: cs.surface.withValues(alpha: 0.88),
