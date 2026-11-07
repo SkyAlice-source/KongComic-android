@@ -62,17 +62,23 @@ class _HomePageState extends State<HomePage> {
           0.0,
           availableHeight - context.padding.top - dockHeight,
         );
-        // 手机竖屏首屏还要容下标题区 + CTA + 两行入口卡，banner 按整屏
-        // 42% 会把 Follow Updates / Image Favorites 推进玻璃 dock 的覆盖区
-        // （实拍 62/65）。Compact 收到 32%，平板仍保持 42%。再往下压虽能多
-        // 挤一点首屏，但封面会小到失去主视觉，1.3 字号仍容不下两行入口，
-        // 因此 32% 是「卡片可读 / 入口可见」的折中，余下靠滚动到底查看。
-        final compact = MediaQuery.sizeOf(context).shortestSide < 600;
-        final bannerHeight = contentArea * (compact ? 0.32 : 0.42);
-        // 骨架归一：卡片高度必须完整落在 banner 内。旧版 cardW 只按屏宽算，
-        // cardW*1.4 常大于 bannerHeight，Stack 又是 Clip.none，于是 5 张
-        // 半透明封面互相叠压、主卡溢出压住标题和底部入口（实拍 42/46/50）。
-        // 现在由 banner 高度反算 cardW，再交给唯一的 _Banner。
+        // 原版 v1.5.18 用 0.42：卡片 + 标题 + CTA + 两行胶囊刚好铺满首屏。
+        // 之前为修「720x1280 @320dpi」这台模拟小屏的入口遮挡把它压到 0.32，
+        // 结果真实 1.5K/2K 手机（逻辑高 873~914dp）首屏底部空出约 160dp，
+        // 用户明确要求恢复铺满感。这里按逻辑内容区高度分档：
+        //   >= 700dp（真实手机）→ 0.42，回到原版编排；
+        //   <  700dp 但内容列 >= 700dp（平板横屏 / 折叠展开）→ 同样 0.42：
+        //     这类屏横向极宽、Read Now 下方本来就有大片留白，按矮屏 0.32
+        //     会把主卡压到 132dp（实拍 81），提高比例既放大卡片又填掉留白；
+        //   两者都小（360x640 模拟小屏 / 720p）→ 0.32，保住底部入口不遮挡。
+        // cardW 仍由 banner 高度反算并受 sw*0.54 / 420 上限约束，卡片不会
+        // 无限长大，堆叠卡也不会再溢出压住标题。
+        final roomy = contentArea >= 700 || sw >= 700;
+        final bannerHeight = contentArea * (roomy ? 0.42 : 0.32);
+        // 堆叠封面是主页的固定视觉，保留。旧问题不是「有堆叠」而是
+        // cardW 只按屏宽算、cardW*1.4 常大于 bannerHeight，加上 Clip.none，
+        // 整叠会溢出压住标题和底部入口（实拍 42/46/50）。现在由 banner 高度
+        // 反算 cardW，让主卡和 4 张装饰卡都完整落在 banner 内，视觉不变。
         final cardW = math.min(
           math.min(sw * 0.54, _maxHeroCardWidth),
           math.max(0.0, (bannerHeight - kcSpaceMd) / 1.4),
@@ -273,14 +279,20 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
       );
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardW = widget.cardWidth;
     return SliverToBoxAdapter(
       child: SizedBox(
         height: widget.height,
         child: Stack(
+          // 保留原版的 4 层堆叠，但裁在 banner 边界内：溢出部分不再跨到
+          // 标题区 / 底部入口上。cardW 已由 banner 高度反算，装饰卡缩放后
+          // 更小，不会触发裁切，只有极端窄屏才会削掉最外侧一点边缘。
           clipBehavior: Clip.hardEdge,
           alignment: Alignment.topCenter,
           children: [
+            // Decorative stacked cards (background)
+            ..._buildStackedCards(isDark, cardW, widget.width),
             // Main card with in-place replacement (AnimatedSwitcher)
             Positioned(
               top: 0,
@@ -338,6 +350,62 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
         ),
       ).paddingVertical(2).paddingBottom(8),
     );
+  }
+
+  /// 主页英雄区的 4 层堆叠装饰封面（v1.5.18 视觉，原样恢复）。
+  /// 以当前主卡为中心向左右各两张，越外侧越小、越靠下，形成一叠卡片的层次。
+  /// 尺寸全部由 [cardW] 派生，cardW 由主页按 banner 高度反算，因此整叠不会
+  /// 溢出到标题区；装饰卡不显示书名首字、图标和重试按钮（见 [_buildCover]）。
+  List<Widget> _buildStackedCards(bool isDark, double cardW, double sw) {
+    final items = <Widget>[];
+    final overlap = cardW * 0.30;
+    for (final layer in [-2, -1, 2, 1]) {
+      int idx = (_currentIndex + layer) % _comics.length;
+      if (idx < 0) idx += _comics.length;
+      final comic = _comics[idx];
+      final scale = 1.0 - layer.abs() * 0.1;
+      final topOff = layer.abs() * 2.0;
+      final pos = sw * 0.5 + layer * overlap - cardW * 0.5;
+      items.add(
+        Positioned(
+          left: pos,
+          top: topOff,
+          width: cardW,
+          child: Transform.scale(
+            scale: scale,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(kcRadius10),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4),
+                    width: 3.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.3 : 0.15,
+                      ),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                  borderRadius: BorderRadius.circular(kcRadius10),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(kcRadius8),
+                  child: SizedBox(
+                    height: cardW * 1.4,
+                    child: _buildCover(comic, decorative: true),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return items;
   }
 
   Widget _buildSingleCard(
@@ -433,13 +501,13 @@ class _ComicInfoSection extends StatelessWidget {
             : null;
         return SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceXs, kcSpaceLg, kcSpaceXs),
+            padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceSm, kcSpaceLg, kcSpaceSm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 漫画名占两行高度（随系统字号缩放）
                 SizedBox(
-                  height: 60 * titleScale,
+                  height: 72 * titleScale,
                   child: Align(
                     alignment: Alignment.bottomLeft,
                     child: Text(
@@ -499,11 +567,12 @@ class _ComicInfoSection extends StatelessWidget {
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  // 浅色与深色都用「上亮下饱和」的红色渐变 + 柔和大半径红晕包裹，
+                  // 浅色与深色都用「上亮下饱和」的红色渐变 + 柔和大半径红晕包裹；
+                  // 圆角走 kcPillRadius（全圆胶囊），与下方入口块同形。
                   // 主 CTA 才有体积与质感；AMOLED 零彩色，退化为实心灰底、无光晕。
                   child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(kcRadius22),
+                      borderRadius: BorderRadius.circular(kcPillRadius),
                       gradient: kcIsAmoled()
                           ? null
                           : const LinearGradient(
@@ -553,7 +622,7 @@ class _ComicInfoSection extends StatelessWidget {
                             : Colors.transparent,
                         foregroundColor: kcOnAccentColor,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(kcRadius22),
+                          borderRadius: BorderRadius.circular(kcPillRadius),
                         ),
                         // 显式清掉边线：深色主题给 ElevatedButton 强加了灰描边，
                         // 会在这个灰底 CTA 外再套一圈灰环。
@@ -711,7 +780,7 @@ class _FlatBox extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(kcRadius22),
+              borderRadius: BorderRadius.circular(kcPillRadius),
               color: cs.surfaceContainerLow,
             ),
             child: Row(

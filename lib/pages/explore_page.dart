@@ -538,21 +538,34 @@ Iterable<Widget> _buildExplorePagePart(
 ) sync* {
   Widget buildTitle(ExplorePagePart part) {
     return SliverToBoxAdapter(
-      child: SizedBox(
-        height: 60,
+      // 分区标题由漫画源直接给出，长度不可控（例如 CCC 追漫台的
+      // 「🎃 萬聖節限定 | 今夜來點不一樣的…」）。固定 60dp 高度在大字号下
+      // 会竖向裁字，因此只约束最小高度，让内容自己撑开。
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 60),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(kcRowInsetH, kcSpaceMd, kcRowInsetH, kcSpaceMd),
           child: Row(
             children: [
-              Text(
-                part.title,
-                style: const TextStyle(
-                  fontSize: kcTitleLarge,
-                  fontWeight: FontWeight.w600,
+              // 不给 Text 宽度约束时，超长标题会把右侧「View more」挤出屏幕，
+              // debug 包还会画出黄黑斜纹的 RIGHT OVERFLOWED 标记。宽度交给
+              // Expanded，单行省略；长按可看完整标题。
+              Expanded(
+                child: Tooltip(
+                  message: part.title,
+                  child: Text(
+                    part.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: kcTitleLarge,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-              const Spacer(),
-              if (part.viewMore != null)
+              if (part.viewMore != null) ...[
+                const SizedBox(width: kcSpaceSm),
                 Button.text(
                   onPressed: () {
                     var context = App.mainNavigatorKey!.currentContext!;
@@ -560,6 +573,7 @@ Iterable<Widget> _buildExplorePagePart(
                   },
                   child: Text("View more".tl),
                 ),
+              ],
             ],
           ),
         ),

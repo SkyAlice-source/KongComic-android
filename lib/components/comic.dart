@@ -1868,26 +1868,26 @@ class ComicListState extends State<ComicList> {
     final maxPage = _maxPage;
     // 取数期间在页码后面挂个小转圈，替代原来「整条消失 → 骨架屏」的跳变。
     final loading = _data[_page] == null && _error == null;
-    return Center(
-      child: ToolsPill(
-        height: 38,
-        children: [
-          ToolsPillButton(
-            icon: HugeIcons.strokeRoundedArrowLeft01,
-            tooltip: "Previous page".tl,
-            onPressed: _page > 1 ? () => _goToPage(_page - 1) : null,
-          ),
-          _buildPageLabel(loading: loading),
-          ToolsPillButton(
-            icon: HugeIcons.strokeRoundedArrowRight01,
-            tooltip: "Next page".tl,
-            onPressed: maxPage == null || _page < maxPage
-                ? () => _goToPage(_page + 1)
-                : null,
-          ),
-        ],
-      ),
-    ).paddingVertical(8).paddingHorizontal(16);
+    // 只返回胶囊本体：定位、让位、悬浮阴影统一由 _buildPageBar 负责，
+    // 之前这里自带 Center + 上下 8dp 内边距，把胶囊绑死在整宽底栏里。
+    return ToolsPill(
+      height: 38,
+      children: [
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedArrowLeft01,
+          tooltip: "Previous page".tl,
+          onPressed: _page > 1 ? () => _goToPage(_page - 1) : null,
+        ),
+        _buildPageLabel(loading: loading),
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedArrowRight01,
+          tooltip: "Next page".tl,
+          onPressed: maxPage == null || _page < maxPage
+              ? () => _goToPage(_page + 1)
+              : null,
+        ),
+      ],
+    );
   }
 
   Widget _buildPageLabel({required bool loading}) {
@@ -1998,23 +1998,54 @@ class ComicListState extends State<ComicList> {
     }
   }
 
-  /// 钉在屏幕底部的分页栏。
+  /// 悬浮在屏幕底部上方的翻页胶囊。
   ///
   /// 翻页是这一屏唯一的导航动作，也是最需要「按一下」的动作。放在列表顶部
-  /// 意味着大屏单手要换手；钉在底部后，拇指原地就能翻，顺带省掉了「滚到底
-  /// 才有下一页」的来回。分页条因此只保留这一条，顶部那条已删除。
+  /// 意味着大屏单手要换手；放底部后拇指原地就能翻，顺带省掉「滚到底才有
+  /// 下一页」的来回。分页条因此只保留这一条，顶部那条已删除。
+  ///
+  /// 旧实现是「整宽白底 + 顶部发丝线」的贴底栏，和悬浮玻璃 dock 叠成两层，
+  /// 页码下半截被 dock 盖住（用户实拍）。现在改成一颗带柔光阴影的全圆胶囊，
+  /// 居中浮在 dock 上方：不再画整宽背景，也不与 dock 争同一条底边。
   Widget _buildPageBar() {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        border: Border(
-          top: BorderSide(color: cs.outlineVariant, width: kcHairline),
+    // 底栏真实显示条件是 `isRootTabPage && controller.value < 2`
+    // （navigation_bar.dart shouldShowBottomBar）：宽屏侧栏模式
+    // controller.value >= 2 时只有左侧栏、没有悬浮 dock，按 bottomBarHeight
+    // 让位会凭空把胶囊抬高约 100dp。
+    final pane = context.findAncestorStateOfType<NaviPaneState>();
+    final bool showDock;
+    if (pane == null) {
+      showDock = false;
+    } else {
+      showDock = pane.isRootTabPage && pane.controller.value < 2;
+    }
+    // bottomBarHeight 已含系统手势区；再补两段呼吸，让胶囊底边完全离开
+    // dock 的玻璃体（实测旧版仍重叠约 15dp）。无 dock 时也留一段，避免
+    // 胶囊贴在系统手势条上。
+    final bottomInset =
+        (showDock ? pane!.bottomBarHeight : context.padding.bottom) +
+        kcPageBottomGap +
+        kcSpaceLg;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(kcPillRadius),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(
+                  alpha: cs.brightness == Brightness.dark ? 0.32 : 0.14,
+                ),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: _buildPageSelector(),
         ),
       ),
-      // 手势条 / 三键栏占的高度，避免分页条被系统条压住。
-      padding: EdgeInsets.only(bottom: context.padding.bottom),
-      child: _buildPageSelector(),
     );
   }
 
