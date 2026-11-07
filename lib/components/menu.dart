@@ -50,13 +50,20 @@ class _MenuRoute<T> extends PopupRoute<T> {
   ) {
     // 宽度按内容定：有自定义行（分段控件）最宽；有图标行次之；纯文字最窄。
     // 240 保证日语排序标签（如「最近の追加」5 字）在三等分分段里不省略。
-    var width = entries.any((e) => e.child != null)
-        ? 240.0
-        : entries.any((e) => e.icon != null)
-        ? 180.0
-        : 160.0;
     final size = MediaQuery.of(context).size;
     const margin = 10.0;
+    // 动作项从底部面板搬进 ⋮ 之后，大字号下固定 180dp 会把「进入多选模式」
+    // 压成「进入多选…」（font 1.3 实拍）。菜单宽度随系统字号同步放大，
+    // 再夹回屏宽内；图标与文字的间距保持不变。
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    var width =
+        (entries.any((e) => e.child != null)
+            ? 240.0
+            : entries.any((e) => e.icon != null)
+            ? 180.0
+            : 160.0) *
+        textScale;
+    width = math.min(width, size.width - margin * 2);
     const gap = 6.0;
     // 总高只用于定位估算；真正渲染时由 ConstrainedBox + 滚动兜底，
     // 大字号/长菜单在矮屏上不会再溢出到屏幕外。

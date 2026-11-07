@@ -20,7 +20,7 @@ import 'package:kong_comic/utils/translations.dart';
 import 'local_comics_page.dart';
 
 /// 平板/宽屏下英雄卡（封面大卡）的最大宽度，避免随屏宽线性放大导致卡片过大。
-/// 手机屏宽 * 0.54 恒定小于此值，故手机版外观完全不变。
+/// 手机屏宽 * 0.60 恒定小于此值，故手机版外观不受此上限影响。
 const double _maxHeroCardWidth = 420;
 
 class HomePage extends StatefulWidget {
@@ -53,7 +53,7 @@ class _HomePageState extends State<HomePage> {
         // dock 浮层高度跟随自适应底栏（大字号下栏体会长高），写死 58dp
         // 会让末行被浮岛底栏压住；bottomBarHeight 已含系统手势区。
         final dockHeight = NaviPane.of(context).bottomBarHeight;
-        // 中间卡片内在高度：主卡宽 sw*0.54、高 cardW*1.4。
+        // 中间卡片内在高度：主卡宽上限 sw*0.60、高 cardW*1.4。
         // 用 LayoutBuilder 的内容列宽，而不是 MediaQuery 的整屏宽：宽屏下
         // 内容列被限到 900dp 并居中，按整屏算装饰卡会错位 112dp 并被裁。
         final sw = constraints.maxWidth;
@@ -64,23 +64,21 @@ class _HomePageState extends State<HomePage> {
         );
         // 原版 v1.5.18 用 0.42：卡片 + 标题 + CTA + 两行胶囊刚好铺满首屏。
         // 之前为修「720x1280 @320dpi」这台模拟小屏的入口遮挡把它压到 0.32，
-        // 结果真实 1.5K/2K 手机（逻辑高 873~914dp）首屏底部空出约 160dp，
-        // 用户明确要求恢复铺满感。这里按逻辑内容区高度分档：
-        //   >= 700dp（真实手机）→ 0.42，回到原版编排；
-        //   <  700dp 但内容列 >= 700dp（平板横屏 / 折叠展开）→ 同样 0.42：
-        //     这类屏横向极宽、Read Now 下方本来就有大片留白，按矮屏 0.32
-        //     会把主卡压到 132dp（实拍 81），提高比例既放大卡片又填掉留白；
-        //   两者都小（360x640 模拟小屏 / 720p）→ 0.32，保住底部入口不遮挡。
-        // cardW 仍由 banner 高度反算并受 sw*0.54 / 420 上限约束，卡片不会
-        // 无限长大，堆叠卡也不会再溢出压住标题。
-        final roomy = contentArea >= 700 || sw >= 700;
-        final bannerHeight = contentArea * (roomy ? 0.42 : 0.32);
+        // 结果真实 1.5K/2K 手机首屏底部空出约 160dp；实拍 103 又发现按
+        // contentArea 阈值分档会误判高屏手机（扣掉共享顶栏 + 浮岛 dock +
+        // 手势区后只剩 630~690dp），主卡被压到约 135dp（34% 屏宽）。
+        //   2026-11-08 拍板：720p 小屏档也一并放大，**全档统一 0.42**。
+        //   入口遮挡不再靠压 banner 解决 —— cardW 由 banner 高度反算并受
+        //   sw*0.60 / 420 上限约束，整叠封面一定落在 banner 内；页面本身是
+        //   可滚动的 Sliver 列表，矮屏多出来的内容往下滚即可，不会被裁掉。
+        //   cardW 同样受 sw*0.60 约束，堆叠卡不会溢出压住标题。
+        final bannerHeight = contentArea * 0.42;
         // 堆叠封面是主页的固定视觉，保留。旧问题不是「有堆叠」而是
         // cardW 只按屏宽算、cardW*1.4 常大于 bannerHeight，加上 Clip.none，
         // 整叠会溢出压住标题和底部入口（实拍 42/46/50）。现在由 banner 高度
         // 反算 cardW，让主卡和 4 张装饰卡都完整落在 banner 内，视觉不变。
         final cardW = math.min(
-          math.min(sw * 0.54, _maxHeroCardWidth),
+          math.min(sw * 0.60, _maxHeroCardWidth),
           math.max(0.0, (bannerHeight - kcSpaceMd) / 1.4),
         );
         return _BannerProvider(
@@ -279,20 +277,40 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
       );
     }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardW = widget.cardWidth;
     return SliverToBoxAdapter(
       child: SizedBox(
         height: widget.height,
-        child: Stack(
-          // 保留原版的 4 层堆叠，但裁在 banner 边界内：溢出部分不再跨到
-          // 标题区 / 底部入口上。cardW 已由 banner 高度反算，装饰卡缩放后
-          // 更小，不会触发裁切，只有极端窄屏才会削掉最外侧一点边缘。
-          clipBehavior: Clip.hardEdge,
-          alignment: Alignment.topCenter,
-          children: [
-            // Decorative stacked cards (background)
-            ..._buildStackedCards(isDark, cardW, widget.width),
+        // 方案 B-lite：整叠左右各淡出 kcStackEdgeFade 宽度，替代原来被
+        // Clip.hardEdge 直切出的那道竖直硬边；不碰堆叠几何，也不改变
+        // 「卡片刚好铺满首屏」的宽度。
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (rect) => LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: const [
+              Colors.transparent,
+              Colors.white,
+              Colors.white,
+              Colors.transparent,
+            ],
+            stops: [
+              0.0,
+              kcStackEdgeFade,
+              1 - kcStackEdgeFade,
+              1.0,
+            ],
+          ).createShader(rect),
+          child: Stack(
+            // 保留原版的 4 层堆叠，但裁在 banner 边界内：溢出部分不再跨到
+            // 标题区 / 底部入口上。cardW 已由 banner 高度反算，装饰卡缩放后
+            // 更小，不会触发裁切，只有极端窄屏才会削掉最外侧一点边缘。
+            clipBehavior: Clip.hardEdge,
+            alignment: Alignment.topCenter,
+            children: [
+              // Decorative stacked cards (background)
+              ..._buildStackedCards(context, cardW, widget.width),
             // Main card with in-place replacement (AnimatedSwitcher)
             Positioned(
               top: 0,
@@ -346,7 +364,8 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ).paddingVertical(2).paddingBottom(8),
     );
@@ -355,10 +374,32 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
   /// 主页英雄区的 4 层堆叠装饰封面（v1.5.18 视觉，原样恢复）。
   /// 以当前主卡为中心向左右各两张，越外侧越小、越靠下，形成一叠卡片的层次。
   /// 尺寸全部由 [cardW] 派生，cardW 由主页按 banner 高度反算，因此整叠不会
-  /// 溢出到标题区；装饰卡不显示书名首字、图标和重试按钮（见 [_buildCover]）。
-  List<Widget> _buildStackedCards(bool isDark, double cardW, double sw) {
+  /// 溢出到标题区；装饰卡不显示图标和重试按钮，但保留淡灰书名首字作为
+  /// 封面加载中 / 失败时的占位（见 [_buildCover]），避免出现纯色空框。
+  ///
+  /// 边缘按方案 A 收口：与主卡一样只用 [kcCardRadius] 单层圆角，原来 3dp
+  /// 白边换成 [kcHairlineColor] 发丝描边，阴影只留给主卡。旧版四层 blur6
+  /// 阴影叠加后糊成一团且被 ClipRRect 裁掉，浅色下还有一圈「贴纸白框」。
+  List<Widget> _buildStackedCards(
+    BuildContext context,
+    double cardW,
+    double sw,
+  ) {
     final items = <Widget>[];
-    final overlap = cardW * 0.30;
+    final edge = kcHairlineColor(context);
+    // 整叠的视觉宽度恰好是 2 × cardW：最外侧 layer=±2 缩到 0.8 后，外缘落在
+    // sw/2 ± (2 × overlap + 0.4 × cardW)。原版 overlap=0.30 × cardW 时该式
+    // 化简为 sw/2 ± cardW —— 只有 cardW ≈ sw/2 才刚好铺满。现在 cardW 改由
+    // banner 高度反算，矮屏 / 720p 会被压到约 0.35sw，左右就各空出十几 dp
+    // 纯白，看起来就是「卡片没填满框」（实拍 141：720p 左右各空约 51dp）。
+    //
+    // 让间距自适应：cardW 够大时维持原版 0.30 × cardW；cardW 偏小时把最外侧
+    // 两张往外推，使外缘重新贴到内容列两边。clamp 到 0.80 × cardW 是保证
+    // layer=±1 与 ±2 始终重叠，不会为了贴边把整叠拆成几张孤立的卡。
+    final overlap = math.min(
+      math.max(cardW * 0.30, sw / 4 - cardW * 0.20),
+      cardW * 0.80,
+    );
     for (final layer in [-2, -1, 2, 1]) {
       int idx = (_currentIndex + layer) % _comics.length;
       if (idx < 0) idx += _comics.length;
@@ -374,30 +415,15 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
           child: Transform.scale(
             scale: scale,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(kcRadius10),
+              borderRadius: BorderRadius.circular(kcCardRadius),
               child: Container(
                 decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4),
-                    width: 3.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isDark ? 0.3 : 0.15,
-                      ),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                  borderRadius: BorderRadius.circular(kcRadius10),
+                  border: Border.all(color: edge, width: kcHairline),
+                  borderRadius: BorderRadius.circular(kcCardRadius),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(kcRadius8),
-                  child: SizedBox(
-                    height: cardW * 1.4,
-                    child: _buildCover(comic, decorative: true),
-                  ),
+                child: SizedBox(
+                  height: cardW * 1.4,
+                  child: _buildCover(comic, decorative: true),
                 ),
               ),
             ),
@@ -415,7 +441,7 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sw = widget.width;
-    final cardW = width ?? (sw * 0.54).clamp(0.0, _maxHeroCardWidth);
+    final cardW = width ?? (sw * 0.60).clamp(0.0, _maxHeroCardWidth);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -433,20 +459,19 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(kcCardRadius),
             child: Container(
+              // 3dp 白边 → 0.8dp 发丝描边：浅色不再是「贴纸白框」，深色
+              // 也能看清卡片轮廓；与主卡、装饰卡共用一条边缘语言。
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.4),
-                  width: 3.0,
+                  color: kcHairlineColor(context),
+                  width: kcHairline,
                 ),
                 borderRadius: BorderRadius.circular(kcCardRadius),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(kcRadius10),
-                child: SizedBox(
-                  width: cardW,
-                  height: cardW * 1.4,
-                  child: _buildCover(comic),
-                ),
+              child: SizedBox(
+                width: cardW,
+                height: cardW * 1.4,
+                child: _buildCover(comic),
               ),
             ),
           ),
@@ -464,14 +489,16 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     // 占位/失败态由 CoverBox 兜住：加载中显示「书名首字」，失败给重试。
     return CoverBox(
       image: comicCoverImageProvider(comic),
-      // 堆叠卡只是背景装饰：不显示首字和图标，也不给重试按钮，
-      // 否则一屏会同时出现四五个「重试」，比空白还吵。
-      label: decorative ? null : comic.name,
+      // 堆叠卡只是背景装饰：关掉图标与重试按钮（否则一屏四五个「重试」比
+      // 空白还吵），但**保留淡灰书名首字**。以前装饰卡把 label 也设为 null，
+      // 封面还没加载出来或加载失败时 CoverPlaceholder 只剩一块纯色，看起来
+      // 就像一个「没填满内容的空框」；首字随 0.8/0.9 缩放一起变小，不抢主卡。
+      label: comic.name,
       showIcon: !decorative,
       retryable: !decorative,
       failed: _failedCovers.contains(comic.id),
       onFailed: () => _failedCovers.add(comic.id),
-      initialFontSize: 52,
+      initialFontSize: decorative ? 38 : 52,
     );
   }
 }
@@ -486,10 +513,8 @@ class _ComicInfoSection extends StatelessWidget {
       builder: (context, comic, _) {
         if (comic == null) return const SliverToBoxAdapter(child: SizedBox());
         final cs = Theme.of(context).colorScheme;
-        // 漫画名固定 72dp 是按 1.0 字号两行算的；系统字号 1.3 时两行需约
-        // 88.7dp。按实际 textScaler 放大预留高度，避免第二行被裁。
-        final titleScale =
-            MediaQuery.textScalerOf(context).scale(kcTitleLarge) / kcTitleLarge;
+        // 漫画名字号与卡片一起收进 kcTitleMain(20)，但高度不再写死：
+        // 见下方 AnimatedSize 的说明。
         final history = HistoryManager().find(comic.id, comic.type);
         final progress = history != null
             ? "Chapter %s · %s chapters read".tl
@@ -505,24 +530,31 @@ class _ComicInfoSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 漫画名占两行高度（随系统字号缩放）
-                SizedBox(
-                  height: 72 * titleScale,
-                  child: Align(
-                    alignment: Alignment.bottomLeft,
+                // 标题高度交给 Text 自己算：单行只占一行、两行才撑两行，
+                // 系统大字号也不会被写死的 64*scale 裁掉。原先固定双行高度
+                // 让短书名下方空一大截，是「标题太大」的另一半原因。
+                // AnimatedSize 让切换漫画时（单行 ↔ 两行）平滑过渡，避免
+                // 下方 CTA 与信息行「啪」地跳一下。
+                AnimatedSize(
+                  duration: kcReduceMotion(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
                     child: Text(
                       comic.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: kcTitleLarge,
+                        fontSize: kcTitleMain,
                         fontWeight: FontWeight.w700,
                         color: cs.onSurface,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
                 if (comic.author.isNotEmpty || comic.tags.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: kcSpaceXs),

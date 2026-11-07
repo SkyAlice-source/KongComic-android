@@ -2,6 +2,11 @@ import 'dart:async';
 export 'package:hugeicons/hugeicons.dart';
 import 'badge.dart';
 export 'badge.dart';
+// kc_library_toolbar.dart 是本库的 part：part 内只能看见本库 import 进来的
+// 名字，单纯 export 不会把符号带进 part 的作用域。这两个文件同时被外部
+// 页面直接引用，所以保持 import + export 两行。
+import 'list_tile.dart';
+import 'pill_chip.dart';
 export 'list_tile.dart';
 export 'pill_chip.dart';
 export 'hero_blocks.dart';
@@ -70,6 +75,8 @@ part 'effects.dart';
 part 'gesture.dart';
 part 'code.dart';
 part 'kc_page_scaffold.dart';
+part 'kc_choice_dialog.dart';
+part 'kc_library_toolbar.dart';
 
 /// 统一的友好空状态组件 —— 用于各 tab 的"无数据"展示。
 /// 与 NetworkError（红色错误图标）区分：本组件传达"这里还没有内容"而非"出错了"。

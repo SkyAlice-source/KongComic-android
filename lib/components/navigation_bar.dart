@@ -1255,6 +1255,16 @@ class _NaviMainViewState extends State<_NaviMainView> {
         state.controller.value >= 2) {
       return;
     }
+    // 下拉刷新（RefreshIndicator + BouncingScrollPhysics）先让 pixels 变负，
+    // 松手回弹时又在一帧里跳回 0。这段正向大跳不是「用户向下滚内容」，
+    // 照原逻辑会被算成一次 >50px 的下滚而把底栏收走；此时列表已在顶部，
+    // 用户没有继续上滑把它唤回的余地。负向 overscroll 期间不记滚动基准，
+    // 并顺手放回底栏（与「回到顶部显示底栏」的既有行为一致）。
+    if (offset <= 0) {
+      if (state.bottomBarCollapsed) state.setBottomBarCollapsed(false);
+      _lastScrollOffset = 0;
+      return;
+    }
     final diff = offset - _lastScrollOffset;
     // 50px 阈值：避免轻微滚动/惯性滑动误隐藏底部导航。
     // 状态存在 NaviPaneState 上：返回手势那边要读它、也能重置它。

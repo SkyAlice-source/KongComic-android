@@ -204,6 +204,12 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     comics = [];
     updateComics();
     listen(LocalFavoritesManager(), updateComics);
+    // 布局切换与排序都写 appdata.settings，而顶栏不再有全局按钮（布局切换
+    // 改放内容区辅助行固定位），页面自己必须跟着重建，否则点了切换按钮
+    // 图标变了、下面的网格还停在旧布局。
+    listen(appdata.settings, () {
+      if (mounted) setState(() {});
+    });
     super.initState();
   }
 
@@ -409,23 +415,35 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     });
   }
 
-  /// 多选态注入共享顶栏的工具（原多选 SliverAppbar 的 actions 原样迁移）。
+  /// 多选态贴底工具条的动作槽（方案 C）：顶栏清空，动作落在下半屏，
+  /// 退出由 [KcDockedToolbar.onExit] 统一提供。
   List<Widget> _multiSelectActions() {
     return [
-      ToolsPill(
-        children: [
-          ToolsPillButton(
-            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-            tooltip: "Select All".tl,
-            onPressed: selectAll,
-          ),
-          ToolsPillButton(
-            icon: HugeIcons.strokeRoundedCancel01,
-            tooltip: "Deselect".tl,
-            onPressed: _cancel,
-          ),
-          ToolsPillMoreButton(
-            entries: [
+      IconButton(
+        icon: HugeIcon(
+          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+          size: 20,
+        ),
+        tooltip: "Select All".tl,
+        constraints: const BoxConstraints(
+          minWidth: kcMinTapTarget,
+          minHeight: kcMinTapTarget,
+        ),
+        padding: EdgeInsets.zero,
+        onPressed: selectAll,
+      ),
+      IconButton(
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 20),
+        tooltip: "Deselect".tl,
+        constraints: const BoxConstraints(
+          minWidth: kcMinTapTarget,
+          minHeight: kcMinTapTarget,
+        ),
+        padding: EdgeInsets.zero,
+        onPressed: _cancel,
+      ),
+      ToolsPillMoreButton(
+        entries: [
               // ── 整理：换文件夹 / 调整选择 ──
               if (!isAllFolder)
                 MenuEntry(
@@ -521,8 +539,6 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
               ),
             ],
           ),
-        ],
-      ),
     ];
   }
 
@@ -548,7 +564,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
         ),
       );
       title = Text("Selected @c comics".tlParams({"c": selectedComics.length}));
-      actions = _multiSelectActions();
+      // 方案 C：多选态顶栏不留动作，全部交给贴底工具条；leading 的取消
+      // 按钮仍保留，作为「退出多选」的第二条可见路径。
+      actions = const <Widget>[];
     } else {
       // 标题写当前文件夹名，而不是一律「收藏」。
       //
@@ -575,33 +593,42 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
         style: TextStyle(fontSize: kcTitleMain, fontWeight: FontWeight.bold),
         overflow: TextOverflow.ellipsis,
       );
-      actions = [favPage._favToolsPill(context, _normalPillChildren())];
+      // 顶栏只留一枚**裸搜索**：不套 [ToolsPill]，所以没有胶囊外壳，
+      // 也没有那圈发丝描边。其余入口按用途分置：
+      //   · 布局切换(发现页同款) / 同步(网络文件夹) → 辅助行固定位
+      //   · 多选 / 管理 / 删除 → 辅助行平铺 [_actionItems]（窄屏可收拢）
+      //   · 筛选 / 排序状态 → chip 行本身（有文字证据 + 结果数/重置）
+      //   · 进入多选 → 辅助行常驻按钮 / 长按任意漫画；动作 → 贴底工具条
+      //   · 重载当前文件夹 → 下拉刷新
+      actions = [
+        favPage._toolIconButton(
+          context,
+          icon: HugeIcons.strokeRoundedSearch02,
+          tooltip: "Search".tl,
+          onPressed: () => showQuickSearch(context),
+        ),
+      ];
     }
     favPage.pushTopBar(
       sig: sig,
       leading: leading,
       title: title,
       actions: actions,
-      // 内层（文件夹/多选/搜索）工具胶囊里已有夹内搜索，右上角不再重复
-      // 全局搜索/设置入口 —— 全局入口留在总览层。
+      // 顶栏已有本页搜索，右上角不再重复全局搜索/设置入口 —— 全局入口
+      // 留在总览层；多选态更是连搜索一起清空，交给贴底工具条。
       hideGlobalActions: true,
     );
   }
 
-  /// 普通态工具胶囊条内容（原普通 SliverAppbar 的 actions 原样迁移）。
-  ///
-  /// 精简后只保留高频直操：布局切换、（网络文件夹的）同步、搜索；
-  /// 排序/筛选与文件夹管理一起收进「更多」菜单 —— 六个槽位在窄屏上
-  /// 会把共享顶栏的标题压成「日…」（实拍 51，448dp 实测）。
-  List<Widget> _normalPillChildren() {
+  /// 内容区辅助行里**不参与收拢**的固定按钮：
+  ///   · [ToolsPillLayoutButton] —— 发现页右上角那颗全站共用的布局切换。
+  ///     图标表示当前布局、点一下即切换，高频且不必进 ⋮，固定占首位；
+  ///   · 「同步」(仅网络收藏文件夹) —— 要选同步页数，必须留在自带 context
+  ///     的 Flyout 里；菜单行放不下 Flyout，`context.pop()` 也不适合弹窗。
+  /// 其余普通动作全部走 [_actionItems] 平铺 / 窄屏收拢。
+  List<Widget> _fixedChipRowActions() {
     return [
-      // 布局切换单图标：形状即当前布局（2×2 方块 = 网格 / 左封面+三行 = 列表），
-      // 点击在原位淡入切换成另一种，翻的是全局 comicDisplayMode。
-      // 旧的双态分段要占两个槽位，窄屏上会和标题抢宽度。
       const ToolsPillLayoutButton(),
-      // 排序直显：只写当前值（手动 / 最近 / 标题）+ 下拉箭头，点开三段切换。
-      // 不再在前面塞排序图标 —— 那个图标是几根横线，跟左边布局图标的横线
-      // 挨在一起像同一族；文字 + 箭头反而更像「当前状态」。
       if (networkSource != null && !isAllFolder)
         Tooltip(
           message: "Sync".tl,
@@ -656,17 +683,143 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             ),
           ),
         ),
-      // 搜索不再进「本页内联筛选」：改成居中速搜浮层，一次搜全部收藏 +
-      // 历史（原先只能搜当前文件夹，换个文件夹就得退出去重搜）。
-      favPage._toolIconButton(
-        context,
-        icon: HugeIcons.strokeRoundedSearch02,
-        tooltip: "Search".tl,
-        onPressed: () => showQuickSearch(context),
-      ),
-      // 「更多」始终显示：排序/筛选也住在里面（原独立按钮已收编）。
-      favPage._toolMoreButton(context, _buildMoreEntries()),
     ];
+  }
+
+  /// 内容区辅助行的**全部**动作：默认一枚枚平铺成常驻裸图标按钮，
+  /// 不再藏进 ⋮ 菜单。顺序即优先级 —— 窄屏 / 大字号放不下时末尾的
+  /// 破坏性动作先被收拢，不会变成一排常驻红图标。
+  ///
+  /// 「全部收藏」是跨文件夹的虚拟视图，没有可管理 / 可删除的文件夹，
+  /// 这两枚不再按条件隐藏，而是置灰常驻：位置够就别藏，动作数量也
+  /// 不会随状态忽有忽无。筛选相关操作全部归第一行 chip 与「重置」。
+  List<KcToolbarAction> _actionItems() => [
+    KcToolbarAction(
+      icon: HugeIcons.strokeRoundedCheckList,
+      label: "Multi-Select".tl,
+      onTap: () => setState(() => multiSelectMode = true),
+    ),
+    KcToolbarAction(
+      icon: HugeIcons.strokeRoundedFolder01,
+      label: "Manage Folder".tl,
+      enabled: !isAllFolder,
+      onTap: _showFolderManageDialog,
+    ),
+    // 「清除筛选」不放这里：辅助行左侧的「重置」文字按钮与它完全等价，
+    // 而且只在真的有筛选时出现，再摆一枚常驻漏斗图标是重复 + 误导。
+    KcToolbarAction(
+      icon: HugeIcons.strokeRoundedDelete01,
+      label: "Delete Folder".tl,
+      enabled: !isAllFolder,
+      color: context.colorScheme.error,
+      onTap: _deleteFolder,
+    ),
+  ];
+
+  /// 布局切换不再有第二个入口：辅助行固定位直接复用发现页右上角那颗全站
+  /// 共用的 [ToolsPillLayoutButton]，读同一个
+  /// `appdata.settings['comicDisplayMode']`，点一下即切换，不再弹窗选择。
+  /// 阅读状态筛选、排序归第一行 chip，结果数与重置归辅助行左侧。
+
+  /// 「显示 N 项」：分页视图查文件夹总数，其余视图用过滤后的全量。
+  ///
+  /// 分页时不能用 [_loadedComics] 的长度 —— 那是「已经滚动加载了几页」，
+  /// 首屏会显示 0、往下滚才慢慢涨，而 chip 行的语义是当前条件下的结果总数。
+  /// `getFolderComicCount` 是一条 `SELECT COUNT(*)`，比遍历廉价。
+  int get _visibleCount {
+    if (!_usePagination) return _visibleComics.length;
+    try {
+      return manager.getFolderComicCount(widget.folder);
+    } catch (_) {
+      // 网络文件夹 / 文件夹刚被删除时表可能还没建好，退回已加载数。
+      return _loadedComics.length;
+    }
+  }
+
+  /// B · 排序独立成 chip 点开的单选弹窗（Sort is not a filter）。
+  void _showSortDialog() {
+    showKcRadioDialog<String>(
+      context: context,
+      title: "Sort".tl,
+      initial: _sortKey,
+      options: [
+        (value: 'manual', label: "Manual order".tl),
+        (value: 'recent', label: "Recently favorited".tl),
+        (value: 'name', label: "By title".tl),
+      ],
+    ).then((picked) {
+      if (picked == null || !mounted) return;
+      _onSortSelected(picked);
+      // 分页模式下 _onSortSelected 只让网格自己刷新，不会重建本页；
+      // chip 上的当前排序标签必须跟着改。
+      setState(() {});
+    });
+  }
+
+  /// B · 第一行：阅读状态筛选常驻 + 独立的排序 chip + 结果数/重置。
+  /// 第二行右侧：发现页同款的一键布局切换固定在首位，多选 / 管理文件夹 /
+  /// 删除文件夹平铺成常驻按钮（+ 网络文件夹的同步 Flyout），不再藏在 ⋮
+  /// 里；筛选交给第一行 chip 与「重置」。
+  Widget _buildFilterChips() {
+    return KcFilterChipRow(
+      chips: [
+        for (final f in readFilterList)
+          KcFilterChipData(
+            label: f.tl,
+            selected: readFilterSelect == f,
+            onTap: () => _pickReadFilter(f),
+          ),
+        KcFilterChipData(
+          label: _sortLabel(_sortKey),
+          selected: false,
+          showArrow: true,
+          onTap: _showSortDialog,
+        ),
+      ],
+      resultCount: _visibleCount,
+      onReset: readFilterSelect == readFilterList[0] ? null : _clearFilter,
+      actions: _actionItems(),
+      fixedActions: _fixedChipRowActions(),
+    );
+  }
+
+  String _sortLabel(String key) => switch (key) {
+    'manual' => "Manual order".tl,
+    'name' => "By title".tl,
+    _ => "Recently favorited".tl,
+  };
+
+  void _pickReadFilter(String f) {
+    if (f == readFilterSelect) return;
+    setState(() => readFilterSelect = f);
+    appdata.implicitData["local_favorites_read_filter"] = f;
+    appdata.writeImplicitData();
+    _invalidateVisible();
+    // 从「全部」切到带筛选会让 _usePagination 翻转：分页模式里 comics 是空的
+    // （initState 的 updateComics 会提前返回），必须按新视图重新加载全量；
+    // 反向切回「全部」则让分页网格自己重载。
+    if (_usePagination) {
+      _gridKey.currentState?.refresh();
+    } else {
+      updateComics();
+    }
+  }
+
+  /// 阅读状态筛选的单选弹窗：chip 行之外的备用路径，确认才落盘、可反悔。
+  /// D · 下拉刷新：重载当前文件夹数据（原先「更新漫画信息」在管理弹窗里
+  /// 仍有可见入口，没有因为加了手势就把它藏掉）。
+  Future<void> _onPullRefresh() async {
+    updateComics();
+    _invalidateVisible();
+    if (mounted) setState(() {});
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+  }
+
+  void _exitMultiSelect() {
+    setState(() {
+      multiSelectMode = false;
+      selectedComics.clear();
+    });
   }
 
   @override
@@ -677,8 +830,18 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     // 空态判定与网格共用同一份列表：原实现在 build 里调了两次 filterComics，
     // 每次都批量查历史 + 逐本查下载状态（多选点一下 = 两轮全量 DB）。
     final visible = _usePagination ? const <FavoriteItem>[] : _visibleComics;
-    Widget body = SmoothCustomScrollView(
+    // 方案 D：下拉刷新重载当前文件夹；「更新漫画信息」仍留在管理弹窗里，
+    // 不因为加了手势就把重操作藏起来。
+    Widget body = RefreshIndicator(
+      onRefresh: _onPullRefresh,
+      child: SmoothCustomScrollView(
       controller: widget.controller,
+      // 空文件夹也要能下拉刷新；末尾留白避开浮岛 dock 与多选贴底工具条。
+      alwaysScrollable: true,
+      bottomPadding:
+          kcPageBottomInset(context) +
+          kcDockedToolbarLift +
+          (multiSelectMode ? kcMinTapTarget + kcSpaceMd : 0.0),
       slivers: [
         // 文件夹胶囊条：常驻顶栏下方（pinned），滚到列表深处也能直接换文件夹。
         // 共享顶栏接管后它就是首个 sliver，自动贴在共享栏下面。
@@ -687,11 +850,11 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             pinned: true,
             delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
           ),
-        // 筛选提示条：筛选条件会持久化，下次进来依然生效，而侧栏文件夹上的
-        // 数字是总数、不受筛选影响。没有这条提示时「明明有 20 本却只看到 3 本」
-        // 会被当成丢数据。
-        if (!multiSelectMode && readFilterSelect != readFilterList[0])
-          SliverToBoxAdapter(child: _filterBanner()),
+        // 方案 B：筛选状态常驻的 chip 行（选中态 + 结果数 + 重置），取代
+        // 原来只在筛选生效时才出现的单行提示条 —— 提示条只说「正在筛选」，
+        // 不说「按什么筛」，关掉弹窗后当前条件仍然没有文字证据。
+        if (!multiSelectMode)
+          SliverToBoxAdapter(child: _buildFilterChips()),
         // 方案 A 的「收藏空间导航」入口卡放在总览（favorites_page
         // _buildOverview）顶部；「全部」等具体文件夹视图直接进内容。
         if (_usePagination)
@@ -725,6 +888,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             onLongPressed: (c, heroID) => _handleLongPress(c, heroID),
           ),
       ],
+      ),
     );
     body = AppScrollBar(
       topPadding: 48,
@@ -751,7 +915,24 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             favPage.setFolder(false, null);
           }
         },
-        child: body,
+        child: Stack(
+          children: [
+            body,
+            // 方案 C：多选态动作不再挂在右上角，改为贴底工具条（浮岛 dock
+            // 上方），与历史页同一套语言。
+            if (multiSelectMode)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: kcPageBottomInset(context) + kcDockedToolbarLift,
+                child: KcDockedToolbar(
+                  selectedCount: selectedComics.length,
+                  actions: _multiSelectActions(),
+                  onExit: _exitMultiSelect,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -927,186 +1108,151 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     _cancel();
   }
 
-  /// 「更多」菜单顶部的排序分段控件：一行三段替代原先 3 行「圆圈打勾」项。
-  /// 排序是单选状态而非动作，分段控件才是它的正确形态；选中段用品牌色实底。
-  Widget _sortSegmentRow(String current) {
-    final cs = Theme.of(context).colorScheme;
-    Widget seg(String value, String label) {
-      final selected = current == value;
-      return Expanded(
-        child: Material(
-          color: selected
-              ? kcBrandAdaptive(context)
-              : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(kcRadius8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(kcRadius8),
-            onTap: () {
-              // 分段控件吃掉了手势，包裹层 MenuEntry.custom 的关闭逻辑不会触发；
-              // 手动关掉菜单再应用排序（与其他菜单项行为一致）。
-              Navigator.of(context, rootNavigator: true).pop();
-              _onSortSelected(value);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: kcCaption,
-                  fontWeight: FontWeight.w500,
-                  height: 1.0,
-                  color: selected ? kcOnAccentColor : cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        seg('manual', "Manual order".tl),
-        const SizedBox(width: 4),
-        seg('recent', "Recently favorited".tl),
-        const SizedBox(width: 4),
-        seg('name', "By title".tl),
-      ],
-    );
-  }
-
   /// 当前收藏排序键（manual / recent / name）。
   String get _sortKey =>
       (appdata.settings['favoriteSort'] as String?) ?? 'recent';
 
-  /// 「更多」菜单项：分组为「视图 → 文件夹管理 → 危险操作」，组间用分隔线隔开，
-  /// 删除文件夹前后都有线隔离。
-  ///
-  /// 排序（单选状态）此前是工具条直显按钮，六个槽位在窄屏把标题压没，
-  /// 现收进「更多」的首项：单选分段仍可直接点，不增加一层弹窗。
-  List<MenuEntry> _buildMoreEntries() {
-    return [
-      MenuEntry.custom(_sortSegmentRow(_sortKey)),
-      MenuEntry(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedFilter, size: 18),
-        text: "Filter".tl,
-        onClick: () {
-          showDialog(
-            context: context,
-            builder: (context) {
-              return _LocalFavoritesFilterDialog(
-                initReadFilterSelect: readFilterSelect,
-                updateConfig: (readFilter) {
-                  setState(() {
-                    readFilterSelect = readFilter;
-                  });
-                  updateComics();
-                },
-              );
-            },
-          );
-        },
-      ),
-      // 文件夹管理只在具体文件夹视图有意义；「全部」是跨表虚拟视图。
-      if (!isAllFolder) ...[
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
-          text: "Rename".tl,
-          onClick: () {
-            showInputDialog(
-              context: App.rootContext,
+  /// 文件夹管理子页（弹窗形态）：重命名 / 手动排序 / 导出 / 更新信息 / 删除。
+  /// 用 ContentDialog + KcListTile，与「导入方式」等选择弹窗同一套语言；
+  /// 点任一项先关弹窗再执行，避免重命名 / 删除的确认框叠在本弹窗上面。
+  void _showFolderManageDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => ContentDialog(
+        title: "Manage Folder".tl,
+        subtitle: widget.folder,
+        headerIcon: HugeIcons.strokeRoundedFolder01,
+        showClose: false,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _folderManageTile(
+              icon: HugeIcons.strokeRoundedEdit01,
               title: "Rename".tl,
-              hintText: "New Name".tl,
-              onConfirm: (value) {
-                var err = validateFolderName(value.toString());
-                if (err != null) {
-                  return err;
-                }
-                LocalFavoritesManager().rename(widget.folder, value.toString());
-                BookshelfLayout.onFolderRenamed(
-                  widget.folder,
-                  value.toString(),
-                );
-                favPage.folderList?.updateFolders();
-                favPage.setFolder(false, value.toString());
-                return null;
-              },
-            );
-          },
+              onTap: _renameFolder,
+            ),
+            _folderManageTile(
+              icon: HugeIcons.strokeRoundedArrange,
+              title: "Reorder".tl,
+              onTap: _reorderFolderComics,
+            ),
+            _folderManageTile(
+              icon: HugeIcons.strokeRoundedUpload01,
+              title: "Export".tl,
+              onTap: _exportFolder,
+            ),
+            _folderManageTile(
+              icon: HugeIcons.strokeRoundedRefresh,
+              title: "Update Comics Info".tl,
+              onTap: _refreshFolderComicsInfo,
+            ),
+            const KcRowDivider(),
+            _folderManageTile(
+              icon: HugeIcons.strokeRoundedDelete01,
+              title: "Delete Folder".tl,
+              color: context.colorScheme.error,
+              onTap: _deleteFolder,
+            ),
+          ],
         ),
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrange, size: 18),
-          text: "Reorder".tl,
-          onClick: () {
-            context
-                .to(
-                  () => _ReorderComicsPage(widget.folder, (comics) {
-                    this.comics = comics;
-                    // 手动排序改了数据源，筛选缓存必须失效，
-                    // 否则带筛选时看到的还是旧顺序。
-                    _invalidateVisible();
-                  }),
-                )
-                .then((value) {
-                  if (mounted) {
-                    setState(() {});
-                  }
-                });
-          },
-        ),
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 18),
-          text: "Export".tl,
-          onClick: () {
-            var json = LocalFavoritesManager().folderToJson(widget.folder);
-            saveFile(
-              data: utf8.encode(json),
-              filename: "${widget.folder}.json",
-            );
-          },
-        ),
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-          text: "Update Comics Info".tl,
-          onClick: () {
-            updateComicsInfo(widget.folder).then((newComics) {
-              if (mounted) {
-                setState(() {
-                  comics = newComics;
-                  // 同上：数据源整体换了一份，筛选缓存要跟着重算。
-                  _invalidateVisible();
-                });
-              }
-            });
-          },
-        ),
-        MenuEntry.divider(),
-        MenuEntry(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-          text: "Delete Folder".tl,
-          color: context.colorScheme.error,
-          onClick: () {
-            showConfirmDialog(
-              context: App.rootContext,
-              title: "Delete".tl,
-              content: "Delete folder '@f' ?".tlParams({"f": widget.folder}),
-              btnColor: context.colorScheme.error,
-              onConfirm: () {
-                favPage.setFolder(false, null);
-                LocalFavoritesManager().deleteFolder(widget.folder);
-                favPage.folderList?.updateFolders();
-              },
-            );
-          },
-        ),
-      ],
-    ];
+        actions: [
+          Button.text(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text("Cancel".tl),
+          ),
+        ],
+      ),
+    );
   }
 
-  /// 清除阅读状态筛选（提示条 / 空态按钮共用）。
+  Widget _folderManageTile({
+    required List<List<dynamic>> icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    return KcListTile(
+      leading: HugeIcon(icon: icon, size: 18, color: color),
+      title: Text(
+        title,
+        style: TextStyle(fontSize: kcBody, color: color),
+      ),
+      onTap: () {
+        Navigator.of(context).pop();
+        onTap();
+      },
+      showDivider: false,
+    );
+  }
+
+  void _renameFolder() {
+    showInputDialog(
+      context: App.rootContext,
+      title: "Rename".tl,
+      hintText: "New Name".tl,
+      onConfirm: (value) {
+        var err = validateFolderName(value.toString());
+        if (err != null) {
+          return err;
+        }
+        LocalFavoritesManager().rename(widget.folder, value.toString());
+        BookshelfLayout.onFolderRenamed(widget.folder, value.toString());
+        favPage.folderList?.updateFolders();
+        favPage.setFolder(false, value.toString());
+        return null;
+      },
+    );
+  }
+
+  void _reorderFolderComics() {
+    context
+        .to(
+          () => _ReorderComicsPage(widget.folder, (comics) {
+            this.comics = comics;
+            // 手动排序改了数据源，筛选缓存必须失效，
+            // 否则带筛选时看到的还是旧顺序。
+            _invalidateVisible();
+          }),
+        )
+        .then((value) {
+          if (mounted) {
+            setState(() {});
+          }
+        });
+  }
+
+  void _exportFolder() {
+    var json = LocalFavoritesManager().folderToJson(widget.folder);
+    saveFile(data: utf8.encode(json), filename: "${widget.folder}.json");
+  }
+
+  void _refreshFolderComicsInfo() {
+    updateComicsInfo(widget.folder).then((newComics) {
+      if (mounted) {
+        setState(() {
+          comics = newComics;
+          // 数据源整体换了一份，筛选缓存要跟着重算。
+          _invalidateVisible();
+        });
+      }
+    });
+  }
+
+  void _deleteFolder() {
+    showConfirmDialog(
+      context: App.rootContext,
+      title: "Delete".tl,
+      content: "Delete folder '@f' ?".tlParams({"f": widget.folder}),
+      btnColor: context.colorScheme.error,
+      onConfirm: () {
+        favPage.setFolder(false, null);
+        LocalFavoritesManager().deleteFolder(widget.folder);
+        favPage.folderList?.updateFolders();
+      },
+    );
+  }
+
+  /// 清除阅读状态筛选（辅助行「重置」/ 空态按钮共用）。
   void _clearFilter() {
     setState(() {
       readFilterSelect = readFilterList[0];
@@ -1114,42 +1260,8 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     appdata.implicitData["local_favorites_read_filter"] = readFilterSelect;
     appdata.writeImplicitData();
     _invalidateVisible();
-  }
-
-  /// 筛选生效时贴在文件夹胶囊条下方的常驻提示条。
-  ///
-  /// 筛选条件会持久化（implicitData），下次进来依然生效；而胶囊条上的文件夹
-  /// 数字是总数、不受筛选影响。只在空态解释「是筛掉了」不够——有结果时用户
-  /// 同样不知道自己看到的是被裁剪过的子集。这条给出「当前筛选 = X」+ 一键清除。
-  Widget _filterBanner() {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(kcSpaceLg, kcSpaceXs, kcSpaceSm, 0),
-      child: Row(
-        children: [
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedFilter,
-            size: 14,
-            color: cs.onSurfaceVariant,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              "Filtered: @v".tlParams({"v": readFilterSelect.tl}),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: kcCaption, color: cs.onSurfaceVariant),
-            ),
-          ),
-          Button.text(
-            onPressed: _clearFilter,
-            height: 32,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text("Clear".tl, style: TextStyle(fontSize: kcCaption)),
-          ),
-        ],
-      ),
-    );
+    // 切回「全部」会翻回分页视图，网格要自己重载一次。
+    if (_usePagination) _gridKey.currentState?.refresh();
   }
 
   /// 空状态：当前文件夹没有收藏时，用统一角色插画 + 引导文案取代空白。
@@ -1401,20 +1513,7 @@ class _SelectUpdatePageNumState extends State<_SelectUpdatePageNum> {
   }
 }
 
-class _LocalFavoritesFilterDialog extends StatefulWidget {
-  const _LocalFavoritesFilterDialog({
-    required this.initReadFilterSelect,
-    required this.updateConfig,
-  });
-
-  final String initReadFilterSelect;
-  final Function updateConfig;
-
-  @override
-  State<_LocalFavoritesFilterDialog> createState() =>
-      _LocalFavoritesFilterDialogState();
-}
-
+/// 阅读状态筛选的可选值（chip 行的唯一数据源）。
 const readFilterList = [
   'All',
   'Unread',
@@ -1423,30 +1522,3 @@ const readFilterList = [
   'RecentlyUpdated',
   'NotDownloaded',
 ];
-
-class _LocalFavoritesFilterDialogState
-    extends State<_LocalFavoritesFilterDialog> {
-  late var readFilter = widget.initReadFilterSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return ContentDialog(
-      title: "Filter".tl,
-      content: KcListTile(
-        title: Text("Filter reading status".tl),
-        trailing: Select(
-          current: readFilter.tl,
-          values: readFilterList.map((e) => e.tl).toList(),
-          minWidth: 120,
-          onTap: (index) {
-            final picked = readFilterList[index];
-            appdata.implicitData["local_favorites_read_filter"] = picked;
-            appdata.writeImplicitData();
-            Navigator.pop(context);
-            widget.updateConfig(picked);
-          },
-        ),
-      ),
-    );
-  }
-}

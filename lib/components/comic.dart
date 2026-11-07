@@ -76,20 +76,30 @@ ImageProvider? _findImageProvider(Comic comic) {
 ImageProvider? comicCoverImageProvider(Comic comic) =>
     _findImageProvider(comic);
 
+/// brief 模式标题字号：方案 J 的「按列宽分档」。
+///
+/// 3 列窄卡（~120dp）只能给正文档单行；2 列宽卡（~185dp）给 16sp 并放开
+/// 两行，长中文标题才不会只露出前 6 个字。极窄（<120dp）仍退回 12sp。
+double comicTileTitleFontSize(double cardWidth) => cardWidth < 120
+    ? kcCaption
+    : cardWidth < 160
+    ? kcBody
+    : kcSubtitle;
+
+/// 宽列给两行，窄列保持单行（窄卡两行会把封面压成一条）。
+int comicTileTitleMaxLines(double cardWidth) => cardWidth < 160 ? 1 : 2;
+
 /// brief 模式卡片里「封面下方标题行」的垂直开销（不含封面本身）。
 ///
 /// 收藏书架按这条公式给每个卡槽预留高度。之前书架把卡高写死成封面高，
 /// 书名叠在封面底部又被「第 X 话 · 进度」胶囊挤掉，看起来就是「名字没了、
 /// 一排下面空一大截」。字号档位与 [ComicTile] 内部保持一致，行高也统一
-/// 锁在 1.3，两端算出来的值才对得上。
+/// 锁在 1.3，两端算出来的值才对得上；J 之后宽列按两行预留。
 double comicTileTitleBlock(double cardWidth, TextScaler scaler) {
-  final fontSize = cardWidth < 120
-      ? kcCaption
-      : cardWidth < 150
-      ? kcBody
-      : kcFont15;
-  // 上内边距 4 + 一行文字。
-  return 4 + scaler.scale(fontSize) * 1.3;
+  final fontSize = comicTileTitleFontSize(cardWidth);
+  // 上内边距 4 + 标题行数 × 一行文字。
+  return 4 +
+      scaler.scale(fontSize) * 1.3 * comicTileTitleMaxLines(cardWidth);
 }
 
 class ComicTile extends StatelessWidget {
@@ -669,13 +679,10 @@ class ComicTile extends StatelessWidget {
         // 折角随封面宽度缩放（网格卡座的 padding 左右各 6，实际封面更窄，
         // 但同一档位下的比例关系不变，没必要在这里再减）。
         final badgeSize = _favoriteBadgeSize(constraints.maxWidth);
-        // 网格卡宽决定标题字号：三列窄卡（~137dp）用 15sp 中文只放得下 6 个字，
-        // 几乎每条都被截；降到正文档后同一屏能读全更多标题。
-        final titleFont = constraints.maxWidth < 120
-            ? kcCaption
-            : constraints.maxWidth < 150
-            ? kcBody
-            : kcFont15;
+        // 方案 J：字号与行数都按列宽分档，和 [comicTileTitleBlock] 同源，
+        // 收藏书架预留的槽位高度才不会和这里实际画出来的标题对不上。
+        final titleFont = comicTileTitleFontSize(constraints.maxWidth);
+        final titleMaxLines = comicTileTitleMaxLines(constraints.maxWidth);
         final favBadge = isFavorite
             ? Positioned.fill(
                 // 角标要「长在」封面上：按封面同款圆角裁一刀，折角的尖
@@ -936,7 +943,7 @@ class ComicTile extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(kcSpaceXs, kcSpaceXs, kcSpaceXs, 0),
                   child: Text(
                     comic.title.replaceAll('\n', ''),
-                    maxLines: 1,
+                    maxLines: titleMaxLines,
                     // clip 会把字从中间劈开（「美奈酱与千寻姊」截在笔画上），
                     // 窄卡更常见；改省略号，截断位置看起来是排版而非故障。
                     overflow: TextOverflow.ellipsis,

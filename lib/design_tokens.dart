@@ -261,6 +261,37 @@ const double kcSpaceMd = 12;
 const double kcSpaceLg = 16;
 const double kcSpace18 = 18;
 
+// ── 单选 / 筛选弹窗（KcChoiceDialog）────────────────────
+// 参考式样：大圆角浅色卡 + 左上粗标题 + 红色单选圈 + 右下红色胶囊「确认」。
+// 集中成令牌，避免本地 / 图片收藏 / 收藏 / 历史各自写一套 padding 与圆角。
+//
+// 实拍收紧（v1.5.20 之后）：选项 20sp / 60dp + 12dp 行距在 411dp 手机上
+// 偏大偏散，5 项一列就把整张卡顶满屏幕；降一档到 16sp / 48dp，把「靠留白
+// 分开」换成「选中行淡色底 + 4dp 呼吸」，标题与确认按钮同步缩小。参考图的
+// 大圆角 / 红色圆环 / 红色全圆胶囊三个记忆点全部保留。
+const double kcDialogInset = 22;
+/// 弹窗外框统一走 [kcSurfaceRadius]：ContentDialog / LoadingDialog /
+/// QuickSearchDialog / 全局 dialogTheme 都是 24dp，单选弹窗原来单独用 28dp，
+/// 实拍里与相邻弹窗并排时四个角的弧度差一档。现在所有居中弹窗四角同弧。
+const double kcDialogRadius = kcSurfaceRadius;
+const double kcChoiceDialogMaxWidth = 420;
+const double kcDialogOptionHeight = 48;
+const double kcDialogRowGap = 4;
+const double kcDialogTabHeight = 40;
+const double kcDialogConfirmHeight = 44;
+const double kcDialogConfirmPadding = 22;
+const double kcRadioOuter = 18;
+const double kcRadioInner = 8;
+const double kcRadioRingSelected = 2.5;
+const double kcRadioRingIdle = 1.5;
+
+/// 主页堆叠卡左右边缘的淡出比例：把 Clip.hardEdge 的竖直硬切化为渐隐。
+///
+/// 旧值 0.04 在 1080p 上约 43px（≈16dp），会把刚贴到屏边的最外侧装饰卡
+/// 整片淡掉，反而强化「卡片没画满」的观感。收到 1.5%（1080p ≈ 16px / 6dp）
+/// 只软化那道切口，卡片本体保持不透明；与自适应 overlap 配合才是「满框」。
+const double kcStackEdgeFade = 0.015;
+
 /// 分区头与上一块内容的竖向间距。
 ///
 /// [kcSectionGapWide] 是既有值（收藏页两个分区头原先写死的 28dp），宽屏 /
@@ -291,6 +322,34 @@ const double kcContentMaxWidth = 900;
 /// 按可用宽度求统一内容列宽：全宽与 [kcContentMaxWidth] 取小。
 double kcPageContentWidth(double availableWidth) =>
     availableWidth < kcContentMaxWidth ? availableWidth : kcContentMaxWidth;
+
+// ── 方案 J：brief 网格列宽基准 ───────────────────────────
+/// 竖屏手机档的列宽基准。旧值是固定 150dp，411dp 屏被切成 3 列、封面只剩
+/// 约 137dp。方案书按「内容区 371dp」估算给 192dp，但实拍发现
+/// `SliverGrid` 的 crossAxisExtent 拿的是整列 411dp（左右留白由卡片自己
+/// 内缩），192 / 200 都会算出 ceil(411/200)=3 列。216dp 才是真机上稳定
+/// 2 列的门槛：封面 137 → 205dp，标题同步拿到 16sp 两行。
+const double kcGridExtentPhone = 216;
+
+/// 平板 / 横屏档：内容列已被 [kcContentMaxWidth] 收在 900dp 内，按 180dp
+/// 基准自然排到 4～6 列，不再跟着手机一起变疏。
+const double kcGridExtentTablet = 180;
+
+/// 短边 600dp 是 Compact / Medium 的分界，与 [kcSectionGap] 同源。
+const double kcGridCompactBreakpoint = 600;
+
+/// 方案 J 的关键一行：列宽基准随「可用宽度分档 + 系统字号」联动。
+///
+/// `textScale` 由 `SliverGridDelegateWithComics` 从 MediaQuery 传入；大字号
+/// 时基准同比放大，列数自动退让（例如平板 5 列 → 4 列），不会把标题挤成
+/// 一行省略号。`clamp(1.0, 1.3)` 把系统字号的极端值挡掉，避免 2.0 档把
+/// 网格压成单列。返回值还要再乘用户设置里的 `comicTileScale`。
+double kcGridBaseExtent(double widthDp, double textScale) {
+  final base = widthDp < kcGridCompactBreakpoint
+      ? kcGridExtentPhone
+      : kcGridExtentTablet;
+  return base * textScale.clamp(1.0, 1.3).toDouble();
+}
 
 /// 二级页返回键图标大小。此前搜索页 / 设置页是 22、标准 Appbar 是 18、
 /// 还有一处原生 `BackButton()`，三套并存。全库统一到这一档。

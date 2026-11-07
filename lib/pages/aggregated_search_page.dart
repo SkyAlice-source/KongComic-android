@@ -372,62 +372,61 @@ class _AggregatedResults extends StatelessWidget {
   }
 
   void _showSourcePicker(BuildContext context, _DedupedComic entry) {
-    showModalBottomSheet(
+    // 与 search_page 的选择面板共用四面全圆的浮起卡片外壳。
+    showKcFloatingSheet(
       context: context,
       useRootNavigator: true,
-      showDragHandle: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(kcSurfaceRadius),
-        ),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(kcSpaceLg),
-              child: Text(
-                entry.representative.title,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              kcSpaceLg,
+              kcSpaceXs,
+              kcSpaceLg,
+              kcSpaceLg,
             ),
-            const Divider(height: 1),
-            ...entry.sources.map((c) {
-              final source = ComicSource.find(c.sourceKey);
-              return KcListTile(
-                showDivider: c != entry.sources.last,
-                leading: SizedBox(
-                  width: 36,
-                  height: 48,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(kcRadius8),
-                    child: CachedNetworkImage(
-                      imageUrl: c.cover,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: context.colorScheme.surfaceContainerLow,
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        color: context.colorScheme.surfaceContainerLow,
-                      ),
+            child: Text(
+              entry.representative.title,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const Divider(height: 1),
+          ...entry.sources.map((c) {
+            final source = ComicSource.find(c.sourceKey);
+            return KcListTile(
+              showDivider: c != entry.sources.last,
+              leading: SizedBox(
+                width: 36,
+                height: 48,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(kcRadius8),
+                  child: CachedNetworkImage(
+                    imageUrl: c.cover,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(
+                      color: context.colorScheme.surfaceContainerLow,
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      color: context.colorScheme.surfaceContainerLow,
                     ),
                   ),
                 ),
-                title: Text(source?.name ?? c.sourceKey),
-                subtitle: c.subtitle?.isNotEmpty == true
-                    ? Text(c.subtitle!)
-                    : null,
-                chevron: true,
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _openDetail(c, -1);
-                },
-              );
-            }),
-          ],
-        ),
+              ),
+              title: Text(source?.name ?? c.sourceKey),
+              subtitle: c.subtitle?.isNotEmpty == true
+                  ? Text(c.subtitle!)
+                  : null,
+              chevron: true,
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _openDetail(c, -1);
+              },
+            );
+          }),
+          const SizedBox(height: kcSpaceSm),
+        ],
       ),
     );
   }

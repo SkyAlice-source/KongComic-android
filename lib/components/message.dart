@@ -626,7 +626,7 @@ class ContentDialog extends StatelessWidget {
     required this.content,
     this.dismissible = true,
     this.actions = const [],
-    this.showClose = true,
+    this.showClose = false,
     this.contentPadding,
   });
 
@@ -634,10 +634,10 @@ class ContentDialog extends StatelessWidget {
 
   /// 可选：标题下方的一行说明（如「选择导入方式」）。
   ///
-  /// 传了它或 [headerIcon] 之后，标题栏会从「×+标题」切换成
-  /// 「图标徽章 + 标题 + 说明」的富头部：纯选择类弹窗里左上角的 × 只是
-  /// 第三个关闭入口（点遮罩、返回键都能退），却把标题挤到一边、顶部左重右空。
-  /// 换成徽章后顶部有了视觉锚点，这类弹窗建议同时传 `showClose: false`。
+  /// 传了它或 [headerIcon] 之后，标题栏会从「纯标题」切换成
+  /// 「图标徽章 + 标题 + 说明」的富头部：弹窗点遮罩、按返回键都能退，不需要
+  /// 再放第三个关闭入口；去掉 × 后标题靠左、与正文同一条起始线，顶部不再
+  /// 左重右空。徽章只是给这类选择弹窗补一个视觉锚点。
   final String? subtitle;
 
   /// 可选：标题栏左侧的图标徽章（品牌红薄染底 + 品牌色图标）。
@@ -651,8 +651,11 @@ class ContentDialog extends StatelessWidget {
 
   final bool dismissible;
 
-  /// 是否显示标题栏左侧的关闭（×）按钮。进度类对话框（底部已有取消/确认按钮）可设
-  /// false 避免两个关闭入口重复。
+  /// 是否显示标题栏的关闭（×）按钮，默认**不显示**。
+  ///
+  /// 弹窗点遮罩 / 返回键即可退出，× 只是第三个关闭入口，还会把标题挤到一边、
+  /// 与正文的左缘错开。只有极少数 `barrierDismissible: false` 且没有底部按钮、
+  /// 必须给一个显式关闭入口的弹窗才需要传 `true`。
   final bool showClose;
 
   /// 对话框正文的水平内边距。
@@ -747,9 +750,14 @@ class ContentDialog extends StatelessWidget {
               _buildRichHeader(context)
             else
               Padding(
-                // 关闭键左内边距收到 8：图标自带的点击热区已经是一圈留白，
-                // 再叠 16 会让标题被推得离边缘太远，正文与标题的左缘也错开。
-                padding: const EdgeInsets.fromLTRB(kcSpaceSm, 10, kcSpaceLg, 0),
+                // 默认无 ×：标题左缘与正文（contentPadding: hPadding）对齐到 16；
+                // 极少数显式开 showClose 的弹窗才退回 8，给图标热区留出余量。
+                padding: EdgeInsets.fromLTRB(
+                  showClose ? kcSpaceSm : kcSpaceLg,
+                  10,
+                  kcSpaceLg,
+                  0,
+                ),
                 child: Row(
                   children: [
                     if (showClose)
@@ -951,64 +959,17 @@ Future<int?> showSelectDialog({
   required String title,
   required List<String> options,
   int? initialIndex,
-}) async {
-  int? current = initialIndex;
-
-  await showDialog(
+}) {
+  // 参考式样：下拉 Select 换成整列单选 + 右下红色胶囊「确认」。
+  // 调用方（设置页 / JS UI）不用改：返回仍是选中的下标，取消 / 点遮罩为 null。
+  return showKcRadioDialog<int>(
     context: App.rootContext,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return ContentDialog(
-            title: title,
-            content: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpaceMd),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Select(
-                    current: current == null ? "" : options[current!],
-                    values: options,
-                    minWidth: 156,
-                    onTap: (i) {
-                      setState(() {
-                        current = i;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              Button.text(
-                onPressed: () {
-                  current = null;
-                  context.pop();
-                },
-                child: Text('Cancel'.tl),
-              ),
-              const SizedBox(width: kcSpaceSm),
-              Button.filled(
-                // 未选时置灰 + 空操作，保留「必须先选再确认」的语义；
-                // 选中后恢复品牌色并真正关闭。
-                color: current == null
-                    ? Theme.of(
-                        context,
-                      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
-                    : null,
-                onPressed: () {
-                  if (current != null) context.pop();
-                },
-                child: Text('Confirm'.tl),
-              ),
-            ],
-          );
-        },
-      );
-    },
+    title: title,
+    initial: initialIndex,
+    options: [
+      for (var i = 0; i < options.length; i++) (value: i, label: options[i]),
+    ],
   );
-
-  return current;
 }
 
 /// 「保存图片」对话框的返回结果：文件名（不含扩展名）+ 输出格式。

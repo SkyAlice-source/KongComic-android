@@ -2,6 +2,7 @@ import 'dart:isolate';
 
 import 'package:flutter/material.dart';
 import 'package:kong_comic/components/components.dart';
+import 'package:kong_comic/components/quick_search.dart';
 import 'package:kong_comic/foundation/app.dart';
 import 'package:kong_comic/foundation/appdata.dart';
 import 'package:kong_comic/foundation/comic_source/comic_source.dart';
@@ -32,10 +33,6 @@ class _LocalComicsPageState extends State<LocalComicsPage>
     with AutoListenMixin {
   late LocalSortType sortType;
 
-  String keyword = "";
-
-  bool searchMode = false;
-
   bool multiSelectMode = false;
 
   Map<LocalComic, bool> selectedComics = {};
@@ -48,20 +45,14 @@ class _LocalComicsPageState extends State<LocalComicsPage>
   final _gridKey = GlobalKey<PaginatedSliverGridComicsState>();
 
   /// Page loader for PaginatedSliverGridComics.
+  /// 搜索统一走速搜浮层（搜到即点开阅读器），网格自身只按当前排序分页，
+  /// 不再因为关键词切换整份数据源重建。
   Future<List<Comic>> _loadPage(int offset, int limit) async {
-    if (keyword.isEmpty) {
-      return LocalManager().getComicsPaginated(
-        sortType,
-        limit: limit,
-        offset: offset,
-      );
-    } else {
-      return LocalManager().searchPaginated(
-        keyword,
-        limit: limit,
-        offset: offset,
-      );
-    }
+    return LocalManager().getComicsPaginated(
+      sortType,
+      limit: limit,
+      offset: offset,
+    );
   }
 
   void update() {
@@ -162,119 +153,25 @@ class _LocalComicsPageState extends State<LocalComicsPage>
   }
 
   void sort() {
-    final scheme = context.colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final reduceMotion = kcReduceMotion(context);
-    showGeneralDialog(
+    // 参考式样弹窗：大圆角卡 + 红色单选圈 + 右下胶囊「确认」。
+    // 旧版是 showGeneralDialog + 原生 RadioListTile + Button.filled，
+    // 与图片收藏排序 / 收藏筛选各写一套外观；现在统一到 KcChoiceDialog。
+    showKcRadioDialog<LocalSortType>(
       context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.42),
-      transitionDuration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 220),
-      pageBuilder: (dialogContext, _, __) {
-        return StatefulBuilder(
-          builder: (ctx, setState) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 320),
-                  child: Material(
-                    color: scheme.surfaceContainerHigh,
-                    elevation: 3,
-                    shadowColor: scheme.shadow.withValues(alpha: 0.18),
-                    clipBehavior: Clip.antiAlias,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(kcSurfaceRadius),
-                      side: BorderSide(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.black.withValues(alpha: 0.06),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, kcSpaceLg, kcSpaceLg, kcSpace6),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              "Sort".tl,
-                              style: Theme.of(ctx).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ),
-                        RadioGroup<LocalSortType>(
-                          groupValue: sortType,
-                          onChanged: (v) {
-                            setState(() {
-                              sortType = v ?? sortType;
-                            });
-                          },
-                          child: Column(
-                            children: [
-                              RadioListTile<LocalSortType>(
-                                title: Text("Name".tl),
-                                value: LocalSortType.name,
-                              ),
-                              RadioListTile<LocalSortType>(
-                                title: Text("Date".tl),
-                                value: LocalSortType.timeAsc,
-                              ),
-                              RadioListTile<LocalSortType>(
-                                title: Text("Date Desc".tl),
-                                value: LocalSortType.timeDesc,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(kcSpaceMd, kcSpaceXs, kcSpaceMd, kcSpaceMd),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Button.filled(
-                                onPressed: () {
-                                  appdata.implicitData["local_sort"] =
-                                      sortType.value;
-                                  appdata.writeImplicitData();
-                                  ctx.pop();
-                                  update();
-                                },
-                                child: Text("Confirm".tl),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-      transitionBuilder: (context, animation, _, child) {
-        if (reduceMotion) return child;
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.93, end: 1).animate(curved),
-            child: child,
-          ),
-        );
-      },
-    );
+      title: "Sort".tl,
+      initial: sortType,
+      options: [
+        (value: LocalSortType.name, label: "Name".tl),
+        (value: LocalSortType.timeAsc, label: "Date".tl),
+        (value: LocalSortType.timeDesc, label: "Date Desc".tl),
+      ],
+    ).then((picked) {
+      if (picked == null || !mounted) return;
+      sortType = picked;
+      appdata.implicitData["local_sort"] = picked.value;
+      appdata.writeImplicitData();
+      update();
+    });
   }
 
   Widget buildMultiSelectMenu() {
@@ -331,17 +228,10 @@ class _LocalComicsPageState extends State<LocalComicsPage>
   void selectAll() {
     // Load all comics for selection. This is a one-time operation
     // triggered by the user, not in the scroll path.
-    if (keyword.isEmpty) {
-      final allComics = LocalManager().getComics(sortType);
-      setState(() {
-        selectedComics = allComics.asMap().map((k, v) => MapEntry(v, true));
-      });
-    } else {
-      final allComics = LocalManager().search(keyword);
-      setState(() {
-        selectedComics = allComics.asMap().map((k, v) => MapEntry(v, true));
-      });
-    }
+    final allComics = LocalManager().getComics(sortType);
+    setState(() {
+      selectedComics = allComics.asMap().map((k, v) => MapEntry(v, true));
+    });
   }
 
   void deSelect() {
@@ -441,15 +331,13 @@ class _LocalComicsPageState extends State<LocalComicsPage>
     ];
 
     List<Widget> normalActions = [
+      // 与收藏页同一个速搜浮层，只是数据源换成本地漫画。
       Tooltip(
         message: "Search".tl,
         child: IconButton(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch02, size: 18),
-          onPressed: () {
-            setState(() {
-              searchMode = true;
-            });
-          },
+          onPressed: () =>
+              showQuickSearch(context, scope: QuickSearchScope.local),
         ),
       ),
       Tooltip(
@@ -492,83 +380,37 @@ class _LocalComicsPageState extends State<LocalComicsPage>
     var body = Scaffold(
       body: SmoothCustomScrollView(
         slivers: [
-          if (!searchMode)
-            SliverAppbar(
-              leading: Tooltip(
-                message: multiSelectMode ? "Cancel".tl : "Back".tl,
-                child: IconButton(
-                  onPressed: () {
-                    if (multiSelectMode) {
-                      setState(() {
-                        multiSelectMode = false;
-                        selectedComics.clear();
-                      });
-                    } else {
-                      context.pop();
-                    }
-                  },
-                  icon: multiSelectMode
-                      ? HugeIcon(
-                          icon: HugeIcons.strokeRoundedCancel01,
-                          size: 18,
-                        )
-                      : HugeIcon(
-                          icon: HugeIcons.strokeRoundedArrowLeft01,
-                          size: 18,
-                        ),
-                ),
-              ),
-              title: multiSelectMode
-                  ? Text(selectedComics.length.toString())
-                  : Text("Local".tl),
-              actions: multiSelectMode ? selectActions : normalActions,
-            )
-          else if (searchMode)
-            SliverAppbar(
-              leading: Tooltip(
-                message: multiSelectMode ? "Cancel".tl : "Cancel".tl,
-                child: IconButton(
-                  icon: multiSelectMode
-                      ? HugeIcon(
-                          icon: HugeIcons.strokeRoundedCancel01,
-                          size: 18,
-                        )
-                      : HugeIcon(
-                          icon: HugeIcons.strokeRoundedCancel01,
-                          size: 18,
-                        ),
-                  onPressed: () {
-                    if (multiSelectMode) {
-                      setState(() {
-                        multiSelectMode = false;
-                        selectedComics.clear();
-                      });
-                    } else {
-                      setState(() {
-                        searchMode = false;
-                        keyword = "";
-                        update();
-                      });
-                    }
-                  },
-                ),
-              ),
-              title: multiSelectMode
-                  ? Text(selectedComics.length.toString())
-                  : TextField(
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText: "Search".tl,
-                        border: InputBorder.none,
+          SliverAppbar(
+            leading: Tooltip(
+              message: multiSelectMode ? "Cancel".tl : "Back".tl,
+              child: IconButton(
+                onPressed: () {
+                  if (multiSelectMode) {
+                    setState(() {
+                      multiSelectMode = false;
+                      selectedComics.clear();
+                    });
+                  } else {
+                    context.pop();
+                  }
+                },
+                icon: multiSelectMode
+                    ? HugeIcon(
+                        icon: HugeIcons.strokeRoundedCancel01,
+                        size: 18,
+                      )
+                    : HugeIcon(
+                        icon: HugeIcons.strokeRoundedArrowLeft01,
+                        size: 18,
                       ),
-                      onChanged: (v) {
-                        keyword = v;
-                        update();
-                      },
-                    ),
-              actions: multiSelectMode ? selectActions : null,
+              ),
             ),
-          if (!searchMode) SliverToBoxAdapter(child: _buildDownloadEntry()),
+            title: multiSelectMode
+                ? Text(selectedComics.length.toString())
+                : Text("Local".tl),
+            actions: multiSelectMode ? selectActions : normalActions,
+          ),
+          SliverToBoxAdapter(child: _buildDownloadEntry()),
           PaginatedSliverGridComics(
             key: _gridKey,
             pageLoader: _loadPage,
@@ -648,19 +490,13 @@ class _LocalComicsPageState extends State<LocalComicsPage>
     // 库页面不显示「已收藏」角标（见 FavoriteBadgeScope 文档）。
     return FavoriteBadgeScope.disabled(
       child: PopScope(
-        canPop: !multiSelectMode && !searchMode,
+        canPop: !multiSelectMode,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
           if (multiSelectMode) {
             setState(() {
               multiSelectMode = false;
               selectedComics.clear();
-            });
-          } else if (searchMode) {
-            setState(() {
-              searchMode = false;
-              keyword = "";
-              update();
             });
           }
         },
@@ -1029,17 +865,9 @@ class _DeleteChaptersDialogState extends State<_DeleteChaptersDialog> {
                   height: 52,
                   child: Row(
                     children: [
-                      const SizedBox(width: kcSpaceXs),
-                      IconButton(
-                        tooltip: "Cancel".tl,
-                        icon: HugeIcon(
-                          icon: HugeIcons.strokeRoundedCancel01,
-                          size: 18,
-                        ),
-                        color: scheme.onSurfaceVariant,
-                        onPressed: () => context.pop(),
-                      ),
-                      const SizedBox(width: kcSpaceXs),
+                      // 点遮罩 / 返回键即可退出，不需要再放左上角的 ×；
+                      // 标题左缘与下方 CheckboxListTile 的内容对齐。
+                      const SizedBox(width: kcSpaceLg),
                       Expanded(
                         child: Text(
                           "Delete Chapters".tl,

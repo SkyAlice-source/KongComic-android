@@ -1,5 +1,14 @@
 {
   "zh_CN": {
+    "Organize": "整理",
+    "More actions": "更多操作",
+    "Grid view": "网格",
+    "List view": "列表",
+    "Showing @c items": "显示 @c 项",
+    "Search image favorites": "搜索图片收藏",
+    "Search local comics": "搜索本地漫画",
+    "Manage Folder": "管理文件夹",
+    "@c images": "共 @c 张",
     "Previous page": "上一页",
     "Next page": "下一页",
     "No comics match the current filter": "没有符合当前筛选的漫画",
@@ -1058,6 +1067,15 @@
     "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 部作品 · @hitsCount 条结果来自 @sourceCount 个源"
   },
   "zh_TW": {
+    "Organize": "整理",
+    "More actions": "更多操作",
+    "Grid view": "網格",
+    "List view": "列表",
+    "Showing @c items": "顯示 @c 項",
+    "Search image favorites": "搜尋圖片收藏",
+    "Search local comics": "搜尋本機漫畫",
+    "Manage Folder": "管理資料夾",
+    "@c images": "共 @c 張",
     "Previous page": "上一頁",
     "Next page": "下一頁",
     "No comics match the current filter": "沒有符合目前篩選的漫畫",
@@ -2116,6 +2134,15 @@
     "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 部作品 · @hitsCount 條結果來自 @sourceCount 個源"
   },
   "ja_JP": {
+    "Organize": "整理",
+    "More actions": "その他の操作",
+    "Grid view": "グリッド",
+    "List view": "リスト",
+    "Showing @c items": "@c 件を表示",
+    "Search image favorites": "画像お気に入りを検索",
+    "Search local comics": "ローカル漫画を検索",
+    "Manage Folder": "フォルダを管理",
+    "@c images": "@c 枚",
     "Previous page": "前のページ",
     "Next page": "次のページ",
     "No comics match the current filter": "現在のフィルターに一致する漫画はありません",

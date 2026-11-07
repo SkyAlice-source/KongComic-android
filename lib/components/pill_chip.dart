@@ -18,6 +18,8 @@ class KcPillChip extends StatelessWidget {
     this.icon,
     this.height = 32,
     this.horizontalPadding = 14,
+    this.count,
+    this.showArrow = false,
   });
 
   final String label;
@@ -32,6 +34,13 @@ class KcPillChip extends StatelessWidget {
   final double height;
 
   final double horizontalPadding;
+
+  /// B · 计数徽标：书库筛选行里直接把「这个条件命中几本」写在 chip 上，
+  /// 不必再打开面板才知道结果数。
+  final int? count;
+
+  /// 排序 chip 的「可展开」提示；排序与筛选同处一行但语义独立。
+  final bool showArrow;
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +100,25 @@ class KcPillChip extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (count != null) ...[
+                    const SizedBox(width: kcSpaceXs),
+                    Text(
+                      '$count',
+                      style: TextStyle(
+                        fontSize: kcCaption,
+                        fontWeight: FontWeight.w600,
+                        color: selected ? kcOnAccentColor : cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (showArrow) ...[
+                    const SizedBox(width: kcSpaceXs),
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedArrowDown01,
+                      size: 13,
+                      color: selected ? kcOnAccentColor : cs.onSurfaceVariant,
+                    ),
+                  ],
                 ],
               ),
             ),

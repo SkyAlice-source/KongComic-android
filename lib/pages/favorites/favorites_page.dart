@@ -22,10 +22,7 @@ import 'package:kong_comic/foundation/res.dart';
 import 'package:kong_comic/network/download.dart';
 import 'package:kong_comic/network/cache.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
-import 'package:kong_comic/pages/comic_source_page.dart';
 import 'package:kong_comic/pages/explore_page.dart';
-import 'package:kong_comic/pages/image_favorites_page/image_favorites_page.dart';
-import 'package:kong_comic/pages/local_comics_page.dart';
 import 'package:kong_comic/pages/reader/reader.dart';
 import 'package:kong_comic/components/quick_search.dart';
 import 'package:kong_comic/pages/settings/settings_page.dart';
@@ -45,12 +42,23 @@ const double _kShelfBookGap = 6.0;
 /// 渐隐正好落在空白上，不会把最后一本封面擦淡）。
 const double _kShelfEdgeFade = 24.0;
 
-/// 书籍斜放角度（弧度）。负值 = 顶部向左倒，书脊落在左侧。
+/// 书籍斜放角度的基准：100dp 卡宽时为 -0.05 rad（≈2.9°，顶部向左倒）。
 ///
 /// 角度刻意压得很小：既要一眼看出「斜放」，又要让绕底边旋转之后的封面上角
 /// 仍然待在货架槽位里。历史越界 bug 的根因就是没给这点外扩留空间——
 /// 行高恰好等于封面高，旋转后的上角直接探出去压到了标题行。
-const double _kShelfLeanAngle = -0.05;
+///
+/// 方案 J 把书架卡宽从 ~97dp 放大到 120～180dp：固定角度会让顶端位移随
+/// 卡宽线性放大（rise / bleed 跟着涨，相邻书的顶角又会压叠）。改成按卡宽
+/// 反比缩放 `angle ≈ -0.05 × 100 / cardW`，各档位的倾斜位移保持恒定；
+/// clamp 只是挡住极宽 / 极窄下的数值边界。
+const double _kShelfLeanBaseAngle = -0.05;
+const double _kShelfLeanBaseWidth = 100.0;
+
+double _shelfLeanAngle(double cardW) =>
+    (_kShelfLeanBaseAngle * _kShelfLeanBaseWidth / math.max(80.0, cardW))
+        .clamp(-0.06, -0.02)
+        .toDouble();
 
 /// 绕底边中点倾斜后，封面相对原外框多占的尺寸。
 ///
@@ -75,9 +83,13 @@ class _ShelfLean {
   /// 就会被横向滚动区裁掉，圆角变成一刀切平。
   final double sink;
 
-  static _ShelfLean of({required double width, required double height}) {
-    final sin = math.sin(-_kShelfLeanAngle).abs();
-    final cos = math.cos(_kShelfLeanAngle);
+  static _ShelfLean of({
+    required double width,
+    required double height,
+    required double angle,
+  }) {
+    final sin = math.sin(-angle).abs();
+    final cos = math.cos(angle);
     // 绕底边中点旋转：最高点 = (w/2)·sinθ + h·cosθ，故相对原高多出
     // (w/2)·sinθ − h·(1−cosθ)；水平同理多出 h·sinθ − (w/2)·(1−cosθ)；
     // 最低点则比原底边低 (w/2)·sinθ。
@@ -407,9 +419,11 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
         .where((f) => !hidden.contains(f))
         .toList();
 
-    // 总览态顶栏：标题「收藏」+ 统一工具胶囊。常驻左栏移除后宽屏也走同一个
-    // 文件夹弹层，不再按宽度分档，恒为 [文件夹 | 搜索 | ⋮]；设置收进 ⋮
-    // 菜单，不再让全局裸图标散在标题旁。
+    // 总览态顶栏：标题「收藏」+ 两枚裸图标 [文件夹 | 搜索]。
+    // 不再套 [ToolsPill]：那层圆角胶囊外壳 + 发丝描边在页面上像多出一块
+    // 悬浮面板，与文件夹内页 / 历史页「一枚裸搜索」的顶栏也不成体系。
+    // 「图片收藏」入口从右上角撤掉 —— 主页 2×2 快捷入口已经有一个，
+    // 总览层不必重复占一个高频位；两枚按钮各自仍是 48dp 命中区。
     pushTopBar(
       sig: 'ov',
       title: Text(
@@ -418,47 +432,16 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
         overflow: TextOverflow.ellipsis,
       ),
       actions: [
-        ToolsPill(
-          children: [
-            ToolsPillButton(
-              icon: HugeIcons.strokeRoundedFolder01,
-              tooltip: "Folders".tl,
-              onPressed: showFolderSelector,
-            ),
-            ToolsPillButton(
-              icon: HugeIcons.strokeRoundedSearch02,
-              tooltip: "Search".tl,
-              // 速搜浮层：一处搜遍全部收藏 + 历史；网络搜索在浮层底部兜底。
-              onPressed: () => showQuickSearch(context),
-            ),
-            ToolsPillMoreButton(
-              entries: [
-                // 原总览 2×2 入口卡的次频项收编于此（全部收藏保留为高卡，
-                // 网络收藏并进「文件夹」选择器）；设置用分隔线隔在最后。
-                MenuEntry(
-                  icon: HugeIcon(icon: HugeIcons.strokeRoundedBook02, size: 18),
-                  text: "Local".tl,
-                  onClick: () => context.to(() => const LocalComicsPage()),
-                ),
-                MenuEntry(
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedImage01,
-                    size: 18,
-                  ),
-                  text: "Image Favorites".tl,
-                  onClick: () => context.to(() => const ImageFavoritesPage()),
-                ),
-                MenuEntry(
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedGlobe02,
-                    size: 18,
-                  ),
-                  text: "Comic Source".tl,
-                  onClick: () => context.to(() => const ComicSourcePage()),
-                ),
-              ],
-            ),
-          ],
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedFolder01,
+          tooltip: "Folders".tl,
+          onPressed: showFolderSelector,
+        ),
+        ToolsPillButton(
+          icon: HugeIcons.strokeRoundedSearch02,
+          tooltip: "Search".tl,
+          // 速搜浮层：一处搜遍全部收藏 + 历史；网络搜索在浮层底部兜底。
+          onPressed: () => showQuickSearch(context),
         ),
       ],
       hideGlobalActions: true,
@@ -467,14 +450,15 @@ class _FavoritesPageState extends State<FavoritesPage> with AutoListenMixin {
     return LayoutBuilder(
       builder: (context, constraints) {
         // 卡片宽度按内容区（而不是整屏）算：宽屏下 NaviPane 侧栏已占 224，
-        // 用 MediaQuery 会把卡片算大一圈，一行连第 4 张的边都露不出来。
-        // -52 = 左侧留白 16 + 右侧让位 24 + 两张卡间距 12。
-        // 只有下限没有上限时，1600dp 平板会把封面放大到 324×463dp，一排只
-        // 露 3 本、滚动手感也变重。封面上限 160dp 是「看得清封面 + 一屏能
-        // 看到多排」的折中；宽屏多出来的宽度留给排数而不是单本尺寸。
+        // 用 MediaQuery 会把卡片算大一圈。-52 = 左侧留白 16 + 右侧让位 24
+        // + 两张卡间距 12。
+        // 方案 J：旧式 /3.3 + 96 下限让 411dp 手机的书架封面只剩 ~97dp，
+        // 与「卡片太小」的抱怨同源。改成 /2.6（一屏约 2.5 本）+ 110 下限，
+        // 手机封面到 ~123dp、720p 矮屏也有 110dp；上限 180dp 挡住平板把单本
+        // 放大成海报的极端值，宽屏多出来的宽度仍留给「能看到几本」。
         final cardW = math.min(
-          160.0,
-          math.max(96.0, (constraints.maxWidth - 52) / 3.3),
+          180.0,
+          math.max(110.0, (constraints.maxWidth - 52) / 2.6),
         );
         // cardH 只是**封面**高度，按 0.7 宽高比（接近标准封面 2:3，减少裁切）。
         // 书名行的开销由 [_shelf] 自己按 [comicTileTitleBlock] 加上去——写死在
@@ -879,7 +863,13 @@ Widget _shelf({
     MediaQuery.textScalerOf(context),
   );
   // 斜放带来的外扩：槽位高度与左右留白都按它算，保证旋转后的封面不会探出货架。
-  final lean = _ShelfLean.of(width: cardW, height: cardH + titleBlock);
+  // 角度按卡宽自适应后，放大封面不再牵动 rise / bleed / sink 的比例。
+  final angle = _shelfLeanAngle(cardW);
+  final lean = _ShelfLean.of(
+    width: cardW,
+    height: cardH + titleBlock,
+    angle: angle,
+  );
 
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -935,6 +925,7 @@ Widget _shelf({
                     comic: c,
                     width: cardW,
                     height: cardH + titleBlock,
+                    angle: angle,
                     onTap: () => onTap(c),
                   ),
                   // 间距要容得下单本书向左的外扩，否则相邻两本会在顶角处压叠。
@@ -959,16 +950,17 @@ Widget _shelfBook({
   required Comic comic,
   required double width,
   required double height,
+  required double angle,
   required VoidCallback onTap,
 }) {
-  final lean = _ShelfLean.of(width: width, height: height);
+  final lean = _ShelfLean.of(width: width, height: height, angle: angle);
 
   return Padding(
     // 上留 rise+1、下沉 sink：旋转后的整本书正好落在自己的布局框里，
     // 最下那只角就是这一行的基线，不会再被横向滚动区切平。
     padding: EdgeInsets.only(top: lean.rise + 1, bottom: lean.sink),
     child: Transform.rotate(
-      angle: _kShelfLeanAngle,
+      angle: angle,
       alignment: Alignment.bottomCenter,
       child: SizedBox(
         width: width,

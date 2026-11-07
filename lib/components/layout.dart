@@ -118,10 +118,12 @@ class SliverGridDelegateWithComics extends SliverGridDelegate {
     SliverConstraints constraints,
     double scale,
   ) {
-    // 基准宽度从 192 收到 150：手机（~411dp）从 2 列变 3 列，单屏封面数从
-    // 6 本提到 9 本以上；平板按同一比例自动变密（Mihon 的库网格也是 3 列起）。
-    // 仍随 comicTileScale 缩放，用户可在设置里自己调疏密。
-    final maxCrossAxisExtent = 150.0 * scale;
+    // 方案 J：列宽基准不再固定 150dp（411dp 手机被切成 3 列、封面只剩
+    // ~100dp，标题反而显得比封面大）。改按「内容列宽分档 × 系统字号」联动：
+    // 竖屏手机稳定 2 列、平板 4～6 列、大字号自动退列；用户设置里的
+    // comicTileScale 仍乘在最后，疏密依旧可以自己调。
+    final maxCrossAxisExtent =
+        kcGridBaseExtent(constraints.crossAxisExtent, textScale) * scale;
     const childAspectRatio = 0.64;
     const crossAxisSpacing = 0.0;
     int crossAxisCount =

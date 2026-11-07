@@ -5,24 +5,46 @@ class SmoothCustomScrollView extends StatelessWidget {
     super.key,
     required this.slivers,
     this.controller,
+    this.alwaysScrollable = false,
+    this.bottomPadding,
   });
 
   final ScrollController? controller;
 
   final List<Widget> slivers;
 
+  /// 让 [RefreshIndicator] 在「空列表 / 内容不足一屏」时也能下拉。
+  ///
+  /// [SmoothScrollProvider] 给的是 [BouncingScrollPhysics]（桌面鼠标态甚至是
+  /// [NeverScrollableScrollPhysics]），它不是 always-scrollable：视口没有可
+  /// 滚动内容时不会产生 overscroll，下拉手势直接被吞掉。书库页恰恰会在
+  /// 空文件夹 / 筛选无结果时需要下拉刷新，所以由调用方显式打开。
+  /// 桌面鼠标态保持不可滚，别把拖拽选中的行为改坏。
+  final bool alwaysScrollable;
+
+  /// 列表末尾留白。默认仍是系统导航栏高度；书库页传入
+  /// `kcPageBottomInset(context)`（浮岛 dock 之上），多选时再加上贴底工具条
+  /// 的高度，保证最后一行能完整滚到可见区。
+  final double? bottomPadding;
+
   @override
   Widget build(BuildContext context) {
     return SmoothScrollProvider(
       controller: controller,
       builder: (context, controller, physics) {
+        final effectivePhysics =
+            alwaysScrollable && physics is! NeverScrollableScrollPhysics
+            ? AlwaysScrollableScrollPhysics(parent: physics)
+            : physics;
         return CustomScrollView(
           controller: controller,
-          physics: physics,
+          physics: effectivePhysics,
           slivers: [
             ...slivers,
             SliverPadding(
-              padding: EdgeInsets.only(bottom: context.padding.bottom),
+              padding: EdgeInsets.only(
+                bottom: bottomPadding ?? context.padding.bottom,
+              ),
             ),
           ],
         );

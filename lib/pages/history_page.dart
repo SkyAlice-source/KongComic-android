@@ -10,13 +10,21 @@ import 'package:kong_comic/foundation/history.dart';
 import 'package:kong_comic/foundation/listen_mixin.dart';
 import 'package:kong_comic/pages/comic_details_page/comic_page.dart';
 import 'package:kong_comic/pages/favorites/favorites_page.dart';
-import 'package:kong_comic/pages/settings/settings_page.dart';
 import 'package:kong_comic/utils/translations.dart';
 
 /// 历史页：顶栏改用 NaviPane 共享顶栏（[NaviPane.buildTop]），不再自绘
 /// SliverAppbar。页面通过 [NaviPane.pageActionsNotifier] / [NaviPane.pageTitleNotifier]
-/// 注入本页专属操作与动态标题（多选态「已选 N 项」）；正常态是统一工具胶囊
-/// [筛选 | 布局 | 搜索 | ⋮]，全局 paneActions 隐藏（pageHideGlobalActions）。
+/// 注入本页专属操作与动态标题（多选态「已选 N 项」）。
+///
+/// 顶栏极简后：正常态右上角只有一枚**裸搜索**图标（不套 [ToolsPill]，因此
+/// 没有胶囊外壳与发丝描边）。其余入口全部放到内容区且默认可见：
+///   · 筛选状态 → 第一行常驻 chip 行（有文字证据 + 结果数/重置）
+///   · 布局切换 → 第二行固定位 [ToolsPillLayoutButton]，与发现页右上角
+///     那颗全站共用按钮同一个组件：点一下直接切换，不再另造弹窗 / 分段
+///   · 第二行辅助操作 → 多选 / 刷新全部 / 清空历史 平铺成裸图标按钮
+///     （位置够就不藏 ⋮；窄屏 / 大字号放不下时末尾几枚才收拢）
+///   · 多选动作 → 贴底工具条；重载列表 → 下拉刷新
+/// 多选态顶栏清空。全局 paneActions 隐藏（pageHideGlobalActions）。
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
@@ -70,33 +78,90 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     _ => "All".tl,
   };
 
-  void _showTimeFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => ContentDialog(
-        title: "Filter".tl,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            KcListTile(
-              showDivider: false,
-              title: Text("Time Range".tl),
-              trailing: Select(
-                minWidth: 120,
-                current: _timeFilterLabel(_timeFilter),
-                values: [for (var f in _timeFilterList) _timeFilterLabel(f)],
-                onTap: (i) {
-                  _invalidateGroups();
-                  setState(() => _timeFilter = _timeFilterList[i]);
-                  _gridKey.currentState?.refresh();
-                  Navigator.pop(context);
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+  /// 布局切换不再有第二个入口：辅助行固定位直接放 [ToolsPillLayoutButton]，
+  /// 与发现页右上角那颗全站共用的是**同一个组件**，读同一个
+  /// `appdata.settings['comicDisplayMode']`。图标表示当前布局，点一下直接
+  /// 切成另一种，不用再点开「排列方式」弹窗选一次。
+  ///
+  /// 时间筛选是第一行常驻 chip，结果数与重置在辅助行左侧，布局不该和它们
+  /// 混在一个面板里 —— 筛选状态只存一份，排列方式也只留一颗按钮。
+
+  /// 内容区辅助行的**全部**动作：默认一枚枚平铺出来，不再藏进 ⋮ 菜单。
+  /// 顺序即优先级 —— 宽度不够时末尾的破坏性动作先被收拢，不会退化成
+  /// 「一排常驻红图标」；清空历史本身仍带二次确认弹窗。
+  /// 「多选」恢复为可见入口，长按任意一条历史同样能进，是两条并行路径。
+  List<KcToolbarAction> _actionItems() => [
+    KcToolbarAction(
+      icon: HugeIcons.strokeRoundedCheckList,
+      label: "Multi-Select".tl,
+      onTap: () => setState(() => multiSelectMode = true),
+    ),
+    KcToolbarAction(
+      icon: HugeIcons.strokeRoundedRefresh,
+      label: "Refresh All Histories".tl,
+      onTap: _refreshAllHistories,
+    ),
+    KcToolbarAction(
+      icon: HugeIcons.strokeRoundedDelete01,
+      label: "Clear History".tl,
+      color: context.colorScheme.error,
+      onTap: _confirmClearHistory,
+    ),
+  ];
+
+  void _pickTimeFilter(String f) {
+    if (f == _timeFilter) return;
+    _invalidateGroups();
+    setState(() => _timeFilter = f);
+    _gridKey.currentState?.refresh();
+  }
+
+  void _resetTimeFilter() {
+    if (_timeFilter == 'all') return;
+    _invalidateGroups();
+    setState(() => _timeFilter = 'all');
+    _gridKey.currentState?.refresh();
+  }
+
+  /// B · 内容区常驻的时间筛选 chip 行：当前筛选有文字证据，带结果数与重置。
+  /// 第二行固定位是发现页同款的一键布局切换，其余 多选 / 刷新 / 清空历史
+  /// 平铺成常驻按钮，只有窄屏 / 大字号放不下时末尾几枚才自动收进 ⋮。
+  Widget _buildFilterChips() {
+    return KcFilterChipRow(
+      chips: [
+        for (final f in _timeFilterList)
+          KcFilterChipData(
+            label: _timeFilterLabel(f),
+            selected: _timeFilter == f,
+            onTap: () => _pickTimeFilter(f),
+          ),
+      ],
+      resultCount: _resultCount,
+      onReset: _timeFilter == 'all' ? null : _resetTimeFilter,
+      // 与发现页右上角完全同一个组件；高频且本身不需要 ⋮，固定占位不收拢。
+      fixedActions: [const ToolsPillLayoutButton()],
+      actions: _actionItems(),
     );
+  }
+
+  /// D · 长按任意一条历史进入多选，并顺手选中被按住的那条。
+  void _enterMultiSelect(Comic c) {
+    if (c is! History) return;
+    setState(() {
+      multiSelectMode = true;
+      selectedComics[c] = true;
+    });
+  }
+
+  /// D · 下拉刷新重载本地列表（快速、符合手势预期）。
+  ///
+  /// 「刷新全部历史」是逐条联网更新漫画信息的重操作，仍作为内容区辅助行
+  /// 的常驻按钮可见，没有因为引入下拉手势就把功能藏起来。
+  Future<void> _onPullRefresh() async {
+    _invalidateGroups();
+    _gridKey.currentState?.refresh();
+    if (mounted) setState(() {});
+    await Future<void>.delayed(const Duration(milliseconds: 220));
   }
 
   /// Comics currently loaded by the paginated grid.
@@ -123,7 +188,17 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
   /// 分组列表缓存（见 [_groupHistories]）。数据或筛选变化时必须清空。
   List<(String, List<History>)>? _groupCache;
 
-  void _invalidateGroups() => _groupCache = null;
+  /// 「显示 N 项」的结果数缓存：chip 行在 sliver 列表的最前面构建，那时
+  /// 网格的 onLoadedComicsChanged 还没回来，直接读 [_loadedComics] 会先显示 0。
+  /// 与分组缓存同源失效，避免为了一个数字每次 build 全量查 300 条。
+  int? _countCache;
+
+  int get _resultCount => _countCache ??= _fetchHistories().length;
+
+  void _invalidateGroups() {
+    _groupCache = null;
+    _countCache = null;
+  }
 
   bool multiSelectMode = false;
 
@@ -255,63 +330,97 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         child: Scaffold(
           // 骨架归一：hero 与网格共用 900dp 内容列并居中，平板不再出现
           // 「7 列后孤行 + 右半空白」。手机宽度不足 900，等价于不约束。
-          body: KcPageContent(
-            child: SmoothCustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              // 方案 A：续读英雄卡 —— 主页英雄卡语言的移植，取最近一条历史。
-              if (continueHistory != null)
-                SliverToBoxAdapter(
-                  child: KcContinueHero(
-                    history: continueHistory,
-                    onOpen: () => _openComic(continueHistory, -1),
+          // 多选态把工具条贴到底部（浮岛 dock 上方），所以外层用 Stack。
+          body: Stack(
+            children: [
+              KcPageContent(
+                child: RefreshIndicator(
+                  onRefresh: _onPullRefresh,
+                  child: SmoothCustomScrollView(
+                    controller: _scrollController,
+                    // 下拉刷新在空历史 / 筛选无结果时也要能触发；末尾留白让
+                    // 最后一行能滚到浮岛 dock（多选时还有贴底工具条）之上。
+                    alwaysScrollable: true,
+                    bottomPadding:
+                        kcPageBottomInset(context) +
+                        kcDockedToolbarLift +
+                        (multiSelectMode ? kcMinTapTarget + kcSpaceMd : 0.0),
+                    slivers: [
+                      // 方案 A：续读英雄卡 —— 主页英雄卡语言的移植，取最近一条历史。
+                      if (continueHistory != null)
+                        SliverToBoxAdapter(
+                          child: KcContinueHero(
+                            history: continueHistory,
+                            onOpen: () => _openComic(continueHistory, -1),
+                          ),
+                        ),
+                      // 方案 B：筛选状态常驻内容区，选中态 + 结果数 + 重置
+                      // 都有文字证据；多选态收起，把高度让给列表。
+                      if (!multiSelectMode)
+                        SliverToBoxAdapter(child: _buildFilterChips()),
+                      if (useBriefGrid)
+                        PaginatedSliverGridComics(
+                          key: _gridKey,
+                          pageLoader: _loadPage,
+                          selections: selectedComics,
+                          showSourceOnCover: false,
+                          badgeAsTopLeftSource: true,
+                          onLoadedComicsChanged: (comics) {
+                            _loadedComics = comics.cast<History>();
+                          },
+                          // 方案 D：长按直接进入多选并选中该项；辅助行的
+                          // 常驻「多选」按钮是另一条更显式的路径。
+                          onLongPressed: (c, heroID) => _enterMultiSelect(c),
+                          onTap: multiSelectMode
+                              ? (c, heroID) {
+                                  setState(() {
+                                    if (selectedComics.containsKey(c as History)) {
+                                      selectedComics.remove(c);
+                                    } else {
+                                      selectedComics[c] = true;
+                                    }
+                                    if (selectedComics.isEmpty) {
+                                      multiSelectMode = false;
+                                    }
+                                  });
+                                }
+                              : null,
+                          badgeBuilder: (c) {
+                            return ComicSource.find(c.sourceKey)?.name;
+                          },
+                          badgeColorBuilder: (c) {
+                            final brightness = Theme.of(context).brightness;
+                            final amoled = appdata.isAmoledMode;
+                            return kcTagColor(
+                              kcStableHash(c.sourceKey),
+                              brightness,
+                              amoled: amoled,
+                            );
+                          },
+                          menuBuilder: (c) => _tileMenu(c as History),
+                        )
+                      else
+                        ..._groupedSlivers(),
+                    ],
                   ),
                 ),
-              if (useBriefGrid)
-                PaginatedSliverGridComics(
-                  key: _gridKey,
-                  pageLoader: _loadPage,
-                  selections: selectedComics,
-                  showSourceOnCover: false,
-                  badgeAsTopLeftSource: true,
-                  onLoadedComicsChanged: (comics) {
-                    _loadedComics = comics.cast<History>();
-                  },
-                  onLongPressed: null,
-                  onTap: multiSelectMode
-                      ? (c, heroID) {
-                          setState(() {
-                            if (selectedComics.containsKey(c as History)) {
-                              selectedComics.remove(c);
-                            } else {
-                              selectedComics[c] = true;
-                            }
-                            if (selectedComics.isEmpty) {
-                              multiSelectMode = false;
-                            }
-                          });
-                        }
-                      : null,
-                  badgeBuilder: (c) {
-                    return ComicSource.find(c.sourceKey)?.name;
-                  },
-                  badgeColorBuilder: (c) {
-                    final brightness = Theme.of(context).brightness;
-                    final amoled = appdata.isAmoledMode;
-                    return kcTagColor(
-                      kcStableHash(c.sourceKey),
-                      brightness,
-                      amoled: amoled,
-                    );
-                  },
-                  menuBuilder: (c) => _tileMenu(c as History),
-                )
-              else
-                ..._groupedSlivers(),
+              ),
+              if (multiSelectMode)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: kcPageBottomInset(context) + kcDockedToolbarLift,
+                  child: KcDockedToolbar(
+                    selectedCount: selectedComics.length,
+                    actions: _multiSelectActions(),
+                    onExit: _exitMultiSelect,
+                  ),
+                ),
             ],
           ),
-            ),
-          floatingActionButton: _buildScrollTopFab(),
+          // 多选态隐藏回到顶部的 FAB，避免和贴底工具条/手势抢位置。
+          floatingActionButton:
+              multiSelectMode ? null : _buildScrollTopFab(),
         ),
       ),
     );
@@ -470,8 +579,13 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
                 return KcHistoryTile(
                   history: h,
                   selected: selectedComics[h] ?? false,
+                  // 多选态逐行卡片化：每本一圈独立描边 + 选中勾标，
+                  // 与网格视图 / 收藏页的 _SelectableComicCell 一致。
+                  showSelectionFrame: multiSelectMode,
                   timeLabel: _timeLabel(h.time),
                   onTap: () => _openComic(h, _heroIDCounter++),
+                  // 方案 D：列表布局同样支持长按进入多选。
+                  onLongPressed: () => _enterMultiSelect(h),
                   menuOptions: multiSelectMode ? null : _tileMenu(h),
                 );
               },
@@ -489,9 +603,10 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
   ///
   /// 历史页不再自绘 SliverAppbar，改用共享顶栏后必须主动注入。正常态标题为
   /// null（回退到共享栏的「History」静态标签）；多选态显示「已选 N 项」。
-  /// 操作正常态为统一工具胶囊 [筛选 | 布局 | 搜索 | ⋮]，多选态为
-  /// [全选 / 删除 / 更多 / 退出]（危机态裸按钮，不用胶囊）；同时隐藏共享
-  /// [paneActions]，全局操作已分装进胶囊与其 ⋮ 菜单。
+/// 操作正常态只留一枚裸搜索图标，多选态顶栏清空（动作移到贴底工具条）；
+/// 同时隐藏共享 [paneActions]，避免顶栏再散出另一圈全局图标。
+/// 发现页同款的一键布局切换 + 多选 / 刷新 / 清空历史放在内容区辅助行，
+/// 重载走下拉手势。
   /// 本页在 NaviPane 底栏里的索引（首次 build 时记录）。用于判断本页是否处于
   /// 前台：切到别的 tab 后要把签名清空，否则切回来时签名仍命中、不会重新注入，
   /// 顶栏操作就丢了（[NaviPane.updatePage] 会在换页时把 notifier 重置为 null）。
@@ -565,26 +680,35 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
               overflow: TextOverflow.ellipsis,
             )
           : null;
+      // 方案 C：多选态顶栏不留任何动作，全部交给贴底工具条（单手可达）。
       final actions = multiSelectMode
-          ? _multiSelectActions()
+          ? const <Widget>[]
           : _normalActions();
       _injectedTitle = title;
       _injectedActions = actions;
       pane.pageTitleNotifier.value = title;
-      // 顶栏操作已整体收进统一工具胶囊（_normalActions），全局
-      // paneActions（布局/搜索/设置）随之隐藏，避免胶囊外再散一圈裸图标。
+      // 顶栏只留本页那一枚裸搜索（_normalActions），全局 paneActions
+      // （布局/搜索/设置）随之隐藏，避免旁边再散一圈图标。
       // 换 tab 时 updatePage 会把该开关复位为 false，无需清理。
       pane.pageHideGlobalActionsNotifier.value = true;
       pane.pageActionsNotifier.value = actions;
     });
   }
 
-  /// 右上角「更多」：图标按钮样式与共享顶栏一致，菜单沿用全站 [showMenuX]。
+  /// 「更多」：裸图标按钮（无边框），菜单沿用全站 [showMenuX]。
+  /// 普通态辅助行动作已全部平铺，这里只服务于多选态贴底工具条的
+  /// 「反选 / 取消选择」；窄屏下辅助行自动收拢用的是组件自带的 ⋮。
   Widget _moreButton(List<MenuEntry> entries) {
     return Builder(
       builder: (ctx) => IconButton(
         icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreVertical, size: 22),
+        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
         tooltip: "More".tl,
+        constraints: const BoxConstraints(
+          minWidth: kcMinTapTarget,
+          minHeight: kcMinTapTarget,
+        ),
+        padding: EdgeInsets.zero,
         onPressed: () {
           final rb = ctx.findRenderObject() as RenderBox;
           showMenuX(ctx, rb.localToGlobal(Offset.zero), entries);
@@ -593,62 +717,25 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     );
   }
 
-  /// 正常模式操作：统一工具胶囊 [筛选 | 布局 | 搜索 | ⋮]（方向 A：全站根
-  /// tab 一种顶栏语言，与收藏内页/总览的胶囊同款）。
+  /// 正常模式顶栏操作：**只留一枚裸搜索**。
   ///
-  /// 筛选激活时图标点亮（红只用于「状态」，AMOLED 下走 kcBrandAdaptive 的
-  /// 亮灰，不用会把图标隐进底色的面 token）。布局切换 / 搜索收进胶囊，
-  /// 设置 / 多选 / 刷新 / 清空收进 ⋮ 菜单——清空历史是破坏性操作，置底并用
-  /// 分隔线隔离。多选是低频动作，不占胶囊坑位。
+  /// 不套 [ToolsPill]，因此没有圆角胶囊外壳，也没有那圈发丝描边 —— 用户
+  /// 要的「去掉边框」。按钮本身仍是 48dp 命中区 + onSurfaceVariant 中性色，
+  /// 与共享顶栏其它图标按钮同款。发现页同款的一键布局切换固定在辅助行首位，
+  /// 多选 / 刷新 / 清空历史平铺其后，筛选在第一行 chip，多选动作在贴底工具条，
+  /// 重载走下拉刷新。
   List<Widget> _normalActions() => [
-    ToolsPill(
-      children: [
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedFilter,
-          active: _timeFilter != 'all',
-          tooltip: "Filter".tl,
-          onPressed: _showTimeFilterDialog,
-        ),
-        const ToolsPillLayoutButton(),
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedSearch02,
-          tooltip: "Search".tl,
-          // 与收藏共用一个速搜浮层：搜的是「收藏 + 历史」整体，
-          // 不再只覆盖当前这一页；网络搜索在浮层底部兜底。
-          onPressed: () => showQuickSearch(context),
-        ),
-        ToolsPillMoreButton(
-          entries: [
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 18),
-              text: "Multi-Select".tl,
-              onClick: () => setState(() => multiSelectMode = true),
-            ),
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-              text: "Refresh All Histories".tl,
-              onClick: _refreshAllHistories,
-            ),
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
-              text: "Settings".tl,
-              onClick: () => context.to(() => const SettingsPage()),
-            ),
-            // 破坏性操作置底 + 分隔线隔离。
-            MenuEntry.divider(),
-            MenuEntry(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-              text: "Clear History".tl,
-              color: context.colorScheme.error,
-              onClick: _confirmClearHistory,
-            ),
-          ],
-        ),
-      ],
+    ToolsPillButton(
+      icon: HugeIcons.strokeRoundedSearch02,
+      tooltip: "Search".tl,
+      // 与收藏共用一个速搜浮层：搜的是「收藏 + 历史」整体，
+      // 不再只覆盖当前这一页；网络搜索在浮层底部兜底。
+      onPressed: () => showQuickSearch(context),
     ),
   ];
 
-  /// 多选模式操作：全选 / 删除 / 更多(反选·取消) / 退出。
+  /// 多选模式贴底工具条的动作槽：全选 / 删除 / 更多(反选·取消)。
+  /// 「退出」由 [KcDockedToolbar.onExit] 统一提供，不再占一个坑位。
   List<Widget> _multiSelectActions() => [
     IconButton(
       icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckList, size: 22),
@@ -673,15 +760,14 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
         onClick: deSelect,
       ),
     ]),
-    IconButton(
-      icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 22),
-      tooltip: "Exit Multi-Select".tl,
-      onPressed: () => setState(() {
-        multiSelectMode = false;
-        selectedComics.clear();
-      }),
-    ),
   ];
+
+  void _exitMultiSelect() {
+    setState(() {
+      multiSelectMode = false;
+      selectedComics.clear();
+    });
+  }
 
   /// Scroll-to-top FAB，样式与发现页完全一致（统一组件）。
   Widget _buildScrollTopFab() {

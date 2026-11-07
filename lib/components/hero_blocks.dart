@@ -396,6 +396,7 @@ class KcHistoryTile extends StatelessWidget {
     this.onLongPressed,
     this.menuOptions,
     this.selected = false,
+    this.showSelectionFrame = false,
     this.timeLabel,
   });
 
@@ -404,6 +405,14 @@ class KcHistoryTile extends StatelessWidget {
   final VoidCallback? onLongPressed;
   final List<MenuEntry>? menuOptions;
   final bool selected;
+
+  /// 是否处于多选模式。
+  ///
+  /// true：每行独立卡片化 —— 四角 [kcCardRadius]、各自一圈描边（未选中发丝
+  /// 线 / 选中 2dp 品牌色），选中项再叠底色与左上角勾标，与网格视图的
+  /// `_SelectableComicCell` 同一套「每本单独边框」语言；false：维持原来的
+  /// 通栏行，不加 margin 也不画边，正常阅读态零视觉变化。
+  final bool showSelectionFrame;
   final String? timeLabel;
 
   @override
@@ -416,97 +425,149 @@ class KcHistoryTile extends StatelessWidget {
         ? "Page @page".tlParams({'page': history.page})
         : '';
     final meta = [chapter, page].where((s) => s.isNotEmpty).join(' · ');
+    final framed = showSelectionFrame;
 
-    return Material(
-      color: selected
-          ? cs.secondaryContainer.withValues(alpha: 0.72)
-          : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpaceSm),
-          child: Row(
-            children: [
-              Stack(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 74,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(kcRadius8),
-                      color: cs.surfaceContainerHighest,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: kcCoverImage(history.cover),
-                  ),
-                  // 页内进度条压在封面底缘（替代原深色文字胶囊）。
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: KcPageProgressBar(history: history, height: 3),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      margin: framed
+          ? const EdgeInsets.symmetric(
+              horizontal: kcSpaceMd,
+              vertical: kcSpaceXs,
+            )
+          : EdgeInsets.zero,
+      decoration: BoxDecoration(
+        color: selected
+            ? cs.secondaryContainer.withValues(alpha: 0.72)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(kcCardRadius),
+        border: framed
+            ? Border.all(
+                color: selected
+                    ? kcBrandAdaptive(context)
+                    : kcHairlineColor(context),
+                width: selected ? 2 : kcHairline,
+              )
+            : null,
+      ),
+      clipBehavior: framed ? Clip.antiAlias : Clip.none,
+      child: Stack(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              onLongPress: onLongPressed,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg, vertical: kcSpaceSm),
+                child: Row(
                   children: [
-                    Text(
-                      history.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: kcBody,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface,
+                    Stack(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 74,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(kcRadius8),
+                            color: cs.surfaceContainerHighest,
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: kcCoverImage(history.cover),
+                        ),
+                        // 页内进度条压在封面底缘（替代原深色文字胶囊）。
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: KcPageProgressBar(history: history, height: 3),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            history.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: kcBody,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          if (history.subtitle.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 1),
+                              child: Text(
+                                history.subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: kcCaption,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          if (meta.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 3),
+                              child: Text(
+                                meta,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: kcCaption,
+                                  color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    if (history.subtitle.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 1),
-                        child: Text(
-                          history.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: kcCaption,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
+                    const SizedBox(width: 8),
+                    Text(
+                      timeLabel ?? '',
+                      style: TextStyle(
+                        fontSize: kcCaption,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
-                    if (meta.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Text(
-                          meta,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: kcCaption,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ),
+                    ),
+                    if (menuOptions != null && menuOptions!.isNotEmpty)
+                      _TileMenuButton(options: menuOptions!),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                timeLabel ?? '',
-                style: TextStyle(
-                  fontSize: kcCaption,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+          ),
+          if (framed && selected)
+            Positioned(
+              top: kcSpace6,
+              left: kcSpace6,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: kcAccentColor(context),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.check_rounded,
+                  size: 15,
+                  color: kcOnAccentColor,
                 ),
               ),
-              if (menuOptions != null && menuOptions!.isNotEmpty)
-                _TileMenuButton(options: menuOptions!),
-            ],
-          ),
-        ),
+            ),
+        ],
       ),
     );
   }

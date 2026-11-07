@@ -122,16 +122,9 @@ class _FavoriteDialog extends StatelessWidget {
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
-                      IconButton(
-                        icon: HugeIcon(
-                          icon: HugeIcons.strokeRoundedCancel01,
-                          size: 18,
-                        ),
-                        color: scheme.onSurfaceVariant,
-                        tooltip: 'Close'.tl,
-                        onPressed: context.pop,
-                      ),
-                      const SizedBox(width: kcSpaceXs),
+                      // 点遮罩 / 返回键即可退出，右上角不再放多余的 ×；
+                      // 右侧留白与左边对称，标题独自占满这一行。
+                      const SizedBox(width: kcSpaceLg),
                     ],
                   ),
                 ),

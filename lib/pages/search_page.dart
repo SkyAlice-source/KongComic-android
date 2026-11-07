@@ -129,81 +129,77 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
   }
 
   void _showSourcePicker(List<ComicSource> sources, String id) {
-    showModalBottomSheet(
+    // 四面圆角的浮起卡片（见 showKcFloatingSheet），不再用只有上两角圆的
+    // 贴底全宽 bottom sheet，弹层弧度与全站 Dialog 对齐。
+    showKcFloatingSheet(
       context: context,
-      showDragHandle: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(kcSurfaceRadius),
-        ),
-      ),
       builder: (context) {
         final cs = Theme.of(context).colorScheme;
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, kcSpaceLg, 20, kcSpaceSm),
-                child: Text(
-                  "Multiple sources matched".tl,
-                  style: TextStyle(
-                    fontSize: kcSubtitle,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, kcSpaceSm, 20, kcSpaceXs),
+              child: Text(
+                "Multiple sources matched".tl,
+                style: TextStyle(
+                  fontSize: kcSubtitle,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: kcSpaceLg),
-                child: Text(
-                  id,
-                  style: TextStyle(
-                    // 例外：monospace 展示 ID，等宽下 14 明显更占宽度，按令牌规则保留 kcFont13。
-                    fontSize: kcFont13,
-                    fontFamily: 'monospace',
-                    color: cs.onSurfaceVariant,
-                  ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: kcSpaceLg,
+                vertical: kcSpaceXs,
+              ),
+              child: Text(
+                id,
+                style: TextStyle(
+                  // 例外：monospace 展示 ID，等宽下 14 明显更占宽度，按令牌规则保留 kcFont13。
+                  fontSize: kcFont13,
+                  fontFamily: 'monospace',
+                  color: cs.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 8),
-              ...sources.map((source) {
-                final colorIndex =
-                    kcStableHash(source.key) % sourceColors.length;
-                final accentColor = sourceColors[colorIndex];
-                return KcListTile(
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(kcRadius8),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      source.name.substring(0, 1).toUpperCase(),
-                      style: TextStyle(
-                        color: sourceColor(colorIndex, cs.brightness),
-                        fontWeight: FontWeight.w600,
-                        fontSize: kcSubtitle,
-                      ),
+            ),
+            ...sources.map((source) {
+              final colorIndex = kcStableHash(source.key) % sourceColors.length;
+              final accentColor = sourceColors[colorIndex];
+              return KcListTile(
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(kcRadius8),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    source.name.substring(0, 1).toUpperCase(),
+                    style: TextStyle(
+                      color: sourceColor(colorIndex, cs.brightness),
+                      fontWeight: FontWeight.w600,
+                      fontSize: kcSubtitle,
                     ),
                   ),
-                  title: Text(source.name),
-                  subtitle: Text("Open comic".tl),
-                  chevron: true,
-                  onTap: () {
-                    Navigator.pop(context);
-                    context
-                        .to(() => ComicPage(sourceKey: source.key, id: id))
-                        .then((_) => update());
-                  },
-                );
-              }),
-              const SizedBox(height: 8),
-            ],
-          ),
+                ),
+                title: Text(source.name),
+                subtitle: Text("Open comic".tl),
+                chevron: true,
+                onTap: () {
+                  Navigator.pop(context);
+                  context
+                      .to(() => ComicPage(sourceKey: source.key, id: id))
+                      .then((_) => update());
+                },
+              );
+            }),
+            const SizedBox(height: kcSpaceSm),
+          ],
         );
       },
     );
