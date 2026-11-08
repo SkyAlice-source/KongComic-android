@@ -96,6 +96,20 @@ class _ReaderSettingsState extends State<ReaderSettings> {
     return appdata.settings[key];
   }
 
+  /// 把设置值读成字符串。
+  ///
+  /// 不能写 `as String?`：备份导入 / WebDAV 同步是把 JSON 原样拷进 settings，
+  /// 类型不受默认值表约束，强转抛在 build 里会让整页红屏、连改回来的入口都没了。
+  String _readReaderString(String key) => '${_readReaderSetting(key) ?? ''}';
+
+  /// 把设置值读成整数。同一个原因：同步过来的 `3` 可能是 `3.0`（double），
+  /// `as int?` 会抛 `type 'double' is not a subtype of type 'int'`。
+  int _readReaderInt(String key, {int fallback = 1}) {
+    final raw = _readReaderSetting(key);
+    if (raw is num) return raw.toInt();
+    return int.tryParse('${raw ?? ''}') ?? fallback;
+  }
+
   /// Write a reader setting honoring the active override scope
   /// (comic-specific > device-specific > global).
   void _writeReaderSetting(String key, dynamic value) {
@@ -162,6 +176,9 @@ class _ReaderSettingsState extends State<ReaderSettings> {
                         b,
                       );
                     });
+                    // 与下面「设备特定设置」对齐：不开关落盘，重启后开关回到关闭，
+                    // 这期间设的一整套漫画级配置全部失效（值还在文件里但被忽略）。
+                    appdata.saveData();
                   },
                 ),
                 onTap: () {
@@ -172,6 +189,7 @@ class _ReaderSettingsState extends State<ReaderSettings> {
                       !isEnabledSpecificSettings,
                     );
                   });
+                  appdata.saveData();
                 },
               ).toSliver(),
               if (isEnabledSpecificSettings)
@@ -181,6 +199,8 @@ class _ReaderSettingsState extends State<ReaderSettings> {
                       setState(() {
                         appdata.settings.resetComicReaderSettings(key);
                       });
+                      // 不落盘的话：界面立刻回到全局值，重启后漫画级配置又冒回来。
+                      appdata.saveData();
                     },
                     child: Text(
                       "Clear specific reader settings for this comic".tl,
@@ -337,8 +357,8 @@ class _ReaderSettingsState extends State<ReaderSettings> {
             },
             onChanged: () {
               setState(() {});
-              var readerMode = _readReaderSetting('readerMode') as String?;
-              if (readerMode?.toLowerCase().startsWith('continuous') ?? false) {
+              final readerMode = _readReaderString('readerMode');
+              if (readerMode.toLowerCase().startsWith('continuous')) {
                 _writeReaderSetting('readerScreenPicNumberForLandscape', 1);
                 widget.onChanged?.call('readerScreenPicNumberForLandscape');
                 _writeReaderSetting('readerScreenPicNumberForPortrait', 1);
@@ -361,8 +381,7 @@ class _ReaderSettingsState extends State<ReaderSettings> {
             useDeviceSettings: useDeviceSpecificSettings,
           ).toSliver(),
           SliverAnimatedVisibility(
-            visible: (_readReaderSetting('readerMode') as String? ?? '')
-                .startsWith('gallery'),
+            visible: _readReaderString('readerMode').startsWith('gallery'),
             child: _SliderSetting(
               title:
                   "The number of pic in screen for landscape (Only Gallery Mode)"
@@ -383,8 +402,7 @@ class _ReaderSettingsState extends State<ReaderSettings> {
             ),
           ),
           SliverAnimatedVisibility(
-            visible: (_readReaderSetting('readerMode') as String? ?? '')
-                .startsWith('gallery'),
+            visible: _readReaderString('readerMode').startsWith('gallery'),
             child: _SliderSetting(
               title:
                   "The number of pic in screen for portrait (Only Gallery Mode)"
@@ -394,6 +412,10 @@ class _ReaderSettingsState extends State<ReaderSettings> {
               min: 1,
               max: 5,
               onChanged: () {
+                // 这一行必须 setState：下面「首屏显示单张图」的 SliverAnimatedVisibility
+                // 依赖本项 > 1，漏了 setState 就永远不出现（横屏那个滑块是有的，
+                // 于是同一页两个滑块行为不一致）。
+                setState(() {});
                 widget.onChanged?.call("readerScreenPicNumberForPortrait");
               },
               comicId: isEnabledSpecificSettings ? widget.comicId : null,
@@ -405,17 +427,9 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           ),
           SliverAnimatedVisibility(
             visible:
-                (_readReaderSetting('readerMode') as String? ?? '').startsWith(
-                  'gallery',
-                ) &&
-                ((_readReaderSetting('readerScreenPicNumberForLandscape')
-                                as int? ??
-                            1) >
-                        1 ||
-                    (_readReaderSetting('readerScreenPicNumberForPortrait')
-                                as int? ??
-                            1) >
-                        1),
+                _readReaderString('readerMode').startsWith('gallery') &&
+                (_readReaderInt('readerScreenPicNumberForLandscape') > 1 ||
+                    _readReaderInt('readerScreenPicNumberForPortrait') > 1),
             child: _SwitchSetting(
               title: "Show single image on first page".tl,
               settingKey: "showSingleImageOnFirstPage",
@@ -739,10 +753,13 @@ class __CustomImageProcessingState extends State<_CustomImageProcessing> {
             child: Container(
               margin: EdgeInsets.all(kcSpaceSm),
               decoration: BoxDecoration(
-                // 与设置页输入框同圆角：4dp 的方角编辑框在满屏圆角里像一块
-                // 遗留的旧控件，这里对齐到 kcRadius10。
-                borderRadius: BorderRadius.circular(kcRadius10),
-                border: Border.all(color: context.colorScheme.outlineVariant),
+                // 与全站输入框同圆角（kcFieldRadius=16）：10dp 的编辑框在
+                // 满屏 16dp 圆角里像一块遗留的旧控件。
+                borderRadius: BorderRadius.circular(kcFieldRadius),
+                border: Border.all(
+                  color: kcHairlineColor(context),
+                  width: kcHairline,
+                ),
               ),
               child: SizedBox.expand(
                 child: CodeEditor(

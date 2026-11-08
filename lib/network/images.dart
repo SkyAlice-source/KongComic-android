@@ -181,9 +181,11 @@ abstract class ImageDownloader {
 
     var configs = <String, dynamic>{};
     if (sourceKey != null) {
+      // sourceKey 非空不代表源还在：源被停用/卸载后 find 返回 null，
+      // 这里空断言会让整张图加载直接崩溃，降级为空配置（用默认 UA）。
       var comicSource = ComicSource.find(sourceKey);
       configs =
-          (await comicSource!.getImageLoadingConfig?.call(
+          (await comicSource?.getImageLoadingConfig?.call(
             imageKey,
             cid,
             eid,

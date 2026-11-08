@@ -205,8 +205,10 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
   Map<History, bool> selectedComics = {};
 
   void selectAll() {
-    // Load all history for selection (one-time operation).
-    final allComics = HistoryManager().getAll();
+    // 必须与列表同源（同一 timeFilter）。以前用 HistoryManager().getAll()，
+    // 它不认时间筛选 —— 选「今天」再全选，实际勾上了整个历史库，
+    // 一删就把筛选外的记录全清了。
+    final allComics = _fetchHistories(limit: 1 << 20);
     setState(() {
       selectedComics = allComics.asMap().map((k, v) => MapEntry(v, true));
     });
@@ -277,19 +279,23 @@ class _HistoryPageState extends State<HistoryPage> with AutoListenMixin {
     int failed = 0;
     int skipped = 0;
 
-    await for (var progress in HistoryManager().refreshAllHistoriesStream()) {
-      if (isCanceled) {
-        return;
+    // 整个刷新过程包在 try/finally 里：刷新流一旦抛错（源站异常、解析失败），
+    // 原来的写法会跳过下面的 close()，进度框得等 120s 超时看门狗才消失。
+    try {
+      await for (var progress in HistoryManager().refreshAllHistoriesStream()) {
+        if (isCanceled) {
+          return;
+        }
+        if (progress.total > 0) {
+          loadingController.setProgress(progress.current / progress.total);
+        }
+        success = progress.success;
+        failed = progress.failed;
+        skipped = progress.skipped;
       }
-      if (progress.total > 0) {
-        loadingController.setProgress(progress.current / progress.total);
-      }
-      success = progress.success;
-      failed = progress.failed;
-      skipped = progress.skipped;
+    } finally {
+      loadingController.close();
     }
-
-    loadingController.close();
 
     if (mounted) {
       App.rootContext.showMessage(

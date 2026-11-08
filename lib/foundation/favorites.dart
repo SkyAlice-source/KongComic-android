@@ -308,6 +308,9 @@ class LocalFavoritesManager with ChangeNotifier {
             );
           }
         }
+        // 老版本建的文件夹同样没有追更三列，统一补上（clearData=false，
+        // 不动已有数据），否则 markAsRead / 追更检查会逐个抛 no such column。
+        prepareTableForFollowUpdates(folder, false);
       }
       // Performance: ensure indexes exist for all folder tables
       for (var folder in folderNames) {
@@ -711,6 +714,11 @@ class LocalFavoritesManager with ChangeNotifier {
         throw Exception("Folder is existing");
       }
     }
+    // 表名是直接拼进 SQL 的，含双引号会打断语句（rename 早已拦了这一条，
+    // 来自网络/备份导入的外部名字同样走这里）。
+    if (name.contains('"')) {
+      throw "Invalid name".tl;
+    }
     _db.execute("""
       create table "$name"(
         id text,
@@ -725,6 +733,12 @@ class LocalFavoritesManager with ChangeNotifier {
         primary key (id, type)
       );
     """);
+    // 追更三列（last_update_time / has_new_update / last_check_time）只在
+    // prepareTableForFollowUpdates 里补，而那个函数只对「设为追更的文件夹」
+    // 调用。新建收藏夹如果不补，markAsRead 遍历所有文件夹时第一次
+    // `update ... set has_new_update = 0` 就会抛 no such column，
+    // 后面的文件夹全部不再标记已读（首页红点不消失）。
+    prepareTableForFollowUpdates(name, false);
     // Performance: add index for display_order (used in sorting)
     _db.execute(
       'CREATE INDEX IF NOT EXISTS ${_safeIndexName(name, "order")} ON "$name"(display_order);',
@@ -986,8 +1000,8 @@ class LocalFavoritesManager with ChangeNotifier {
 
     _db.execute(
       """
-      insert into "$targetFolder" (id, name, author, type, tags, cover_path, time, display_order)
-      select id, name, author, type, tags, cover_path, time, ?
+      insert into "$targetFolder" (id, name, author, type, tags, cover_path, time, display_order, translated_tags)
+      select id, name, author, type, tags, cover_path, time, ?, translated_tags
       from "$sourceFolder"
       where id == ? and type == ?;
     """,
@@ -1034,8 +1048,8 @@ class LocalFavoritesManager with ChangeNotifier {
       for (var item in items) {
         _db.execute(
           """
-          insert or ignore into "$targetFolder" (id, name, author, type, tags, cover_path, time, display_order)
-          select id, name, author, type, tags, cover_path, time, ?
+          insert or ignore into "$targetFolder" (id, name, author, type, tags, cover_path, time, display_order, translated_tags)
+          select id, name, author, type, tags, cover_path, time, ?, translated_tags
           from "$sourceFolder"
           where id == ? and type == ?;
         """,
@@ -1086,8 +1100,8 @@ class LocalFavoritesManager with ChangeNotifier {
       for (var item in items) {
         _db.execute(
           """
-          insert or ignore into "$targetFolder" (id, name, author, type, tags, cover_path, time, display_order)
-          select id, name, author, type, tags, cover_path, time, ?
+          insert or ignore into "$targetFolder" (id, name, author, type, tags, cover_path, time, display_order, translated_tags)
+          select id, name, author, type, tags, cover_path, time, ?, translated_tags
           from "$sourceFolder"
           where id == ? and type == ?;
         """,
@@ -1124,6 +1138,27 @@ class LocalFavoritesManager with ChangeNotifier {
     """,
       [name],
     );
+    // 文件夹已删除，folder_sync 里残留的映射会让「重建同名收藏夹」被当成
+    // 原来的网络同步夹继续写入；追更设置里的名字同理（否则 getEffective-
+    // FollowFolders 每次都白扫一个不存在的表）。
+    _db.execute(
+      """
+      delete from folder_sync
+      where folder_name == ?;
+    """,
+      [name],
+    );
+    final followList = appdata.settings['followUpdatesFolders'];
+    if (followList is List && followList.contains(name)) {
+      appdata.settings['followUpdatesFolders'] = followList
+          .where((f) => f != name)
+          .toList();
+      appdata.saveData();
+    }
+    if (appdata.settings['followUpdatesFolder'] == name) {
+      appdata.settings['followUpdatesFolder'] = null;
+      appdata.saveData();
+    }
     counts.remove(name);
     refreshHashedIds();
     notifyListeners();
@@ -1283,6 +1318,19 @@ class LocalFavoritesManager with ChangeNotifier {
     );
     counts[after] = counts[before] ?? 0;
     counts.remove(before);
+    // 追更设置存的是文件夹名字，只改表名不改设置的话，重命名后这个文件夹
+    // 会被 getEffectiveFollowFolders() 过滤掉 —— 静默退出追更，没有提示。
+    final followList = appdata.settings['followUpdatesFolders'];
+    if (followList is List && followList.contains(before)) {
+      appdata.settings['followUpdatesFolders'] = followList
+          .map((f) => f == before ? after : f)
+          .toList();
+      appdata.saveData();
+    }
+    if (appdata.settings['followUpdatesFolder'] == before) {
+      appdata.settings['followUpdatesFolder'] = after;
+      appdata.saveData();
+    }
     notifyListeners();
   }
 
@@ -1529,15 +1577,18 @@ class LocalFavoritesManager with ChangeNotifier {
     ComicType type,
     String updateTime,
   ) {
-    var oldTime = _db
-        .select(
-          """
+    var rows = _db.select(
+      """
       select last_update_time from "$folder"
       where id == ? and type == ?;
     """,
-          [id, type.value],
-        )
-        .first['last_update_time'];
+      [id, type.value],
+    );
+    // 检查更新的过程是「先取快照、再逐本发请求」，期间用户完全可能删掉这本
+    // 漫画（或删掉整个文件夹）。以前 `.first` 会抛 StateError，被追更的
+    // 重试逻辑当成「网络失败」再请求 3 次。
+    if (rows.isEmpty) return;
+    var oldTime = rows.first['last_update_time'];
     var hasNewUpdate = oldTime != updateTime;
     _db.execute(
       """

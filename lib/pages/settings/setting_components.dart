@@ -21,6 +21,43 @@ part of 'settings_page.dart';
 // 此前这里另有一份 `kcRowInsetH = 20`，与 KcSectionHeader 重复定义，
 // 分类/发现/设置三页因此出现 16 / 20 / 28 三套栅格。
 
+/// 读一个设置项的生效值，按「漫画级 → 设备级 → 全局」三级作用域解析。
+///
+/// `comicId` 和 `comicSource` 是两个独立的可空参数，组件本身没有把二者绑定，
+/// 以前直接 `widget.comicSource!`：只传 comicId 不传 source 就是空断言崩溃。
+/// 这里统一按「两个都给了才算漫画级」处理，缺一个就退回设备/全局。
+dynamic _readScopedSetting(
+  String key, {
+  required String? comicId,
+  required String? comicSource,
+  required bool useDeviceSettings,
+}) {
+  if (comicId != null && comicSource != null) {
+    return appdata.settings.getReaderSetting(comicId, comicSource, key);
+  }
+  if (useDeviceSettings) {
+    return appdata.settings.getDeviceReaderSetting(key);
+  }
+  return appdata.settings[key];
+}
+
+/// [_readScopedSetting] 的写侧，作用域判定必须完全一致。
+void _writeScopedSetting(
+  String key,
+  dynamic value, {
+  required String? comicId,
+  required String? comicSource,
+  required bool useDeviceSettings,
+}) {
+  if (comicId != null && comicSource != null) {
+    appdata.settings.setReaderSetting(comicId, comicSource, key, value);
+  } else if (useDeviceSettings) {
+    appdata.settings.setDeviceReaderSetting(key, value);
+  } else {
+    appdata.settings[key] = value;
+  }
+}
+
 /// 弱化箭头：设置行里的箭头是「可以进去」的提示，不该和正文抢注意力，
 /// 因此统一压低到 onSurfaceVariant 的 42%。
 class _KcChevron extends StatelessWidget {
@@ -43,79 +80,9 @@ class _KcChevron extends StatelessWidget {
   }
 }
 
-/// 行与行之间的发丝线。
-///
-/// 不用 `outlineVariant`：AMOLED 下它约为 `#2A2A2A`，和纯黑底只差一点点，
-/// 截图里几乎整条线消失；亮色下又偏灰。改为按亮度取「黑 / 白 + 极低透明度」，
-/// 两端 8% 渐变淡出，视觉上是一条柔和的定位线，而不是硬切的表格框。
-class _KcRowDivider extends StatelessWidget {
-  const _KcRowDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final line = (isDark ? Colors.white : Colors.black).withValues(
-      alpha: isDark ? 0.085 : 0.06,
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: kcRowInsetH),
-      child: SizedBox(
-        height: 0.7,
-        // 显式撑满：Column 的交叉轴是松约束，只给高度的 Container 会量到 0 宽。
-        width: double.infinity,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                line.withValues(alpha: 0),
-                line,
-                line,
-                line.withValues(alpha: 0),
-              ],
-              stops: const [0, 0.08, 0.92, 1],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 右侧当前值胶囊。
-///
-/// 旧实现是裸的灰色文本，长行里看不出「这是一个可选项的当前值」；给一层
-/// 极淡底 + 小圆角后，行内形成「标题 / 值 / 箭头」三段结构，扫视更快。
-class _KcValueChip extends StatelessWidget {
-  const _KcValueChip(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.06)
-            : cs.onSurface.withValues(alpha: 0.045),
-        borderRadius: BorderRadius.circular(kcRadius8),
-      ),
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.end,
-        style: TextStyle(
-          fontSize: kcBody,
-          height: 1.3,
-          color: cs.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
+// 行与行之间的发丝线、行内当前值胶囊统一使用 components/list_tile.dart 的
+// KcRowDivider / KcValueChip：此前这里各留了一份逐字相同的私有实现
+// （_KcRowDivider / _KcValueChip），改一处漏一处的隐患，已合并。
 
 /// 数值气泡：滑块右侧显示当前值。
 class _KcValuePill extends StatelessWidget {
@@ -267,7 +234,7 @@ class _KcSettingTile extends StatelessWidget {
                         constraints: BoxConstraints(
                           maxWidth: MediaQuery.sizeOf(context).width * 0.42,
                         ),
-                        child: _KcValueChip(value!),
+                        child: KcValueChip(value!),
                       ),
                     ],
                     if (trailing != null) ...[
@@ -280,7 +247,7 @@ class _KcSettingTile extends StatelessWidget {
             ),
           ),
         ),
-        if (showDivider) const _KcRowDivider(),
+        if (showDivider) const KcRowDivider(),
       ],
     );
   }
@@ -386,43 +353,48 @@ class _SwitchSettingState extends State<_SwitchSetting> {
     // 先取 dynamic 再 `== true` 归一化：老版本 appdata.json 里可能根本没有这个
     // key（新增设置项若漏写进 Settings 的默认值表），直接 `bool v = ...` 会在
     // 运行时抛 `type 'Null' is not a subtype of type 'bool'`，整行渲染成红色报错。
-    final dynamic rawValue = widget.comicId != null
-        ? appdata.settings.getReaderSetting(
-            widget.comicId!,
-            widget.comicSource!,
-            widget.settingKey,
-          )
-        : widget.useDeviceSettings
-        ? appdata.settings.getDeviceReaderSetting(widget.settingKey)
-        : appdata.settings[widget.settingKey];
+    final dynamic rawValue = _readScopedSetting(
+      widget.settingKey,
+      comicId: widget.comicId,
+      comicSource: widget.comicSource,
+      useDeviceSettings: widget.useDeviceSettings,
+    );
     final bool value = rawValue == true;
 
     void toggle(bool v) {
-      HapticFeedback.selectionClick();
+      // 触感只播一次：KcSwitch 内部已经 selectionClick，再放一次会导致「点开关
+      // 震两下、点整行震一下」。整行的 onTap 自己补一次（见下面 trailing）。
       setState(() {
-        if (widget.comicId != null) {
-          appdata.settings.setReaderSetting(
-            widget.comicId!,
-            widget.comicSource!,
-            widget.settingKey,
-            v,
-          );
-        } else if (widget.useDeviceSettings) {
-          appdata.settings.setDeviceReaderSetting(widget.settingKey, v);
-        } else {
-          appdata.settings[widget.settingKey] = v;
+        _writeScopedSetting(
+          widget.settingKey,
+          v,
+          comicId: widget.comicId,
+          comicSource: widget.comicSource,
+          useDeviceSettings: widget.useDeviceSettings,
+        );
+      });
+      // 顺序很重要：`appdata.saveData()` 是**同步**快照（内部立刻 toJson +
+      // jsonEncode），所以必须等 onChanged 把「连带设置」写完再落盘。原来的
+      // 写法把 onChanged 放在 await 之后，调用方在回调里补写的键永远进不了
+      // 这一次写入（例如切到连续模式时顺手把每屏图数改回 1）。
+      widget.onChanged?.call();
+      () async {
+        try {
+          await appdata.saveData();
+        } catch (e, s) {
+          Log.error("Save setting", e, s);
         }
-      });
-      appdata.saveData().then((_) {
-        widget.onChanged?.call();
-      });
+      }();
     }
 
     return _KcSettingTile(
       title: Text(widget.title),
       subtitle: widget.subtitle,
       trailing: KcSwitch(value: value, onChanged: toggle),
-      onTap: () => toggle(!value),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        toggle(!value);
+      },
     );
   }
 }
@@ -461,33 +433,26 @@ class SelectSetting extends StatefulWidget {
 }
 
 class _SelectSettingState extends State<SelectSetting> {
-  dynamic get _value => widget.comicId != null
-      ? appdata.settings.getReaderSetting(
-          widget.comicId!,
-          widget.comicSource!,
-          widget.settingKey,
-        )
-      : widget.useDeviceSettings
-      ? appdata.settings.getDeviceReaderSetting(widget.settingKey)
-      : appdata.settings[widget.settingKey];
+  dynamic get _value => _readScopedSetting(
+    widget.settingKey,
+    comicId: widget.comicId,
+    comicSource: widget.comicSource,
+    useDeviceSettings: widget.useDeviceSettings,
+  );
 
   void _write(dynamic value) {
     setState(() {
-      if (widget.comicId != null) {
-        appdata.settings.setReaderSetting(
-          widget.comicId!,
-          widget.comicSource!,
-          widget.settingKey,
-          value,
-        );
-      } else if (widget.useDeviceSettings) {
-        appdata.settings.setDeviceReaderSetting(widget.settingKey, value);
-      } else {
-        appdata.settings[widget.settingKey] = value;
-      }
+      _writeScopedSetting(
+        widget.settingKey,
+        value,
+        comicId: widget.comicId,
+        comicSource: widget.comicSource,
+        useDeviceSettings: widget.useDeviceSettings,
+      );
     });
-    appdata.saveData();
+    // 先让调用方写连带设置，再同步落盘（saveData 是同步快照）。
     widget.onChanged?.call();
+    appdata.saveData();
   }
 
   @override
@@ -579,6 +544,10 @@ class _SelectSettingState extends State<SelectSetting> {
         );
       }).toList(),
     ).then((value) {
+      // showMenu 的 Future 在用户点外部/返回键时也会完成，那时本页可能已经
+      // 被关掉（阅读器设置在浮层里，上层弹窗一关就跟着走），_write 里的
+      // setState 会直接炸。
+      if (!mounted) return;
       if (value != null && value != _value) {
         _write(value);
       }
@@ -634,20 +603,62 @@ class _SliderSetting extends StatefulWidget {
 }
 
 class _SliderSettingState extends State<_SliderSetting> {
+  /// 拖动期间只改内存值，停手 350ms 后再落盘并通知父页。
+  ///
+  /// 原来 onChanged 里直接 `saveData()`：Slider 按指针帧回调，一次拖动就是
+  /// 几十次「写 appdata.json + syncdata.json + 触发一次 WebDAV 全量上传」，
+  /// 而 saveData 内部还有 `while (_isSavingData) await 20ms` 自旋排队 ——
+  /// 越拖越卡，开着同步时上传队列能滚到几十个。onChanged 回调节流到停手后，
+  /// 父页（阅读器设置）也不会每帧整页重建。
+  Timer? _saveDebounce;
+
+  @override
+  void dispose() {
+    // 定时器还活着 = 有一次拖动写在内存里但还没落盘。只 cancel 不补存的话，
+    // 拖完 350ms 内点返回/关浮层，值就只活在内存里，重启即丢。
+    if (_saveDebounce?.isActive ?? false) {
+      _saveDebounce!.cancel();
+      appdata.saveData();
+    }
+    super.dispose();
+  }
+
+  dynamic get _rawValue => _readScopedSetting(
+    widget.settingsIndex,
+    comicId: widget.comicId,
+    comicSource: widget.comicSource,
+    useDeviceSettings: widget.useDeviceSettings,
+  );
+
+  void _write(dynamic v) {
+    _writeScopedSetting(
+      widget.settingsIndex,
+      v,
+      comicId: widget.comicId,
+      comicSource: widget.comicSource,
+      useDeviceSettings: widget.useDeviceSettings,
+    );
+  }
+
+  void _commit() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 350), () {
+      appdata.saveData();
+      if (!mounted) return;
+      widget.onChanged?.call();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final value =
-        (widget.comicId != null
-                ? appdata.settings.getReaderSetting(
-                    widget.comicId!,
-                    widget.comicSource!,
-                    widget.settingsIndex,
-                  )
-                : widget.useDeviceSettings
-                ? appdata.settings.getDeviceReaderSetting(widget.settingsIndex)
-                : appdata.settings[widget.settingsIndex])
-            .toDouble();
+    // 兼容 null / 字符串（手工改过的 json、第三方备份导入、新增项漏写默认值）：
+    // 直接 `.toDouble()` 会抛 NoSuchMethodError，整行渲染成红色报错块。开关行
+    // 早就做了同样的归一化，滑块此前漏了。
+    final raw = _rawValue;
+    final value = raw is num
+        ? raw.toDouble()
+        : (raw == null ? widget.min : double.tryParse(raw.toString()) ?? widget.min);
 
     return Material(
       color: Colors.transparent,
@@ -690,24 +701,9 @@ class _SliderSettingState extends State<_SliderSetting> {
                       ? value.round()
                       : (value.toInt() == value ? value.toInt() : value);
                   setState(() {
-                    if (widget.comicId != null) {
-                      appdata.settings.setReaderSetting(
-                        widget.comicId!,
-                        widget.comicSource!,
-                        widget.settingsIndex,
-                        v,
-                      );
-                    } else if (widget.useDeviceSettings) {
-                      appdata.settings.setDeviceReaderSetting(
-                        widget.settingsIndex,
-                        v,
-                      );
-                    } else {
-                      appdata.settings[widget.settingsIndex] = v;
-                    }
-                    appdata.saveData();
+                    _write(v);
                   });
-                  widget.onChanged?.call();
+                  _commit();
                 },
                 divisions:
                     widget.divisions ??
@@ -718,7 +714,7 @@ class _SliderSettingState extends State<_SliderSetting> {
             ),
           ),
           const SizedBox(height: 6),
-          const _KcRowDivider(),
+          const KcRowDivider(),
         ],
       ),
     );
@@ -776,7 +772,11 @@ class _MultiPagesFilterState extends State<_MultiPagesFilter> {
 
   @override
   void initState() {
-    keys = List.from(appdata.settings[widget.settingsIndex]);
+    // settings 里的值可能被旧版本 / 导入的备份写成 null 或非 List（`searchSources`
+    // 的默认值就是 null，只靠一次迁移才变成 List）。直接 List.from 会在打开这一行
+    // 时抛 NoSuchMethodError，整页红屏且没有恢复入口。
+    final raw = appdata.settings[widget.settingsIndex];
+    keys = raw is List ? raw.map((e) => '$e').toList() : <String>[];
     keys.remove("");
     super.initState();
   }
@@ -1012,7 +1012,8 @@ class _KcDangerButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(kcPillRadius),
             border: Border.all(
               color: accent.withValues(alpha: isDark ? 0.20 : 0.14),
-              width: 0.6,
+              // 与全站发丝线同粗（旧值 0.6 在 3x 屏上比相邻元素细一档）。
+              width: kcHairline,
             ),
           ),
           child: Center(

@@ -174,8 +174,11 @@ class AppNotifications {
     // 会话状态（调用方可能紧接着就要 show 一条新的）。
     try {
       await _plugin.cancel(id: _comicUpdateNotificationId);
+      // 「Checking for updates」也是 ongoing 常驻，进程被杀后同样划不掉，
+      // 这里一并兜底（与上面 comic 僵尸通知同类）。
+      await _plugin.cancel(id: _appUpdateNotificationId);
     } catch (e) {
-      Log.warning("Notification", "Failed to clear stale comic update: $e");
+      Log.warning("Notification", "Failed to clear stale update: $e");
     }
   }
 

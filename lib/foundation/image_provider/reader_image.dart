@@ -135,4 +135,9 @@ class ReaderImageProvider
 
   @override
   String get key => "$imageKey@$sourceKey@$cid@$eid@$enableResize";
+
+  /// 落盘 key 由 [ImageDownloader.loadComicImage] 写成 4 段，不含 enableResize。
+  /// 解码失败时按它删才能真正清掉损坏的缓存字节。
+  @override
+  String get cacheKey => "$imageKey@$sourceKey@$cid@$eid";
 }

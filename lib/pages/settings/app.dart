@@ -150,11 +150,17 @@ class _AppSettingsState extends State<AppSettings> {
             onChanged: () async {
               App.forceRebuild();
               // 关闭设置页后重新打开，让语言立即生效。
-              // 平板双栏下本页为内联渲染（非路由栈），canPop 为 false，不 pop
-              // 以免关掉整个设置页。
-              if (context.mounted && Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
-              }
+              //
+              // 不能只看 `Navigator.canPop()`：那判断的是「本页所在 Navigator
+              // 的路由栈里还有没有别的路由」，而宽屏双栏时设置页自己就是被
+              // push 进 tab Navigator 的，canPop 恒为 true —— 切个语言会把
+              // 整个设置页关掉。真正的判据是本页有没有被 `_SettingsDetailPage`
+              // 包着（只有窄屏才走那条路由，宽屏是内联渲染）。
+              if (!context.mounted) return;
+              final inline =
+                  context.findAncestorWidgetOfExactType<_SettingsDetailPage>() ==
+                  null;
+              if (!inline) Navigator.of(context).pop();
             },
           ).toSliver(),
           // 「数据」以前是 13 行一个组：存储、缓存、导入导出、备份、云同步全塞在
@@ -237,8 +243,19 @@ class _AppSettingsState extends State<AppSettings> {
                 barrierDismissible: false,
                 allowCancel: false,
               );
-              await CacheManager().clear();
-              loadingDialog.close();
+              // 这个框既不能点外部关闭也没有取消按钮：clear() 一旦抛 IO 异常
+              // （缓存目录被占用 / 权限异常），不兜住就永远挂在屏幕上出不去。
+              try {
+                await CacheManager().clear();
+              } catch (e, s) {
+                Log.error("Cache", "Failed to clear cache: $e", s);
+                if (mounted) {
+                  context.showMessage(message: friendlyError(e));
+                }
+                return;
+              } finally {
+                loadingDialog.close();
+              }
               if (!mounted) return;
               context.showMessage(message: "Cache cleared".tl);
               setState(() {});
@@ -290,7 +307,11 @@ class _AppSettingsState extends State<AppSettings> {
                 }
               } catch (e, s) {
                 Log.error("Export data", e.toString(), s);
-                context.showMessage(message: "Failed to export data".tl);
+                // 导出是长耗时操作，用户可能已经离开设置页；对已卸载的 Element
+                // 查祖先 Overlay 会在 debug 下触发断言、release 下静默丢提示。
+                if (context.mounted) {
+                  context.showMessage(message: "Failed to export data".tl);
+                }
               } finally {
                 controller.close();
               }
@@ -303,6 +324,8 @@ class _AppSettingsState extends State<AppSettings> {
               var file = await selectFile(
                 ext: ['kongcomic', 'venera', 'picadata'],
               );
+              // 系统文件选择器可能开很久，回来时本页可能已经不在树上。
+              if (!context.mounted) return;
               if (file != null) {
                 var controller = showLoadingDialog(context);
                 var cacheFile = File(
@@ -317,6 +340,7 @@ class _AppSettingsState extends State<AppSettings> {
                   } else {
                     var hasDuplicates = await importHasDuplicates(cacheFile);
                     if (hasDuplicates) {
+                      if (!context.mounted) return;
                       var choice = await _showImportModeDialog(context);
                       if (choice == null || choice == _ConflictChoice.cancel) {
                         cancelled = true;
@@ -334,7 +358,9 @@ class _AppSettingsState extends State<AppSettings> {
                   }
                 } catch (e, s) {
                   Log.error("Import data", e.toString(), s);
-                  context.showMessage(message: "Failed to import data".tl);
+                  if (context.mounted) {
+                    context.showMessage(message: "Failed to import data".tl);
+                  }
                 } finally {
                   controller.close();
                   cacheFile.deleteIgnoreError();
@@ -384,8 +410,13 @@ class _AppSettingsState extends State<AppSettings> {
               }),
               callback: () async {
                 final options = ["1", "3", "7", "14", "30"];
-                final current =
-                    (appdata.settings['autoBackupInterval'] as int? ?? 7);
+                // 不能 `as int?`：备份导入 / 同步过来的 JSON 数字常是 double，
+                // 强转会在点「Set」的瞬间抛类型错误（subtitle 不用强转所以正常，
+                // 表现为「显示 7 天，一戳就崩」）。
+                final rawCurrent = appdata.settings['autoBackupInterval'];
+                final current = rawCurrent is num
+                    ? rawCurrent.toInt()
+                    : (int.tryParse('$rawCurrent') ?? 7);
                 var index = options.indexOf(current.toString());
                 if (index < 0) index = 2;
                 final result = await showSelectDialog(
@@ -415,8 +446,10 @@ class _AppSettingsState extends State<AppSettings> {
               }),
               callback: () async {
                 final options = ["7", "30", "90", "180", "365"];
-                final current =
-                    (appdata.settings['autoBackupRetentionDays'] as int? ?? 30);
+                final rawCurrent = appdata.settings['autoBackupRetentionDays'];
+                final current = rawCurrent is num
+                    ? rawCurrent.toInt()
+                    : (int.tryParse('$rawCurrent') ?? 30);
                 var index = options.indexOf(current.toString());
                 if (index < 0) index = 1;
                 final result = await showSelectDialog(
@@ -946,8 +979,11 @@ class _WebdavSettingState extends State<_WebdavSetting> {
     if (appdata.settings['webdav'] is! List) {
       appdata.settings['webdav'] = [];
     }
-    if (appdata.settings['disableSyncFields'].trim().isNotEmpty) {
-      disableSync = appdata.settings['disableSyncFields'];
+    // 直接 `.trim()` 会在值被导入成 null / 非字符串时抛 NoSuchMethodError，
+    // 整个 WebDAV 页打不开且没有恢复入口。
+    final rawDisable = appdata.settings['disableSyncFields'];
+    if (rawDisable is String && rawDisable.trim().isNotEmpty) {
+      disableSync = rawDisable;
     }
     var configs = appdata.settings['webdav'] as List;
     if (configs.whereType<String>().length == 3) {
@@ -1130,6 +1166,10 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                 onPressed: () async {
                   var oldConfig = appdata.settings['webdav'];
                   var oldAutoSync = appdata.implicitData['webdavAutoSync'];
+                  // 「跳过同步字段」也在下面被提前写进 settings，测试失败时同样要
+                  // 回滚 —— 否则用户填错密码点一次 Continue，就被静默改掉一批
+                  // 不同步的字段，而且这回滚前的值已经被 saveData 写盘了。
+                  final oldDisableSync = appdata.settings['disableSyncFields'];
 
                   if (url.trim().isEmpty &&
                       user.trim().isEmpty &&
@@ -1163,10 +1203,16 @@ class _WebdavSettingState extends State<_WebdavSetting> {
                       : await DataSync().downloadData();
                   if (!mounted) return;
                   if (testResult.error) {
+                    final restoredDisableSync = oldDisableSync is String
+                        ? oldDisableSync
+                        : '';
                     setState(() {
                       isTesting = false;
+                      disableSync = restoredDisableSync;
+                      _disableSyncController.text = restoredDisableSync;
                     });
                     appdata.settings['webdav'] = oldConfig;
+                    appdata.settings['disableSyncFields'] = oldDisableSync;
                     appdata.implicitData['webdavAutoSync'] = oldAutoSync;
                     appdata.writeImplicitData();
                     appdata.saveData();

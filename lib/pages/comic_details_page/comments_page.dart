@@ -422,8 +422,8 @@ class _CommentTileState extends State<_CommentTile> {
       margin: const EdgeInsets.only(left: kcSpaceSm),
       decoration: BoxDecoration(
         border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 0.6,
+          color: kcHairlineColor(context),
+          width: kcHairline,
         ),
         borderRadius: BorderRadius.circular(kcRadius16),
       ),
@@ -463,8 +463,8 @@ class _CommentTileState extends State<_CommentTile> {
       margin: const EdgeInsets.only(left: kcSpaceSm),
       decoration: BoxDecoration(
         border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 0.6,
+          color: kcHairlineColor(context),
+          width: kcHairline,
         ),
         borderRadius: BorderRadius.circular(kcRadius16),
       ),
@@ -503,7 +503,7 @@ class _CommentTileState extends State<_CommentTile> {
               HugeIcon(
                 icon: HugeIcons.strokeRoundedFavourite,
                 size: 16,
-                color: context.useTextColor(Colors.red),
+                color: kcBrandAdaptive(context),
               )
             else
               HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 16),
@@ -565,11 +565,11 @@ class _CommentTileState extends State<_CommentTile> {
   Widget buildVote() {
     var upColor = context.colorScheme.outline;
     if (voteStatus == 1) {
-      upColor = context.useTextColor(Colors.red);
+      upColor = kcBrandAdaptive(context);
     }
     var downColor = context.colorScheme.outline;
     if (voteStatus == -1) {
-      downColor = context.useTextColor(Colors.blue);
+      downColor = kcInfoColor(context);
     }
 
     return Container(
@@ -577,8 +577,8 @@ class _CommentTileState extends State<_CommentTile> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(kcRadius16),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 0.6,
+          color: kcHairlineColor(context),
+          width: kcHairline,
         ),
       ),
       child: Row(

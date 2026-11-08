@@ -162,7 +162,14 @@ void showUpdateBanner({
   final state = App.rootContext.findAncestorStateOfType<OverlayWidgetState>();
   if (state == null) return;
 
-  _activeUpdateBanner?.remove();
+  // 必须走 state.remove()：直接 OverlayEntry.remove() 只从 Overlay 摘掉，
+  // 不会从 state.entries 列表移除 —— 死 entry 留在列表里，之后任何一次
+  // removeAll() 再对它调 remove()（_overlay 已 null）会触发 debug 断言。
+  final old = _activeUpdateBanner;
+  if (old != null) {
+    state.remove(old);
+    _activeUpdateBanner = null;
+  }
 
   final entry = OverlayEntry(
     builder: (context) => _UpdateBannerOverlay(
@@ -865,6 +872,8 @@ Future<void> showInputDialog({
   bool isLoading = false;
   String? error;
 
+  // controller 是函数体局部创建的，dialog 关闭后必须释放，
+  // 否则每次弹输入框泄漏一个 TextEditingController。
   return showDialog(
     context: context,
     builder: (context) {
@@ -932,7 +941,7 @@ Future<void> showInputDialog({
         },
       );
     },
-  );
+  ).whenComplete(controller.dispose);
 }
 
 void showInfoDialog({
@@ -1007,7 +1016,8 @@ Future<ImageSaveChoice?> showImageSaveDialog(
   final controller = TextEditingController(text: initialName);
   var format = initialFormat;
 
-  return showDialog<ImageSaveChoice>(
+  try {
+    return await showDialog<ImageSaveChoice>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setState) {
@@ -1097,6 +1107,9 @@ Future<ImageSaveChoice?> showImageSaveDialog(
       },
     ),
   );
+  } finally {
+    controller.dispose();
+  }
 }
 
 /// 「保存图片」对话框里的单个格式选项：图标 + 名称 + 说明 + 右侧选中圆点。

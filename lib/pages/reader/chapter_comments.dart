@@ -6,7 +6,10 @@ bool _shouldBlockComment(Comment comment) {
 
   var content = comment.content.toLowerCase();
   for (var word in blockedWords) {
-    if (content.contains(word.toString().toLowerCase())) {
+    // 空串会 contains 恒真，整页评论被吞掉；历史数据里可能残留，跳过。
+    final w = word.toString().trim().toLowerCase();
+    if (w.isEmpty) continue;
+    if (content.contains(w)) {
       return true;
     }
   }
@@ -94,12 +97,22 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
   void loadMore() async {
     if (_isLoadingMore) return;
     _isLoadingMore = true;
-    var res = await widget.source.chapterCommentsLoader!(
-      widget.comicId,
-      widget.epId,
-      _page + 1,
-      widget.replyComment?.id,
-    );
+    Res<List<Comment>> res;
+    // loader 直接抛异常时，不兜底会让 _isLoadingMore 永远为 true，
+    // 之后再也不会加载下一页（底部永久转圈）。
+    try {
+      res = await widget.source.chapterCommentsLoader!(
+        widget.comicId,
+        widget.epId,
+        _page + 1,
+        widget.replyComment?.id,
+      );
+    } catch (e) {
+      _isLoadingMore = false;
+      if (!mounted) return;
+      context.showMessage(message: friendlyError(e));
+      return;
+    }
     if (!mounted) {
       _isLoadingMore = false;
       return;
@@ -162,6 +175,12 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
           firstLoad();
         },
         withAppbar: false,
+      );
+    } else if (_comments!.isEmpty && widget.replyComment == null) {
+      // 空评论：嵌版有这个分支，主页面漏了 —— 原来渲染一个只有占位行的
+      // ListView，页面空白且无提示。
+      return Center(
+        child: Text("No comments yet".tl, style: TextStyle(fontSize: kcBody)),
       );
     } else {
       var showAvatar =
@@ -292,12 +311,23 @@ class _ChapterCommentsPageState extends State<ChapterCommentsPage> {
                   setState(() {
                     sending = true;
                   });
-                  var b = await widget.source.sendChapterCommentFunc!(
-                    widget.comicId,
-                    widget.epId,
-                    controller.text,
-                    widget.replyComment?.id,
-                  );
+                  Res<bool> b;
+                  // 发送抛异常时复位 sending，否则发送按钮永久转圈。
+                  try {
+                    b = await widget.source.sendChapterCommentFunc!(
+                      widget.comicId,
+                      widget.epId,
+                      controller.text,
+                      widget.replyComment?.id,
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    setState(() {
+                      sending = false;
+                    });
+                    context.showMessage(message: friendlyError(e));
+                    return;
+                  }
                   if (!mounted) return;
                   if (!b.error) {
                     controller.text = "";
@@ -448,8 +478,8 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
       margin: const EdgeInsets.only(left: kcSpaceSm),
       decoration: BoxDecoration(
         border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 0.6,
+          color: kcHairlineColor(context),
+          width: kcHairline,
         ),
         borderRadius: BorderRadius.circular(kcRadius16),
       ),
@@ -493,8 +523,8 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
       margin: const EdgeInsets.only(left: kcSpaceSm),
       decoration: BoxDecoration(
         border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 0.6,
+          color: kcHairlineColor(context),
+          width: kcHairline,
         ),
         borderRadius: BorderRadius.circular(kcRadius16),
       ),
@@ -505,12 +535,24 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
           setState(() {
             isLiking = true;
           });
-          var res = await widget.source.likeCommentFunc!(
-            widget.comicId,
-            widget.epId,
-            widget.comment.id ?? '',
-            !isLiked,
-          );
+          // likeCommentFunc 返回 Res<int?>（点赞后的最新计数）。
+          Res<int?> res;
+          // 点赞抛异常时复位 isLiking，否则该行永久转圈。
+          try {
+            res = await widget.source.likeCommentFunc!(
+              widget.comicId,
+              widget.epId,
+              widget.comment.id ?? '',
+              !isLiked,
+            );
+          } catch (e) {
+            if (!mounted) return;
+            setState(() {
+              isLiking = false;
+            });
+            context.showMessage(message: friendlyError(e));
+            return;
+          }
           if (!mounted) return;
           if (res.success) {
             isLiked = !isLiked;
@@ -533,7 +575,7 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
               HugeIcon(
                 icon: HugeIcons.strokeRoundedFavourite,
                 size: 16,
-                color: context.useTextColor(Colors.red),
+                color: kcBrandAdaptive(context),
               )
             else
               HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 16),
@@ -559,13 +601,26 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
       }
     });
     var isCancel = (isUp && voteStatus == 1) || (!isUp && voteStatus == -1);
-    var res = await widget.source.voteCommentFunc!(
-      widget.comicId,
-      widget.epId,
-      widget.comment.id ?? '',
-      isUp,
-      isCancel,
-    );
+    // voteCommentFunc 返回 Res<int?>（投票后的最新分数）。
+    Res<int?> res;
+    // 投票抛异常时复位 spinner 标志，否则该按钮永久转圈。
+    try {
+      res = await widget.source.voteCommentFunc!(
+        widget.comicId,
+        widget.epId,
+        widget.comment.id ?? '',
+        isUp,
+        isCancel,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        isVotingUp = false;
+        isVotingDown = false;
+      });
+      context.showMessage(message: friendlyError(e));
+      return;
+    }
     if (!mounted) return;
     if (res.success) {
       if (isCancel) {
@@ -593,11 +648,11 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
   Widget buildVote() {
     var upColor = context.colorScheme.outline;
     if (voteStatus == 1) {
-      upColor = context.useTextColor(Colors.red);
+      upColor = kcBrandAdaptive(context);
     }
     var downColor = context.colorScheme.outline;
     if (voteStatus == -1) {
-      downColor = context.useTextColor(Colors.blue);
+      downColor = kcInfoColor(context);
     }
 
     return Container(
@@ -605,8 +660,8 @@ class _ChapterCommentTileState extends State<_ChapterCommentTile> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(kcRadius16),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 0.6,
+          color: kcHairlineColor(context),
+          width: kcHairline,
         ),
       ),
       child: Row(
@@ -739,12 +794,22 @@ class _EmbeddedChapterCommentsPageState
   void loadMore() async {
     if (_isLoadingMore) return;
     _isLoadingMore = true;
-    var res = await widget.source.chapterCommentsLoader!(
-      widget.comicId,
-      widget.epId,
-      _page + 1,
-      null,
-    );
+    Res<List<Comment>> res;
+    // 同主页面：异常必须兜住复位 _isLoadingMore，否则分页永久失效。
+    try {
+      res = await widget.source.chapterCommentsLoader!(
+        widget.comicId,
+        widget.epId,
+        _page + 1,
+        null,
+      );
+    } catch (e) {
+      _isLoadingMore = false;
+      if (mounted) {
+        context.showMessage(message: friendlyError(e));
+      }
+      return;
+    }
     if (res.error) {
       if (mounted) {
         context.showMessage(
@@ -938,12 +1003,23 @@ class _EmbeddedChapterCommentsPageState
                   setState(() {
                     sending = true;
                   });
-                  var b = await widget.source.sendChapterCommentFunc!(
-                    widget.comicId,
-                    widget.epId,
-                    textController.text,
-                    null,
-                  );
+                  Res<bool> b;
+                  // 同主页面：异常必须复位 sending，否则发送按钮永久转圈。
+                  try {
+                    b = await widget.source.sendChapterCommentFunc!(
+                      widget.comicId,
+                      widget.epId,
+                      textController.text,
+                      null,
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    setState(() {
+                      sending = false;
+                    });
+                    context.showMessage(message: friendlyError(e));
+                    return;
+                  }
                   if (!mounted) return;
                   if (!b.error) {
                     textController.text = "";

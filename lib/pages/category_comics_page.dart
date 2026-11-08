@@ -126,6 +126,10 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
     } else if (error != null) {
       body = NetworkError(
         message: error!,
+        // 外层 Scaffold 已经有一根带分类名的 Appbar（并且
+        // extendBodyBehindAppBar），这里再让 NetworkError 画一根，就会在顶栏
+        // 底下叠一根空标题的第二根栏，把错误内容整体往下推 56+状态栏。
+        withAppbar: false,
         retry: () {
           setState(() {
             error = null;
@@ -169,6 +173,12 @@ class _CategoryComicsPageState extends State<CategoryComicsPage> {
   }
 
   Widget buildOptions() {
+    // 源没有声明 options（也没给 optionsLoader）时，`options` 是 null；以前这里
+    // 直接 `options!` 解包 → build 期抛 null check，整个分类页红屏。筛选条只是
+    // 附属 UI，没有就返回空，主体列表照常渲染。
+    if (options == null || options!.isEmpty) {
+      return const SizedBox.shrink();
+    }
     List<Widget> children = [];
     var group = 0;
     for (var optionList in options!) {

@@ -97,7 +97,7 @@ class _CommentsPartState extends State<_CommentsPart> {
                 ),
                 text: "View more".tl,
                 onPressed: widget.showMore,
-                iconColor: context.useTextColor(Colors.green),
+                iconColor: kcBrandAdaptive(context),
               ).fixHeight(48).paddingRight(8).toAlign(Alignment.centerRight),
               const SizedBox(height: 8),
             ],

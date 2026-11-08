@@ -9,7 +9,6 @@ import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/foundation/res.dart';
 import 'package:kong_comic/network/app_dio.dart';
 import 'package:kong_comic/utils/data.dart';
-import 'package:kong_comic/utils/ext.dart';
 import 'package:webdav_client/webdav_client.dart' hide File;
 import 'package:kong_comic/utils/translations.dart';
 
@@ -221,8 +220,6 @@ class DataSync with ChangeNotifier {
             ? currentVersion.toInt()
             : int.tryParse(currentVersion.toString()) ?? 0;
         var nextVersion = local + 1;
-        appdata.settings['dataVersion'] = nextVersion;
-        await appdata.saveData(false);
         // 恒定打包脱敏快照 syncdata.json。以前用
         // `disableSyncFields.toString().isNotEmpty` 当开关，默认配置下会
         // 传 false → 把含 WebDAV 明文密码、proxy、deviceId 的 appdata.json
@@ -237,12 +234,13 @@ class DataSync with ChangeNotifier {
         // webdav_client 的 File.name 是 String?，某些服务器会返回无名条目。
         files = files.where((e) => e.name != null).toList();
         files = files.where((e) => e.name!.endsWith('.kongcomic')).toList();
-        var old = files.firstWhereOrNull((e) => e.name!.startsWith("$time-"));
-        if (old != null) {
-          await client.remove(old.name!);
-          files.remove(old);
-        }
         // 保留 10 份：多设备同日上传时旧实现一次只删 1 个，文件数会单调增长。
+        // 顺序必须是「先写新快照、再删旧」：以前先 remove 同日旧快照再
+        // write，两步之间断网会把远端当天唯一的新备份删没。
+        var olds = files
+            .where((e) => e.name!.startsWith("$time-"))
+            .toList();
+        files.removeWhere((e) => e.name!.startsWith("$time-"));
         if (files.length >= 10) {
           files.sort((a, b) => _compareSnapshots(a.name!, b.name!));
           var overflow = files.length - 9;
@@ -251,6 +249,16 @@ class DataSync with ChangeNotifier {
           }
         }
         await client.write(filename, await exported.readAsBytes());
+        // 上传成功后才提交版本号并清理同日旧快照。以前版本号先 +1 落盘再
+        // 上传：失败也烧掉一个版本号，另一台设备随后上传的相同版本号快照
+        // 会被 downloadData 的 `<= local` 判定永久跳过，多设备静默不同步。
+        for (var old in olds) {
+          try {
+            await client.remove(old.name!);
+          } catch (_) {}
+        }
+        appdata.settings['dataVersion'] = nextVersion;
+        await appdata.saveData(false);
         Log.info("Upload Data", "Data uploaded successfully");
         return const Res(true);
       } catch (e, s) {

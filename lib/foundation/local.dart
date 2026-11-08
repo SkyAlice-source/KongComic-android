@@ -207,6 +207,9 @@ class LocalComic with HistoryMixin implements Comic {
     if (downloadedChapters.isNotEmpty && chapters != null) {
       final chapters = this.chapters!;
       if (chapters.isGrouped) {
+        // 需要跳出双层循环：只 break 内层会让后面任何一个含已下载章节的
+        // 分组覆盖掉结果，最终定位到「最后一组」而不是第一组。
+        outer:
         for (int i = 0; i < chapters.groupCount; i++) {
           var group = chapters.getGroupByIndex(i);
           var keys = group.keys.toList();
@@ -215,7 +218,7 @@ class LocalComic with HistoryMixin implements Comic {
             if (downloadedChapters.contains(chapterId)) {
               firstDownloadedChapter = j + 1;
               firstDownloadedChapterGroup = i + 1;
-              break;
+              break outer;
             }
           }
         }
@@ -334,30 +337,37 @@ class LocalManager with ChangeNotifier {
   /// merge/overwrite/cancel choices before moving.
   Future<int> countConflicts(String newPath) async {
     final newDir = Directory(newPath);
-    if (!await newDir.exists()) return 0;
-    int count = 0;
+    if (!newDir.existsSync()) return 0;
+    // 只捕获字符串：Directory 对象（以及 this 上的 DB 句柄）不能跨 isolate。
+    final targetRoot = newPath;
+    final currentRoot = directory.path;
     try {
-      await Isolate.run(() {
+      // 必须 return：闭包里的赋值只改子 isolate 的副本，父 isolate 的变量
+      // 不会变。之前这里 `count = walk(directory)` 导致恒返回 0，
+      // 「合并/覆盖」确认框永不出现，接着按 overwrite=true 静默覆盖并清空源目录。
+      return await Isolate.run(() {
+        var n = 0;
         overrideIO(() {
-          int walk(Directory d) {
-            int n = 0;
-            for (final entity in d.listSync(recursive: false)) {
-              if (entity is File) {
-                n++;
-              } else if (entity is Directory) {
-                n += walk(entity);
+          void walk(Directory src, String rel) {
+            for (final entity in src.listSync(recursive: false)) {
+              final name = p.basename(entity.path);
+              final r = rel.isEmpty ? name : p.join(rel, name);
+              if (entity is Directory) {
+                walk(entity, r);
+              } else if (entity is File) {
+                if (File(p.join(currentRoot, r)).existsSync()) n++;
               }
             }
-            return n;
           }
 
-          count = walk(directory);
+          walk(Directory(targetRoot), '');
         });
+        return n;
       });
-    } catch (_) {
+    } catch (e, s) {
+      Log.error("IO", "Failed to count conflicts: $e", s);
       return 0;
     }
-    return count;
   }
 
   // [overwrite] controls behaviour when [newPath] already contains files:
@@ -460,6 +470,7 @@ class LocalManager with ChangeNotifier {
     required List<DownloadTask> paused,
   }) async {
     final oldRoot = directory.path;
+    final oldDir = Directory(oldRoot);
     try {
       final copied = await _copyWithStrategy(
         directory,
@@ -475,12 +486,9 @@ class LocalManager with ChangeNotifier {
       return "Failed to move comics. Check storage permission and try again."
           .tl;
     }
-    try {
-      await directory.deleteContents(recursive: true);
-    } catch (e, s) {
-      // 复制已成功，旧目录清理失败不致命：仍切换到新路径，残留可手动清理。
-      Log.error("IO", "Failed to clean old directory: $e", s);
-    }
+    // 顺序很关键：先把新路径落盘、再清空旧目录。之前是反的，一旦写
+    // local_path 失败（磁盘满/只读），旧目录已经被删空、path 却仍指向它，
+    // 下次启动读到的就是空库，文件实际躺在无人知晓的新目录里。
     try {
       await File(
         FilePath.join(App.dataPath, 'local_path'),
@@ -491,6 +499,12 @@ class LocalManager with ChangeNotifier {
       return "Failed to save storage path. Please try again.".tl;
     }
     path = newDir.path;
+    try {
+      await oldDir.deleteContents(recursive: true);
+    } catch (e, s) {
+      // 复制已成功且新路径已生效，旧目录清理失败不致命：残留可手动清理。
+      Log.error("IO", "Failed to clean old directory: $e", s);
+    }
     _checkNoMedia();
     // 迁移完成：只有搬过去的正是原目录时，「原目录还有文件」的提示才该撤掉，
     // 见 [_resolveFallbackFor]。
@@ -1810,18 +1824,20 @@ class LocalManager with ChangeNotifier {
   }
 
   void moveToFirst(DownloadTask task) {
-    if (downloadingTasks.first != task) {
-      var shouldResume = !downloadingTasks.first.isPaused;
-      downloadingTasks.first.pause();
-      downloadingTasks.remove(task);
-      downloadingTasks.insert(0, task);
-      notifyListeners();
-      saveCurrentDownloadingTasks();
-      if (shouldResume && !_isMigrating) {
-        // The task was explicitly moved to the front, so start it even if it
-        // previously failed.
-        downloadingTasks.first.resume();
-      }
+    // 空队列（任务刚完成/被取消）时 `.first` 抛 StateError；任务已不在队列里
+    // 时 remove 空转 + insert 会把它「复活」并重新持久化。
+    if (downloadingTasks.isEmpty || !downloadingTasks.contains(task)) return;
+    if (identical(downloadingTasks.first, task)) return;
+    var shouldResume = !downloadingTasks.first.isPaused;
+    downloadingTasks.first.pause();
+    downloadingTasks.remove(task);
+    downloadingTasks.insert(0, task);
+    notifyListeners();
+    saveCurrentDownloadingTasks();
+    if (shouldResume && !_isMigrating) {
+      // The task was explicitly moved to the front, so start it even if it
+      // previously failed.
+      downloadingTasks.first.resume();
     }
   }
 
@@ -1845,25 +1861,37 @@ class LocalManager with ChangeNotifier {
 
   void restoreDownloadingTasks() {
     var file = File(FilePath.join(App.dataPath, 'downloading_tasks.json'));
-    if (file.existsSync()) {
+    if (!file.existsSync()) return;
+    List<dynamic> entries;
+    try {
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded is! List) {
+        // 结构不对（被同步覆盖成 Map / 半截写入）：保留文件便于排查，
+        // 不要一声不响地删掉整个队列。
+        Log.error("LocalManager", "Unexpected downloading tasks format");
+        return;
+      }
+      entries = decoded;
+    } catch (e, s) {
+      Log.error("LocalManager", "Failed to read downloading tasks: $e", s);
+      return;
+    }
+    // 逐条容错：以前任意一条脏数据就会让整个 for 抛异常，外层 catch 直接
+    // file.delete() —— 所有排队任务一起消失，用户无法恢复。
+    for (final e in entries) {
+      if (e is! Map) continue;
       try {
-        var tasks = jsonDecode(file.readAsStringSync());
-        for (var e in tasks) {
-          var task = DownloadTask.fromJson(e);
-          if (task != null) {
-            downloadingTasks.add(task);
-          }
-        }
-        // 崩溃/休眠恢复后自动续传：把队列从队头逐个放行（尊重 pausedByUser
-        // 与 isError 规则）。之前这里只 restore 不 resume，导致重启后所有
-        // 下载卡在「已暂停」，必须手动点恢复——这正是拷贝漫画式「休眠恢复
-        // 自动续传」要补的体验缺口。
-        kickDownloadQueue();
-      } catch (e) {
-        file.delete();
-        Log.error("LocalManager", "Failed to restore downloading tasks: $e");
+        final task = DownloadTask.fromJson(Map<String, dynamic>.from(e));
+        if (task != null) downloadingTasks.add(task);
+      } catch (err, s) {
+        Log.error("LocalManager", "Skip broken downloading task: $err", s);
       }
     }
+    // 崩溃/休眠恢复后自动续传：把队列从队头逐个放行（尊重 pausedByUser
+    // 与 isError 规则）。之前这里只 restore 不 resume，导致重启后所有
+    // 下载卡在「已暂停」，必须手动点恢复——这正是拷贝漫画式「休眠恢复
+    // 自动续传」要补的体验缺口。
+    kickDownloadQueue();
   }
 
   /// 唤醒下载队列：从队头开始自动续传，遵守 [_DownloadTask.pausedByUser] 与
@@ -1967,7 +1995,9 @@ class LocalManager with ChangeNotifier {
 
   void deleteComic(LocalComic c, [bool removeFileOnDisk = true]) {
     if (removeFileOnDisk) {
-      var dir = Directory(FilePath.join(path, c.directory));
+      // 用 baseDir 而不是 join(path, directory)：导入外部漫画时 directory
+      // 存的是绝对路径，join 会拼出一个不存在的嵌套路径，文件永远删不掉。
+      var dir = Directory(c.baseDir);
       dir.deleteIgnoreError(recursive: true);
     }
     // Deleting a local comic means that it's no longer available, thus both favorite and history should be deleted.
@@ -2031,7 +2061,7 @@ class LocalManager with ChangeNotifier {
     try {
       for (var c in comics) {
         if (removeFileOnDisk) {
-          var dir = Directory(FilePath.join(path, c.directory));
+          var dir = Directory(c.baseDir);
           if (dir.existsSync()) {
             shouldRemovedDirs.add(dir);
           }

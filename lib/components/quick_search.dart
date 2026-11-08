@@ -69,10 +69,15 @@ class _QuickHit {
     required this.title,
     required this.meta,
     required this.hay,
+    this.comicType,
   });
 
   final String id;
   final String sourceKey;
+
+  /// 本地漫画的精确类型。源被卸载后 `ComicType.fromKey(sourceKey)` 反查
+  /// 不回来，本地条目必须直接带原始 type 才能定位到库里的那一条。
+  final ComicType? comicType;
 
   /// 原始封面地址，进详情页时透传（详情页靠它先占位，再拉正式封面）。
   final String cover;
@@ -280,7 +285,10 @@ class _QuickSearchDialogState extends State<QuickSearchDialog> {
       out.add(
         _QuickHit(
           id: c.id,
-          sourceKey: c.sourceKey,
+          // 源被卸载/脚本损坏时 LocalComic.sourceKey 里的 `comicSource!` 会
+          // 直接崩（本方法在 initState 里跑 → 速搜弹窗根本打不开）。
+          sourceKey: c.comicType.comicSource?.key ?? "local",
+          comicType: c.comicType,
           cover: c.cover,
           image: c.cover.isEmpty ? null : FileImage(c.coverFile),
           title: c.title,
@@ -354,7 +362,9 @@ class _QuickSearchDialogState extends State<QuickSearchDialog> {
     Navigator.of(context).pop();
     if (widget.scope == QuickSearchScope.local) {
       // 本地漫画不进网络详情页：直接接着上次进度打开阅读器，与网格点击一致。
-      LocalManager().find(hit.id, ComicType.fromKey(hit.sourceKey))?.read();
+      LocalManager()
+          .find(hit.id, hit.comicType ?? ComicType.fromKey(hit.sourceKey))
+          ?.read();
       return;
     }
     App.mainNavigatorKey?.currentContext?.to(

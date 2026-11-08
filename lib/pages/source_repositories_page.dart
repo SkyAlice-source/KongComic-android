@@ -55,6 +55,10 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
   /// 顶部再显示一条总进度，否则几十个源依次下载看起来像卡死。
   final Map<String, ({int done, int total})> _repoUpdates = {};
 
+  /// 有安装 / 整仓更新在跑。这期间改仓库（改名、换 URL、删仓库）都会让正在
+  /// 进行的批量操作对着一份已经变形的列表继续跑，所以相关入口一律禁用。
+  bool get _locked => _busy || _repoUpdates.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -105,6 +109,8 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
   }
 
   void _closeCatalog() {
+    // 作废还在飞的目录请求，避免它回来后把已经关掉的页面重新写满数据。
+    _loadToken++;
     setState(() {
       _opened = null;
       _catalog = null;
@@ -125,9 +131,16 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     }
   }
 
+  /// 目录请求的序号：连点刷新/连点重试会并发发起多个 `fresh: true` 请求，
+  /// 每个都各自 setState 写 _catalog —— 先发的旧快照可能后到，把新快照盖掉，
+  /// 「已安装 x / 可更新 y」于是对不上，用户再点更新又装到另一个版本。
+  /// 只接受最后一次请求的结果。
+  int _loadToken = 0;
+
   Future<void> _load() async {
     final repository = _opened;
     if (repository == null) return;
+    final token = ++_loadToken;
     setState(() {
       _loading = true;
       _error = null;
@@ -137,13 +150,13 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
       // 的 CDN 缓存会让「已安装 1.0.5 / 可更新 1.0.6」这类状态一直停在过期
       // 版本上，点更新则装到另一个版本，看起来像更新失败。
       final catalog = await repositories.load(repository, fresh: true);
-      if (!mounted) return;
+      if (!mounted || token != _loadToken) return;
       setState(() {
         _catalog = catalog;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || token != _loadToken) return;
       setState(() {
         // 这个字符串直接渲染在整页错误态里（Text(_error!)），
         // 用异常原文会在中文界面显示整条英文，先归一化。
@@ -222,6 +235,12 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
             _catalog = null;
           });
           await _load();
+        } else {
+          // 只改了名字：表头（_opened.name）也得跟着换，否则列表卡片已经显示
+          // 新名字、目录页顶部还是旧名字，直到退出重进。
+          setState(() {
+            _opened = updated;
+          });
         }
       }
     } catch (e) {
@@ -268,6 +287,9 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     } catch (e) {
       if (mounted) context.showMessage(message: friendlyError(e));
     }
+    // 安装要下载脚本，期间用户可能已经关掉这个 popup —— 无守卫的 setState
+    // 会抛 "called after dispose"。
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -377,12 +399,18 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     try {
       await File(source.filePath).delete();
       ComicSourceManager().remove(entry.key);
+      // File.delete 是异步 IO，删完页面可能已经被关掉：原样的
+      // context.showMessage / setState 都会在停用的 element 上执行
+      // （debug 断言、release 静默丢提示）。
+      if (!mounted) return;
       context.showMessage(
         message: "Source uninstalled".tlParams({'name': entry.name}),
       );
     } catch (e) {
-      if (mounted) context.showMessage(message: friendlyError(e));
+      if (!mounted) return;
+      context.showMessage(message: friendlyError(e));
     }
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -462,7 +490,10 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
                     : HugeIcons.strokeRoundedEdit02,
                 size: 18,
               ),
-              onPressed: () => _edit(_opened),
+              // 安装 / 整仓更新进行中不能改仓库：`_install` 与 `_updateRepository`
+              // 都持有 `_opened` 和它的 catalog，中途把 URL 改掉会让后半段装到
+              // 另一个仓库的脚本上。
+              onPressed: _locked ? null : () => _edit(_opened),
             ),
           ),
           Tooltip(
@@ -514,7 +545,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
           child: Container(
             decoration: BoxDecoration(
               borderRadius: radius,
-              border: Border.all(color: scheme.outlineVariant, width: 0.6),
+              border: Border.all(color: kcHairlineColor(context), width: kcHairline),
             ),
             padding: const EdgeInsets.fromLTRB(
               kcSpaceMd,
@@ -691,13 +722,14 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
             tooltip: "Edit".tl,
             visualDensity: VisualDensity.compact,
             icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit02, size: 18),
-            onPressed: () => _edit(repository),
+            onPressed: repoBusy ? null : () => _edit(repository),
           ),
           IconButton(
             tooltip: "Delete".tl,
             visualDensity: VisualDensity.compact,
             icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete02, size: 18),
-            onPressed: () => _remove(repository),
+            // 整仓更新期间删掉仓库，正在跑的循环会对着已移除的仓库继续装脚本。
+            onPressed: repoBusy ? null : () => _remove(repository),
           ),
         ],
       ),
@@ -800,6 +832,17 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
       if (seen.add(entry.key)) unique.add(entry);
     }
     return repositories.applyCatalogOrder(_opened?.id, unique);
+  }
+
+  /// 目录条目按 key 去重后的原始顺序（不去筛选、不排序）。
+  ///
+  /// 批量安装/更新/整仓更新都必须用它：仓库可以合法地给同一个 key 提供多个
+  /// 变体（普通版 / 多账号版），直接遍历 `catalog.entries` 会把同一个源装两遍。
+  Iterable<SourceCatalogEntry> _uniqueCatalogEntries() sync* {
+    final seen = <String>{};
+    for (final entry in _catalog?.entries ?? const <SourceCatalogEntry>[]) {
+      if (seen.add(entry.key)) yield entry;
+    }
   }
 
   Future<void> _reorderCatalogEntries(int oldIndex, int newIndex) async {
@@ -973,7 +1016,10 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     final repository = _opened;
     if (catalog == null || repository == null || _busy) return;
     final keys = _selected.toList();
-    final targets = catalog.entries
+    // 和展示层一样按 key 去重：仓库可以合法地为同一个 key 提供多个变体
+    // （如普通版 / 多账号版），直接遍历原始条目会把同一个源装两遍，后一个
+    // 变体覆盖前一个，计数还多算一份。
+    final targets = _uniqueCatalogEntries()
         .where((e) => keys.contains(e.key) && ComicSource.find(e.key) == null)
         .toList();
     if (targets.isEmpty) {
@@ -1067,7 +1113,7 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
     // 记的是「条目」而不是源：更新的下载地址必须来自用户看到的这一条
     // （见 [_updateEntry] 的说明）。
     final targets = <(SourceCatalogEntry, ComicSource)>[];
-    for (final entry in catalog.entries) {
+    for (final entry in _uniqueCatalogEntries()) {
       if (!keys.contains(entry.key)) continue;
       final installed = ComicSource.find(entry.key);
       if (installed != null &&
@@ -1115,7 +1161,11 @@ class _SourceRepositoriesPageState extends State<SourceRepositoriesPage>
       return;
     }
     final targets = <(SourceCatalogEntry, ComicSource)>[];
+    // 同 key 的多个变体只取第一条（这里用的是刚拉下来的 index，而不是
+    // _catalog —— 整仓更新是从仓库列表直接触发的，没有打开的目录页）。
+    final seen = <String>{};
     for (final entry in catalog.entries) {
+      if (!seen.add(entry.key)) continue;
       final installed = ComicSource.find(entry.key);
       if (installed == null) continue;
       if (!compareSemVer(entry.version, installed.version)) continue;

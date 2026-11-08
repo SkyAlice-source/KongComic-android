@@ -206,7 +206,12 @@ Future<File> _writeBackup(List<int> bytes, String fileName) async {
         );
         attempt++;
       }
-      await out.writeAsBytes(bytes, flush: true);
+      // 先写临时名再 rename：直接写最终文件名时，写入中断（磁盘满、后台
+      // isolate 被系统杀）会留下扩展名合法的半截备份，_cleanupOldBackups
+      // 认不出、恢复列表里它看起来完全正常，导入时才炸。rename 原子落盘。
+      var tmp = File("${out.path}.tmp");
+      await tmp.writeAsBytes(bytes, flush: true);
+      await tmp.rename(out.path);
       return out;
     } catch (e) {
       lastError = e;

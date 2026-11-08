@@ -181,11 +181,20 @@ class ComicSourcePage extends StatelessWidget {
     if (showLoading) {
       controller = showLoadingDialog(
         App.rootContext,
-        onCancel: () => cancel = true,
+        onCancel: () {
+          cancel = true;
+          // remove() 已经把源从 manager 里摘掉了。取消后不必等那次注定被丢弃
+          // 的请求返回才恢复 —— 否则慢网下这几秒到几十秒里，源在列表、搜索、
+          // 发现页里凭空消失，用户会以为被删了。
+          ComicSourceManager().reload().catchError((Object e, StackTrace s) {
+            Log.error("Reload comic source", e, s);
+          });
+        },
         barrierDismissible: false,
       );
     }
     var updated = false;
+    ComicSource? parsed;
     try {
       // 加一次性参数绕过 CDN 缓存：jsDelivr 对 `@main` 分支按文件分别缓存
       // 十二小时，仓库的 index.json 已经宣布 1.0.6、脚本文件仍返回缓存的
@@ -200,7 +209,7 @@ class ComicSourcePage extends StatelessWidget {
       );
       if (cancel) return null;
       controller?.close();
-      await ComicSourceParser().parse(res.data!, source.filePath);
+      parsed = await ComicSourceParser().parse(res.data!, source.filePath);
       await io.File(source.filePath).writeAsString(res.data!);
       // 必须走 manager：availableUpdates 返回的是副本，在副本上 remove
       // 等于什么都没做，源会一直挂着「有更新」的角标。同时把这个目标版本
@@ -228,6 +237,10 @@ class ComicSourcePage extends StatelessWidget {
         rethrow;
       }
     } finally {
+      // 关掉加载框必须放在 finally：上面的 close 只在 GET 成功后执行，
+      // 网络失败走 catch 分支时没人收，框会一直挂到 120s 超时看门狗。
+      // close() 自带幂等，正常路径重复调用无副作用。
+      controller?.close();
       // Always put the source back: it was removed from the manager above, so
       // leaving this out would make it disappear from the UI until the next
       // app restart whenever the update fails *or* the user cancels.
@@ -240,15 +253,25 @@ class ComicSourcePage extends StatelessWidget {
           Log.error("Reload comic source", e, s);
         }
       }
-      _syncSourceOrder();
-      _addAllPagesWithComicSource(source);
+      // 批量路径（reloadNow=false）此时 manager 还没 reload，all() 里没有这个
+      // key；照常「清理」会把这个源的 key 从用户排好的 sourceOrder 里删掉，
+      // 整批更新完顺序就乱了。把本次正在更新的 key 保底传进去。
+      _syncSourceOrder(keep: {source.key});
+      // 补页必须用 reload 之后的新对象：source 是更新前的实例，它的
+      // explorePages 里没有新版本新增的 tab，新页永远不会被启用。
+      _addAllPagesWithComicSource(
+        ComicSource.find(source.key) ?? parsed ?? source,
+      );
       if (showLoading) {
         App.forceRebuild();
       }
     }
     if (!updated) return null;
     final outcome = (
-      installed: ComicSource.find(source.key)?.version,
+      // reloadNow=false（批量更新）时没有 reload，manager 里根本没有这本书，
+      // find() 恒为 null → 批量更新永远报「更新 0 个、仓库未同步」，而单个
+      // 更新却是正常的，两条路径自相矛盾。用刚解析出来的对象兜底。
+      installed: ComicSource.find(source.key)?.version ?? parsed?.version,
       target: adoptEntry?.version,
     );
     if (showLoading) {
@@ -354,9 +377,11 @@ class _BodyState extends State<_Body> with AutoListenMixin {
   void initState() {
     super.initState();
     listen(ComicSourceManager(), updateUI);
-    // Repair sources added before auto-enable existed (e.g. a source whose
-    // discover/category tab was missing from the enabled lists).
-    _ensureAllPagesEnabled();
+    // 这里原本每次进页面都调 _ensureAllPagesEnabled()，把「列表里缺失的页」
+    // 全部补回启用列表 —— 而用户关掉某个 tab 的实现就是把它从同一个列表里
+    // 删掉。结果是：关掉探索页/分类 → 返回 → 再进本页，开关全部自己复活，
+    // 逐页开关和 Disable all 都存不下来。补页只在「新增/更新源」时做
+    // （见 _addAllPagesWithComicSource），那才是新 tab 真正出现的时刻。
   }
 
   @override
@@ -458,6 +483,8 @@ class _BodyState extends State<_Body> with AutoListenMixin {
               disabled: ComicSourceManager().isDisabled(source.key),
               onToggleDisabled: _toggleDisabled,
               onTest: _testSource,
+              // 筛选态下拖动不会生效（见 onReorderItem），别给假的拖动手柄。
+              reorderable: !filtering,
               pinToTop: pinToTop,
             );
           },
@@ -636,7 +663,10 @@ class _BodyState extends State<_Body> with AutoListenMixin {
       btnColor: context.colorScheme.error,
       onConfirm: () {
         var file = File(source.filePath);
-        file.delete();
+        // 不 await 的 delete() 一旦失败（文件已被外部删掉、目录只读）就是
+        // 未捕获的异步异常；源配置本来也要从 manager 里移除，用忽略错误的
+        // 版本即可，删不掉不该挡住后面的清理。
+        file.deleteIgnoreError();
         ComicSourceManager().remove(source.key);
         SourceRepositories.instance.setOrigin(source.key, null);
         _syncSourceOrder();
@@ -664,6 +694,10 @@ class _BodyState extends State<_Body> with AutoListenMixin {
                 onPressed: () async {
                   await ComicSourceManager().reload();
                   App.forceRebuild();
+                  // Cancel 会 pop，Continue 以前不会：重载已经跑完，弹窗却留在
+                  // 屏幕上、毫无反馈，用户以为没生效又点一次（每次再全量重载
+                  // 一遍所有脚本）。
+                  if (context.mounted) context.pop();
                 },
                 child: Text("Continue".tl),
               ),
@@ -861,7 +895,7 @@ class _BodyState extends State<_Body> with AutoListenMixin {
         for (final k in keys) {
           final s = ComicSource.find(k);
           if (s != null) {
-            File(s.filePath).delete();
+            File(s.filePath).deleteIgnoreError();
             ComicSourceManager().remove(s.key);
             SourceRepositories.instance.setOrigin(s.key, null);
           }
@@ -905,6 +939,10 @@ class _BodyState extends State<_Body> with AutoListenMixin {
   }
 
   Future<void> _testSource(ComicSource source) async {
+    // 「Test all」是没人 await 的循环：用户在测试途中退出本页，下一次进来
+    // 这两处 setState 就会在已 dispose 的 State 上执行 —— 异常从 Future 里
+    // 冒出去，同时把整轮测试中断，后面的源一个都不测。
+    if (!mounted) return;
     if (source.explorePages.isEmpty) {
       setState(() => _health[source.key] = 'fail');
       return;
@@ -1364,9 +1402,16 @@ class _BodyState extends State<_Body> with AutoListenMixin {
       return await addSource(res.data!, fileName, originUrl: url);
     } catch (e, s) {
       if (cancel) return null;
-      context.showMessage(message: "Failed to add source".tl);
+      // 下载期间用户可能已经离开本页：`context.showMessage` 会去已停用的
+      // element 上找 Overlay（debug 断言、release 静默丢失提示，用户既没装上
+      // 也看不到原因）。走根 context 保证提示一定弹得出来。
+      App.rootContext.showMessage(message: "Failed to add source".tl);
       Log.error("Add comic source", "$e\n$s");
       return null;
+    } finally {
+      // 失败分支原来直接 return，加载框没人关 —— barrierDismissible 为 false，
+      // 用户只能等 120s 看门狗。取消按钮已自行关闭，close() 幂等无副作用。
+      controller.close();
     }
   }
 
@@ -1375,7 +1420,8 @@ class _BodyState extends State<_Body> with AutoListenMixin {
   /// [fromFile] sources are marked as imported, everything else is assumed to
   /// come from [originUrl] (falling back to the URL inside the script). Callers
   /// installing from a repository should use [SourceRepositories.link] instead.
-  Future<ComicSource> addSource(
+  /// 返回 null 表示用户取消了覆盖安装。
+  Future<ComicSource?> addSource(
     String js,
     String fileName, {
     String? originUrl,
@@ -1390,7 +1436,10 @@ class _BodyState extends State<_Body> with AutoListenMixin {
       final newVersion = ComicSourceParser.extractVersion(js) ?? "1.0.0";
       if (!compareSemVer(newVersion, existing.version)) {
         final ok = await _confirmOverwrite(existing, newVersion);
-        if (!ok) return existing;
+        // 用户点了取消必须返回 null（＝什么都没装）。以前返回 existing，
+        // 调用方只判 `source == null`，于是把「拒绝覆盖」当成「已安装」，
+        // 仓库页会把旧脚本的归属改写到这个仓库的条目上。
+        if (!ok) return null;
       }
     }
     var comicSource = await ComicSourceParser().createAndParse(js, fileName);
@@ -1416,9 +1465,12 @@ class _BodyState extends State<_Body> with AutoListenMixin {
     ComicSource existing,
     String newVersion,
   ) async {
-    final completer = Completer<bool>();
     if (!mounted) return false;
-    showDialog(
+    // 用 showDialog 的返回值，不再自己造 Completer：点击对话框外部或按返回键
+    // 时弹窗会被 pop 掉，但两个按钮都没执行 —— 旧实现里 Completer 永远
+    // pending，`await _confirmOverwrite(...)` 永久挂起，安装流程静默死掉
+    // （从仓库页进来时整条 await 链都不返回）。null 一律当「不覆盖」。
+    final result = await showDialog<bool>(
       context: App.rootContext,
       builder: (ctx) => ContentDialog(
         title: "Overwrite source".tl,
@@ -1433,23 +1485,17 @@ class _BodyState extends State<_Body> with AutoListenMixin {
         ),
         actions: [
           Button.text(
-            onPressed: () {
-              ctx.pop();
-              completer.complete(false);
-            },
+            onPressed: () => ctx.pop(false),
             child: Text("Cancel".tl),
           ),
           Button.filled(
-            onPressed: () {
-              ctx.pop();
-              completer.complete(true);
-            },
+            onPressed: () => ctx.pop(true),
             child: Text("Overwrite".tl),
           ),
         ],
       ),
     );
-    return completer.future;
+    return result ?? false;
   }
 }
 
@@ -1474,7 +1520,10 @@ List<ComicSource> orderedComicSources() {
 
 /// Reconciles [appdata.settings]['sourceOrder'] with the currently loaded
 /// sources: drops keys for removed sources and appends keys for new ones.
-void _syncSourceOrder() {
+///
+/// [keep] 里的 key 即使当前不在 manager 里也保留 —— 批量更新期间源会被临时
+/// remove() 掉，紧接着的 sync 不该把它当成「已删除」从排序里剔除。
+void _syncSourceOrder({Set<String> keep = const {}}) {
   final all = ComicSource.all();
   final currentKeys = all.map((s) => s.key).toSet();
   final order = List<String>.from(appdata.settings['sourceOrder'] ?? []);
@@ -1482,41 +1531,12 @@ void _syncSourceOrder() {
   // 静默跳过）。照常“清理”会把用户排好的顺序整份清空，之后所有源都按文件顺
   // 序重新排列。宁可什么都不做。
   if (all.isEmpty) return;
-  order.removeWhere((k) => !currentKeys.contains(k));
+  order.removeWhere((k) => !currentKeys.contains(k) && !keep.contains(k));
   for (var s in all) {
     if (!order.contains(s.key)) order.add(s.key);
   }
   appdata.settings['sourceOrder'] = order;
   appdata.saveData();
-}
-
-/// Ensures every loaded source's explore pages and category are present in the
-/// enabled lists. Runs once at startup to repair sources that were added before
-/// auto-enable existed (e.g. a source whose discover/category tab was missing).
-void _ensureAllPagesEnabled() {
-  bool changed = false;
-  final explorePages = List<String>.from(
-    appdata.settings['explore_pages'] ?? [],
-  );
-  final categoryPages = List<String>.from(appdata.settings['categories'] ?? []);
-  for (final s in ComicSource.all()) {
-    for (final p in s.explorePages) {
-      if (!explorePages.contains(p.title)) {
-        explorePages.add(p.title);
-        changed = true;
-      }
-    }
-    final cat = s.categoryData?.key;
-    if (cat != null && !categoryPages.contains(cat)) {
-      categoryPages.add(cat);
-      changed = true;
-    }
-  }
-  if (changed) {
-    appdata.settings['explore_pages'] = explorePages.toSet().toList();
-    appdata.settings['categories'] = categoryPages.toSet().toList();
-    appdata.saveData();
-  }
 }
 
 void _validatePages() {
@@ -1609,12 +1629,30 @@ class _EditFilePage extends StatefulWidget {
 class __EditFilePageState extends State<_EditFilePage> {
   var current = '';
 
+  /// 读取成功才允许回写。
+  ///
+  /// readAsStringSync 抛错时 current 仍是空串，而 dispose 里是无条件
+  /// `_saveAndNotify()` —— 等于拿一个空文件把用户几十 KB 的脚本覆盖掉，
+  /// 重载解析失败后整个源从列表里消失。文件在编辑期间被外部删除（同步/清理
+  /// 工具）时就会踩到。
+  bool _readable = true;
+
   @override
   void initState() {
     super.initState();
     // 顺序读几十 KB 足够快，且 CodeEditor 仅在 initState 消费 initialValue，
     // 需要同步初始化，故保持 readAsStringSync。
-    current = File(widget.path).readAsStringSync();
+    try {
+      current = File(widget.path).readAsStringSync();
+    } catch (e, s) {
+      _readable = false;
+      Log.error("IO", "Failed to read source file: $e", s);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.showMessage(message: "Failed to read the file".tl);
+        context.pop();
+      });
+    }
   }
 
   /// 异步写回并在完成后触发 onExit（reload），保持「先落盘再重载」顺序。
@@ -1632,7 +1670,7 @@ class __EditFilePageState extends State<_EditFilePage> {
 
   @override
   void dispose() {
-    _saveAndNotify();
+    if (_readable) _saveAndNotify();
     super.dispose();
   }
 
@@ -1677,13 +1715,32 @@ class _CallbackSettingState extends State<_CallbackSetting> {
 
   Future<void> onClick() async {
     var func = widget.setting.value['callback'];
-    var result = func([]);
+    // 脚本声明了 callback 类型的设置项却没给函数（或给的不是函数）时，
+    // 原来的 `func([])` 直接 NoSuchMethodError；异常在 try 之外，用户只看到
+    // 「点了一下，什么也没发生」。
+    if (func is! Function) {
+      context.showMessage(message: "Not supported".tl);
+      return;
+    }
+    dynamic result;
+    try {
+      result = func([]);
+    } catch (e, s) {
+      Log.error("Source callback", e, s);
+      context.showMessage(message: friendlyError(e));
+      return;
+    }
     if (result is Future) {
       setState(() {
         isLoading = true;
       });
       try {
         await result;
+      } catch (e, s) {
+        // 回调是异步失败时，异常原来从 onClick 冒出去，用户只看到按钮转一圈
+        // 复位、没有任何说明。
+        Log.error("Source callback", e, s);
+        if (mounted) context.showMessage(message: friendlyError(e));
       } finally {
         if (mounted) {
           setState(() {
@@ -1723,10 +1780,17 @@ class _ComicSourceCard extends StatefulWidget {
     this.disabled = false,
     this.onToggleDisabled = _noopDisable,
     this.onTest = _noopTest,
+    this.reorderable = true,
     required this.pinToTop,
   });
 
   final ComicSource source;
+
+  /// 是否显示拖动手柄。
+  ///
+  /// 列表在筛选状态下 `onReorderItem` 被换成了空函数（拖完必定回弹），手柄
+  /// 还显示的话，用户会以为排序功能坏了 —— 干脆不提供。
+  final bool reorderable;
 
   /// Position of this source in the current (ordered) list; consumed by the
   /// [ReorderableDragStartListener] to start a drag.
@@ -1797,7 +1861,9 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
       source.categoryData != null ||
       source.favoriteData != null ||
       source.searchPageData != null ||
-      source.settings != null ||
+      // settings 永远是非空 Map（解析器保证无配置时是 {}），写 `!= null` 等于
+      // 恒真 —— 注释里想避免的「空面板」保护从来没生效过。
+      (source.settings?.isNotEmpty ?? false) ||
       source.account != null;
 
   @override
@@ -1826,8 +1892,10 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
           border: Border.all(
             color: (selected || expanded)
                 ? accent.withValues(alpha: selected ? 0.55 : 0.40)
-                : cs.outlineVariant.withValues(alpha: isDark ? 0.7 : 0.9),
-            width: (selected || expanded) ? 1.2 : 1,
+                : kcHairlineColor(context),
+            // 与「添加漫画源」卡（kcHairline）统一：原来这里用裸 1 / 1.2，
+            // 3x 屏上两块相邻卡片的边线一眼就能看出粗细差，选中时还会突然变粗。
+            width: kcHairline,
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -1843,7 +1911,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                     value: widget.selected,
                     onChanged: (_) => widget.onToggleSelect(source),
                   )
-                else
+                else if (widget.reorderable)
                   // Drag handle: long-press to reorder this module.
                   ReorderableDragStartListener(
                     index: widget.index,
@@ -1858,7 +1926,10 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
                         ),
                       ),
                     ),
-                  ),
+                  )
+                else
+                  // 筛选状态下不显示手柄，但保留同样的左边距，卡片标题不会横跳。
+                  const SizedBox(width: 30),
                 Expanded(
                   child: InkWell(
                     onTap: widget.selecting
@@ -2341,6 +2412,10 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
     List<List<dynamic>> icon,
     List<({String value, String label})> entries,
   ) sync* {
+    // 没有条目就整组不渲染：否则会画出一个「Explore Pages 0/0」标题加一颗
+    // 点了没有任何效果的 Disable all（entries 为空时 _setGroupEnabled 是空操作，
+    // 而 allOn 恒真还会把它显示成「Disable all」）。
+    if (entries.isEmpty) return;
     final scheme = Theme.of(context).colorScheme;
     final current = List<String>.from(appdata.settings[settingKey] ?? []);
     final onCount = entries.where((e) => current.contains(e.value)).length;
@@ -2385,6 +2460,10 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
       final on = current.contains(entry.value);
       yield KcListTile(
         contentPadding: const EdgeInsets.only(left: 20, right: kcSpaceSm),
+        // 整行可点：这些行的唯一用途就是切换这一项，只有开关本体能点会让人
+        // 点三四次都点不动（尤其左手单持时开关正好在屏幕最右侧）。
+        // Switch 自带手势优先，点开关不会触发两次。
+        onTap: () => _setGroupEnabled(settingKey, [entry.value], !on),
         title: Text(
           entry.label,
           maxLines: 1,
@@ -2572,18 +2651,35 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
               });
               return;
             }
-            var res = await source.account!.login!(account[0], account[1]);
-            if (!mounted) return;
-            if (res.error) {
-              context.showMessage(
-                message: friendlySourceError(res.errorMessage),
-              );
-            } else {
-              context.showMessage(message: "Success".tl);
+            // account 可能是旧版本数据 / 从别的客户端同步来的短列表，
+            // account[1] 会直接 RangeError；login 抛异常时也没有 finally，
+            // spinner 会永远转下去。统一兜在 try/finally 里。
+            try {
+              if (account.length < 2) {
+                context.showMessage(message: "Please login again".tl);
+                return;
+              }
+              final res = await source.account!.login!(account[0], account[1]);
+              if (!mounted) return;
+              if (res.error) {
+                context.showMessage(
+                  message: friendlySourceError(res.errorMessage),
+                );
+              } else {
+                context.showMessage(message: "Success".tl);
+              }
+            } catch (e, s) {
+              Log.error("Re-login", e, s);
+              if (mounted) {
+                context.showMessage(message: friendlyError(e));
+              }
+            } finally {
+              if (mounted) {
+                setState(() {
+                  _reLogin[source.key] = false;
+                });
+              }
             }
-            setState(() {
-              _reLogin[source.key] = false;
-            });
           },
           trailing: loading
               ? const KcInlineSpinner(size: 20)
@@ -2755,16 +2851,26 @@ class _LoginPageState extends State<_LoginPage> {
         loading = true;
       });
       widget.config.login!(username, password).then((value) {
+        // 请求期间用户可能已经退出登录页：不打这个守卫，setState 会抛
+        // "called after dispose()"，成功分支的 context.pop() 也会弹错路由。
+        if (!mounted) return;
         if (value.error) {
           context.showMessage(message: friendlySourceError(value.errorMessage));
           setState(() {
             loading = false;
           });
         } else {
-          if (mounted) {
-            context.pop();
-          }
+          context.pop();
         }
+      }).catchError((Object e, StackTrace s) {
+        // 源脚本抛异常（断网、字段解析失败）时没有这条兜底，loading 会永远
+        // 停在 true —— 按钮一直转圈，用户只能杀掉页面重进。
+        Log.error("Login", e, s);
+        if (!mounted) return;
+        context.showMessage(message: updateFailureMessage(e));
+        setState(() {
+          loading = false;
+        });
       });
     } else if (widget.config.validateCookies != null) {
       setState(() {
@@ -2774,6 +2880,7 @@ class _LoginPageState extends State<_LoginPage> {
           .map((e) => _cookies[e] ?? '')
           .toList();
       widget.config.validateCookies!(cookies).then((value) {
+        if (!mounted) return;
         if (value) {
           widget.source.data['account'] = 'ok';
           widget.source.saveData();
@@ -2784,6 +2891,13 @@ class _LoginPageState extends State<_LoginPage> {
             loading = false;
           });
         }
+      }).catchError((Object e, StackTrace s) {
+        Log.error("Validate cookies", e, s);
+        if (!mounted) return;
+        context.showMessage(message: updateFailureMessage(e));
+        setState(() {
+          loading = false;
+        });
       });
     }
   }
@@ -2794,6 +2908,9 @@ class _LoginPageState extends State<_LoginPage> {
     bool success = false;
 
     void validate(InAppWebViewController c) async {
+      // onNavigation 与 onTitleChange 会各触发一次，且页面内跳转还会叠加；
+      // 不挡住已经成功的那次，会对同一份 cookie 重复 saveData 并连弹两次路由。
+      if (success) return;
       if (widget.config.checkLoginStatus != null &&
           widget.config.checkLoginStatus!(url, title)) {
         var cookies = (await c.getCookies(url)) ?? [];
@@ -2830,7 +2947,7 @@ class _LoginPageState extends State<_LoginPage> {
         },
       ),
     );
-    if (success) {
+    if (success && mounted) {
       widget.source.data['account'] = 'ok';
       widget.source.saveData();
       context.pop();
@@ -2840,22 +2957,32 @@ class _LoginPageState extends State<_LoginPage> {
   // for linux
   void loginWithWebview2() async {
     if (!await DesktopWebview.isAvailable()) {
+      // 原来只弹提示不 return，接着照样 open 一个必然失败的 webview，
+      // 随后 _webview! 为 null，取 cookie / 执行 JS 全部空断言。
+      if (!mounted) return;
       context.showMessage(message: "Webview is not available".tl);
+      return;
     }
 
     var url = widget.config.loginWebsite!;
     var title = '';
     bool success = false;
+    // 关窗回调会从两个地方来：native 的 onClose、以及下面 webview.close()
+    // 之后手动补的那次。只允许 pop 一次 —— 否则会把底下的源管理页一起弹掉。
+    bool popped = false;
 
     void onClose() {
-      if (success) {
-        widget.source.data['account'] = 'ok';
-        widget.source.saveData();
-        context.pop();
-      }
+      if (popped || !success || !mounted) return;
+      popped = true;
+      widget.source.data['account'] = 'ok';
+      widget.source.saveData();
+      context.pop();
     }
 
     void validate(DesktopWebview webview) async {
+      // onTitleChange / onNavigation 会对同一份 cookie 反复触发，重复 saveData
+      // 之外还会重复 pop。移动端那版早就有这个守卫，桌面这版漏了。
+      if (success) return;
       if (widget.config.checkLoginStatus != null &&
           widget.config.checkLoginStatus!(url, title)) {
         var cookiesMap = await webview.getCookies(url);

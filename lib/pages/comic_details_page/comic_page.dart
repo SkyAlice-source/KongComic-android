@@ -157,7 +157,16 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
         },
       );
     }
-    return NetworkError(message: error!, retry: retry, action: action);
+    return NetworkError(
+      message: error!,
+      retry: retry,
+      action: action,
+      // 详情页是从列表 / 首页 / 历史带着封面与标题进来的。加载失败时顶栏必须
+      // 留住作品名，否则整页只剩一颗返回箭头，看起来像跳错了页面、也失去了
+      // 「失败的是哪一部」的上下文。历史记录兜底：从搜索结果、收藏、深链等
+      // 不带 title 的入口进来时，本地历史里通常已经有这个名字。
+      title: widget.title ?? history?.title ?? "Details".tl,
+    );
   }
 
   @override
@@ -275,7 +284,16 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   /// 本地漫画详情页不会停留（[loadData] 会跳转阅读器），无需刷新，直接返回。
   Future<void> _refresh() async {
     if (widget.sourceKey == 'local') return;
-    final res = await loadData();
+    Res<ComicDetails> res;
+    // 源脚本/网络层可能直接抛异常而不是返回 Res.error（首载路径已由
+    // loadDataWithRetry 兜住），下拉刷新这里也要兜，否则刷新失败静默无提示。
+    try {
+      res = await loadData();
+    } catch (e) {
+      if (!mounted) return;
+      context.showMessage(message: friendlyError(e));
+      return;
+    }
     if (!mounted) return;
     if (res.success) {
       data = res.data;
@@ -820,8 +838,12 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
         ).toString().substring(0, 19);
       }
       if (time.contains('T') || time.contains('Z')) {
-        var t = DateTime.parse(time);
-        return t.toString().substring(0, 19);
+        // 源返回的字符串不一定是合法 ISO8601（如 "... UTC"、"... GMT"），
+        // DateTime.parse 抛 FormatException 会让详情页 build 整页崩。
+        var t = DateTime.tryParse(time);
+        if (t != null) {
+          return t.toString().substring(0, 19);
+        }
       }
       return time;
     }
@@ -1105,8 +1127,8 @@ class _ActionButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(kcRadius18),
         border: Border.all(
-          color: context.colorScheme.outlineVariant,
-          width: 0.6,
+          color: kcHairlineColor(context),
+          width: kcHairline,
         ),
       ),
       child: InkWell(

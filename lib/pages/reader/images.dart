@@ -41,8 +41,29 @@ class _ReaderImagesState extends State<_ReaderImages> {
     }
   }
 
+  /// 对外入口：整段加载都包在 try 里。
+  ///
+  /// 网络分支的 `await loadPages(...)` 之前原本没有任何兜底：源脚本抛异常 /
+  /// JS 引擎超时时 Future 带着错误结束，`inProgress` 与 `reader.isLoading`
+  /// 永远停在 true —— 界面卡在转圈，错误页和重试按钮永远不会出现，切章又被
+  /// `!isLoading` 挡住，用户只能退出阅读器。
   void load() async {
     if (inProgress) return;
+    try {
+      await _load();
+    } catch (e, s) {
+      Log.error("Load chapter images", "$e\n$s");
+      if (!mounted) return;
+      setState(() {
+        error = friendlyError(e);
+        reader.isLoading = false;
+        inProgress = false;
+      });
+      context.readerScaffold.update();
+    }
+  }
+
+  Future<void> _load() async {
     // 预取命中：直接上屏，省掉一次网络往返（真·无感续章的关键）。
     final preloaded = _takePreloadedChapter(
       reader.type,
@@ -62,7 +83,7 @@ class _ReaderImagesState extends State<_ReaderImages> {
         // dispose() 里的 cancelAllLoadingImages() 可能在切章瞬间把预热的请求
         // 掐掉，这里补投开头几张，保证切过去立刻有图。
         final preCount =
-            (appdata.settings["preloadImageCount"] as num?)?.toInt() ?? 4;
+            (reader.readerSetting("preloadImageCount") as num?)?.toInt() ?? 4;
         final n = math.min(preCount + 1, preloaded.length);
         for (var i = 1; i <= n; i++) {
           _preDownloadImage(i, context);
@@ -139,15 +160,27 @@ class _ReaderImagesState extends State<_ReaderImages> {
           inProgress = false;
         });
       } else {
-        setState(() {
-          reader.images = res.data;
-          reader.isLoading = false;
-          inProgress = false;
-          _handleJumpToLastPage();
-          Future.microtask(() {
-            reader.updateHistory();
+        final images = res.data;
+        if (images.isEmpty) {
+          // 源「成功」返回空数组：继续按正常章节渲染，会得到一个 0 页的
+          // 阅读器 —— 进度显示 1/1、怎么点都翻不动、也没有任何解释。当成
+          // 错误态讲清楚，用户至少知道去换个源/重试。
+          setState(() {
+            error = "No images available".tl;
+            reader.isLoading = false;
+            inProgress = false;
           });
-        });
+        } else {
+          setState(() {
+            reader.images = images;
+            reader.isLoading = false;
+            inProgress = false;
+            _handleJumpToLastPage();
+            Future.microtask(() {
+              reader.updateHistory();
+            });
+          });
+        }
       }
     }
     if (!mounted) return;
@@ -216,7 +249,7 @@ class _ReaderImagesState extends State<_ReaderImages> {
     }
     // 先占位：探测要等图片解码，期间 build 会重复进入本方法。
     r._autoWebtoonProbedChapter = r.chapter;
-    final cached = _ReaderState._autoWebtoonCache[r.cid];
+    final cached = _ReaderState._autoWebtoonCache[r._webtoonCacheKey];
     if (cached == true) {
       // 这本漫画本进程内已判定为条漫，不必再抽样。
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -246,7 +279,7 @@ class _ReaderImagesState extends State<_ReaderImages> {
     }
     if (ratios.isEmpty) return;
     final isWebtoon = looksLikeWebtoon(ratios);
-    _ReaderState._autoWebtoonCache[r.cid] = isWebtoon;
+    _ReaderState._autoWebtoonCache[r._webtoonCacheKey] = isWebtoon;
     if (!isWebtoon || !mounted) return;
     if (reader.mode == ReaderMode.continuousTopToBottom) return;
     setState(() {
@@ -363,7 +396,7 @@ class _GalleryModeState extends State<_GalleryMode>
   /// WebDAV 同步带来的字符串或越界数字，直接 `as int` 会在首次翻页时抛类型
   /// 错误，负数还会让 [cache] 的循环空转、超大值会一次触发上百次解码。
   int get preCacheCount {
-    var v = appdata.settings["preloadImageCount"];
+    var v = reader.readerSetting("preloadImageCount");
     var n = v is num ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 4;
     return n.clamp(1, 16);
   }
@@ -371,7 +404,7 @@ class _GalleryModeState extends State<_GalleryMode>
   /// Reader-wide image zoom factor (1.0 - 2.0) from the "display scale" setting.
   double get _imageDisplayScaleFactor {
     final scale =
-        (appdata.settings['imageDisplayScale'] as num?)?.toInt() ?? 100;
+        (reader.readerSetting('imageDisplayScale') as num?)?.toInt() ?? 100;
     return scale.clamp(100, 200) / 100.0;
   }
 
@@ -559,7 +592,7 @@ class _GalleryModeState extends State<_GalleryMode>
               // behaved exactly like contain (leaving side gaps on some comics).
               // Map "cover" to an explicit covered initialScale, which it does
               // support, so the page truly fills the screen with no white bars.
-              final fitMode = appdata.settings['imageFitMode'] ?? 'contain';
+              final fitMode = reader.readerSetting('imageFitMode') ?? 'contain';
               final useCover = fitMode == 'cover';
               final factor = _imageDisplayScaleFactor;
               return PhotoViewGalleryPageOptions(
@@ -579,9 +612,14 @@ class _GalleryModeState extends State<_GalleryMode>
                 minScale: PhotoViewComputedScale.contained * factor,
                 maxScale: PhotoViewComputedScale.covered * 10.0 * factor,
                 errorBuilder: (_, error, s, retry) {
+                  // 这是「某一页图挂了」，不是整页错误：别再画一根顶栏。
+                  // 带 withAppbar 时会在这一页图片上方压一条 56dp 的栏，栏里
+                  // 还带一颗返回箭头 —— 按下去退的是整个阅读器，代价和「这一
+                  // 页重试」完全不对等。
                   return NetworkError(
                     message: "Failed to load image".tl,
                     retry: retry,
+                    withAppbar: false,
                   );
                 },
               );
@@ -650,7 +688,7 @@ class _GalleryModeState extends State<_GalleryMode>
   }
 
   BoxFit _getImageFit() {
-    var mode = appdata.settings['imageFitMode'] ?? 'contain';
+    var mode = reader.readerSetting('imageFitMode') ?? 'contain';
     switch (mode) {
       case 'fitWidth':
         return BoxFit.fitWidth;
@@ -756,7 +794,7 @@ class _GalleryModeState extends State<_GalleryMode>
 
   @override
   void handleDoubleTap(Offset location) {
-    if (appdata.settings['quickCollectImage'] == 'DoubleTap') {
+    if (reader.readerSetting('quickCollectImage') == 'DoubleTap') {
       context.readerScaffold.addImageFavorite();
       return;
     }
@@ -767,7 +805,7 @@ class _GalleryModeState extends State<_GalleryMode>
 
   @override
   void handleLongPressDown(Offset location) {
-    if (!appdata.settings['enableLongPressToZoom'] || fingers != 1) {
+    if (!reader.readerSetting('enableLongPressToZoom') || fingers != 1) {
       return;
     }
     var photoViewController = photoViewControllers[reader.page];
@@ -777,7 +815,7 @@ class _GalleryModeState extends State<_GalleryMode>
     double target = initialScale * 1.75;
     var size = reader.size;
     Offset zoomPosition;
-    if (appdata.settings['longPressZoomPosition'] != 'center') {
+    if (reader.readerSetting('longPressZoomPosition') != 'center') {
       zoomPosition = Offset(
         size.width / 2 - location.dx,
         size.height / 2 - location.dy,
@@ -791,7 +829,7 @@ class _GalleryModeState extends State<_GalleryMode>
 
   @override
   void handleLongPressUp(Offset location) {
-    if (!appdata.settings['enableLongPressToZoom'] || !isLongPressing) {
+    if (!reader.readerSetting('enableLongPressToZoom') || !isLongPressing) {
       return;
     }
     var photoViewController = photoViewControllers[reader.page];
@@ -922,6 +960,12 @@ class _GalleryModeState extends State<_GalleryMode>
     keyRepeatTimer?.cancel();
     imageStates.clear();
     _precached.clear();
+    // 换章时 Reader 还挂着这个引用：新章节的 State 要等 load() 完成后才创建，
+    // 这段时间里音量键/点按翻页会打到已经销毁的 PageController 上（release 抛
+    // StateError，debug 直接红屏）。指向自己才清空，避免误清新模式。
+    if (identical(reader._imageViewController, this)) {
+      reader._imageViewController = null;
+    }
     super.dispose();
   }
 }
@@ -1066,7 +1110,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
   /// WebDAV 同步带来的字符串或越界数字，直接 `as int` 会在首次翻页时抛类型
   /// 错误，负数还会让 [cache] 的循环空转、超大值会一次触发上百次解码。
   int get preCacheCount {
-    var v = appdata.settings["preloadImageCount"];
+    var v = reader.readerSetting("preloadImageCount");
     var n = v is num ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 4;
     return n.clamp(1, 16);
   }
@@ -1074,9 +1118,19 @@ class _ContinuousModeState extends State<_ContinuousMode>
   /// Reader-wide image zoom factor (1.0 - 2.0) from the "display scale" setting.
   double get _imageDisplayScaleFactor {
     final scale =
-        (appdata.settings['imageDisplayScale'] as num?)?.toInt() ?? 100;
+        (reader.readerSetting('imageDisplayScale') as num?)?.toInt() ?? 100;
     return scale.clamp(100, 200) / 100.0;
   }
+
+  /// 未手动缩放时的 scale —— 就是 PhotoView 的 initialScale。
+  ///
+  /// 「显示比例」设置会把初始 scale 抬到 1.2 / 1.5 / 2.0。判断「是否处于静止态 /
+  /// 用户是否放大过」必须跟这个基准比，写死 1.0 的话比例一改就永远判成「已放大」：
+  /// 滑到章末不触发换章、单指滚动被当成图片平移接管，条漫等于只能双指拖。
+  double get _restScale => _imageDisplayScaleFactor;
+
+  bool _isRestScale(double? scale) =>
+      ((scale ?? _restScale) - _restScale).abs() < 0.05;
 
   /// 条漫（上下连续）模式左右各留白占屏宽的比例，0 表示不留白。
   ///
@@ -1084,7 +1138,8 @@ class _ContinuousModeState extends State<_ContinuousMode>
   /// 与 `limitImageWidth`（固定 0.7 比例限宽的开关）互补：这里是可调百分比，
   /// 直接作为图片容器的左右 padding。
   double get _webtoonSidePaddingRatio {
-    final v = (appdata.settings['webtoonSidePadding'] as num?)?.toDouble() ?? 0;
+    final v =
+        (reader.readerSetting('webtoonSidePadding') as num?)?.toDouble() ?? 0;
     return v.clamp(0, 30) / 100.0;
   }
 
@@ -1150,6 +1205,10 @@ class _ContinuousModeState extends State<_ContinuousMode>
     _autoScrollTimer?.cancel();
     photoViewController.dispose();
     imageStates.clear();
+    // 同 _GalleryModeState.dispose：别把已销毁的控制器留给 Reader 继续用。
+    if (identical(reader._imageViewController, this)) {
+      reader._imageViewController = null;
+    }
     super.dispose();
   }
 
@@ -1163,7 +1222,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
   }
 
   void _startAutoScroll() {
-    var speed = appdata.settings['autoScrollSpeed'] ?? 5;
+    var speed = reader.readerSetting('autoScrollSpeed') ?? 5;
     var pixelsPerTick = speed <= 10 ? speed * 0.5 : (speed - 10) * 2.0 + 5;
     if (speed <= 0) return;
     _autoScrolling = true;
@@ -1371,7 +1430,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
         prepareToNextChapter = false;
       });
     }
-    var isZoomedIn = (scale ?? photoViewController.scale) != 1.0;
+    var isZoomedIn = !_isRestScale(scale ?? photoViewController.scale);
     if (isZoomedIn != this.isZoomedIn) {
       setState(() {
         this.isZoomedIn = isZoomedIn;
@@ -1489,7 +1548,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
         // Without this, continuous mode gives the image only one dimension
         // (e.g. width for top-to-bottom), which makes cover behave like fitWidth
         // and leaves white page margins visible.
-        if (appdata.settings['imageFitMode'] == 'cover') {
+        if (reader.readerSetting('imageFitMode') == 'cover') {
           final size = MediaQuery.of(context).size;
           width = size.width;
           height = size.height;
@@ -1582,7 +1641,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
       },
       onPointerMove: (event) {
         Offset value = event.delta;
-        if (photoViewController.scale == 1 || fingers != 1) {
+        if (_isRestScale(photoViewController.scale) || fingers != 1) {
           return;
         }
         Offset offset;
@@ -1616,10 +1675,9 @@ class _ContinuousModeState extends State<_ContinuousMode>
           delayedSetIsScrolling(false);
         }
 
-        var scale = photoViewController.scale ?? 1.0;
+        var scale = photoViewController.scale;
 
-        if (notification is ScrollUpdateNotification &&
-            (scale - 1).abs() < 0.05) {
+        if (notification is ScrollUpdateNotification && _isRestScale(scale)) {
           if (!scrollController.hasClients) return false;
           if (scrollController.position.pixels <=
                   scrollController.position.minScrollExtent &&
@@ -1659,7 +1717,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
     );
     var width = reader.size.width;
     var height = reader.size.height;
-    if (appdata.settings['limitImageWidth'] &&
+    if (reader.readerSetting('limitImageWidth') &&
         width / height > 0.7 &&
         reader.mode == ReaderMode.continuousTopToBottom) {
       width = height * 0.7;
@@ -1710,7 +1768,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   @override
   void handleDoubleTap(Offset location) {
-    if (appdata.settings['quickCollectImage'] == 'DoubleTap') {
+    if (reader.readerSetting('quickCollectImage') == 'DoubleTap') {
       context.readerScaffold.addImageFavorite();
       return;
     }
@@ -1731,13 +1789,13 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   @override
   void handleLongPressDown(Offset location) {
-    if (!appdata.settings['enableLongPressToZoom'] || delayedIsScrolling) {
+    if (!reader.readerSetting('enableLongPressToZoom') || delayedIsScrolling) {
       return;
     }
     double target = (photoViewController.getInitialScale?.call() ?? 1.0) * 1.75;
     var size = reader.size;
     Offset zoomPosition;
-    if (appdata.settings['longPressZoomPosition'] != 'center') {
+    if (reader.readerSetting('longPressZoomPosition') != 'center') {
       zoomPosition = Offset(
         size.width / 2 - location.dx,
         size.height / 2 - location.dy,
@@ -1752,7 +1810,7 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   @override
   void handleLongPressUp(Offset location) {
-    if (!appdata.settings['enableLongPressToZoom']) {
+    if (!reader.readerSetting('enableLongPressToZoom')) {
       return;
     }
     double target = photoViewController.getInitialScale?.call() ?? 1.0;
@@ -1885,7 +1943,10 @@ ImageProvider _createImageProviderFromKey(
     reader.type.comicSource?.key,
     reader.cid,
     reader.eid,
-    reader.page,
+    // 必须用调用方给的页码：预加载、一屏多图、画廊下一张用的都是别的页。
+    // 传 reader.page 会让自定义图片处理脚本（processImage 的第 4 个参数）
+    // 永远收到「当前屏」页码 —— 按页裁剪/切分全错，而且结果还会被缓存复用。
+    page,
     enableResize: reader
         .mode
         .isContinuous, // For continuous mode, we need to resize the image to improve performance

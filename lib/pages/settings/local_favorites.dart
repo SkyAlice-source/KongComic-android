@@ -90,11 +90,16 @@ class _HomeBannerFoldersSettingState extends State<_HomeBannerFoldersSetting> {
   @override
   Widget build(BuildContext context) {
     final folders = userFolderNames();
-    final selected = (appdata.settings['homeBannerFolders'] as List)
-        .cast<String>();
-    final subtitle = selected.isEmpty
-        ? "All".tl
-        : selected.where((f) => folders.contains(f)).join(", ");
+    // 不用 `as List` + `cast<String>()`：值是 null 时直接崩，混进非字符串元素
+    // 则在下面 join 时才炸（报错点离原因很远）。统一转成字符串列表。
+    final raw = appdata.settings['homeBannerFolders'];
+    final selected = raw is List
+        ? raw.map((e) => '$e').toList()
+        : <String>[];
+    // 只显示仍然存在的收藏夹：全部被删掉时按「全部」显示，否则副标题会是一行
+    // 空白（还白占一行高度），而弹窗里「全部」又没打勾，看起来像状态丢了。
+    final valid = selected.where(folders.contains).toList();
+    final subtitle = valid.isEmpty ? "All".tl : valid.join(", ");
 
     return _KcSettingTile(
       title: Text("Home banner folders".tl),

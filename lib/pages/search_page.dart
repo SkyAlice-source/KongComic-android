@@ -77,7 +77,13 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
   /// 一串字母），普通英文书名（实测 "catch"）会被误判成 ID，直接跳进一个解析
   /// 失败的详情页。手动输入时保留原来的 ID 直达，行为不变。
   void search([String? text, bool allowIdJump = true]) {
-    final keyword = text ?? _searchTextController.text;
+    // 纯空白也算空：以前 `isNotEmpty` 对 " " 为 true，会向源站发一次
+    // 空关键词请求，还在搜索历史里留下一条看不见的空白记录。
+    final keyword = (text ?? _searchTextController.text).trim();
+    if (keyword.isEmpty) {
+      context.showMessage(message: "Please enter a keyword".tl);
+      return;
+    }
 
     // ID 直接跳转：仅当唯一匹配时直接跳转，多源匹配时由建议列表选择
     if (allowIdJump) {
@@ -561,7 +567,7 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
       return;
     }
     final searchOptions = currentSearchPageData?.searchOptions ?? [];
-    options = searchOptions.map((e) => e.defaultValue).toList();
+    options = searchOptions.map((e) => e.uiDefaultValue).toList();
   }
 
   Widget buildSearchOptions() {
@@ -1059,7 +1065,7 @@ class SearchOptionWidget extends StatelessWidget {
               children: option.options.entries.map((e) {
                 final isSelected = option.type == 'select'
                     ? value == e.key
-                    : (jsonDecode(value) as List).contains(e.key);
+                    : _decodeMultiSelect(value).contains(e.key);
                 return _SearchChip(
                   label: e.value.ts(sourceKey),
                   selected: isSelected,
@@ -1067,7 +1073,7 @@ class SearchOptionWidget extends StatelessWidget {
                     if (option.type == 'select') {
                       onChanged(e.key);
                     } else {
-                      var list = jsonDecode(value) as List;
+                      var list = _decodeMultiSelect(value);
                       if (list.contains(e.key)) {
                         list.remove(e.key);
                       } else {
@@ -1385,7 +1391,11 @@ class _HistoryChip extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         height: kcMinTapTarget,
+        // 必须给 widthFactor：Wrap 给下来的是整行宽约束，不收口的话 Center
+        // 会拉伸到满宽、每个历史项占一整行且内容居中，看起来就是「一直居中」。
+        // 收口到文字宽后，多个历史胶囊才能像源胶囊那样紧凑左对齐成一行。
         child: Center(
+          widthFactor: 1,
           child: Container(
             height: 40,
             padding: const EdgeInsets.only(left: kcSpaceMd),
@@ -1498,4 +1508,27 @@ class _LocalSearchEntry extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 解码检索项里 multi-select 的当前值。
+///
+/// 三种历史来源都要能吃：
+///   * `jsonEncode([...])` —— 用户点选后我们写回的形式；
+///   * `jsonEncode("chinese")` —— 源里写了字符串 `default` 时 parser 存下来的
+///     （带引号）；
+///   * 裸 key `chinese` —— 源没写 `default` 时 [SearchOptions.defaultValue]
+///     直接返回第一个选项的 key。
+///
+/// 以前这里是 `jsonDecode(value) as List`，第三种和第二种都会抛异常，而这段
+/// 代码在 build 里 —— 只要某个源有 multi-select 且没写 default，搜索页必红屏。
+List<String> _decodeMultiSelect(String value) {
+  if (value.isEmpty) return const [];
+  try {
+    final decoded = jsonDecode(value);
+    if (decoded is List) return decoded.map((e) => e.toString()).toList();
+    if (decoded is String) return [decoded];
+  } catch (_) {
+    // 裸 key，落到下面
+  }
+  return [value];
 }

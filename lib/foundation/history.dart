@@ -108,15 +108,19 @@ class History implements Comic {
 
   History.fromRow(Row row)
     : type = HistoryType(row["type"]),
-      time = DateTime.fromMillisecondsSinceEpoch(row["time"]),
-      title = row["title"],
-      subtitle = row["subtitle"],
-      cover = row["cover"],
-      ep = row["ep"],
-      page = row["page"],
+      time = DateTime.fromMillisecondsSinceEpoch(
+        // 表里这些列全部可空（旧版本备份 / 外部工具生成的 db 会带 NULL）。
+        // 硬 cast 在导入含 NULL 行的备份后一进历史页就 TypeCastException。
+        (row["time"] as int?) ?? 0,
+      ),
+      title = (row["title"] as String?) ?? '',
+      subtitle = (row["subtitle"] as String?) ?? '',
+      cover = (row["cover"] as String?) ?? '',
+      ep = (row["ep"] as int?) ?? 1,
+      page = (row["page"] as int?) ?? 1,
       id = row["id"],
       readEpisode = Set<String>.from(
-        (row["readEpisode"] as String)
+        ((row["readEpisode"] as String?) ?? '')
             .split(',')
             .where((element) => element != ""),
       ),
@@ -307,8 +311,14 @@ class HistoryManager with ChangeNotifier {
     }
 
     _haveAsyncTask = true;
-    await _addHistoryAsync(newItem);
-    _haveAsyncTask = false;
+    try {
+      await _addHistoryAsync(newItem);
+    } finally {
+      // 磁盘满 / DB 被替换时 _addHistoryAsync 会抛：没有 finally，
+      // _haveAsyncTask 永远为 true，之后每一次调用都在上面的 while 里
+      // 无限等待 —— 阅读进度从此静默不再保存。
+      _haveAsyncTask = false;
+    }
     if (_cachedHistoryIds == null) {
       updateCache();
     } else {
@@ -461,23 +471,52 @@ class HistoryManager with ChangeNotifier {
   void mergeFrom(String backupDbPath) {
     _db.execute("ATTACH DATABASE ? AS backup", [backupDbPath]);
     try {
-      _db.execute("""
-        INSERT INTO history (id, title, subtitle, cover, time, type, ep, page, readEpisode, max_page, chapter_group)
-        SELECT id, title, subtitle, cover, time, type, ep, page, readEpisode, max_page, chapter_group
-        FROM backup.history
-        ON CONFLICT(id) DO UPDATE SET
-          title = excluded.title,
-          subtitle = excluded.subtitle,
-          cover = excluded.cover,
-          time = excluded.time,
-          type = excluded.type,
-          ep = excluded.ep,
-          page = excluded.page,
-          readEpisode = excluded.readEpisode,
-          max_page = excluded.max_page,
-          chapter_group = excluded.chapter_group
-        WHERE excluded.time > history.time;
-      """);
+      // 列清单不能硬编码：chapter_group 是后期 ALTER TABLE 补的列，旧版本
+      // 备份里没有 → `no such column` 让整个导入失败。按 backup.sqlite_master
+      // 取交集，缺的列不参与合并（历史行仍按时间 newer-wins 合并其余列）。
+      var backupHistoryCols = _db
+          .select(
+            "SELECT name FROM backup.sqlite_master "
+            "WHERE type == 'table' AND name == 'history';",
+          )
+          .isEmpty
+          ? const <String>[]
+          : _db
+                .select("PRAGMA backup.table_info(history)")
+                .map((e) => e["name"] as String)
+                .toList();
+      var allCols = [
+        "id",
+        "title",
+        "subtitle",
+        "cover",
+        "time",
+        "type",
+        "ep",
+        "page",
+        "readEpisode",
+        "max_page",
+        "chapter_group",
+      ];
+      var cols = allCols.where(backupHistoryCols.contains).toList();
+      if (backupHistoryCols.isEmpty) {
+        cols = ["id", "time", "type"];
+      }
+      if (cols.contains("id") && cols.contains("time") && cols.contains("type")) {
+        var colList = cols.join(", ");
+        var updates = cols
+            .where((c) => c != "id")
+            .map((c) => "$c = excluded.$c")
+            .join(",\n          ");
+        _db.execute("""
+          INSERT INTO history ($colList)
+          SELECT $colList
+          FROM backup.history
+          ON CONFLICT(id) DO UPDATE SET
+          $updates
+          WHERE excluded.time > history.time;
+        """);
+      }
       var backupTables = _db
           .select(
             "SELECT name FROM backup.sqlite_master WHERE type == 'table';",
@@ -485,10 +524,24 @@ class HistoryManager with ChangeNotifier {
           .map((e) => e["name"] as String)
           .toList();
       if (backupTables.contains("image_favorites")) {
-        _db.execute("""
-          INSERT OR IGNORE INTO image_favorites
-          SELECT * FROM backup.image_favorites;
-        """);
+        // 不用 SELECT *：备份表列数少于当前 schema 时会抛
+        // "N columns but M values were supplied"。按两表列交集显式拼列。
+        var currentCols = _db
+            .select("PRAGMA table_info(image_favorites)")
+            .map((e) => e["name"] as String)
+            .toList();
+        var backupFavCols = _db
+            .select("PRAGMA backup.table_info(image_favorites)")
+            .map((e) => e["name"] as String)
+            .toList();
+        var favCols = currentCols.where(backupFavCols.contains).toList();
+        if (favCols.isNotEmpty) {
+          _db.execute(
+            "INSERT OR IGNORE INTO image_favorites "
+            "(${favCols.join(", ")}) "
+            "SELECT ${favCols.join(", ")} FROM backup.image_favorites;",
+          );
+        }
       }
     } finally {
       _db.execute("DETACH DATABASE backup");
@@ -622,26 +675,39 @@ class HistoryManager with ChangeNotifier {
     required int limit,
     required int offset,
   }) {
+    final pattern = _likePattern(keyword);
     var res = _db.select(
       """
       select * from history
-      where title like ? or subtitle like ?
+      where title like ? escape '\\'
+        or subtitle like ? escape '\\'
       order by time DESC
       LIMIT ? OFFSET ?;
     """,
-      ['%$keyword%', '%$keyword%', limit, offset],
+      [pattern, pattern, limit, offset],
     );
     return res.map((element) => History.fromRow(element)).toList();
   }
 
+  /// 转义 LIKE 通配符并包上 %：否则搜 "50% OFF" 会变成 `50<任意串> OFF`，
+  /// 搜出大量无关记录，searchCount 与实际列表也不一致。
+  static String _likePattern(String keyword) {
+    final escaped = keyword
+        .replaceAll('\\', r'\\')
+        .replaceAll('%', r'\%')
+        .replaceAll('_', r'\_');
+    return '%$escaped%';
+  }
+
   /// 搜索历史记录的总数。
   int searchCount(String keyword) {
+    final pattern = _likePattern(keyword);
     var res = _db.select(
       """
       select COUNT(*) as cnt from history
-      where title like ? or subtitle like ?;
+      where title like ? escape '\\' or subtitle like ? escape '\\';
     """,
-      ['%$keyword%', '%$keyword%'],
+      [pattern, pattern],
     );
     return res.first['cnt'] as int;
   }

@@ -1068,9 +1068,14 @@ class ComicTile extends StatelessWidget {
                     }
                     appdata.saveData();
                     context.showMessage(message: 'Blocked'.tl);
-                    comicTileContext
-                        .findAncestorStateOfType<_SliverGridComicsState>()
-                        ?.update();
+                    // 弹窗开着期间 tile 可能已被网格 update() 卸载
+                    // （收藏/历史监听触发），对 defunct element 做
+                    // ancestor lookup 会抛断言。
+                    if (comicTileContext.mounted) {
+                      comicTileContext
+                          .findAncestorStateOfType<_SliverGridComicsState>()
+                          ?.update();
+                    }
                   },
                   child: Text('Block'.tl),
                 ),
@@ -1236,7 +1241,9 @@ class _ComicDescription extends StatelessWidget {
                 ],
               ),
             ),
-            if (badge != null)
+            // badge 可能为空串（Comic.language 来自 JS 源，无校验），
+            // badge![0] 对空串抛 RangeError 会让整个列表页崩。
+            if (badge != null && badge!.isNotEmpty)
               AppBadge(
                 "${badge![0].toUpperCase()}${badge!.substring(1).toLowerCase()}",
                 type: AppBadgeType.neutral,
@@ -1415,6 +1422,31 @@ class _SliverGridComicsState extends State<SliverGridComics>
   }
 }
 
+/// 把漫画网格收敛到统一内容列（[kcContentMaxWidth] = 900dp）并居中。
+///
+/// 方案 E/F 早就把「内容列最大宽度」定成了令牌，但只有主页 / 历史 / 设置真正
+/// 用了它；分类 / 发现 / 收藏 / 搜索 / 本地这些「网格页」一直满宽渲染 ——
+/// 平板 2560dp 会被切成 12 列、封面小到看不清，与主页的 900dp 单列并排时
+/// 一眼就是两套版式。这里在两个网格出口（普通网格与分页网格）统一收口。
+///
+/// 用 [SliverLayoutBuilder] 而不是 `MediaQuery.sizeOf`：网格也可能落在双栏 /
+/// 弹层这类「窗口宽 ≠ 可用宽」的容器里，只有 SliverConstraints 是准的。
+///
+/// 手机竖屏 crossAxisExtent < 900 → padding 恒为 0，与改动前逐像素一致。
+Widget _kcCenteredGridSliver(Widget grid) {
+  return SliverLayoutBuilder(
+    builder: (context, constraints) {
+      final extent = constraints.crossAxisExtent;
+      final pad = (extent - kcPageContentWidth(extent)) / 2;
+      if (pad <= 0) return grid;
+      return SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: pad),
+        sliver: grid,
+      );
+    },
+  );
+}
+
 class _SliverGridComics extends StatelessWidget {
   const _SliverGridComics({
     required this.comics,
@@ -1468,7 +1500,7 @@ class _SliverGridComics extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: appdata.settings,
-      builder: (context, _) => SliverGrid(
+      builder: (context, _) => _kcCenteredGridSliver(SliverGrid(
         delegate: SliverChildBuilderDelegate((context, index) {
           if (index == comics.length - 1) {
             onLastItemBuild?.call();
@@ -1508,7 +1540,7 @@ class _SliverGridComics extends StatelessWidget {
                 textScale:
                     MediaQuery.textScalerOf(context).scale(kcBody) / kcBody,
               ),
-      ),
+      )),
     );
   }
 }
@@ -1599,6 +1631,9 @@ class _SelectableComicCell extends StatelessWidget {
 /// return the first blocked keyword, or null if not blocked
 String? isBlocked(Comic item) {
   for (var word in appdata.settings['blockedWords']) {
+    // 空串必须跳过：`title.contains("")` 恒为 true，会把整个列表判成「全屏蔽」。
+    // 旧版设置页允许空提交，用户数据里可能已经存着空串，这里兜住才能自愈。
+    if (word.isEmpty) continue;
     if (item.title.contains(word)) {
       return word;
     }
@@ -1816,8 +1851,10 @@ class ComicListState extends State<ComicList> {
     _data.addAll(state['data']);
     _page = state['page'];
     _error = state['error'];
+    // loading 是瞬态：加载中写进的 true 若被恢复，_loadPage 的
+    // `_loading[page] == true` 守卫会让该页永久停在骨架屏，没有任何
+    // 代码会再清掉它。
     _loading.clear();
-    _loading.addAll(state['loading']);
     _nextUrl = state['nextUrl'];
   }
 
@@ -2242,6 +2279,16 @@ class ComicListState extends State<ComicList> {
         ],
       );
     }
+    // 分页模式同理：本页 0 条时别让用户对着白屏。分页胶囊由外层 Stack 负责，
+    // 这里只替换主体，翻页箭头仍然可用。
+    if (_data[_page]!.isEmpty && _error == null && _loading[_page] != true) {
+      return Column(
+        children: [
+          if (widget.errorLeading != null) widget.errorLeading!,
+          Expanded(child: EmptyState(title: "No results".tl)),
+        ],
+      );
+    }
     return RefreshIndicator(
       onRefresh: _handleRefresh,
       color: kcBrandAdaptive(context),
@@ -2309,6 +2356,26 @@ class ComicListState extends State<ComicList> {
         children: [
           if (widget.errorLeading != null) widget.errorLeading!,
           const Expanded(child: _ComicGridSkeleton()),
+        ],
+      );
+    }
+    final allComics = _data.values.expand((element) => element).toList();
+    // 源返回「0 条」时 `_data[page]` 是**空列表**（不是 null）：不满足上面的
+    // 骨架分支，`_maxPage` 又被 `??= page` 定成 1，把底部的「加载中」也关掉，
+    // 于是整页纯白 —— 用户以为卡死（分类列表点进冷门标签的实测表现）。
+    // 这里补一个明确空态，并保留顶部筛选条，让用户能直接换条件重试。
+    if (allComics.isEmpty &&
+        _error == null &&
+        !_loading.values.any((element) => element)) {
+      return SmoothCustomScrollView(
+        key: enablePageStorage ? PageStorageKey('scroll$_page') : null,
+        controller: widget.controller,
+        slivers: [
+          if (widget.leadingSliver != null) widget.leadingSliver!,
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(title: "No results".tl),
+          ),
         ],
       );
     }
@@ -2955,6 +3022,9 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
   bool _initialized = false;
   Object? _error;
 
+  /// 世代号：refresh() 自增作废在途的「加载更多」请求，见 [_loadNextPage]。
+  int _refreshToken = 0;
+
   static int _nextHeroID = 0;
 
   @override
@@ -2974,7 +3044,8 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
     if (mounted) refresh();
   }
 
-  Future<void> _loadNextPage() async {
+  Future<void> _loadNextPage({int? token}) async {
+    final requestToken = token ?? _refreshToken;
     // `_error` has to gate re-entry too: when a page throws, `_isLoading` goes
     // back to false in `finally`, so without this check the footer slot below
     // would re-request the same failing page every single frame. That both
@@ -2991,6 +3062,9 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
         widget.pageSize,
       );
       if (!mounted) return;
+      // 刷新已经发生：这一页属于上一世代，直接丢弃（否则旧的第 2 页会被
+      // 追加到新列表里，或把空列表填成「从中间开始」）。
+      if (requestToken != _refreshToken) return;
       if (newComics.isEmpty) {
         _hasMore = false;
       } else {
@@ -3048,6 +3122,12 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
 
   /// Reset and reload from page 1.
   Future<void> refresh() async {
+    // 刷新与「加载更多」可能同时在跑：以前 refresh 先清空列表，再调
+    // _loadNextPage()，而后者开头有 `if (_isLoading) return;` —— 在途请求
+    // 存在时直接返回，列表被清空却不会重拉第一页；旧请求回来又把第 2 页
+    // 塞进空列表，页面就变成「从第 31 条开始」。
+    // 用世代号作废旧请求，并清掉 _isLoading 让本次重拉真正执行。
+    final token = ++_refreshToken;
     _comics.clear();
     _heroIDs.clear();
     _favoriteStatus.clear();
@@ -3055,7 +3135,8 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
     _hasMore = true;
     _initialized = false;
     _error = null;
-    await _loadNextPage();
+    _isLoading = false;
+    await _loadNextPage(token: token);
   }
 
   @override
@@ -3104,7 +3185,7 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
 
     return AnimatedBuilder(
       animation: appdata.settings,
-      builder: (context, _) => SliverGrid(
+      builder: (context, _) => _kcCenteredGridSliver(SliverGrid(
         delegate: SliverChildBuilderDelegate((context, index) {
           // Footer slot
           if (index == _comics.length) {
@@ -3179,7 +3260,7 @@ class PaginatedSliverGridComicsState extends State<PaginatedSliverGridComics>
                 textScale:
                     MediaQuery.textScalerOf(context).scale(kcBody) / kcBody,
               ),
-      ),
+      )),
     );
   }
 }

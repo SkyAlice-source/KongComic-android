@@ -141,12 +141,17 @@ class ComicSourceParser {
     var line1 = js
         .split('\n')
         .firstWhereOrNull((e) => e.trim().startsWith("class "));
+    // 用 trim 后的行做校验：firstWhereOrNull 选的是 trimmed 匹配，校验却查
+    // 未 trim 的原行 —— 缩进在 class 前（IIFE / 命名空间包裹）的源会被误判
+    // "Invalid Content" 装不上。
+    final trimmedLine = line1?.trim() ?? '';
     if (line1 == null ||
-        !line1.startsWith("class ") ||
-        !line1.contains("extends ComicSource")) {
+        !trimmedLine.startsWith("class ") ||
+        !trimmedLine.contains("extends ComicSource")) {
       throw ComicSourceParseException("Invalid Content");
     }
-    var className = line1.split("class")[1].split("extends ComicSource").first;
+    var className =
+        trimmedLine.split("class")[1].split("extends ComicSource").first;
     className = className.trim();
     JsEngine().runCode("""(() => { $js
         this['temp'] = new $className()
@@ -230,7 +235,13 @@ class ComicSourceParser {
 
     if (_checkExists("init")) {
       Future.delayed(const Duration(milliseconds: 50), () {
-        JsEngine().runCode("ComicSource.sources.$_key.init()");
+        // init() 抛错（JS 报错、或 50ms 内源已被删除）不该变成未捕获的
+        // 异步异常炸 zone。
+        try {
+          JsEngine().runCode("ComicSource.sources.$_key.init()");
+        } catch (e, s) {
+          Log.error("ComicSource [$_key]", "init failed: $e\n$s");
+        }
       });
     }
 
@@ -349,9 +360,17 @@ class ComicSourceParser {
     }
     var length = JsEngine().runCode("ComicSource.sources.$_key.explore.length");
     var pages = <ExplorePageData>[];
+    // explore 被源写成对象而非数组时 length 是 null；跳过而不是让整个源崩。
+    if (length is! num || length <= 0) {
+      return pages;
+    }
     for (int i = 0; i < length; i++) {
-      final String title = _getValue("explore[$i].title");
-      final String type = _getValue("explore[$i].type");
+      final String? title = _getValue("explore[$i].title");
+      final String? type = _getValue("explore[$i].type");
+      // 字段缺失的页跳过，不让整个源装不上。
+      if (title == null || title.isEmpty || type == null || type.isEmpty) {
+        continue;
+      }
       Future<Res<List<ExplorePagePart>>> Function()? loadMultiPart;
       Future<Res<List<Comic>>> Function(int page)? loadPage;
       Future<Res<List<Comic>>> Function(String? next)? loadNext;
@@ -513,7 +532,9 @@ class ComicSourceParser {
         continue;
       }
       List? categories = c["categories"];
-      if (categories == null || categories[0] is Map) {
+      // 空数组时 `categories[0]` 抛 RangeError（分区暂时无内容很常见），
+      // 空列表走 new format 分支后由下面的 cs.isEmpty continue 兜住。
+      if (categories == null || categories.isEmpty || categories[0] is Map) {
         // new format
         final String name = c["name"];
         final String type = c["type"];
@@ -866,7 +887,9 @@ class ComicSourceParser {
   FavoriteData? _loadFavoriteData() {
     if (!_checkExists("favorites")) return null;
 
-    final bool multiFolder = _getValue("favorites.multiFolder");
+    // multiFolder 在 spec 里是可选字段：缺失时 _getValue 返回 null，隐式
+    // downcast 到 bool 直接抛，单文件夹源装不上。
+    final bool multiFolder = _getValue("favorites.multiFolder") ?? false;
     final bool? isOldToNewSort = _getValue("favorites.isOldToNewSort");
     final bool? singleFolderForSingleComic = _getValue(
       "favorites.singleFolderForSingleComic",
@@ -898,7 +921,8 @@ class ComicSourceParser {
         try {
           await JsEngine().runCode("""
             ComicSource.sources.$_key.favorites.addOrDelFavorite(
-              ${jsonEncode(comicId)}, ${jsonEncode(folderId)}, ${jsonEncode(isAdding)})
+              ${jsonEncode(comicId)}, ${jsonEncode(folderId)}, ${jsonEncode(isAdding)},
+              ${favId == null ? "undefined" : jsonEncode(favId)})
           """);
           return const Res(true);
         } catch (e, s) {
@@ -1308,7 +1332,10 @@ class ComicSourceParser {
     if (!_checkExists("comic.link")) {
       return null;
     }
-    List<String> domains = List.from(_getValue("comic.link.domains"));
+    // 只检查了 comic.link 存在；漏写 domains 时 List.from(null) 抛 TypeError。
+    List<String> domains = List.from(
+      _getValue("comic.link.domains") ?? const [],
+    );
     linkToId(String link) {
       var res = JsEngine().runCode("""
           ComicSource.sources.$_key.comic.link.linkToId(${jsonEncode(link)})

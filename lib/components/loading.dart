@@ -131,6 +131,7 @@ class NetworkError extends StatelessWidget {
     this.withAppbar = true,
     this.buttonText,
     this.action,
+    this.title,
   });
 
   final String message;
@@ -142,6 +143,14 @@ class NetworkError extends StatelessWidget {
   final String? buttonText;
 
   final Widget? action;
+
+  /// 错误页顶栏标题。
+  ///
+  /// 默认空串：多数调用方是「整页替换」型的错误态（列表、浏览、搜索），
+  /// 顶栏只承担返回，标题留给页面自己。但从别的页面「带着名字」进来的
+  /// 详情类页面必须把名字传进来 —— 否则请求失败后顶栏只剩一颗返回箭头，
+  /// 用户会以为自己被丢到了另一个页面。[Appbar] 自带单行省略，长标题不会撑破。
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +229,7 @@ class NetworkError extends StatelessWidget {
     if (withAppbar) {
       body = Column(
         children: [
-          const Appbar(title: Text("")),
+          Appbar(title: Text(title ?? "")),
           Expanded(child: body),
         ],
       );

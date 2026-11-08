@@ -69,6 +69,15 @@ abstract class DownloadTask with ChangeNotifier {
     switch (json["type"]) {
       case "ImagesDownloadTask":
         return ImagesDownloadTask.fromJson(json);
+      case "ArchiveDownloadTask":
+        // toJson 一直在写这一类，但工厂没有对应分支，整包下载中杀进程后
+        // 任务会被静默丢弃（只剩 App.dataPath 里的半截 zip）。
+        try {
+          return ArchiveDownloadTask.fromJson(json);
+        } catch (e, s) {
+          Log.error("Download", "Failed to restore archive task: $e", s);
+          return null;
+        }
       default:
         return null;
     }
@@ -141,6 +150,16 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
             if (await dir.exists()) {
               await dir.delete(recursive: true);
             }
+          }
+        });
+      } else {
+        // 单行本（无章节）重下时中途取消：上面两个分支都不成立，半截图片会
+        // 留在原目录里并被后续「已下载」判定当成合法页读出，顺序错乱。
+        Future.sync(() async {
+          try {
+            await Directory(path!).delete(recursive: true);
+          } catch (e) {
+            Log.error("Download", "Failed to delete directory: $e");
           }
         });
       }
@@ -468,9 +487,6 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
           try {
             final bytes = await _buildCbzFromDir(chapterDir);
             await _writeCbzBytes(cbzPath, bytes);
-            if (appdata.settings['deleteFolderAfterCbz'] == true) {
-              await chapterDir.delete(recursive: true);
-            }
           } catch (e, s) {
             Log.error("Download", "Failed to package chapter as CBZ: $e\n$s");
           }
@@ -484,9 +500,6 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
           try {
             final bytes = await _buildCbzFromDir(dir);
             await _writeCbzBytes(cbzPath, bytes);
-            if (appdata.settings['deleteFolderAfterCbz'] == true) {
-              await dir.delete(recursive: true);
-            }
           } catch (e, s) {
             Log.error(
               "Download",
@@ -571,10 +584,10 @@ class ImagesDownloadTask extends DownloadTask with _TransferSpeedMixin {
       ..path = json["path"]
       .._cover = json["cover"]
       .._images = images
-      .._downloadedCount = json["downloadedCount"]
-      .._totalCount = json["totalCount"]
-      .._index = json["index"]
-      .._chapter = json["chapter"]
+      .._downloadedCount = (json["downloadedCount"] as num?)?.toInt() ?? 0
+      .._totalCount = (json["totalCount"] as num?)?.toInt() ?? 0
+      .._index = (json["index"] as num?)?.toInt() ?? 0
+      .._chapter = (json["chapter"] as num?)?.toInt() ?? 0
       ..pausedByUser = json["pausedByUser"] == true;
   }
 
@@ -659,7 +672,15 @@ class _ImageDownloadWrapper {
   bool isCancelled = false;
 
   void cancel() {
+    if (isCancelled) return;
     isCancelled = true;
+    // start() 在 isCancelled 时是直接 return，不会走到 complete 分支。
+    // 若这里不把等待者唤醒，cancel() 里的 `await tasks[i].wait()` 会永久挂起，
+    // 后面删半截目录、pause/resume 的协程都会一起卡死。
+    for (var c in completers) {
+      if (!c.isCompleted) c.complete(this);
+    }
+    completers.clear();
   }
 
   var completers = <Completer<_ImageDownloadWrapper>>[];
@@ -711,7 +732,7 @@ class _ImageDownloadWrapper {
   }
 
   Future<_ImageDownloadWrapper> wait() {
-    if (isComplete) {
+    if (isComplete || isCancelled) {
       return Future.value(this);
     }
     var c = Completer<_ImageDownloadWrapper>();

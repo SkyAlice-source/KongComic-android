@@ -345,7 +345,7 @@ class KcGroupHeaderDelegate extends SliverPersistentHeaderDelegate {
             padding: const EdgeInsets.symmetric(horizontal: kcSpaceMd),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(kcPillRadius),
-              border: Border.all(color: cs.outlineVariant, width: kcHairline),
+              border: Border.all(color: kcHairlineColor(context), width: kcHairline),
             ),
             child: Center(
               child: Row(

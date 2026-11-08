@@ -26,8 +26,6 @@ class _DownloadSettingsState extends State<DownloadSettings>
 
   @override
   Widget build(BuildContext context) {
-    final bool cbzEnabled = appdata.settings['saveAsCbz'] == true;
-
     return SmoothCustomScrollView(
       slivers: [
         SliverAppbar(title: Text("Download & Import".tl)),
@@ -37,17 +35,14 @@ class _DownloadSettingsState extends State<DownloadSettings>
           title: "Download".tl,
           icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 20),
         ),
+        // 「打包后删除原文件夹」这个开关已移除：阅读器只认目录，删掉目录后
+        // 章节仍被标记为「已下载」，点开必然 PathNotFoundException，
+        // 而 .cbz 只能导入、不能直接读。
         _SwitchSetting(
           title: "Save chapters as CBZ".tl,
           subtitle: "Package each chapter as .cbz file after download".tl,
           settingKey: 'saveAsCbz',
         ).toSliver(),
-        if (cbzEnabled)
-          _SwitchSetting(
-            title: "Delete folder after CBZ packaging".tl,
-            subtitle: "Keep only the .cbz file, remove the original folder".tl,
-            settingKey: 'deleteFolderAfterCbz',
-          ).toSliver(),
         _SliderSetting(
           title: "Download Threads".tl,
           settingsIndex: 'downloadThreads',

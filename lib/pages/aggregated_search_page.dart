@@ -147,23 +147,29 @@ class _AggregatedSearchPageState extends State<AggregatedSearchPage> {
   ///
   /// 错误按源记录而不是整页失败：三个源里挂掉一个，另外两个的结果照常显示，
   /// 挂掉的那个在「按源」视图里单独提示。「聚合」视图则只看成功源的数据。
+  /// 单源超时。聚合视图只要有一个源在路上就整页显示骨架，没有超时的话，
+  /// 一个挂死（不回包）的源会让另外几个已经回来的结果永远看不见。
+  static const _sourceTimeout = Duration(seconds: 30);
+
   Future<void> _fetchSource(_SourceResult q, int generation) async {
     var comics = <Comic>[];
     String? error;
     try {
       final data = q.source.searchPageData!;
       final options = (data.searchOptions ?? [])
-          .map((e) => e.defaultValue)
+          .map((e) => e.uiDefaultValue)
           .toList();
       if (data.loadPage != null) {
-        final res = await data.loadPage!(_keyword, 1, options);
+        final res = await data.loadPage!(_keyword, 1, options)
+            .timeout(_sourceTimeout);
         if (res.error) {
           error = rawSourceError(res.errorMessage);
         } else {
           comics = res.data;
         }
       } else if (data.loadNext != null) {
-        final res = await data.loadNext!(_keyword, null, options);
+        final res = await data.loadNext!(_keyword, null, options)
+            .timeout(_sourceTimeout);
         if (res.error) {
           error = rawSourceError(res.errorMessage);
         } else {

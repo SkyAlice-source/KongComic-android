@@ -95,7 +95,7 @@ class _LocalComicsPageState extends State<LocalComicsPage>
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(kcRadius22),
-              border: Border.all(color: cs.outlineVariant, width: 0.6),
+              border: Border.all(color: kcHairlineColor(context), width: kcHairline),
             ),
             child: Row(
               children: [
@@ -696,22 +696,27 @@ class _LocalComicsPageState extends State<LocalComicsPage>
       var fileName = "";
       // For each comic, export it to a file
       for (var comic in comics) {
+        // 只按标题命名：两本本地漫画同标题（不同来源很常见）时后者覆盖
+        // 前者，压缩包里静默少一本。拼上 id 保证唯一。
         fileName = FilePath.join(
           cacheDir,
-          sanitizeFileName(comic.title, maxLength: 100) + ext,
+          "${sanitizeFileName(comic.title, maxLength: 90)}_${comic.id}$ext",
         );
         await export(
           comic,
           fileName,
           onProgress: (imgCurrent, imgTotal) {
+            // imgTotal 为 0（空目录 / 导入失败的漫画）时除法得 NaN，
+            // 传给 LinearProgressIndicator 触发断言。
+            final ratio = imgCurrent / (imgTotal == 0 ? 1 : imgTotal);
             if (comics.length == 1) {
-              loadingController.setProgress(imgCurrent / imgTotal);
+              loadingController.setProgress(ratio.clamp(0.0, 1.0));
               loadingController.setMessage(
                 "${"Exporting".tl}: $imgCurrent/$imgTotal",
               );
             } else {
-              var overall = (current + imgCurrent / imgTotal) / comics.length;
-              loadingController.setProgress(overall);
+              var overall = (current + ratio) / comics.length;
+              loadingController.setProgress(overall.clamp(0.0, 1.0));
               loadingController.setMessage(
                 "${"Exporting".tl} ${current + 1}/${comics.length}: $imgCurrent/$imgTotal",
               );
@@ -730,6 +735,9 @@ class _LocalComicsPageState extends State<LocalComicsPage>
           );
         }
         if (canceled) {
+          // 取消时显式关掉加载框：early return 会绕过下面的 [finally]，
+          // 而 finally 只清缓存目录、并不收对话框，否则进度框会一直挂着。
+          loadingController.close();
           return;
         }
       }
@@ -748,11 +756,16 @@ class _LocalComicsPageState extends State<LocalComicsPage>
       await ZipFile.compressFolderAsync(cacheDir, outFile);
       if (canceled) {
         File(outFile).deleteIgnoreError();
+        loadingController.close();
         return;
       }
     } catch (e, s) {
       Log.error("Export Comics", e, s);
-      context.showMessage(message: "Failed to export comics".tl);
+      // 导出单本最长 5 分钟，期间用户可能已退出本页；
+      // 对 deactivated context 弹 toast 会抛断言。
+      if (mounted) {
+        context.showMessage(message: "Failed to export comics".tl);
+      }
       loadingController.close();
       return;
     } finally {
@@ -1005,7 +1018,7 @@ class _ImportOptionTile extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             borderRadius: radius,
-            border: Border.all(color: scheme.outlineVariant, width: 1),
+            border: Border.all(color: kcHairlineColor(context), width: kcHairline),
           ),
           child: Row(
             children: [

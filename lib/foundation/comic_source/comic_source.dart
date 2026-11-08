@@ -535,6 +535,25 @@ class SearchOptions {
   const SearchOptions(this.options, this.label, this.type, this.defaultVal);
 
   String get defaultValue => defaultVal ?? options.keys.firstOrNull ?? "";
+
+  /// 界面展示用的初始值。
+  ///
+  /// parser 存 `default` 时统一走了 `jsonEncode`，字符串会带上引号
+  /// （`"chinese"`）。直接拿 [defaultValue] 去比 `options.keys`，
+  /// 默认项永远不高亮、下拉框显示空白，而且首搜会把带引号的值发给源。
+  /// 这里只做「展示/回填」的归一化，发给源的数据格式保持不变。
+  String get uiDefaultValue {
+    final raw = defaultValue;
+    if (raw.isEmpty) return raw;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is String) return decoded;
+      if (decoded is List) return jsonEncode(decoded);
+    } catch (_) {
+      // 裸 key / 非 JSON：原样返回
+    }
+    return raw;
+  }
 }
 
 typedef CategoryComicsLoader =

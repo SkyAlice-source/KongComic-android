@@ -128,11 +128,24 @@ class _ReaderState extends State<Reader>
     setState(() {});
   }
 
+  /// 读取「当前这本书实际生效」的阅读设置：单本覆盖 → 本设备覆盖 → 全局。
+  ///
+  /// 阅读设置页在开启「为单本漫画单独设置 / 本设备设置」时写的是作用域值
+  /// （comicSpecificSettings / deviceSpecificSettings）。阅读器里若直接读
+  /// `appdata.settings[key]`，只能拿到全局值 —— 用户改完设置回到阅读器会
+  /// 发现「完全没反应」，而设置页上显示的还是作用域里的新值。
+  dynamic readerSetting(String key) =>
+      appdata.settings.getReaderSetting(cid, type.sourceKey, key);
+
   /// The maximum page number for images only (excluding chapter comments page).
   /// This is used for display purposes and history recording.
   @override
   int get maxPage {
-    if (images == null) return 1;
+    // 空章节必须当成 1 页。源返回成功但空数组、本地目录只剩 cover 或被清空时
+    // images.length 为 0，ceil 之后 maxPage 会算出 0；下游到处是
+    // `page.clamp(1, maxPage)`，而 clamp 要求 lower <= upper，0 会让阅读器
+    // 在 build 里直接抛 ArgumentError（整页红屏），且重试也永远回到这里。
+    if (images == null || images!.isEmpty) return 1;
     return !showSingleImageOnFirstPage()
         ? (images!.length / imagesPerPage).ceil()
         : 1 + ((images!.length - 1) / imagesPerPage).ceil();
@@ -194,6 +207,13 @@ class _ReaderState extends State<Reader>
   /// 一章都重来一次没必要。缓存命中后，同一本漫画后续章节直接进竖向连续模式，
   /// 省掉一次「先按分页渲染再重排」的闪动。
   static final Map<String, bool> _autoWebtoonCache = {};
+
+  /// 自动条漫判定缓存的 key。
+  ///
+  /// `cid` 只在单个源内唯一，不同源用同一个数字 id 非常常见；只用 cid 做 key
+  /// 会把 A 源条漫的判定套到 B 源的分页漫画上（强制进竖向连续模式，还覆盖
+  /// 用户在 B 源显式选过的图集模式）。
+  String get _webtoonCacheKey => '${type.sourceKey}@$cid';
 
   /// 已经探测过条漫的章节号，防止 build 反复触发探测。
   int? _autoWebtoonProbedChapter;
@@ -274,7 +294,7 @@ class _ReaderState extends State<Reader>
     );
     // 本进程已识别为条漫的漫画：直接进竖向连续模式，避免先分页再重排。
     // 仅当用户没显式选过图集模式时生效 —— 图集是明确的手动选择，不该被覆盖。
-    if (_autoWebtoonCache[cid] == true &&
+    if (_autoWebtoonCache[_webtoonCacheKey] == true &&
         mode.isGallery &&
         (appdata.settings.getReaderSetting(
               cid,
@@ -817,7 +837,10 @@ mixin _ReaderLocation on State<Reader> {
       } else {
         this.page = page;
         update();
-        _imageViewController!.toPage(page);
+        // 切章加载期间旧的控制器已经 dispose（两个模式 dispose 里会把自己从
+        // _imageViewController 摘掉），这里必须判空，否则对已销毁的
+        // PageController 取 position 会抛 StateError。
+        _imageViewController?.toPage(page);
       }
       return true;
     }

@@ -3,6 +3,10 @@ import 'package:kong_comic/components/components.dart';
 
 import 'app_page_route.dart';
 
+/// 顶层路由防抖时间戳：InkWell 在 tap-up 即触发且 to() 无节流，快速双击
+/// 封面会把 ComicPage 压栈两次（Hero 动画连跑两遍、详情页请求两次）。
+DateTime? _lastPushTime;
+
 extension Navigation on BuildContext {
   void pop<T>([T? result]) {
     if (mounted) {
@@ -15,6 +19,12 @@ extension Navigation on BuildContext {
   }
 
   Future<T?> to<T>(Widget Function() builder) {
+    final now = DateTime.now();
+    if (_lastPushTime != null &&
+        now.difference(_lastPushTime!) < const Duration(milliseconds: 500)) {
+      return Future.value(null);
+    }
+    _lastPushTime = now;
     return Navigator.of(
       this,
     ).push<T>(AppPageRoute(builder: (context) => builder()));

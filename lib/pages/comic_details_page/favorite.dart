@@ -31,7 +31,9 @@ class _FavoritePanel extends StatefulWidget {
 
 class _FavoritePanelState extends State<_FavoritePanel>
     with SingleTickerProviderStateMixin {
-  late ComicSource comicSource;
+  /// 源被停用/删除/更新重载后 `ComicType.comicSource` 为 null：详情页还开在
+  /// 导航栈里，此时点「收藏」不能崩，降级为纯本地面板。
+  ComicSource? comicSource;
 
   late bool hasNetwork;
 
@@ -41,10 +43,13 @@ class _FavoritePanelState extends State<_FavoritePanel>
 
   @override
   void initState() {
-    comicSource = widget.type.comicSource!;
+    comicSource = widget.type.comicSource;
     localFolders = LocalFavoritesManager().folderNames;
     added = LocalFavoritesManager().find(widget.cid, widget.type);
-    hasNetwork = comicSource.favoriteData != null && comicSource.isLogged;
+    hasNetwork =
+        comicSource != null &&
+        comicSource!.favoriteData != null &&
+        comicSource!.isLogged;
     super.initState();
   }
 
@@ -159,7 +164,7 @@ class _FavoriteList extends StatefulWidget {
   final void Function(bool?, bool?) onFavorite;
   final FavoriteItem favoriteItem;
   final String? updateTime;
-  final ComicSource comicSource;
+  final ComicSource? comicSource;
   final bool hasNetwork;
   final List<String> localFolders;
   final List<String> added;
@@ -188,7 +193,8 @@ class _FavoriteListState extends State<_FavoriteList> {
     final networkSection = widget.hasNetwork
         ? _NetworkSection(
             cid: widget.cid,
-            comicSource: widget.comicSource,
+            // hasNetwork 为 true 时 comicSource 必非 null（initState 保证）。
+            comicSource: widget.comicSource!,
             isFavorite: widget.isFavorite,
             onFavorite: (network) {
               widget.onFavorite(null, network);
@@ -265,7 +271,19 @@ class _NetworkSectionState extends State<_NetworkSection> {
   }
 
   void loadFolders() async {
-    var res = await widget.comicSource.favoriteData!.loadFolders!(widget.cid);
+    Res<Map<String, String>> res;
+    try {
+      res = await widget.comicSource.favoriteData!.loadFolders!(widget.cid);
+    } catch (e) {
+      // 源脚本/网络层直接抛异常时，既拿不到 Res.error，也走不到下面的
+      // setState —— isLoadingFolders 永远是 true，面板就永久停在骨架上。
+      if (!mounted) return;
+      setState(() {
+        isLoadingFolders = false;
+        foldersError = friendlyError(e);
+      });
+      return;
+    }
     if (!mounted) return;
     if (res.error) {
       context.showMessage(message: friendlySourceError(res.errorMessage));
@@ -276,7 +294,9 @@ class _NetworkSectionState extends State<_NetworkSection> {
     } else {
       folders = res.data;
       if (res.subData is List) {
-        final list = List<String>.from(res.subData);
+        // 元素可能混有非 String（JS 源返回 int 的 folder id），List.from
+        // 抛 TypeError 会把这段 try 外的异常丢进 zone：骨架屏永久卡住。
+        final list = (res.subData as List).whereType<String>().toList();
         if (list.isNotEmpty) {
           addedFolders = list.toSet();
           localIsFavorite = true;
@@ -412,10 +432,18 @@ class _NetworkSectionState extends State<_NetworkSection> {
               ? null
               : () async {
                   setState(() => isLoading = true);
-                  final res = await widget
-                      .comicSource
-                      .favoriteData!
-                      .addOrDelFavorite!(widget.cid, '', !isFavorite, null);
+                  Res res;
+                  try {
+                    res = await widget.comicSource.favoriteData!
+                        .addOrDelFavorite!(widget.cid, '', !isFavorite, null);
+                  } catch (e) {
+                    // 抛异常时下面的 isLoading=false 永远执行不到，spinner 会一直转。
+                    if (mounted) {
+                      setState(() => isLoading = false);
+                      context.showMessage(message: friendlyError(e));
+                    }
+                    return;
+                  }
                   if (!mounted) return;
                   if (res.success) {
                     setState(() => localIsFavorite = !isFavorite);
@@ -468,10 +496,18 @@ class _NetworkSectionState extends State<_NetworkSection> {
             onTap: enabled
                 ? () async {
                     setState(() => _itemLoading[id] = true);
-                    final res = await widget
-                        .comicSource
-                        .favoriteData!
-                        .addOrDelFavorite!(widget.cid, id, !isAdded, null);
+                    Res res;
+                    try {
+                      res = await widget.comicSource.favoriteData!
+                          .addOrDelFavorite!(widget.cid, id, !isAdded, null);
+                    } catch (e) {
+                      // 同上：不兜住的话该行 spinner 永久转圈。
+                      if (mounted) {
+                        setState(() => _itemLoading[id] = false);
+                        context.showMessage(message: friendlyError(e));
+                      }
+                      return;
+                    }
                     if (!mounted) return;
                     if (res.success) {
                       // Invalidate network cache so folders/pages reload with fresh data
@@ -646,9 +682,9 @@ class _FavoriteStatePill extends StatelessWidget {
             ? null
             : Border.all(
                 color: enabled
-                    ? scheme.outlineVariant
-                    : scheme.outlineVariant.withValues(alpha: 0.5),
-                width: 1,
+                    ? kcHairlineColor(context)
+                    : kcHairlineColor(context).withValues(alpha: 0.5),
+                width: kcHairline,
               ),
       ),
       child: isLoading

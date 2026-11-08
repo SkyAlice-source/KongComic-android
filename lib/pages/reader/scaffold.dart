@@ -72,7 +72,6 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
 
   void addDragListener() async {
     if (!mounted) return;
-    var readerMode = context.reader.mode;
 
     // 横向阅读的时候, 如果纵向滑就触发收藏, 纵向阅读的时候, 如果横向滑动就触发收藏
     if (appdata.settings['quickCollectImage'] == 'Swipe') {
@@ -80,7 +79,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
         double distance = 0;
         _imageFavoriteDragListener = _DragListener(
           onMove: (offset) {
-            switch (readerMode) {
+            // 必须读实时的 reader.mode：闭包只在创建时抓一次模式，用户在阅读
+            // 设置里从上下滚动切成左右翻页后，旧闭包还在累加 dx（横滑的 dy
+            // 恒为 0），滑动收藏就彻底失效了。
+            if (!mounted) return;
+            switch (context.reader.mode) {
               case ReaderMode.continuousTopToBottom:
               case ReaderMode.galleryTopToBottom:
                 distance += offset.dx;
@@ -333,12 +336,30 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
     );
   }
 
+  /// 当前屏幕第一张图在 `images` 里的 0-based 索引。
+  ///
+  /// 图片收藏记录的是**图片序号**（`images[i]` 的 i+1，见 [addImageFavorite]、
+  /// ImageFavoriteManager.has 的比对），而 `reader.page` 是**屏幕页码**。每屏
+  /// 多图时两者根本不等（每屏 2 图、看第 3 屏 → page=3，实际是第 5、6 张）：
+  /// 用 page 去查红心永远查不到，于是取消收藏走成收藏分支，提示「已收藏」却
+  /// 什么也没删；分享/设封面的 Current 徽标也会标到别的图上。
+  int get _currentImageIndex {
+    final vc = context.reader._imageViewController;
+    if (vc is _GalleryModeState) {
+      final range = vc.getCurrentPageImageRange();
+      if (range != null) return range.$1;
+    }
+    final count = context.reader.images?.length ?? 0;
+    if (count <= 0) return 0;
+    return (context.reader.page - 1).clamp(0, count - 1);
+  }
+
   bool isLiked() {
     return ImageFavoriteManager().has(
       context.reader.cid,
       context.reader.type.sourceKey,
       context.reader.eid,
-      context.reader.page,
+      _currentImageIndex + 1,
       context.reader.chapter,
     );
   }
@@ -361,7 +382,12 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
       String subTitle = context.reader.history!.subtitle;
       int maxPage = context.reader.images!.length;
       int? page = await selectImage();
-      if (page == null) return;
+      if (page == null || !mounted) return;
+      // 选图弹窗期间用户可能用音量键换了章（音量监听挂在 Reader 上，弹窗挡不住
+      // 硬件键）。此时 page/imageKey 属于旧章，而 ep/eid 已指向新章 —— 收藏会
+      // 被记到错误章节，旧页号还可能超出新章长度导致 images![page-1] 越界。
+      if (context.reader.chapter != ep) return;
+      if (page < 0 || page >= maxPage) return;
       page += 1;
       String sourceKey = context.reader.type.sourceKey;
       String imageKey = context.reader.images![page - 1];
@@ -375,7 +401,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
           "E${context.reader.chapter}";
       var translatedTags = tags.map((e) => e.translateTagIfNeed).toList();
 
-      if (isLiked()) {
+      // 这里必须按**刚从弹窗里选中的那张图**判断是否已收藏，不能再用
+      // isLiked()（它看的是当前屏幕第一张）：否则取消收藏永远走成收藏分支，
+      // 提示「已取消收藏」却什么都没删。
+      final liked = ImageFavoriteManager().has(id, sourceKey, eid, page, ep);
+      if (liked) {
         if (page == firstPage) {
           showToast(
             message: "The cover cannot be uncollected here".tl,
@@ -574,7 +604,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
                   icon: HugeIcons.strokeRoundedTimer01,
                   size: 20,
                   color: context.reader.autoPageTurningTimer != null
-                      ? Colors.green
+                      ? kcStatusColor(context, ok: true)
                       : null,
                 ),
                 const SizedBox(width: 12),
@@ -841,10 +871,12 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
           min: 1,
           max: maxPage.clamp(displayPage, 1 << 16).toDouble(),
           reversed: isReversed,
-          divisions: (maxPage - 1).clamp(2, 1 << 16),
+          // 两页章节时 (maxPage-1)=1，旧下限 2 会把步长压成 0.5：点击/方向键
+          // 落在 1.5 上，toInt() 截断又回到 1，导致右侧 3/4 区域点不动。
+          divisions: (maxPage - 1).clamp(1, 1 << 16),
           chapterText: epName,
           onChanged: (i) {
-            context.reader.toPage(i.toInt());
+            context.reader.toPage(i.round());
           },
         ),
       ),
@@ -872,27 +904,43 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
     return Positioned(
       bottom: 13,
       left: 25,
-      child: Stack(
-        children: [
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: kcBody,
-              foreground: Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = 1.4
-                ..color = context.colorScheme.onInverseSurface,
+      // 只写 left 的 Positioned 不会给文本任何宽度上限：章节名一长、或开了
+      // 「阅读器显示时钟/电量」（右侧会多出 ~110dp），整行就冲出屏幕右边被
+      // Stack 裁掉，页码与剩余时间直接看不见（实拍「第1章 插图合集 · 12/」）。
+      // 同时约束 right，给状态区留位，再单行省略。
+      right: appdata.settings['enableClockAndBatteryInfoInReader'] == true
+          ? 150
+          : 25,
+      // 这层 HUD 浮在阅读区之上，而 Text 自身是可命中的（RenderParagraph
+      // hitTestSelf 恒为 true）。不加 IgnorePointer 的话，点左下角页码/右下角
+      // 时钟那一小块就被文字吃掉：既不翻页，也唤不出工具栏，成为死区。
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: kcBody,
+                foreground: Paint()
+                  ..style = PaintingStyle.stroke
+                  ..strokeWidth = 1.4
+                  ..color = context.colorScheme.onInverseSurface,
+              ),
             ),
-          ),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: kcBody,
-              color: Colors.white,
-              shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+            Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: kcBody,
+                color: Colors.white,
+                shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -902,12 +950,15 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
       return Positioned(
         bottom: 13,
         right: 25,
-        child: Row(
-          children: [
-            _ClockWidget(),
-            const SizedBox(width: 10),
-            _BatteryWidget(),
-          ],
+        // 同 buildPageInfoText：时钟/电量只是装饰，不能挡住「点屏幕唤出工具栏」。
+        child: IgnorePointer(
+          child: Row(
+            children: [
+              _ClockWidget(),
+              const SizedBox(width: 10),
+              _BatteryWidget(),
+            ],
+          ),
         ),
       );
     } else {
@@ -971,7 +1022,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
             sourceKey: context.reader.type.sourceKey,
             cid: context.reader.cid,
             eid: context.reader.eid,
-            currentPage: (context.reader.page - 1).clamp(0, images.length - 1),
+            currentPage: _currentImageIndex,
             title: "Select Image to Share".tl,
             allowSelectAll: true,
           ),
@@ -1020,14 +1071,17 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
             sourceKey: context.reader.type.sourceKey,
             cid: context.reader.cid,
             eid: context.reader.eid,
-            currentPage: (context.reader.page - 1).clamp(0, images.length - 1),
+            currentPage: _currentImageIndex,
             title: "Select Cover".tl,
           ),
         ),
       );
 
       if (!mounted || result == null) return;
-      final data = result.data!;
+      // data 与 index 都可能为空（选中后图片下载失败时选择器只回 null），
+      // 直接 `data!` 会在这个路径上崩掉整个阅读器。
+      final data = result.data;
+      if (data == null) return;
 
       final success = await CustomCoverManager.setCustomCover(
         context.reader.type.sourceKey,
@@ -1079,14 +1133,17 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
             sourceKey: context.reader.type.sourceKey,
             cid: context.reader.cid,
             eid: context.reader.eid,
-            currentPage: (context.reader.page - 1).clamp(0, images.length - 1),
+            currentPage: _currentImageIndex,
             title: "Select Cover".tl,
           ),
         ),
       );
 
       if (!mounted || result == null) return;
-      final data = result.data!;
+      // data 与 index 都可能为空（选中后图片下载失败时选择器只回 null），
+      // 直接 `data!` 会在这个路径上崩掉整个阅读器。
+      final data = result.data;
+      if (data == null) return;
 
       final success = await CustomCoverManager.setCustomCover(
         context.reader.type.sourceKey,
@@ -1190,9 +1247,11 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
     if (chapters == null) return;
 
     var chapterIndex = context.reader.chapter - 1;
-    var epId = chapters.ids.elementAt(chapterIndex);
-    var chapterTitle = chapters.titles.elementAt(chapterIndex);
-
+    // 历史记录里的 ep 可能大于当前章节表长度（源删章、章节重排、换源后从历史
+    // 进入），elementAt 会抛 RangeError；同文件其它地方都用 elementAtOrNull。
+    var epId = chapters.ids.elementAtOrNull(chapterIndex);
+    var chapterTitle = chapters.titles.elementAtOrNull(chapterIndex);
+    if (epId == null) return;
     Navigator.of(context).push(
       SideBarRoute(
         ChapterCommentsPage(
@@ -1200,7 +1259,7 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
           epId: epId,
           source: source,
           comicTitle: context.reader.widget.name,
-          chapterTitle: chapterTitle,
+          chapterTitle: chapterTitle ?? "E${context.reader.chapter}",
         ),
         width: 500,
       ),
@@ -1253,6 +1312,17 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
   Future<int?> _showImageThumbnailGrid(List<int> imageIndices) async {
     if (imageIndices.isEmpty) return null;
 
+    // 先把图片列表与元信息取出来再开弹窗。
+    //
+    // 原来的 itemBuilder 里写的是 `context.reader.images![imageIndex]`，而
+    // itemBuilder 的 context 位于 showDialog 的路由里：弹窗挂在 root navigator
+    // 的 Overlay 上，与阅读器路由是**兄弟**分支，`findAncestorStateOfType`
+    // 找不到 _ReaderState，`!` 直接空断言崩溃 —— 每屏多图时「收藏图片 /
+    // 保存图片」的选图弹窗整个是红块。顺便也让下面的换章竞态不再读到新章。
+    final reader = context.reader;
+    final images = reader.images;
+    if (images == null || images.isEmpty) return null;
+
     int? selectedIndex;
     final thumbnailFutures = <String, Future<Uint8List?>>{};
 
@@ -1272,9 +1342,9 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
               mainAxisSpacing: 8,
             ),
             itemCount: imageIndices.length,
-            itemBuilder: (context, index) {
+            itemBuilder: (_, index) {
               final imageIndex = imageIndices[index];
-              final imageKey = context.reader.images![imageIndex];
+              final imageKey = images[imageIndex];
 
               return GestureDetector(
                 onTap: () {
@@ -1406,23 +1476,32 @@ class _BatteryWidgetState extends State<_BatteryWidget> {
       if (!mounted) return;
       state = await _battery.batteryState;
       if (!mounted) return;
-      if (_batteryLevel > 0 && state != BatteryState.unknown) {
-        if (!mounted) return;
+      // 只要读得到电量就认为有电池。原来是 `_batteryLevel > 0 && state !=
+      // unknown`：电量刚好 0%、或个别机型 batteryState 恒为 unknown 时，
+      // 整块电量显示直接消失（设置里明明开了）。
+      if (_batteryLevel >= 0) {
         setState(() {
           _hasBattery = true;
         });
-        _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          _battery.batteryLevel.then((level) {
+        _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+          try {
+            // 充电状态必须一起轮询：只在初始化时读一次的话，插拔充电器后
+            // 图标永远不会变（充电图标不出现 / 拔线不消失）。
+            final level = await _battery.batteryLevel;
+            final s = await _battery.batteryState;
             if (!mounted) {
               timer.cancel();
               return;
             }
-            if (_batteryLevel != level) {
+            if (_batteryLevel != level || state != s) {
               setState(() {
                 _batteryLevel = level;
+                state = s;
               });
             }
-          });
+          } catch (_) {
+            // 读失败就跳过这一秒，下个 tick 再试。
+          }
         });
       }
     } catch (_) {
@@ -1445,67 +1524,43 @@ class _BatteryWidgetState extends State<_BatteryWidget> {
   }
 
   Widget _batteryInfo(int batteryLevel) {
+    // 四档就够：满 / 中 / 低 / 空。原来的阈值表是 96/84/72 都画「满」、
+    // 60/48 都画「低」、36/24/12 都画「空」、<12 又回到「低」—— 60% 就显示
+    // 低电量图标，真正危险的 <12% 反而不标红，和旁边的百分比自相矛盾。
+    final color = context.colorScheme;
+    final iconColor = batteryLevel >= 20
+        ? color.onSurface
+        : color.error;
     Widget batteryIcon;
-
     if (state == BatteryState.charging) {
       batteryIcon = HugeIcon(
         icon: HugeIcons.strokeRoundedBatteryCharging01,
         size: 16,
-        color: context.colorScheme.onSurface,
+        color: color.onSurface,
       );
-    } else if (batteryLevel >= 96) {
+    } else if (batteryLevel >= 80) {
       batteryIcon = HugeIcon(
         icon: HugeIcons.strokeRoundedBatteryFull,
         size: 16,
-        color: context.colorScheme.onSurface,
+        color: iconColor,
       );
-    } else if (batteryLevel >= 84) {
+    } else if (batteryLevel >= 40) {
       batteryIcon = HugeIcon(
-        icon: HugeIcons.strokeRoundedBatteryFull,
+        icon: HugeIcons.strokeRoundedBatteryMedium01,
         size: 16,
-        color: context.colorScheme.onSurface,
+        color: iconColor,
       );
-    } else if (batteryLevel >= 72) {
-      batteryIcon = HugeIcon(
-        icon: HugeIcons.strokeRoundedBatteryFull,
-        size: 16,
-        color: context.colorScheme.onSurface,
-      );
-    } else if (batteryLevel >= 60) {
+    } else if (batteryLevel >= 20) {
       batteryIcon = HugeIcon(
         icon: HugeIcons.strokeRoundedBatteryLow,
         size: 16,
-        color: context.colorScheme.onSurface,
-      );
-    } else if (batteryLevel >= 48) {
-      batteryIcon = HugeIcon(
-        icon: HugeIcons.strokeRoundedBatteryLow,
-        size: 16,
-        color: context.colorScheme.onSurface,
-      );
-    } else if (batteryLevel >= 36) {
-      batteryIcon = HugeIcon(
-        icon: HugeIcons.strokeRoundedBatteryEmpty,
-        size: 16,
-        color: context.colorScheme.onSurface,
-      );
-    } else if (batteryLevel >= 24) {
-      batteryIcon = HugeIcon(
-        icon: HugeIcons.strokeRoundedBatteryEmpty,
-        size: 16,
-        color: context.colorScheme.onSurface,
-      );
-    } else if (batteryLevel >= 12) {
-      batteryIcon = HugeIcon(
-        icon: HugeIcons.strokeRoundedBatteryEmpty,
-        size: 16,
-        color: context.colorScheme.onSurface,
+        color: iconColor,
       );
     } else {
       batteryIcon = HugeIcon(
-        icon: HugeIcons.strokeRoundedBatteryLow,
+        icon: HugeIcons.strokeRoundedBatteryEmpty,
         size: 16,
-        color: Colors.red,
+        color: iconColor,
       );
     }
 
@@ -1521,10 +1576,19 @@ class _BatteryWidgetState extends State<_BatteryWidget> {
                 foreground: Paint()
                   ..style = PaintingStyle.stroke
                   ..strokeWidth = 1.4
-                  ..color = context.colorScheme.onInverseSurface,
+                  ..color = Colors.black54,
               ),
             ),
-            Text('$batteryLevel%'),
+            Text(
+              '$batteryLevel%',
+              // 与左下角页码同一套「白字 + 深色描边/阴影」：原来第二层没写
+              // 颜色，继承 onSurface —— 亮色主题下读深色漫画页直接看不见。
+              style: TextStyle(
+                fontSize: kcBody,
+                color: Colors.white,
+                shadows: [Shadow(color: Colors.black54, blurRadius: 3)],
+              ),
+            ),
           ],
         ),
       ],
@@ -1804,6 +1868,10 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
         await file.writeAsBytes(data);
         paths.add(file.path);
         mimes.add(type.mime);
+        // 写完就丢：_loadedImages 里的字节不会再被这个页面用到，而全选分享
+        // 一个几十页的章节时，几十份原图字节 + ImageCache 里的解码位图足够
+        // 把中低端机直接 OOM。注释里「同一时间只保留一页」的承诺靠这句兑现。
+        _loadedImages.remove(i);
       }
       if (!mounted) return;
       if (paths.isEmpty) {
@@ -1832,7 +1900,11 @@ class _ChapterImagePickerPageState extends State<_ChapterImagePickerPage> {
       await _loadOnDemand(index, autoSelect: false);
       data = _loadedImages[index];
     }
-    if (!mounted || data == null) {
+    // mounted 与 data 必须分开判：原来合成一句，页面已经销毁时也会拿失效的
+    // context 去 showToast（showToast 内部要 findAncestorStateOfType），debug
+    // 断言、release 静默丢失。
+    if (!mounted) return;
+    if (data == null) {
       showToast(message: "Failed to load image".tl, context: context);
       return;
     }

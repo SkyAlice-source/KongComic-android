@@ -52,10 +52,13 @@ BASELINE = {
     # 28 / 20 / 16 / 10 / 5 / 3 与分区标题内缩收口到 kcRowInsetH 等令牌，
     # 再降 180 → 165。余下 165 处是阶梯外精确值与浮点表达式，
     # 没有对应令牌，先留在棘轮里；新增一处仍会失败。
-    "bare_spacing": 165,
+    "bare_spacing": 162,
     # 剩下 86 处里绝大多数在 main.dart 的 getTheme —— 那是主题本身的
     # 「唯一事实来源」，不是散落的组件层硬编码色，不迁移。
-    "color_literal": 86,
+    # 2026-11-09 UI 一致性审计：评论点赞/点踩、追更「查看更多」、阅读器定时器
+    # 与低电量图标从 Colors.red/blue/green 收口到 kcBrandAdaptive / kcInfoColor /
+    # kcStatusColor / colorScheme.error，86 → 77。
+    "color_literal": 77,
     # kcTitleLarge - 7 / kcCaption + 1 换成 kcFont15 / kcFont13，算式清零。
     "fontsize_expr": 0,
 }

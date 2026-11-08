@@ -164,7 +164,7 @@ class _FollowUpdatesPageState extends AutomaticGlobalState<FollowUpdatesPage> {
         padding: const EdgeInsets.fromLTRB(14, kcSpaceMd, 14, kcSpaceMd),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerLow,
-          border: Border.all(color: scheme.outlineVariant, width: 0.6),
+          border: Border.all(color: kcHairlineColor(context), width: kcHairline),
           borderRadius: BorderRadius.circular(kcCardRadius),
         ),
         child: Column(

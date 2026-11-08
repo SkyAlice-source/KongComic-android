@@ -1124,6 +1124,7 @@ class _NaviPopScope extends StatelessWidget {
   final VoidCallback action;
 
   static bool panStartAtEdge = false;
+  static double _panDx = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -1131,18 +1132,23 @@ class _NaviPopScope extends StatelessWidget {
     if (popGesture) {
       res = GestureDetector(
         onPanStart: (details) {
-          if (details.globalPosition.dx < 64) {
-            panStartAtEdge = true;
-          }
+          panStartAtEdge = details.globalPosition.dx < 64;
+          _panDx = 0;
         },
+        onPanUpdate: (details) => _panDx += details.delta.dx,
         onPanEnd: (details) {
-          if (details.velocity.pixelsPerSecond.dx < 0 ||
-              details.velocity.pixelsPerSecond.dx > 0) {
-            if (panStartAtEdge) {
-              action();
-            }
+          // 只认「向右」的侧滑返回。以前 `dx < 0 || dx > 0` 等价于「任意水平
+          // 速度」，从左缘往左滑（横向列表、阅读器翻页）也会被当成返回/退出。
+          final v = details.velocity.pixelsPerSecond.dx;
+          if (panStartAtEdge && (_panDx > 40 || v > 300)) {
+            action();
           }
           panStartAtEdge = false;
+          _panDx = 0;
+        },
+        onPanCancel: () {
+          panStartAtEdge = false;
+          _panDx = 0;
         },
         child: res,
       );
@@ -1153,12 +1159,21 @@ class _NaviPopScope extends StatelessWidget {
 
 /// 根页面系统/侧滑返回时弹出的退出确认对话框。
 /// 勾选"不再提示"会直接关闭退出确认开关（下次返回将直接退出）。
-class _ExitConfirmDialog extends StatelessWidget {
+class _ExitConfirmDialog extends StatefulWidget {
   const _ExitConfirmDialog();
 
   @override
+  State<_ExitConfirmDialog> createState() => _ExitConfirmDialogState();
+}
+
+class _ExitConfirmDialogState extends State<_ExitConfirmDialog> {
+  /// 必须是 State 字段：放在 build 的局部变量里时，旋转屏幕 / 切深色模式 /
+  /// 输入法改变 MediaQuery 都会重建整个 Dialog，勾选被重置成未勾选，
+  /// 用户点「退出」后 exitConfirm 没被关掉，下次返回还弹。
+  bool dontAsk = false;
+
+  @override
   Widget build(BuildContext context) {
-    var dontAsk = false;
     final cs = Theme.of(context).colorScheme;
     return ContentDialog(
       // 标题已经说明意图，正文不再重复「确定要退出吗？」——否则两句话说的是

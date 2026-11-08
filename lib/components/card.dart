@@ -40,12 +40,15 @@ class KcCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final effectiveShape =
         shape ??
         RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
-          side: border ? BorderSide(color: cs.outlineVariant) : BorderSide.none,
+          // 描边走 [kcHairlineColor] / [kcHairline]，与全站胶囊、列表分隔线同一
+          // 来源；原先取 `cs.outlineVariant`，选绿 / 蓝主题时会跟着泛色。
+          side: border
+              ? BorderSide(color: kcHairlineColor(context), width: kcHairline)
+              : BorderSide.none,
         );
     final card = Card(
       margin: margin,

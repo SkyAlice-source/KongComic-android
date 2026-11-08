@@ -93,6 +93,20 @@ Color kcStatusColor(BuildContext context, {required bool ok}) {
       : base;
 }
 
+/// 语义「信息 / 反向」色：评论点踩、非错误类的中性提示。
+///
+/// 评论区的「点踩」一直用 `Colors.blue[800/100]` 现写：AMOLED 纯黑外观下会
+/// 冒出一块饱和蓝，破坏「零彩色」；浅色下 `blue[800]` 也比全站其他辅助色
+/// 重一档。这里收口成一处 —— AMOLED 退化为中性灰，其余沿用 Material 蓝的
+/// 深浅两档，观感与旧写法一致。
+Color kcInfoColor(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  if (kcIsAmoled()) return cs.onSurfaceVariant;
+  return cs.brightness == Brightness.dark
+      ? Colors.blue.shade100
+      : Colors.blue.shade800;
+}
+
 /// 品牌红之上的前景色（按钮文字 / 图标 / 选中态文字）。
 ///
 /// 不能复用 `cs.onPrimary`：AMOLED 下 `primary` 是浅灰、`onPrimary` 是黑，

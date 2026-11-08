@@ -176,9 +176,35 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
   /// 永远等不到失败态，也就永远没有重试按钮。
   final Set<String> _failedCovers = {};
   List<FavoriteItem> _comics = [];
+
+  /// 上次重载时「首页轮播」选中的收藏夹快照。
+  ///
+  /// `appdata.settings` 是一个大 Map 的 ChangeNotifier：改阅读方向、记阅读进度、
+  /// 开关任意一个设置都会 notifyListeners。以前直接 `listen(settings, _loadComics)`，
+  /// 于是「读完一章退回首页」会重新洗牌整排封面 —— 用户看到的是刚读过的那本
+  /// 突然被换成了别的书。只有真正影响轮播的键变了才重载。
+  List<String> _bannerFolders = const [];
+
+  bool _sameFolders(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  void _onSettingsChanged() {
+    final folders = (appdata.settings['homeBannerFolders'] as List)
+        .cast<String>()
+        .toList();
+    if (_sameFolders(folders, _bannerFolders)) return;
+    _loadComics();
+  }
+
   void _loadComics() {
     final allFolderNames = userFolderNames();
     final selectedFolders = appdata.settings['homeBannerFolders'] as List;
+    _bannerFolders = selectedFolders.cast<String>().toList();
     final folders = selectedFolders.isEmpty
         ? allFolderNames
         : selectedFolders
@@ -191,6 +217,16 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     }
     all.shuffle();
     final comics = all.take(7).toList();
+    // 洗牌后把「当前显示的那本」挪回当前下标：收藏夹内容变化（新收藏 / 删收藏）
+    // 需要重载，但不该把用户正在看的那张封面换掉。
+    final current = widget.currentComicNotifier.value;
+    if (current != null && comics.length > 1) {
+      final idx = comics.indexWhere((c) => c.id == current.id);
+      if (idx >= 0) {
+        final keep = comics.removeAt(idx);
+        comics.insert(_currentIndex.clamp(0, comics.length), keep);
+      }
+    }
     if (mounted) {
       setState(() {
         _comics = comics;
@@ -210,7 +246,7 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     // No PageController needed
     _loadComics();
     listen(LocalFavoritesManager(), _loadComics);
-    listen(appdata.settings, _loadComics);
+    listen(appdata.settings, _onSettingsChanged);
     _startTimer();
   }
 
@@ -704,13 +740,32 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
   }
 }
 
-class _ComicInfoSection extends StatelessWidget {
+class _ComicInfoSection extends StatefulWidget {
   final ValueNotifier<FavoriteItem?> currentComicNotifier;
   const _ComicInfoSection({required this.currentComicNotifier});
   @override
+  State<_ComicInfoSection> createState() => _ComicInfoSectionState();
+}
+
+class _ComicInfoSectionState extends State<_ComicInfoSection>
+    with AutoListenMixin {
+  @override
+  void initState() {
+    super.initState();
+    // 阅读器是 push 上来的路由，主页留在下面保持存活、不会因为返回而重建，
+    // ValueListenableBuilder 也只跟当前漫画变化走。不订阅历史的话，读完一话
+    // 退回主页，进度行仍停在进入主页时的快照（用户会以为进度没保存）。
+    listen(HistoryManager(), _onHistoryChanged);
+  }
+
+  void _onHistoryChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<FavoriteItem?>(
-      valueListenable: currentComicNotifier,
+      valueListenable: widget.currentComicNotifier,
       builder: (context, comic, _) {
         if (comic == null) return const SliverToBoxAdapter(child: SizedBox());
         final cs = Theme.of(context).colorScheme;
@@ -777,15 +832,24 @@ class _ComicInfoSection extends StatelessWidget {
                       style: TextStyle(fontSize: kcBody, color: cs.onSurface),
                     ),
                   ),
-                Text(
-                  "Total @count chapters".tlParams({
-                    'count': "${history?.maxPage ?? '?'}",
-                  }),
-                  style: TextStyle(
-                    fontSize: kcCaption,
-                    color: cs.onSurfaceVariant,
+                // 这里原来用 `history.maxPage` 显示「共 @count 集」，但
+                // History.maxPage 是**当前章节的总页数**（阅读器写入的
+                // max_page），收藏项本身也没有章节数字段。结果是「第 2 话
+                // 4 页」被显示成「共 4 集」，没读过时还会显示「共 ? 集」。
+                // 改成表述其真实含义，并在拿不到页数时整行不显示。
+                if (history?.maxPage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: kcSpaceXs),
+                    child: Text(
+                      "This chapter has @count pages".tlParams({
+                        'count': "${history!.maxPage}",
+                      }),
+                      style: TextStyle(
+                        fontSize: kcCaption,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ),
-                ),
                 if (updatedTime != null)
                   Padding(
                     padding: const EdgeInsets.only(top: kcSpaceXs),
@@ -903,6 +967,9 @@ class _HomeCapsulesState extends State<_HomeCapsules> with AutoListenMixin {
     _refresh();
     listen(LocalFavoritesManager(), _refresh);
     listen(LocalManager(), _refresh);
+    // 红点数量取决于「追更文件夹」设置（getEffectiveFollowFolders），
+    // 用户改完设置回到主页时也要立即重算，否则要等下一次收藏变动。
+    listen(appdata.settings, _refresh);
   }
 
   @override
@@ -948,8 +1015,27 @@ class _HomeCapsulesState extends State<_HomeCapsules> with AutoListenMixin {
   }
 }
 
-class _BottomModules extends StatelessWidget {
+class _BottomModules extends StatefulWidget {
   const _BottomModules();
+  @override
+  State<_BottomModules> createState() => _BottomModulesState();
+}
+
+class _BottomModulesState extends State<_BottomModules> with AutoListenMixin {
+  @override
+  void initState() {
+    super.initState();
+    // 主页是根 tab 里长期存活的页面：在「漫画源」页新增/删除源、或清空
+    // 图片收藏后切回来，StatelessWidget 不会重建，这两个数字会一直停在
+    // 上次进入主页时的快照。两个管理器都是 ChangeNotifier，订阅即可。
+    listen(ComicSourceManager(), _onChanged);
+    listen(ImageFavoriteManager(), _onChanged);
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final cc = ComicSource.all().length;

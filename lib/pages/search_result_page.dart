@@ -46,6 +46,10 @@ class _SearchResultPageState extends State<SearchResultPage> {
 
   void search([String? text]) {
     if (text != null) {
+      // 清空输入框后按输入法搜索键会走到这里：空关键词会触发一次真实请求，
+      // 还在历史里写一条空白记录（autoAddLanguageFilter 还会补成
+      // " language:chinese"）。
+      if (text.trim().isEmpty) return;
       if (suggestionsController.entry != null) {
         suggestionsController.remove();
       }
@@ -127,18 +131,28 @@ class _SearchResultPageState extends State<SearchResultPage> {
     if (source == null) {
       return;
     }
-    var searchOptions = source.searchPageData!.searchOptions;
+    var searchOptions = source.searchPageData?.searchOptions;
     if (searchOptions == null) {
       return;
     }
     if (options.length != searchOptions.length) {
-      options = searchOptions.map((e) => e.defaultValue).toList();
+      options = searchOptions.map((e) => e.uiDefaultValue).toList();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     var source = ComicSource.find(sourceKey);
+    // 结果页不只从搜索页进来：源脚本可以用 PageJumpTarget("search") 跳到
+    // 任意 sourceKey。源被卸载，或该源更新后不再带 search 段时，
+    // 下面那串 `source!` / `searchPageData!` 会直接红屏。
+    if (source == null || source.searchPageData == null) {
+      return NetworkError(
+        message: "This source no longer supports search".tl,
+        retry: () => context.pop(),
+      );
+    }
+    final searchPage = source.searchPageData!;
     return ComicList(
       key: Key(text + options.toString() + sourceKey),
       errorLeading: AppSearchBar(controller: controller, action: buildAction()),
@@ -147,15 +161,15 @@ class _SearchResultPageState extends State<SearchResultPage> {
         onChanged: onChanged,
         action: buildAction(),
       ),
-      loadPage: source!.searchPageData!.loadPage == null
+      loadPage: searchPage.loadPage == null
           ? null
           : (i) {
-              return source.searchPageData!.loadPage!(text, i, options);
+              return searchPage.loadPage!(text, i, options);
             },
-      loadNext: source.searchPageData!.loadNext == null
+      loadNext: searchPage.loadNext == null
           ? null
           : (i) {
-              return source.searchPageData!.loadNext!(text, i, options);
+              return searchPage.loadNext!(text, i, options);
             },
     );
   }
@@ -421,11 +435,14 @@ class _SearchSettingsDialogState extends State<_SearchSettingsDialog> {
   @override
   void initState() {
     searchTarget = widget.state.sourceKey;
-    options = widget.state.options;
+    // 必须是副本：原来直接引用父页面的列表，且每次点选都立刻写回，
+    // 于是点 Cancel 也照样换了源/选项 —— 取消形同虚设。
+    options = List<String>.from(widget.state.options);
     super.initState();
   }
 
-  void onChanged() {
+  /// 提交到父页面。只在 Confirm 时调用。
+  void commit() {
     widget.state.sourceKey = searchTarget;
     widget.state.options = options;
   }
@@ -452,14 +469,12 @@ class _SearchSettingsDialogState extends State<_SearchSettingsDialog> {
                 onTap: () {
                   setState(() {
                     searchTarget = e.key;
-                    options.clear();
                     final searchOptions =
                         ComicSource.find(
                           searchTarget,
                         )!.searchPageData!.searchOptions ??
                         <SearchOptions>[];
-                    options = searchOptions.map((e) => e.defaultValue).toList();
-                    onChanged();
+                    options = searchOptions.map((e) => e.uiDefaultValue).toList();
                   });
                 },
               );
@@ -475,7 +490,10 @@ class _SearchSettingsDialogState extends State<_SearchSettingsDialog> {
         Button.text(onPressed: () => context.pop(), child: Text("Cancel".tl)),
         const SizedBox(width: 8),
         Button.filled(
-          onPressed: () => context.pop(),
+          onPressed: () {
+            commit();
+            context.pop();
+          },
           child: Text("Confirm".tl),
         ),
       ],
@@ -489,7 +507,7 @@ class _SearchSettingsDialogState extends State<_SearchSettingsDialog> {
         ComicSource.find(searchTarget)?.searchPageData?.searchOptions ??
         <SearchOptions>[];
     if (searchOptions.length != options.length) {
-      options = searchOptions.map((e) => e.defaultValue).toList();
+      options = searchOptions.map((e) => e.uiDefaultValue).toList();
     }
     if (searchOptions.isEmpty) {
       return const SizedBox();

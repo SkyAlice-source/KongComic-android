@@ -356,6 +356,27 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
   @override
   Widget build(BuildContext context) {
     final favPage = context.findAncestorStateOfType<_FavoritesPageState>()!;
+    // multiFolder 子页此前不注入共享顶栏：总览注入的「收藏」栏会残留，
+    // 页面自己又画一条 SliverAppbar → 顶栏双层、标题与当前视图不符。
+    // 与 _NormalFavoritePage 对齐，统一走 pushTopBar、去掉自绘栏。
+    favPage.pushTopBar(
+      sig: 'netMulti_${widget.data.key}',
+      leading: Tooltip(
+        message: "Favorites".tl,
+        child: IconButton(
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
+          onPressed: () => favPage.setFolder(false, null),
+        ),
+      ),
+      title: GestureDetector(
+        onTap: showFolders,
+        child: Text(
+          widget.data.title,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      hideGlobalActions: true,
+    );
     return _withBackToOverview(favPage, _buildBody(context));
   }
 
@@ -365,48 +386,11 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
     // 固定行格撑破。行格随 textScaler 一起放大，名称仍强制单行省略。
     final rowScale =
         MediaQuery.textScalerOf(context).scale(kcSubtitle) / kcSubtitle;
-    var sliverAppBar = SliverAppbar(
-      style: context.width < changePoint
-          ? AppbarStyle.shadow
-          : AppbarStyle.blur,
-      leading: Tooltip(
-        message: "Favorites".tl,
-        child: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
-          color: context.colorScheme.onSurfaceVariant,
-          onPressed: () => context
-              .findAncestorStateOfType<_FavoritesPageState>()
-              ?.setFolder(false, null),
-        ),
-      ),
-      title: GestureDetector(
-        onTap: showFolders,
-        child: Text(widget.data.title),
-      ),
-    );
-
-    var appBar = Appbar(
-      leading: Tooltip(
-        message: "Favorites".tl,
-        child: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 18),
-          color: context.colorScheme.onSurfaceVariant,
-          onPressed: () => context
-              .findAncestorStateOfType<_FavoritesPageState>()
-              ?.setFolder(false, null),
-        ),
-      ),
-      title: GestureDetector(
-        onTap: showFolders,
-        child: Text(widget.data.title),
-      ),
-    );
 
     if (_loading) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          appBar,
           _GroupPills(favPage: favPage),
           const Expanded(child: KcPageLoading()),
         ],
@@ -415,7 +399,6 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          appBar,
           _GroupPills(favPage: favPage),
           Expanded(
             child: NetworkError(
@@ -434,7 +417,6 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
       return SmoothCustomScrollView(
         controller: widget.controller,
         slivers: [
-          sliverAppBar,
           // 文件夹胶囊条常驻顶栏下方（pinned，不随列表滚走）。
           SliverPersistentHeader(
             pinned: true,
@@ -514,7 +496,6 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          appBar,
           _GroupPills(favPage: favPage),
           Expanded(child: Center(child: Text("No folders".tl))),
         ],
@@ -680,6 +661,9 @@ class _CreateFolderDialogState extends State<_CreateFolderDialog> {
               loading = true;
             });
             widget.data.addFolder!(controller.text).then((b) {
+              // 请求在飞时用户可点遮罩关掉弹窗（barrierDismissible）：
+              // 对已卸载的 dialog context pop 会把底下的网络收藏页弹掉。
+              if (!context.mounted) return;
               if (b.error) {
                 context.showMessage(
                   message: friendlySourceError(b.errorMessage),

@@ -43,15 +43,34 @@ class _MainPageState extends State<MainPage> with AutoListenMixin {
     _observer = NaviObserver();
     _navigatorKey = GlobalKey();
     App.mainNavigatorKey = _navigatorKey;
-    index = int.tryParse(appdata.settings['initialPage'].toString()) ?? 0;
+    // 导入的 appdata 可能带着选项之外的值，越界会让 `_pages[index]`
+    // 直接 RangeError 红屏，这里夹到有效范围。
+    final savedIndex = int.tryParse(
+      appdata.settings['initialPage'].toString(),
+    );
+    index = (savedIndex ?? kHomeTabIndex).clamp(0, _pages.length - 1);
     // MainPage 挂在主干 Navigator 路由里，App.forceRebuild()（作用于 MyApp）
     // 不会重建本 State，导致顶栏 paneActions 缓存的布局切换图标不刷新。
     // 改为直接监听 settings，任何 comicDisplayMode 变化都让本页重建并刷新图标/文案。
+    _displayMode = _readDisplayMode();
     listen(appdata.settings, _onSettingsChanged);
     super.initState();
   }
 
+  /// 上一次重建时用到的布局模式。
+  ///
+  /// `appdata.settings` 是整张 Settings 表的 ChangeNotifier，阅读进度、任意开关
+  /// 都会 notify —— 无条件 `setState` 等于每次翻页退出都重建整棵 tab 树（5 个页面
+  /// 全在重建范围内）。只有真的影响顶栏图标的那一个键变了才需要重建。
+  String _displayMode = '';
+
+  String _readDisplayMode() =>
+      appdata.settings['comicDisplayMode']?.toString() ?? 'brief';
+
   void _onSettingsChanged() {
+    final mode = _readDisplayMode();
+    if (mode == _displayMode) return;
+    _displayMode = mode;
     if (mounted) setState(() {});
   }
 
@@ -76,7 +95,9 @@ class _MainPageState extends State<MainPage> with AutoListenMixin {
   }
 
   /// 当前是否为详细列表模式（detailed）。否则为简洁网格（brief）。
-  bool get _isDetailedLayout => appdata.settings['comicDisplayMode'] != 'brief';
+  /// 读缓存值而不是直接读 settings：`_onSettingsChanged` 只在它真的变了才重建，
+  /// 两者必须同源，否则图标会闪成「已切换」而列表还是旧布局。
+  bool get _isDetailedLayout => _displayMode != 'brief';
 
   @override
   Widget build(BuildContext context) {

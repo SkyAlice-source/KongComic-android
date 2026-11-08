@@ -26,7 +26,10 @@ class _DownloadingPageState extends State<DownloadingPage>
     // several times, which would make [update] run (and setState) once per
     // duplicate registration.
     final current = LocalManager().downloadingTasks.firstOrNull;
-    if (current != firstTask) {
+    // DownloadTask 重写了 ==（按 id/comicType）：队头任务取消后重新添加
+    // 同一漫画时是「新实例、相等值」，用 != 会误判未变，监听仍挂在已移出
+    // 队列的旧实例上 → 新任务进度不刷新、旧监听泄漏。必须比 identical。
+    if (!identical(current, firstTask)) {
       firstTask?.removeListener(update);
       firstTask = current;
       firstTask?.addListener(update);
@@ -47,7 +50,7 @@ class _DownloadingPageState extends State<DownloadingPage>
 
   void update() {
     var currentFirstTask = LocalManager().downloadingTasks.firstOrNull;
-    if (currentFirstTask != firstTask) {
+    if (!identical(currentFirstTask, firstTask)) {
       firstTask?.removeListener(update);
       firstTask = currentFirstTask;
       firstTask?.addListener(update);
@@ -113,7 +116,7 @@ class _DownloadingPageState extends State<DownloadingPage>
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(kcRadius16),
-        border: Border.all(color: cs.outlineVariant, width: 0.6),
+        border: Border.all(color: kcHairlineColor(context), width: kcHairline),
       ),
       child: Row(
         children: [
@@ -171,21 +174,25 @@ class _DownloadTaskTile extends StatefulWidget {
 class _DownloadTaskTileState extends State<_DownloadTaskTile>
     with AutoListenMixin {
   late DownloadTask task;
+  late AutoListenHandle _taskHandle;
 
   @override
   void initState() {
     task = widget.task;
-    listen(task, update);
+    _taskHandle = listen(task, update);
     super.initState();
   }
 
   @override
   void didUpdateWidget(covariant _DownloadTaskTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.task != widget.task) {
-      task.removeListener(update);
+    // DownloadTask 重写了 ==（按 id）：同 id 换实例时 ValueKey 相等、Element
+    // 复用，这里会真实触发。换绑必须走 mixin 的句柄，否则新监听不进登记表，
+    // dispose 时漏删 → 任务每次 notify 都对已 dispose 的 State setState。
+    if (!identical(oldWidget.task, widget.task)) {
+      _taskHandle.cancel();
       task = widget.task;
-      task.addListener(update);
+      _taskHandle = listen(task, update);
     }
   }
 
@@ -206,7 +213,7 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile>
         // 卡间留 8dp 间隙。比原来那条几乎看不见的底线明显，也和主页胶囊同语言。
         color: cs.surfaceContainerLow,
         borderRadius: BorderRadius.circular(kcRadius16),
-        border: Border.all(color: cs.outlineVariant, width: 0.6),
+        border: Border.all(color: kcHairlineColor(context), width: kcHairline),
       ),
       child: Row(
         children: [

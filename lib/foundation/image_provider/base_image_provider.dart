@@ -115,7 +115,11 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
           getTargetSize: enableResize ? _getTargetSize : null,
         );
       } catch (e) {
-        await CacheManager().delete(this.key);
+        // 用 cacheKey 而不是 key：key 是 ImageCache 的标识，可能带解码参数
+        // （ReaderImageProvider 就多一段 @enableResize），与落盘时用的 key
+        // 并不一致。拿它去 delete 只会删到一条不存在的记录，损坏的字节永远
+        // 留在磁盘上 —— 用户点「重试」还是读回同一份坏数据，永远好不了。
+        await CacheManager().delete(cacheKey);
         if (data.length < 2 * 1024) {
           // data is too short, it's likely that the data is text, not image
           try {
@@ -148,6 +152,12 @@ abstract class BaseImageProvider<T extends BaseImageProvider<T>>
   );
 
   String get key;
+
+  /// 磁盘缓存的 key —— 解码失败时要删的那条记录用的键。
+  ///
+  /// 默认与 [key] 相同；用 [ImageDownloader] 落盘的子类必须覆写成**写下时的
+  /// 那个 key**，否则删除是空操作（见 load 里的注释）。
+  String get cacheKey => key;
 
   @override
   bool operator ==(Object other) {

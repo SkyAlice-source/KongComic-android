@@ -14,9 +14,11 @@ class ComicType {
   String get sourceKey {
     if (this == local) {
       return "local";
-    } else {
-      return comicSource!.key;
     }
+    // 源被卸载 / 脚本损坏时 comicSource 为 null。以前这里直接 `!`，
+    // 任何「源没了但库里还有记录」的路径（本地漫画、历史、收藏）都会崩；
+    // 与 History.sourceKey 保持同一套兜底文案。
+    return comicSource?.key ?? "Unknown:$value";
   }
 
   ComicSource? get comicSource {

@@ -96,6 +96,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
       _usePagination ? _loadedComics : _visibleComics;
 
   void updateComics() {
+    // 本方法既是 manager 的 listener 回调，也被异步任务（网络夹同步、批量
+    // 操作）在 await 之后调用。页面可能早已 dispose，末尾的 setState 在
+    // dispose 后会抛「setState() called after dispose」。
+    if (!mounted) return;
     // We are a listener of `LocalFavoritesManager`. When the currently open
     // folder is deleted, `deleteFolder()` drops the table *before* notifying,
     // so reaching `getFolderComics` below would throw SqliteException
@@ -231,13 +235,19 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
 
   void invertSelection() {
     setState(() {
-      for (var c in (_usePagination ? _loadedComics : _visibleComics)) {
+      // 分页模式下必须和 selectAll 用同一口径（整夹），否则「全选 → 反选」
+      // 会剩下那些还没滚出来的书：屏幕上一个勾都没有，工具条却显示已选 70。
+      final items = _usePagination
+          ? manager.getFolderComics(widget.folder)
+          : _visibleComics;
+      for (var c in items) {
         if (selectedComics.containsKey(c)) {
           selectedComics.remove(c);
         } else {
           selectedComics[c] = true;
         }
       }
+      if (selectedComics.isEmpty) multiSelectMode = false;
     });
   }
 
@@ -288,11 +298,20 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
             btnColor: context.colorScheme.error,
             onConfirm: () {
               final manager = LocalFavoritesManager();
-              // 「全部」视图下条目是 FavoriteItemWithFolderInfo，自带所属文件夹。
-              final folder = c is FavoriteItemWithFolderInfo
-                  ? c.folder
-                  : widget.folder;
               final item = c as FavoriteItem;
+              if (isAllFolder) {
+                // 「全部」视图的条目来自 getAllComics()，是普通 FavoriteItem，
+                // 不带 folder。以前靠 `c is FavoriteItemWithFolderInfo` 取
+                // 所属文件夹，这个判断恒为 false，于是拿假表名
+                // `^_^[%local_all%]^_^` 去 delete，抛 no such table ——
+                // 书没删掉，封面缓存却被删了。直接走跨表批量删除。
+                manager.batchDeleteComicsInAllFolders([
+                  ComicID(item.type, item.id),
+                ]);
+                context.showMessage(message: "Deleted".tl);
+                return;
+              }
+              final folder = widget.folder;
               manager.deleteComicWithId(folder, item.id, item.type);
               // 撤销用这份内存快照原样加回：deleteComicWithId 只按 id/type
               // 删，事后没法从数据库还原作者 / 封面 / 标签。
@@ -333,8 +352,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
         icon: HugeIcon(icon: HugeIcons.strokeRoundedDownload04, size: 18),
         text: "Download".tl,
         onClick: () {
-          downloadComic(c as FavoriteItem);
-          context.showMessage(message: "Download started".tl);
+          final ok = downloadComic(c as FavoriteItem);
+          context.showMessage(
+            message: ok ? "Download started".tl : "Already downloaded".tl,
+          );
         },
       ),
       if (appdata.settings["onClickFavorite"] == "viewDetail")
@@ -389,9 +410,16 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
         }
         lastSelectedIndex = _activeComics.indexOf(c);
       } else {
-        if (lastSelectedIndex != null) {
+        final endIndex = _activeComics.indexOf(c as FavoriteItem);
+        // 锚点是「数组下标」，而分页列表会被网格自己的 refresh() 整体替换
+        // （收藏/历史变更即触发）。下标越界或 -1 时直接按单击处理，
+        // 否则 `_activeComics[i]` 会抛 RangeError。
+        if (lastSelectedIndex != null &&
+            endIndex >= 0 &&
+            lastSelectedIndex! >= 0 &&
+            lastSelectedIndex! < _activeComics.length) {
           int start = lastSelectedIndex!;
-          int end = _activeComics.indexOf(c as FavoriteItem);
+          int end = endIndex;
           if (start > end) {
             int temp = start;
             start = end;
@@ -408,8 +436,10 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
               selectedComics[comic] = true;
             }
           }
+        } else if (endIndex >= 0) {
+          selectedComics[c] = true;
         }
-        lastSelectedIndex = _activeComics.indexOf(c as FavoriteItem);
+        lastSelectedIndex = endIndex >= 0 ? endIndex : null;
       }
       _checkExitSelectMode();
     });
@@ -945,6 +975,18 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
     var targetFolders = userFolderNames()
         .where((folder) => folder != favPage.folder)
         .toList();
+    // 每次打开都从空勾选开始：上次勾过又被遮罩关掉的目录会残留下来，
+    // 下次直接点「确认」就会把书移进那个意料之外的文件夹。
+    selectedLocalFolders.clear();
+    // 「已在这几个文件夹里」的集合，用于禁掉无意义的复制/移动目标。
+    // 之前 added 声明后从未赋值，互斥判断是死代码。
+    final selectedItems = selectedComics.keys
+        .map((e) => e as FavoriteItem)
+        .toList();
+    final manager = LocalFavoritesManager();
+    added = <String>{
+      for (final item in selectedItems) ...manager.find(item.id, item.type),
+    }.toList();
 
     showPopUpWidget(
       App.rootContext,
@@ -1037,23 +1079,31 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
                           if (selectedLocalFolders.isEmpty) {
                             return;
                           }
+                          final manager = LocalFavoritesManager();
+                          var comics = selectedComics.keys
+                              .map((e) => e as FavoriteItem)
+                              .toList();
+                          final targets = selectedLocalFolders.toList();
                           if (option == 'move') {
-                            var comics = selectedComics.keys
-                                .map((e) => e as FavoriteItem)
-                                .toList();
-                            for (var f in selectedLocalFolders) {
-                              LocalFavoritesManager().batchMoveFavorites(
-                                favPage.folder as String,
+                            // batchMoveFavorites 是「插入目标 + 从源删除」：
+                            // 第一次迭代后源表就空了，后面几个目标查到 0 行，
+                            // 于是一本都不会进去（且无任何提示）。所以先移动到
+                            // 第一个目标，其余目标再从它复制。
+                            manager.batchMoveFavorites(
+                              favPage.folder as String,
+                              targets.first,
+                              comics,
+                            );
+                            for (final f in targets.skip(1)) {
+                              manager.batchCopyFavorites(
+                                targets.first,
                                 f,
                                 comics,
                               );
                             }
                           } else {
-                            var comics = selectedComics.keys
-                                .map((e) => e as FavoriteItem)
-                                .toList();
-                            for (var f in selectedLocalFolders) {
-                              LocalFavoritesManager().batchCopyFavorites(
+                            for (final f in targets) {
+                              manager.batchCopyFavorites(
                                 favPage.folder as String,
                                 f,
                                 comics,
@@ -1063,6 +1113,7 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
                           App.rootContext.pop();
                           updateComics();
                           _cancel();
+                          selectedLocalFolders.clear();
                         },
                         child: Text(option == 'move' ? "Move".tl : "Add".tl),
                       ),

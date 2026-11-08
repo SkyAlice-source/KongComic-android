@@ -104,4 +104,9 @@ class CachedImageProvider
 
   @override
   String get key => url + (sourceKey ?? "") + (cid ?? "");
+
+  /// 与 [ImageDownloader.loadThumbnail] 的落盘 key 保持一致（用 @ 分隔）。
+  /// 旧的 key 是直接拼接、没有分隔符，拿去删缓存永远删不到。
+  @override
+  String get cacheKey => "$url@$sourceKey${cid != null ? '@$cid' : ''}";
 }

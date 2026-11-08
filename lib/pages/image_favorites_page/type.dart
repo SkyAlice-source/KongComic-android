@@ -48,12 +48,20 @@ class TimeRange {
       return TimeRange.all;
     }
     final parts = str.split(":");
-    if (parts.length != 2 || !parts[0].isInt || !parts[1].isInt) {
+    if (parts.length != 2) {
       return TimeRange.all;
     }
-    final end = parts[0] == "null"
-        ? null
-        : DateTime.fromMillisecondsSinceEpoch(int.parse(parts[0]));
+    // "null" 是合法前缀：预设区间（lastWeek / lastMonth / ...）的 end 都是
+    // null，toString 出来就是 "null:604800000"。旧实现先要求 parts[0] 是整数，
+    // 于是这些串全部退回 all —— 用户设了「最近一周」，重启后筛选悄悄消失。
+    DateTime? end;
+    if (parts[0] != "null") {
+      if (!parts[0].isInt) return TimeRange.all;
+      end = DateTime.fromMillisecondsSinceEpoch(int.parse(parts[0]));
+    }
+    if (!parts[1].isInt) {
+      return TimeRange.all;
+    }
     final duration = Duration(milliseconds: int.parse(parts[1]));
     return TimeRange(end: end, duration: duration);
   }

@@ -60,9 +60,14 @@ class _ExplorePageState extends State<ExplorePage>
       setState(() {
         pages = explorePages;
         tabKeys = newKeys;
-        controller.removeListener(_onTabChanged);
+        final old = controller;
+        old.removeListener(_onTabChanged);
         controller = TabController(length: tabKeys.length, vsync: this);
         controller.addListener(_onTabChanged);
+        // 旧 controller 必须 dispose：TabController 内部持有一个
+        // AnimationController + Ticker，光是 removeListener 不会释放，
+        // 每改一次探索页配置就漏一个。
+        old.dispose();
       });
     }
   }
@@ -71,6 +76,12 @@ class _ExplorePageState extends State<ExplorePage>
   /// [sourceOrder], preserving relative order within the same source.
   void _sortBySourceOrder(List<String> list) {
     final order = appdata.settings['sourceOrder'];
+    // List.sort 不是稳定排序，同一源下的多个探索页必须用原始下标兜底，
+    // 否则它们之间每次启动都可能换位置（与分类页同一处理）。
+    final originalIndex = <String, int>{};
+    for (var i = 0; i < list.length; i++) {
+      originalIndex.putIfAbsent(list[i], () => i);
+    }
     int orderOf(String title) {
       for (var s in ComicSource.enabled()) {
         if (s.explorePages.any((e) => e.title == title)) {
@@ -84,7 +95,11 @@ class _ExplorePageState extends State<ExplorePage>
       return 1 << 30;
     }
 
-    list.sort((a, b) => orderOf(a).compareTo(orderOf(b)));
+    list.sort((a, b) {
+      final bySource = orderOf(a).compareTo(orderOf(b));
+      if (bySource != 0) return bySource;
+      return (originalIndex[a] ?? 0).compareTo(originalIndex[b] ?? 0);
+    });
   }
 
   void onNaviItemTapped(int index) {
@@ -180,9 +195,14 @@ class _ExplorePageState extends State<ExplorePage>
     if (i == kRecommendTabKey) {
       return Tab(text: "Recommended".tl, key: Key(i));
     }
-    var comicSource = ComicSource.enabled().firstWhere(
+    // 用 firstWhereOrNull：源被禁用/删除后，settings 回调与本次 rebuild 之间
+    // 存在一帧用旧 tabKeys 渲染的时间窗，firstWhere 会在这一帧抛 StateError。
+    final comicSource = ComicSource.enabled().firstWhereOrNull(
       (e) => e.explorePages.any((e) => e.title == i),
     );
+    if (comicSource == null) {
+      return Tab(text: i.tl, key: Key(i));
+    }
     return Tab(text: i.ts(comicSource.key), key: Key(i));
   }
 
@@ -217,7 +237,11 @@ class _ExplorePageState extends State<ExplorePage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (pages.isEmpty) {
+    // 判断「有没有 tab」要用 tabKeys 而不是 pages：推荐 tab 不在 pages 里，
+    // 用户把探索页全关、但没关「在发现页显示推荐」时，tabKeys 是
+    // [recommend] 而 pages 为空 —— 以前这里会整页盖成「无探索页」，
+    // 推荐内容永远进不去。
+    if (tabKeys.isEmpty) {
       return buildEmpty();
     }
 

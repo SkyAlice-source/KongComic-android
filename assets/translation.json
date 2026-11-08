@@ -707,6 +707,9 @@
     "Network error": "网络错误",
     "Copy link": "复制链接",
     "No data": "暂无数据",
+    "Please login again": "请重新登录",
+    "Not supported": "不支持",
+    "Failed to read the file": "读取文件失败",
     "Invalid page": "无效的页面",
     "Invalid name": "名称无效",
     "Unsupported source": "不支持的漫画源",
@@ -723,6 +726,7 @@
     "Folder name is too long": "文件夹名太长",
     "Invalid cookies": "无效的Cookie",
     "Keyword already exists": "关键词已存在",
+    "Keyword cannot be empty": "关键词不能为空",
     "KongComic is a free and open-source comic reader.": "空漫是一个免费开源的漫画阅读器。",
     "Local comic not found": "未找到本地漫画",
     "Login with password is disabled": "密码登录已禁用",
@@ -781,6 +785,7 @@
     "Read Now": "立即阅读",
     "Reading progress @progress · P@page": "阅读进度 @progress · P@page",
     "Total @count chapters": "共 @count 集",
+    "This chapter has @count pages": "本章共 @count 页",
     "Chapter %s · %s chapters read": "第 %s 话 · 已读 %s 话",
     "Updated @time": "更新 @time",
     "Downloading @progress": "下载 @progress",
@@ -1064,7 +1069,9 @@
     "Backup & sync, account": "备份同步、账号",
     "Language, startup, storage, cache": "语言、启动页、存储、缓存",
     "Empty folders": "空文件夹",
-    "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 部作品 · @hitsCount 条结果来自 @sourceCount 个源"
+    "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 部作品 · @hitsCount 条结果来自 @sourceCount 个源",
+    "Please enter a keyword": "请输入关键词",
+    "This source no longer supports search": "该源已不支持搜索"
   },
   "zh_TW": {
     "Organize": "整理",
@@ -1774,6 +1781,9 @@
     "Network error": "網絡錯誤",
     "Copy link": "複製鏈接",
     "No data": "暫無數據",
+    "Please login again": "請重新登入",
+    "Not supported": "不支援",
+    "Failed to read the file": "讀取檔案失敗",
     "Invalid page": "無效的頁面",
     "Invalid name": "名稱無效",
     "Unsupported source": "不支援的漫畫源",
@@ -1790,6 +1800,7 @@
     "Folder name is too long": "文件夾名太長",
     "Invalid cookies": "無效的Cookie",
     "Keyword already exists": "關鍵詞已存在",
+    "Keyword cannot be empty": "關鍵詞不能為空",
     "KongComic is a free and open-source comic reader.": "空漫是一個免費開源的漫畫閱讀器。",
     "Local comic not found": "未找到本地漫畫",
     "Login with password is disabled": "密碼登錄已禁用",
@@ -1848,6 +1859,7 @@
     "Read Now": "立即閱讀",
     "Reading progress @progress · P@page": "閱讀進度 @progress · P@page",
     "Total @count chapters": "共 @count 集",
+    "This chapter has @count pages": "本章共 @count 頁",
     "Chapter %s · %s chapters read": "第 %s 話 · 已讀 %s 話",
     "Updated @time": "更新 @time",
     "Downloading @progress": "下載 @progress",
@@ -2131,7 +2143,9 @@
     "Backup & sync, account": "備份同步、帳號",
     "Language, startup, storage, cache": "語言、啟動頁、儲存、快取",
     "Empty folders": "空資料夾",
-    "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 部作品 · @hitsCount 條結果來自 @sourceCount 個源"
+    "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 部作品 · @hitsCount 條結果來自 @sourceCount 個源",
+    "Please enter a keyword": "請輸入關鍵詞",
+    "This source no longer supports search": "該源已不支援搜尋"
   },
   "ja_JP": {
     "Organize": "整理",
@@ -2838,6 +2852,9 @@
     "Network error": "ネットワークエラー",
     "Copy link": "リンクをコピー",
     "No data": "データがありません",
+    "Please login again": "再度ログインしてください",
+    "Not supported": "未対応です",
+    "Failed to read the file": "ファイルの読み込みに失敗しました",
     "Invalid page": "無効なページ",
     "Invalid name": "無効な名前",
     "Unsupported source": "サポートされていないソース",
@@ -2854,6 +2871,7 @@
     "Folder name is too long": "フォルダ名が長すぎます",
     "Invalid cookies": "Cookieが無効です",
     "Keyword already exists": "キーワードは既に存在します",
+    "Keyword cannot be empty": "キーワードを入力してください",
     "KongComic is a free and open-source comic reader.": "空漫は無料のオープンソースの漫画リーダーです。",
     "Local comic not found": "ローカル漫画が見つかりません",
     "Login with password is disabled": "パスワードログインは無効です",
@@ -2912,6 +2930,7 @@
     "Read Now": "今すぐ読む",
     "Reading progress @progress · P@page": "閲覧進捗 @progress · P@page",
     "Total @count chapters": "全 @count チャプター",
+    "This chapter has @count pages": "この話は全 @count ページ",
     "Chapter %s · %s chapters read": "チャプター %s ・ %s チャプター既読",
     "Updated @time": "更新: @time",
     "Downloading @progress": "ダウンロード中: @progress",
@@ -3198,6 +3217,8 @@
     "Backup & sync, account": "バックアップと同期、アカウント",
     "Language, startup, storage, cache": "言語、起動ページ、ストレージ、キャッシュ",
     "Empty folders": "空のフォルダ",
-    "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 作品 · @hitsCount 件のヒット / @sourceCount ソース"
+    "@worksCount works · @hitsCount hits across @sourceCount sources": "@worksCount 作品 · @hitsCount 件のヒット / @sourceCount ソース",
+    "Please enter a keyword": "キーワードを入力してください",
+    "This source no longer supports search": "このソースは検索に対応しなくなりました"
   }
 }

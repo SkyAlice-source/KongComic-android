@@ -106,7 +106,8 @@ extension WebviewExtension on InAppWebViewController {
   Future<String?> getUA() async {
     var res = await evaluateJavascript(source: "navigator.userAgent");
     if (res is String) {
-      if (res[0] == "'" || res[0] == "\"") {
+      // 空串时 res[0] 会 RangeError；取值前先判空。
+      if (res.isNotEmpty && (res[0] == "'" || res[0] == "\"")) {
         res = res.substring(1, res.length - 1);
       }
     }
@@ -395,8 +396,18 @@ class DesktopWebview {
     );
     _webview!.addOnWebMessageReceivedCallback(onMessage);
     _webview!.setOnNavigation((s) {
-      s = s.substring(1, s.length - 1);
-      return onNavigation?.call(s, this);
+      // 插件在导航开始 200ms 后用 evaluateJavaScript 取 location.href，页面
+      // 跨文档跳转时会拿到空串；substring(1, -1) 直接 RangeError，登录流程
+      // 必崩。另外只有带引号包裹的返回值才需要剥引号。
+      if (s.isEmpty) {
+        return;
+      }
+      if (s.length >= 2 &&
+          ((s.startsWith('"') && s.endsWith('"')) ||
+              (s.startsWith("'") && s.endsWith("'")))) {
+        s = s.substring(1, s.length - 1);
+      }
+      onNavigation?.call(s, this);
     });
     _webview!.launch(initialUrl, triggerOnUrlRequestEvent: false);
     _runTimer();
@@ -407,16 +418,24 @@ class DesktopWebview {
       onClose?.call();
     });
     Future.delayed(const Duration(milliseconds: 200), () {
-      onStarted?.call(this);
+      // 用户可能在 200ms 内就关掉窗口（onClose 已把 _webview 置 null）。
+      if (_webview != null) {
+        onStarted?.call(this);
+      }
     });
   }
 
   Future<String?> evaluateJavascript(String source) {
-    return _webview!.evaluateJavaScript(source);
+    final wv = _webview;
+    // 窗口已被用户关闭后再调用会空断言崩；返回 null 让调用方走失败分支。
+    if (wv == null) return Future.value(null);
+    return wv.evaluateJavaScript(source);
   }
 
   Future<Map<String, String>> getCookies(String url) async {
-    var allCookies = await _webview!.getAllCookies();
+    final wv = _webview;
+    if (wv == null) return {};
+    var allCookies = await wv.getAllCookies();
     var res = <String, String>{};
     for (var c in allCookies) {
       if (_cookieMatch(url, c.domain)) {

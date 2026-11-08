@@ -228,10 +228,10 @@ class _ButtonState extends State<Button> {
                   : null,
               border: widget.type == ButtonType.outlined
                   ? Border.all(
-                      color:
-                          widget.color ??
-                          Theme.of(context).colorScheme.outlineVariant,
-                      width: 0.6,
+                      // 描边走全站发丝标准：`outlineVariant` 会随主题色泛色，
+                      // 选绿/蓝主题时按钮边跟着变色，与卡片边不一致。
+                      color: widget.color ?? kcHairlineColor(context),
+                      width: kcHairline,
                     )
                   // AMOLED 实心按钮是「深灰底 + 白字」，若不描边就会和同色系的
                   // 弹窗底糊在一起（退出确认弹窗里几乎看不见按钮），补一道发丝线。

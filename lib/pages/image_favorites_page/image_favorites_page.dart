@@ -70,7 +70,9 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage>
         isFilter = timeFilterSelect.contains(ele.time);
       }
       if (numFilterSelect != numFilterList[0]) {
-        isFilter = ele.images.length > numFilterSelect;
+        // 必须是 AND，不能直接赋值：直接赋值会把上面时间筛选的结果覆盖掉，
+        // 两个条件同时开启时时间过滤形同虚设。
+        isFilter = isFilter && ele.images.length > numFilterSelect;
       }
       return isFilter;
     }).toList();
@@ -410,7 +412,12 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
     };
     if (timeRangeType == TimeRangeType.custom) {
       end = widget.initTimeFilterSelect.end;
-      start = end!.subtract(widget.initTimeFilterSelect.duration);
+      // end 为空时不能强解包：任何「end=null 但 duration 非零」的旧数据都会
+      // 落到 custom 分支，这里直接崩掉整个筛选弹窗。
+      final endValue = end;
+      if (endValue != null) {
+        start = endValue.subtract(widget.initTimeFilterSelect.duration);
+      }
     }
   }
 
@@ -486,11 +493,20 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
                               showDivider: false,
                               trailing: Button.text(
                                 onPressed: () async {
+                                  // showDatePicker 断言 initialDate 落在
+                                  // [firstDate, lastDate] 内。先选了「结束时间」
+                                  // （过去）再点「开始时间」时，initialDate 是
+                                  // 今天 > lastDate，直接断言崩溃。
+                                  final first = DateTime(2000);
+                                  final last = end ?? DateTime.now();
+                                  var initial = start ?? DateTime.now();
+                                  if (initial.isBefore(first)) initial = first;
+                                  if (initial.isAfter(last)) initial = last;
                                   final date = await showDatePicker(
                                     context: context,
-                                    initialDate: start ?? DateTime.now(),
-                                    firstDate: DateTime(2000),
-                                    lastDate: end ?? DateTime.now(),
+                                    initialDate: initial,
+                                    firstDate: first,
+                                    lastDate: last,
                                   );
                                   if (date != null && mounted) {
                                     setState(() {
@@ -510,11 +526,16 @@ class _ImageFavoritesDialogState extends State<_ImageFavoritesDialog> {
                               showDivider: false,
                               trailing: Button.text(
                                 onPressed: () async {
+                                  final now = DateTime.now();
+                                  final first = start ?? DateTime(2000);
+                                  var initial = end ?? now;
+                                  if (initial.isBefore(first)) initial = first;
+                                  if (initial.isAfter(now)) initial = now;
                                   final date = await showDatePicker(
                                     context: context,
-                                    initialDate: end ?? DateTime.now(),
-                                    firstDate: start ?? DateTime(2000),
-                                    lastDate: DateTime.now(),
+                                    initialDate: initial,
+                                    firstDate: first,
+                                    lastDate: now,
                                   );
                                   if (date != null && mounted) {
                                     setState(() {

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:flutter_saf/flutter_saf.dart';
 import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/utils/ext.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart' as s;
@@ -280,8 +281,10 @@ class IOSDirectoryPicker {
       final String? path = await _channel.invokeMethod('selectDirectory');
       return path;
     } catch (e) {
-      // 返回报错信息
-      return e.toString();
+      // 必须返回 null：调用方（settings/app.dart）把返回值当目录路径直接
+      // 使用，把 PlatformException 字符串写进 local_path 会让后续 IO 全挂。
+      Log.error("IOSDirectoryPicker", "selectDirectory failed: $e");
+      return null;
     } finally {
       Future.delayed(const Duration(milliseconds: 100), () {
         IO._isSelectingFiles = false;

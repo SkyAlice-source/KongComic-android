@@ -134,9 +134,13 @@ class _LeftBarState extends State<_LeftBar>
         .where((e) => e.favoriteData != null && e.isLogged)
         .map((e) => e.favoriteData!.key)
         .toList();
-    var settings = appdata.settings['favorites'] as List;
+    // 这里以前是 `as List` 硬转，而本方法在 initState 和每次 build 都会跑：
+    // settings 一旦是 null/Map（备份恢复、旧版本迁移写坏），异常发生在 build
+    // 里 → 文件夹选择弹窗只剩灰色遮罩、卡片整棵子树构建失败，而且没有入口恢复。
+    final settings = appdata.settings['favorites'];
+    if (settings is! List) return;
     for (var p in settings) {
-      if (all.contains(p) && !networkFolders.contains(p)) {
+      if (p is String && all.contains(p) && !networkFolders.contains(p)) {
         networkFolders.add(p);
       }
     }

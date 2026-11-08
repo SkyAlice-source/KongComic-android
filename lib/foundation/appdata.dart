@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:kong_comic/foundation/app.dart';
+import 'package:kong_comic/foundation/consts.dart';
 import 'package:kong_comic/foundation/log.dart';
 import 'package:kong_comic/utils/data_sync.dart';
 import 'package:kong_comic/utils/init.dart';
@@ -190,6 +191,18 @@ class Appdata with Init {
       settings._data["deviceId"] = const Uuid().v4();
       await saveData(false);
     }
+    // 底栏页序早已重排成「分类/收藏/主页/发现/历史」，但默认启动页一直停在
+    // 旧页序的 '0'（= 分类），于是所有人开机都落在分类页。默认值已改成
+    // [kHomeTabIndex]，可老用户的 appdata.json 里已经存着 '0'，doInit 会原样
+    // 盖回来，只改默认值对他们无效。这里补一次迁移：仅当值仍是旧默认 '0'
+    // 时改到主页，主动选过别的页的人不动；标记写盘后不再重复执行。
+    if (settings['initialPageMigrated'] != true) {
+      if (settings['initialPage']?.toString() == '0') {
+        settings._data['initialPage'] = '$kHomeTabIndex';
+      }
+      settings._data['initialPageMigrated'] = true;
+      await saveData(false);
+    }
     // 旧版本「列表加载方式」存的是大写 'Continuous'，选项键已统一成小写。
     // 不迁移的话设置页会显示原始值而不是中文选项，看起来像没选中任何一项。
     if (settings['comicListDisplayMode'] == 'Continuous') {
@@ -296,7 +309,11 @@ class Settings with ChangeNotifier {
     // 追更检查间隔（天）：1 / 3 / 7。必须进默认值表 —— doInit 只覆盖磁盘里
     // 已存在的 key，老用户的 appdata.json 没这个键，缺省值只能靠这里。
     'followUpdateInterval': 1,
-    'initialPage': '0',
+    // 取值与 main_page.dart 的 `_pages` 下标一一对应
+    //（0 分类 / 1 收藏 / 2 主页 / 3 发现 / 4 历史）。这里必须是 kHomeTabIndex：
+    // 底栏早先重排成「分类/收藏/主页/发现/历史」，默认值却一直停在旧页序的 0
+    //（= 分类），于是所有人开机都落在分类页，与「默认落在主页」的注释相悖。
+    'initialPage': '$kHomeTabIndex',
     'comicListDisplayMode': 'paging', // paging, continuous
     'showPageNumberInReader': true,
     'showSingleImageOnFirstPage': false,

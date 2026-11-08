@@ -52,4 +52,27 @@ void main() {
       expect(tester.getSize(find.byType(KcInlineSpinner)), Size.square(size));
     }
   });
+
+  // 详情页这类「带着作品名进来」的页面，加载失败后顶栏不能只剩一颗返回箭头：
+  // 用户会以为自己被丢到了另一个页面，也读不出「哪一部失败了」。
+  testWidgets('错误页把传入的标题渲染到顶栏', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NetworkError(
+          message: 'Network Error',
+          retry: () {},
+          title: 'Sousou no Frieren',
+        ),
+      ),
+    );
+    expect(find.text('Sousou no Frieren'), findsOneWidget);
+  });
+
+  testWidgets('不传标题时顶栏仍是空串，不显示占位文案', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: NetworkError(message: 'Network Error')),
+    );
+    expect(find.text(''), findsOneWidget);
+    expect(find.text('Network Error'), findsOneWidget);
+  });
 }

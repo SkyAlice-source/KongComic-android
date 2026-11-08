@@ -115,6 +115,16 @@ class _ExploreSettingsState extends State<ExploreSettings> {
   }
 }
 
+/// 取一个「字符串列表」型设置项；坏数据（null / 非 List，多来自旧版本或导入
+/// 的备份）就地修成空列表并写回，避免 build 里 `.length` 直接抛异常。
+List<dynamic> _listSetting(String key) {
+  final raw = appdata.settings[key];
+  if (raw is List) return raw;
+  final fixed = <dynamic>[];
+  appdata.settings[key] = fixed;
+  return fixed;
+}
+
 class _ManageBlockingWordView extends StatefulWidget {
   const _ManageBlockingWordView();
 
@@ -126,7 +136,11 @@ class _ManageBlockingWordView extends StatefulWidget {
 class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
   @override
   Widget build(BuildContext context) {
-    assert(appdata.settings["blockedWords"] is List);
+    // 以前这行是 `assert(appdata.settings["blockedWords"] is List)`：assert 在
+    // release 会被剥离，值被导入/同步写成 null 或非 List 时，下面的 `.length`
+    // 就是 NoSuchMethodError —— 发生在 build 里，整个页面红屏且没有恢复入口。
+    // 这里就地修成空列表，并把修好的值写回 settings。
+    final words = _listSetting("blockedWords");
     return PopUpWidgetScaffold(
       title: "Keyword blocking".tl,
       tailing: [
@@ -143,16 +157,16 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
         ),
       ],
       body: ListView.builder(
-        itemCount: appdata.settings["blockedWords"].length,
+        itemCount: words.length,
         itemBuilder: (context, index) {
           return KcListTile(
-            showDivider: index < appdata.settings["blockedWords"].length - 1,
-            title: Text(appdata.settings["blockedWords"][index]),
+            showDivider: index < words.length - 1,
+            title: Text('${words[index]}'),
             trailing: IconButton(
               tooltip: "Delete".tl,
               icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
               onPressed: () {
-                appdata.settings["blockedWords"].removeAt(index);
+                words.removeAt(index);
                 appdata.saveData();
                 setState(() {});
               },
@@ -191,15 +205,25 @@ class _ManageBlockingWordViewState extends State<_ManageBlockingWordView> {
               actions: [
                 Button.filled(
                   onPressed: () {
-                    if (appdata.settings["blockedWords"].contains(
-                      controller.text,
-                    )) {
+                    // 必须先拦住空串：isBlocked 用 `title.contains(word)` 判定，
+                    // 而任何字符串都 contains("")==true —— 一旦存进空关键词，
+                    // 全站漫画列表会被判定成「全部命中屏蔽词」而瞬间清空，
+                    // 用户也想不到是刚才那个没填字的输入框干的。
+                    final text = controller.text.trim();
+                    if (text.isEmpty) {
+                      setState(() {
+                        error = "Keyword cannot be empty".tl;
+                      });
+                      return;
+                    }
+                    final words = _listSetting("blockedWords");
+                    if (words.contains(text)) {
                       setState(() {
                         error = "Keyword already exists".tl;
                       });
                       return;
                     }
-                    appdata.settings["blockedWords"].add(controller.text);
+                    words.add(text);
                     appdata.saveData();
                     this.setState(() {});
                     context.pop();
@@ -284,7 +308,8 @@ class _ManageBlockingCommentWordViewState
     extends State<_ManageBlockingCommentWordView> {
   @override
   Widget build(BuildContext context) {
-    assert(appdata.settings["blockedCommentWords"] is List);
+    // 同关键词屏蔽：assert 在 release 会被剥离，坏值直接让本页红屏。
+    final words = _listSetting("blockedCommentWords");
     return PopUpWidgetScaffold(
       title: "Comment keyword blocking".tl,
       tailing: [
@@ -301,17 +326,16 @@ class _ManageBlockingCommentWordViewState
         ),
       ],
       body: ListView.builder(
-        itemCount: appdata.settings["blockedCommentWords"].length,
+        itemCount: words.length,
         itemBuilder: (context, index) {
           return KcListTile(
-            showDivider:
-                index < appdata.settings["blockedCommentWords"].length - 1,
-            title: Text(appdata.settings["blockedCommentWords"][index]),
+            showDivider: index < words.length - 1,
+            title: Text('${words[index]}'),
             trailing: IconButton(
               tooltip: "Delete".tl,
               icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
               onPressed: () {
-                appdata.settings["blockedCommentWords"].removeAt(index);
+                words.removeAt(index);
                 appdata.saveData();
                 setState(() {});
               },
@@ -350,17 +374,23 @@ class _ManageBlockingCommentWordViewState
               actions: [
                 Button.filled(
                   onPressed: () {
-                    if (appdata.settings["blockedCommentWords"].contains(
-                      controller.text,
-                    )) {
+                    // 同关键词屏蔽：空串会让 `content.contains("")` 恒真，
+                    // 评论区会被整片隐藏。
+                    final text = controller.text.trim();
+                    if (text.isEmpty) {
+                      setState(() {
+                        error = "Keyword cannot be empty".tl;
+                      });
+                      return;
+                    }
+                    final words = _listSetting("blockedCommentWords");
+                    if (words.contains(text)) {
                       setState(() {
                         error = "Keyword already exists".tl;
                       });
                       return;
                     }
-                    appdata.settings["blockedCommentWords"].add(
-                      controller.text,
-                    );
+                    words.add(text);
                     appdata.saveData();
                     this.setState(() {});
                     context.pop();
