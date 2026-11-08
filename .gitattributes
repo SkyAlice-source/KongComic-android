@@ -1,0 +1,5 @@
+# appdata.dart has used CRLF line endings since the initial import. Git's
+# `diff --check` otherwise treats every CR on a newly added line as trailing
+# whitespace, even though the whole file is consistently CRLF. Keep the file
+# as-is (no noisy full-file reformat) and tell git to accept CR at EOL here.
+lib/foundation/appdata.dart whitespace=cr-at-eol

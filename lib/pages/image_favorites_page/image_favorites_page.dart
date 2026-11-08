@@ -144,6 +144,9 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage>
   void deSelect() {
     setState(() {
       selectedImageFavorites.clear();
+      // 与 addSelected / Cancel / Delete / PopScope 一致：清空后退出多选态，
+      // 否则页面会停在「标题 0、三枚操作常驻、辅助行消失」的残缺状态。
+      multiSelectMode = false;
     });
   }
 
@@ -161,39 +164,92 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage>
     update();
   }
 
+  /// 内容区辅助行：左侧结果数，右侧「排序（弹窗内含筛选 tab）」与「多选」
+  /// 两枚动作常驻平铺。与收藏 / 历史的 [KcFilterChipRow] 第二行同一套排版；
+  /// 图片收藏没有筛选 chip，所以单独画这一行，而不是塞一条空的 chip 行进去。
+  Widget _buildActionRow() {
+    final cs = Theme.of(context).colorScheme;
+    final filterActive =
+        timeFilterSelect != TimeRange.all ||
+        numFilterSelect != numFilterList[0];
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: kcSpaceLg,
+        vertical: kcSpaceXs,
+      ),
+      child: LayoutBuilder(
+        builder: (context, rowConstraints) => Row(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: rowConstraints.maxWidth / 2,
+              ),
+              child: Text(
+                "Showing @c items".tlParams({'c': comics.length}),
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: kcCaption,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: LayoutBuilder(
+                  builder: (ctx, actionConstraints) => KcActionOverflowBar(
+                    actions: [
+                      KcToolbarAction(
+                        icon: HugeIcons.strokeRoundedSortDescending,
+                        label: "Sort".tl,
+                        color: filterActive ? kcBrandAdaptive(context) : null,
+                        onTap: sort,
+                      ),
+                      KcToolbarAction(
+                        icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                        label: "Multi-Select".tl,
+                        onTap: () => setState(() => multiSelectMode = true),
+                      ),
+                    ],
+                    maxWidth: actionConstraints.maxWidth,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 与收藏总览 / 文件夹内页 / 历史页统一：顶栏只放裸图标，不再套
+    // [ToolsPill] 外壳；删除也从 ⋮ 里放出来，位置够就别藏。
     List<Widget> selectActions = [
-      ToolsPill(
-        children: [
-          ToolsPillButton(
-            icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-            tooltip: "Select All".tl,
-            onPressed: selectAll,
-          ),
-          ToolsPillButton(
-            icon: HugeIcons.strokeRoundedCancel01,
-            tooltip: "Deselect".tl,
-            onPressed: deSelect,
-          ),
-          ToolsPillMoreButton(
-            entries: [
-              MenuEntry(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-                text: "Delete".tl,
-                onClick: () {
-                  ImageFavoriteManager().deleteImageFavorite(
-                    selectedImageFavorites.keys,
-                  );
-                  setState(() {
-                    multiSelectMode = false;
-                    selectedImageFavorites.clear();
-                  });
-                },
-              ),
-            ],
-          ),
-        ],
+      ToolsPillButton(
+        icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+        tooltip: "Select All".tl,
+        onPressed: selectAll,
+      ),
+      ToolsPillButton(
+        icon: HugeIcons.strokeRoundedCancel01,
+        tooltip: "Deselect".tl,
+        onPressed: deSelect,
+      ),
+      ToolsPillButton(
+        icon: HugeIcons.strokeRoundedDelete01,
+        tooltip: "Delete".tl,
+        color: Theme.of(context).colorScheme.error,
+        onPressed: () {
+          ImageFavoriteManager().deleteImageFavorite(
+            selectedImageFavorites.keys,
+          );
+          setState(() {
+            multiSelectMode = false;
+            selectedImageFavorites.clear();
+          });
+        },
       ),
     ];
 
@@ -204,41 +260,23 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage>
           SliverAppbar(
             title: Text("Image Favorites".tl),
             actions: [
-              ToolsPill(
-                children: [
-                  // 与收藏页同一个速搜浮层，只是数据源换成图片收藏。
-                  ToolsPillButton(
-                    icon: HugeIcons.strokeRoundedSearch02,
-                    tooltip: "Search".tl,
-                    onPressed: () => showQuickSearch(
-                      context,
-                      scope: QuickSearchScope.imageFavorites,
-                    ),
-                  ),
-                  ToolsPillButton(
-                    icon: HugeIcons.strokeRoundedSortDescending,
-                    active:
-                        timeFilterSelect != TimeRange.all ||
-                        numFilterSelect != numFilterList[0],
-                    tooltip: "Sort".tl,
-                    onPressed: sort,
-                  ),
-                  ToolsPillButton(
-                    icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-                    tooltip: multiSelectMode
-                        ? "Exit Multi-Select".tl
-                        : "Multi-Select".tl,
-                    onPressed: () {
-                      setState(() {
-                        multiSelectMode = !multiSelectMode;
-                      });
-                    },
-                  ),
-                ],
+              // 与收藏总览 / 文件夹内页 / 历史页一致：右上角只留一枚裸搜索，
+              // 去掉 ToolsPill 的圆角外壳与发丝描边；数据源仍是图片收藏。
+              ToolsPillButton(
+                icon: HugeIcons.strokeRoundedSearch02,
+                tooltip: "Search".tl,
+                onPressed: () => showQuickSearch(
+                  context,
+                  scope: QuickSearchScope.imageFavorites,
+                ),
               ),
             ],
-          )
-        else if (multiSelectMode)
+          ),
+        if (!multiSelectMode)
+          // 排序（弹窗内含筛选）/ 多选从右上角挪到「显示 N 项」辅助行平铺，
+          // 与收藏 / 历史两页的第二行同一套动作编排。
+          SliverToBoxAdapter(child: _buildActionRow()),
+        if (multiSelectMode)
           SliverAppbar(
             leading: Tooltip(
               message: "Cancel".tl,

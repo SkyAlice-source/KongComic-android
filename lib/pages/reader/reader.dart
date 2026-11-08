@@ -236,11 +236,14 @@ class _ReaderState extends State<Reader>
   /// 粘性的，旋转屏幕等配置变更后会被系统重置，状态栏会重新冒出来压在漫画
   /// 上（默认设置就是隐藏，所以这属于回退）。
   void _applySystemUiMode() {
+    // getReaderSetting 返回 dynamic，远端同步可能写进 null / 字符串；
+    // 直接当 bool 用在健全空安全下会抛，显式 == true 才是安全判断。
     if (appdata.settings.getReaderSetting(
-      cid,
-      type.sourceKey,
-      'showSystemStatusBar',
-    )) {
+          cid,
+          type.sourceKey,
+          'showSystemStatusBar',
+        ) ==
+        true) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     } else {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -357,6 +360,8 @@ class _ReaderState extends State<Reader>
     // 退出阅读：恢复外层导航框架（左侧栏/底栏）。
     _restoreNaviChrome();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    // 跨话预取表是文件顶层全局，退出阅读器必须清掉，避免残留到下一本。
+    clearChapterPreloadCache();
     stopVolumeEvent();
     if (_originalCacheSize != null) {
       PaintingBinding.instance.imageCache.maximumSizeBytes =

@@ -67,10 +67,14 @@ Future<File> exportAppData([bool sync = true]) async {
   return cacheFile;
 }
 
+/// [syncAssets] 只由 WebDAV 自动同步传入：合并 DB 之后继续执行 settings /
+/// cookie / 漫画源 / 自定义封面映射的同步；手动「合并导入」保持原语义（只合并
+/// 收藏与历史、其余一律保留本地）。
 Future<bool> importAppData(
   File file, [
   bool checkVersion = false,
   bool merge = false,
+  bool syncAssets = false,
 ]) async {
   var needRestart = false;
   var cacheDirPath = FilePath.join(App.cachePath, 'temp_data');
@@ -118,58 +122,83 @@ Future<bool> importAppData(
           }
         }
       }
-      // 合并模式下保留当前设置、Cookies、隐式数据与下载路径，不做替换。
-      return false;
-    }
-    if (await historyFile.exists()) {
-      HistoryManager().close();
-      File(FilePath.join(App.dataPath, "history.db")).deleteIfExistsSync();
-      historyFile.renameSync(FilePath.join(App.dataPath, "history.db"));
-      HistoryManager().init();
-    }
-    if (await localFavoriteFile.exists()) {
-      LocalFavoritesManager().close();
-      File(
-        FilePath.join(App.dataPath, "local_favorite.db"),
-      ).deleteIfExistsSync();
-      localFavoriteFile.renameSync(
-        FilePath.join(App.dataPath, "local_favorite.db"),
-      );
-      LocalFavoritesManager().init();
+      // 手动「合并导入」到此为止：保留当前设置、Cookies、隐式数据与下载路径。
+      // WebDAV 自动同步（syncAssets）则继续往下，把允许跨设备的非 DB 资产
+      // 也同步过来，否则收藏合上了却丢了设置 / 登录态 / 漫画源。
+      if (!syncAssets) {
+        return false;
+      }
+    } else {
+      // 全量替换模式：删掉本机 DB 再换上备份。只有手动「覆盖导入」走这里，
+      // WebDAV 已改走 merge，避免本机新增的收藏被远端快照整包覆盖。
+      if (await historyFile.exists()) {
+        HistoryManager().close();
+        File(FilePath.join(App.dataPath, "history.db")).deleteIfExistsSync();
+        historyFile.renameSync(FilePath.join(App.dataPath, "history.db"));
+        HistoryManager().init();
+      }
+      if (await localFavoriteFile.exists()) {
+        LocalFavoritesManager().close();
+        File(
+          FilePath.join(App.dataPath, "local_favorite.db"),
+        ).deleteIfExistsSync();
+        localFavoriteFile.renameSync(
+          FilePath.join(App.dataPath, "local_favorite.db"),
+        );
+        LocalFavoritesManager().init();
+      }
     }
     if (await appdataFile.exists()) {
       var content = await appdataFile.readAsString();
       var data = jsonDecode(content);
-      appdata.syncData(data);
+      // WebDAV 合并（syncAssets）不能在写回 settings 时又触发一次上传。
+      appdata.syncData(data, !syncAssets);
     }
     if (await cookieFile.exists()) {
-      SingleInstanceCookieJar.instance?.dispose();
-      File(FilePath.join(App.dataPath, "cookie.db")).deleteIfExistsSync();
-      cookieFile.renameSync(FilePath.join(App.dataPath, "cookie.db"));
-      SingleInstanceCookieJar.instance = SingleInstanceCookieJar(
-        FilePath.join(App.dataPath, "cookie.db"),
-      )..init();
-    }
-    // 恢复自定义封面
-    var coversDir = FilePath.join(cacheDirPath, "covers");
-    if (Directory(coversDir).existsSync()) {
-      var targetCoversDir = FilePath.join(App.dataPath, "covers");
-      if (!Directory(targetCoversDir).existsSync()) {
-        Directory(targetCoversDir).createSync();
+      final targetCookie = File(FilePath.join(App.dataPath, "cookie.db"));
+      // merge 语义下不能整包替换：本机在远端快照之后新登录的站点 Cookie
+      // 会被旧快照抹掉。只在本机还没有 cookie 库时补一份（新设备首同步）。
+      final shouldReplace = !merge ||
+          !targetCookie.existsSync() ||
+          targetCookie.lengthSync() == 0;
+      if (shouldReplace) {
+        SingleInstanceCookieJar.instance?.dispose();
+        targetCookie.deleteIfExistsSync();
+        cookieFile.renameSync(FilePath.join(App.dataPath, "cookie.db"));
+        SingleInstanceCookieJar.instance = SingleInstanceCookieJar(
+          FilePath.join(App.dataPath, "cookie.db"),
+        )..init();
       }
-      for (var file in Directory(coversDir).listSync()) {
-        if (file is File) {
-          var targetPath = FilePath.join(targetCoversDir, file.name);
-          await file.copy(targetPath);
+    }
+    // 恢复自定义封面。merge 分支上面已经「只补缺失」，这里不能再次无条件
+    // 覆盖，否则本机后来替换过的封面又会被远端旧图盖掉。
+    if (!merge) {
+      var coversDir = FilePath.join(cacheDirPath, "covers");
+      if (Directory(coversDir).existsSync()) {
+        var targetCoversDir = FilePath.join(App.dataPath, "covers");
+        if (!Directory(targetCoversDir).existsSync()) {
+          Directory(targetCoversDir).createSync();
+        }
+        for (var file in Directory(coversDir).listSync()) {
+          if (file is File) {
+            var targetPath = FilePath.join(targetCoversDir, file.name);
+            await file.copy(targetPath);
+          }
         }
       }
     }
     var comicSourceDir = FilePath.join(cacheDirPath, "comic_source");
     if (Directory(comicSourceDir).existsSync()) {
-      Directory(
-        FilePath.join(App.dataPath, "comic_source"),
-      ).deleteIfExistsSync(recursive: true);
-      Directory(FilePath.join(App.dataPath, "comic_source")).createSync();
+      final targetDir = Directory(FilePath.join(App.dataPath, "comic_source"));
+      // merge 只补本机缺失的漫画源，绝不能先删目录：本机后来装的新源会被
+      // 远端旧快照整包抹掉（手动「覆盖导入」才保留整包替换语义）。
+      if (!merge) {
+        targetDir.deleteIfExistsSync(recursive: true);
+      }
+      if (!targetDir.existsSync()) {
+        targetDir.createSync(recursive: true);
+      }
+      var changed = false;
       for (var file in Directory(comicSourceDir).listSync()) {
         if (file is File) {
           var targetFile = FilePath.join(
@@ -177,37 +206,70 @@ Future<bool> importAppData(
             "comic_source",
             file.name,
           );
-          await file.copy(targetFile);
+          if (!merge || !File(targetFile).existsSync()) {
+            await file.copy(targetFile);
+            changed = true;
+          }
         }
       }
-      await ComicSourceManager().reload();
+      if (changed) {
+        await ComicSourceManager().reload();
+      }
     }
     // 恢复 implicitData.json（自定义封面映射等隐式数据）
     var implicitDataFile = cacheDir.joinFile("implicitData.json");
     if (await implicitDataFile.exists()) {
-      File(
-        FilePath.join(App.dataPath, "implicitData.json"),
-      ).deleteIfExistsSync();
-      implicitDataFile.renameSync(
-        FilePath.join(App.dataPath, "implicitData.json"),
-      );
-      // 重新加载 implicitData 到内存
-      try {
-        appdata.implicitData = jsonDecode(
-          await File(
-            FilePath.join(App.dataPath, "implicitData.json"),
-          ).readAsString(),
+      if (merge) {
+        // WebDAV 只合并真正跨设备共享的「自定义封面映射」。整包替换会把
+        // webdavAutoSync（自动同步开关）、favoriteFolder、各类排序筛选等
+        // 设备本地状态一起覆盖，甚至静默改变本机是否继续同步。
+        try {
+          var incoming = jsonDecode(await implicitDataFile.readAsString());
+          var covers = incoming is Map ? incoming['customCovers'] : null;
+          if (covers is Map) {
+            var current = appdata.implicitData['customCovers'];
+            if (current is Map && current.isNotEmpty) {
+              var merged = Map<String, dynamic>.from(current);
+              covers.forEach((key, value) {
+                merged.putIfAbsent(key.toString(), () => value);
+              });
+              appdata.implicitData['customCovers'] = merged;
+            } else {
+              appdata.implicitData['customCovers'] =
+                  Map<String, dynamic>.from(covers);
+            }
+            appdata.writeImplicitData();
+          }
+        } catch (e) {
+          Log.error("Import Data", "Failed to merge implicit data: $e");
+        }
+      } else {
+        File(
+          FilePath.join(App.dataPath, "implicitData.json"),
+        ).deleteIfExistsSync();
+        implicitDataFile.renameSync(
+          FilePath.join(App.dataPath, "implicitData.json"),
         );
-      } catch (e) {
-        Log.error("Import Data", "Failed to reload implicit data: $e");
+        // 重新加载 implicitData 到内存
+        try {
+          appdata.implicitData = jsonDecode(
+            await File(
+              FilePath.join(App.dataPath, "implicitData.json"),
+            ).readAsString(),
+          );
+        } catch (e) {
+          Log.error("Import Data", "Failed to reload implicit data: $e");
+        }
       }
     }
-    // 恢复 local_path（自定义下载路径）
-    var localPathFile = cacheDir.joinFile("local_path");
-    if (await localPathFile.exists()) {
-      File(FilePath.join(App.dataPath, "local_path")).deleteIfExistsSync();
-      localPathFile.renameSync(FilePath.join(App.dataPath, "local_path"));
-      needRestart = true;
+    // 恢复 local_path（自定义下载路径）：路径属于设备本地，自动同步不能带。
+    if (!merge) {
+      var localPathFile = cacheDir.joinFile("local_path");
+      if (await localPathFile.exists()) {
+        File(FilePath.join(App.dataPath, "local_path")).deleteIfExistsSync();
+        localPathFile.renameSync(FilePath.join(App.dataPath, "local_path"));
+        needRestart = true;
+      }
     }
     return needRestart;
   } finally {

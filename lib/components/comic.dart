@@ -958,7 +958,10 @@ class ComicTile extends StatelessWidget {
                   ),
                 ),
             ],
-          ).paddingHorizontal(6).paddingVertical(8),
+          // 卡座内衬只留 4dp：之前 6/8 再叠 _SelectableComicCell 的 6dp
+          // margin + 2dp 透明边，一本封面上下各空出 16dp，看起来就是「框没
+          // 填满」。收紧后封面向卡座四边撑开，相邻两卡之间仍有 8dp 呼吸。
+          ).paddingHorizontal(kcSpaceXs).paddingVertical(kcSpaceXs),
         );
       },
     );
@@ -1510,15 +1513,18 @@ class _SliverGridComics extends StatelessWidget {
   }
 }
 
-/// 多选态的单元格外观：底色染一层 + 角上一颗勾选圆标。
+/// 多选态的单元格外观：不占布局的叠加层（overlay）。
 ///
-/// 原来只有底色（`secondaryContainer` 72%）：浅色下是封面外一圈淡粉、勉强
-/// 能看出；深色下 secondaryContainer 是 #2A2022，压在 #100D0F 的页面上几乎
-/// 等于没有 —— 多选模式进去以后「到底选中了哪几本」完全看不出来，只有标题栏
-/// 的数量在变。补一颗品牌色勾选标 + 描边，两套主题都能一眼确认。
+/// 以前用 `AnimatedContainer(margin: 3, border: 2)` 把 child 包在里面：进入
+/// 多选态时封面被内缩约 10dp、退出时又弹回，整屏网格看着像「缩了一下」。
+/// 现在 child 用 `Positioned.fill` 直接铺满卡座，选中框 / 染色 / 勾选标全部
+/// 叠在它上面，正常态（`RepaintBoundary(child: comic)`）和多选态的卡片尺寸
+/// 完全一致，切换零位移。
 ///
-/// 描边在未选中态用同宽透明边：选中/取消切换时子树的可用尺寸不变，封面不会
-/// 因为加边而抖一下。
+/// 视觉表达仍沿用收藏/历史那套「每本单独边框 + 品牌色勾选标」：由于底色不再
+/// 露在封面外圈，改成一层很淡的 secondaryContainer 染色（不会盖掉封面），
+/// 边框与勾选标负责确认选中；深色下 secondaryContainer 太接近页面底色，
+/// 所以浅/深分别给 0.16 / 0.22 的 alpha。
 class _SelectableComicCell extends StatelessWidget {
   const _SelectableComicCell({
     required this.selected,
@@ -1534,22 +1540,31 @@ class _SelectableComicCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      margin: const EdgeInsets.all(kcSpaceXs),
-      decoration: BoxDecoration(
-        color: selected
-            ? cs.secondaryContainer.withValues(alpha: isDark ? 0.9 : 0.72)
-            : null,
-        borderRadius: BorderRadius.circular(kcCardRadius),
-        border: Border.all(
-          color: selected ? kcBrandAdaptive(context) : Colors.transparent,
-          width: 2,
-        ),
-      ),
+    return SizedBox.expand(
       child: Stack(
         children: [
-          child,
+          Positioned.fill(child: child),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? cs.secondaryContainer.withValues(
+                          alpha: isDark ? 0.22 : 0.16,
+                        )
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(kcCardRadius),
+                  border: Border.all(
+                    color: selected
+                        ? kcBrandAdaptive(context)
+                        : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+          ),
           if (selected)
             Positioned(
               top: 6,
@@ -1878,7 +1893,7 @@ class ComicListState extends State<ComicList> {
     // 只返回胶囊本体：定位、让位、悬浮阴影统一由 _buildPageBar 负责，
     // 之前这里自带 Center + 上下 8dp 内边距，把胶囊绑死在整宽底栏里。
     return ToolsPill(
-      height: 38,
+      height: kcPagerPillHeight,
       children: [
         ToolsPillButton(
           icon: HugeIcons.strokeRoundedArrowLeft01,
@@ -2012,30 +2027,37 @@ class ComicListState extends State<ComicList> {
   /// 下一页」的来回。分页条因此只保留这一条，顶部那条已删除。
   ///
   /// 旧实现是「整宽白底 + 顶部发丝线」的贴底栏，和悬浮玻璃 dock 叠成两层，
-  /// 页码下半截被 dock 盖住（用户实拍）。现在改成一颗带柔光阴影的全圆胶囊，
-  /// 居中浮在 dock 上方：不再画整宽背景，也不与 dock 争同一条底边。
+  /// 页码下半截被 dock 盖住（用户实拍）。中间版改成 Column：胶囊 + 让位
+  /// padding 实占一整条底部空间，页面底色把那约 100dp 画成一整片白，胶囊
+  /// 看着像「连着一块白色底板」。现在用 Stack 让网格铺满整屏，胶囊只以
+  /// [Positioned] 浮在内容上方，列表末尾用等高的 [SliverPadding] 保证最后
+  /// 一行仍能滚到胶囊上面来。
+  ///
+  /// 底栏真实显示条件是 `isRootTabPage && controller.value < 2`
+  /// （navigation_bar.dart shouldShowBottomBar）：宽屏侧栏模式
+  /// controller.value >= 2 时只有左侧栏、没有悬浮 dock，按 bottomBarHeight
+  /// 让位会凭空把胶囊抬高约 100dp。
+  double _pageBarBottomInset() {
+    final pane = context.findAncestorStateOfType<NaviPaneState>();
+    final showDock = pane != null &&
+        pane.isRootTabPage &&
+        pane.controller.value < 2;
+    if (showDock) {
+      // bottomBarHeight 已含系统手势区；再补一段呼吸，让胶囊底边完全离开
+      // dock 的玻璃体（实测旧版仍重叠约 15dp）。
+      return pane.bottomBarHeight + kcPageBottomGap;
+    }
+    // 子页面没有 dock：只要避开系统手势区再留一点呼吸。原实现无 dock 也照叠
+    // kcPageBottomGap + kcSpaceLg 两段，胶囊下方空出约 56dp 纯白，正是
+    // 「连着一大片空白」的另一半来源。
+    return context.padding.bottom + kcSpaceSm;
+  }
+
+  /// 胶囊本体 + 底部让位，由 [buildPagingMode] 以 [Positioned] 悬浮。
   Widget _buildPageBar() {
     final cs = Theme.of(context).colorScheme;
-    // 底栏真实显示条件是 `isRootTabPage && controller.value < 2`
-    // （navigation_bar.dart shouldShowBottomBar）：宽屏侧栏模式
-    // controller.value >= 2 时只有左侧栏、没有悬浮 dock，按 bottomBarHeight
-    // 让位会凭空把胶囊抬高约 100dp。
-    final pane = context.findAncestorStateOfType<NaviPaneState>();
-    final bool showDock;
-    if (pane == null) {
-      showDock = false;
-    } else {
-      showDock = pane.isRootTabPage && pane.controller.value < 2;
-    }
-    // bottomBarHeight 已含系统手势区；再补两段呼吸，让胶囊底边完全离开
-    // dock 的玻璃体（实测旧版仍重叠约 15dp）。无 dock 时也留一段，避免
-    // 胶囊贴在系统手势条上。
-    final bottomInset =
-        (showDock ? pane!.bottomBarHeight : context.padding.bottom) +
-        kcPageBottomGap +
-        kcSpaceLg;
     return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
+      padding: EdgeInsets.only(bottom: _pageBarBottomInset()),
       child: Center(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -2171,17 +2193,26 @@ class ComicListState extends State<ComicList> {
     //
     // 错误态一并藏掉：主体此时整屏是重试提示，底栏还挂着「页面 1 / ?」和两颗
     // 箭头，点了只会再失败一次 —— 是死控件，还占了错误说明的垂直空间。
-    final showBar = _maxPage != 1 && _error == null;
-    if (!showBar) {
+    if (!_showPageBar) {
       return body;
     }
-    return Column(
+    // 胶囊是 overlay，不再吃掉一整条底部布局高度：网格可以铺到屏幕底边，
+    // 原先那片跟着胶囊出现的白色底板随之消失。
+    return Stack(
       children: [
-        Expanded(child: body),
-        _buildPageBar(),
+        Positioned.fill(child: body),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _buildPageBar(),
+        ),
       ],
     );
   }
+
+  /// 分页条是否可见（body 末尾要按它预留等高滚动余量）。
+  bool get _showPageBar => _maxPage != 1 && _error == null;
 
   Widget _buildPagingBody() {
     if (_error != null) {
@@ -2215,6 +2246,10 @@ class ComicListState extends State<ComicList> {
       onRefresh: _handleRefresh,
       color: kcBrandAdaptive(context),
       child: SmoothCustomScrollView(
+        // SmoothCustomScrollView 默认会在末尾再补一段 context.padding.bottom；
+        // 悬浮胶囊的让位 [inset] 本身已经含了系统底部 padding，有胶囊时关掉
+        // 自动让位，避免两段叠加把最后一行推得离胶囊太远。无胶囊时保留默认。
+        bottomPadding: _showPageBar ? 0 : null,
         // 换页回到顶部。`enablePageStorage` 默认是 false，以前这里是 `null`，
         // key 不变 → 滚动位置被沿用，从上一页底部翻页会直接落在新页的半山腰，
         // 顶上前几部漫画被跳过。带上页码的 key 让滚动视图跟着页码重建。
@@ -2234,6 +2269,14 @@ class ComicListState extends State<ComicList> {
             openLocalIfAvailable: widget.openLocalIfAvailable,
           ),
           if (widget.trailingSliver != null) widget.trailingSliver!,
+          if (_showPageBar)
+            // 胶囊悬浮后不再压缩视口，末尾补一段不少于胶囊占位的空白，最后
+            // 一行仍能滚到胶囊上方完整露出，不会被永久压在胶囊底下。
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: _pageBarBottomInset() + kcPagerPillHeight + kcSpaceSm,
+              ),
+            ),
         ],
       ),
     );

@@ -174,13 +174,10 @@ class _ReaderScaffoldState extends State<_ReaderScaffold> with AutoListenMixin {
     setState(() {
       _isOpen = !_isOpen;
     });
-    // 打开/关闭都遵循「隐藏系统状态栏」设置，避免翻页时状态栏突然弹出。
-    // 用 immersiveSticky：普通 immersive 会被旋转等配置变更重置。
-    if (!appdata.settings['showSystemStatusBar']) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    } else {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
+    // 与进入阅读器时走同一个取值（支持按漫画 / 设备覆盖的「显示系统状态栏」），
+    // 这里若另读全局 appdata.settings，单本设置下点一下工具栏就会把状态栏
+    // 模式切错、闪一下。immersiveSticky 的选择也统一在 _applySystemUiMode 里。
+    context.reader._applySystemUiMode();
   }
 
   bool? rotation;

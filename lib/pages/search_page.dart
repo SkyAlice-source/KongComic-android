@@ -459,8 +459,10 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
   /// 「突然切了一刀」。现在把源区收进设置式浅卡片（12dp 圆角 + 发丝描边），
   /// 卡片边界本身就是分隔；历史区留在卡片外，靠留白过渡，不用再画硬线。
   ///
-  /// 胶囊区高度上限 116dp（约 3 行）：源多到离谱时不会把下面的历史挤没，
-  /// 超出部分在卡片内部滚动，整页滚动位置不跟着跳。
+  /// 胶囊按文字宽度紧凑排布，一行能放好几枚：以前外层 Center 没给
+  /// widthFactor，每枚都撑满整行，7 个源排成 8 行、又被写死的 116dp 上限
+  /// 裁成 2 行，用户只能看到「全选 + 第一个源」。现在上限改为屏高的 45%，
+  /// 常见的源数量一次全部露出来；只有源多到离谱时才在卡片内部滚动。
   Widget _buildSourceRow() {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
@@ -533,7 +535,9 @@ class _SearchPageState extends State<SearchPage> with AutoListenMixin {
       ),
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 116),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+        ),
         child: SingleChildScrollView(
           // SizedBox 撑满卡片宽度，Wrap 才能把整排胶囊居中；直接把 Wrap
           // 放进 Center 会拿到无界宽度，胶囊全部挤成一行溢出。
@@ -1114,7 +1118,11 @@ class _SearchChip extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         height: kcMinTapTarget,
+        // widthFactor 必须给：Wrap 传下来的是有界宽度，Center(Align) 默认会
+        // 撑满整行，于是 8 枚胶囊排成 8 行、再被卡片高度裁掉大半，看起来
+        // 就像「源不齐全」。收到内容宽之后一行能放 3~4 枚，全部源都可见。
         child: Center(
+          widthFactor: 1,
           child: AnimatedContainer(
             duration: kcReduceMotion(context)
                 ? Duration.zero

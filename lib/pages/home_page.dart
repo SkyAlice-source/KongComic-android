@@ -23,6 +23,12 @@ import 'local_comics_page.dart';
 /// 手机屏宽 * 0.60 恒定小于此值，故手机版外观不受此上限影响。
 const double _maxHeroCardWidth = 420;
 
+/// 整叠（装饰卡 + 层间缝 + 主卡）统一向下让位的距离。
+/// 主卡顶边原来贴着 `Stack` 的 Clip.hardEdge，顶部那半圈接触阴影被直接
+/// 裁平，看起来像被切了一刀。留出一个缝宽 + 2dp：缝在四边都能完整露出，
+/// 阴影向上扩散的部分也落在裁切边界内。banner 内的富余是 12dp，够用。
+const double _stackTopInset = kcStackSeamWidth + 2.0;
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
@@ -257,18 +263,25 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     if (_comics.isEmpty) return const SliverToBoxAdapter(child: SizedBox());
     if (_comics.length < 3) {
       // Show single card centered when fewer than 3 comics
+      // 注：3 本以下才退回单卡。3~4 本仍走堆叠，由 _buildStackedCards
+      // 去重后少画外侧装饰卡（绝不重复封面），左右拖拽换卡入口也保留。
       return SliverToBoxAdapter(
         child: SizedBox(
           height: widget.height,
           child: Stack(
             alignment: Alignment.topCenter,
             children: [
-              GestureDetector(
-                onTap: () => _navigateToComic(_comics[_currentIndex]),
-                child: _buildSingleCard(
-                  context,
-                  _comics[_currentIndex],
-                  width: widget.cardWidth,
+              // 与堆叠分支同样的顶部让位：单卡时接触阴影的上半圈也不能被
+              // Stack 的 hardEdge 裁平。
+              Padding(
+                padding: const EdgeInsets.only(top: _stackTopInset),
+                child: GestureDetector(
+                  onTap: () => _navigateToComic(_comics[_currentIndex]),
+                  child: _buildSingleCard(
+                    context,
+                    _comics[_currentIndex],
+                    width: widget.cardWidth,
+                  ),
                 ),
               ),
             ],
@@ -311,11 +324,17 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
             children: [
               // Decorative stacked cards (background)
               ..._buildStackedCards(context, cardW, widget.width),
-            // Main card with in-place replacement (AnimatedSwitcher)
-            Positioned(
-              top: 0,
-              child: GestureDetector(
-                onHorizontalDragEnd: (details) {
+              // 层间缝：垫在装饰卡与主卡之间，主卡四周露出 2dp 背景色间隙。
+              // 放在这里而不是叠在主卡上，是为了不缩小封面、不改堆叠几何。
+              _buildStackSeam(context, cardW),
+              // Main card with in-place replacement (AnimatedSwitcher)
+              // 整叠（装饰卡 + 缝 + 主卡）统一下移 [_stackTopInset]，主卡
+              // 不再贴着 Stack 顶边，顶部的缝和接触阴影不会被 Clip.hardEdge
+              // 切掉；四边缝宽因此完全一致。
+              Positioned(
+                top: _stackTopInset,
+                child: GestureDetector(
+                  onHorizontalDragEnd: (details) {
                   if (details.velocity.pixelsPerSecond.dx > 80) {
                     final prev =
                         (_currentIndex - 1 + _comics.length) % _comics.length;
@@ -371,22 +390,36 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     );
   }
 
-  /// 主页英雄区的 4 层堆叠装饰封面（v1.5.18 视觉，原样恢复）。
-  /// 以当前主卡为中心向左右各两张，越外侧越小、越靠下，形成一叠卡片的层次。
+  /// 主页英雄区最多 4 张堆叠装饰封面（v1.5.18 视觉）。
+  /// 以当前主卡为中心向左右各两张；漫画不足 5 本时按由内到外的顺序少画
+  /// 外侧的（3 本画 2 张、4 本画 3 张），只从主卡以外的漫画里取，绝不重复。
+  /// `Transform.scale` 按**中心**等比缩小
+  /// （不调平底边，用户明确要求保留原来的错落感）。重叠处由主卡盖住，
+  /// 层间缝的下段渐变淡出负责消掉底边错开处的硬折角。
   /// 尺寸全部由 [cardW] 派生，cardW 由主页按 banner 高度反算，因此整叠不会
   /// 溢出到标题区；装饰卡不显示图标和重试按钮，但保留淡灰书名首字作为
   /// 封面加载中 / 失败时的占位（见 [_buildCover]），避免出现纯色空框。
   ///
   /// 边缘按方案 A 收口：与主卡一样只用 [kcCardRadius] 单层圆角，原来 3dp
-  /// 白边换成 [kcHairlineColor] 发丝描边，阴影只留给主卡。旧版四层 blur6
-  /// 阴影叠加后糊成一团且被 ClipRRect 裁掉，浅色下还有一圈「贴纸白框」。
+  /// 白边换成 [kcHairlineColor] 发丝描边。旧版四层 blur6 阴影叠加后糊成
+  /// 一团且被 ClipRRect 裁掉，浅色下还有一圈「贴纸白框」，这里不复刻。
+  ///
+  /// 分层由两件事共同承担：越靠外的装饰卡叠越厚的 surface / 黑色 scrim，
+  /// 视觉上退到背景里；**每张卡**（含 4 张装饰卡和主卡）都带一圈四边等宽
+  /// 的实体色层间缝，保证复杂封面下前后关系仍然可读，也让装饰卡底边不再
+  /// 是一条被横切的硬直线。描边只留 0.8dp 发丝做轮廓，不负责分层。
   List<Widget> _buildStackedCards(
     BuildContext context,
     double cardW,
     double sw,
   ) {
     final items = <Widget>[];
-    final edge = kcHairlineColor(context);
+    final cs = Theme.of(context).colorScheme;
+    // 浅色叠 surface（往背景淡化），深色叠纯黑（往背景压暗），两条路都是
+    // 「让外侧卡片退后」，不会在浅色下出现一圈发白的贴纸边。
+    final scrimColor = cs.brightness == Brightness.dark
+        ? Colors.black
+        : cs.surface;
     // 整叠的视觉宽度恰好是 2 × cardW：最外侧 layer=±2 缩到 0.8 后，外缘落在
     // sw/2 ± (2 × overlap + 0.4 × cardW)。原版 overlap=0.30 × cardW 时该式
     // 化简为 sw/2 ± cardW —— 只有 cardW ≈ sw/2 才刚好铺满。现在 cardW 改由
@@ -400,31 +433,107 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
       math.max(cardW * 0.30, sw / 4 - cardW * 0.20),
       cardW * 0.80,
     );
-    for (final layer in [-2, -1, 2, 1]) {
-      int idx = (_currentIndex + layer) % _comics.length;
-      if (idx < 0) idx += _comics.length;
-      final comic = _comics[idx];
+    // 缝不再是主卡专属：4 张装饰卡各自也带一圈四边等宽的缝，底边同样
+    // 有收口。共用一个 [BoxDecoration] 实例，颜色/圆角/阴影完全一致。
+    final seam = kcStackSeamWidth;
+    final seamDecoration = _stackSeamDecoration(context);
+    // 原来直接按 (_currentIndex + layer) % len 取漫画：只有 3 本时 ±1 与
+    // ±2 两两撞车、4 本时最外侧两张撞车，左右会出现对称的同款封面。这里
+    // 改成从「主卡以外的漫画」里按内层→外层顺序取，凑不够 4 张就少画外侧
+    // 的，绝不重复；主卡的左右拖拽换卡逻辑完全不受影响。
+    // 绘制仍按 |layer| 从大到小（外层先画、内层后画压在上面），保持原有
+    // 前后层次；同为内层时左侧先画、右侧后画（排序结果 [-2,2,-1,1]）。
+    final otherIndices = <int>[
+      for (var d = 1; d < _comics.length; d++)
+        (_currentIndex + d) % _comics.length,
+    ];
+    final layerSlots = const [-1, 1, -2, 2];
+    final slots = <MapEntry<int, int>>[];
+    final slotCount = math.min(layerSlots.length, otherIndices.length);
+    for (var i = 0; i < slotCount; i++) {
+      slots.add(MapEntry(layerSlots[i], otherIndices[i]));
+    }
+    slots.sort((a, b) {
+      final byDepth = b.key.abs().compareTo(a.key.abs());
+      return byDepth != 0 ? byDepth : a.key.compareTo(b.key);
+    });
+    for (final slot in slots) {
+      final layer = slot.key;
+      final comic = _comics[slot.value];
       final scale = 1.0 - layer.abs() * 0.1;
-      final topOff = layer.abs() * 2.0;
+      // 与主卡一起下移 [_stackTopInset]，保持「装饰卡比主卡低 2/4dp」
+      // 的相对关系，整叠内部几何不变。
+      final topOff = _stackTopInset + layer.abs() * 2.0;
       final pos = sw * 0.5 + layer * overlap - cardW * 0.5;
+      // ±1 轻压一层、±2 再压一层：两档差值足够看出前后，又不至于把最外侧
+      // 卡片淡得像没加载出来（实拍 0.14/0.30 偏重）。主卡不在此循环，
+      // 保持原色 + 阴影，自然跳到最前。
+      final scrimAlpha = layer.abs() == 1 ? 0.10 : 0.22;
       items.add(
         Positioned(
-          left: pos,
-          top: topOff,
-          width: cardW,
+          // 外框四边各比卡片大一个缝宽；Transform.scale 以中心为基准，
+          // 中心与原来只放卡片时完全一致，堆叠几何不变。
+          left: pos - seam,
+          top: topOff - seam,
+          width: cardW + 2 * seam,
           child: Transform.scale(
             scale: scale,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(kcCardRadius),
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: edge, width: kcHairline),
-                  borderRadius: BorderRadius.circular(kcCardRadius),
-                ),
-                child: SizedBox(
-                  height: cardW * 1.4,
-                  child: _buildCover(comic, decorative: true),
-                ),
+            child: SizedBox(
+              width: cardW + 2 * seam,
+              height: cardW * 1.4 + 2 * seam,
+              // Clip.none 只放行缝外侧那圈柔和阴影；子节点尺寸都精确，
+              // 不会真的溢出到标题区。
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // 每张装饰卡自己的层间缝：底边也有一圈背景色收口，
+                  // 不再是贯穿左右的硬直线（实拍 321「底部好像切割了」）。
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(decoration: seamDecoration),
+                    ),
+                  ),
+                  Positioned(
+                    left: seam,
+                    top: seam,
+                    width: cardW,
+                    height: cardW * 1.4,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(kcCardRadius),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          // 外沿统一走全站发丝色（浅色中性灰、深色
+                          // onSurface@0.38）；层间前后关系交给缝，描边
+                          // 只负责把封面轮廓从缝里划出来。
+                          border: Border.all(
+                            color: kcHairlineColorFromScheme(cs),
+                            width: kcHairline,
+                          ),
+                          borderRadius: BorderRadius.circular(kcCardRadius),
+                        ),
+                        child: SizedBox(
+                          height: cardW * 1.4,
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: _buildCover(comic, decorative: true),
+                              ),
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: ColoredBox(
+                                    color: scrimColor.withValues(
+                                      alpha: scrimAlpha,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -432,6 +541,89 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
       );
     }
     return items;
+  }
+
+  /// 主卡与身后装饰卡之间的「层间缝」。
+  ///
+  /// 分层只靠逐层蒙层时，蒙层是叠在**封面**上的半透明色：封面花纹一密、
+  /// 或两张封面明暗接近，那 0.10/0.22 的差值就被吃掉了，整叠看着像一张
+  /// 被竖线切开的图。这里改成在两层之间垫一圈不随封面变化的背景色间隙
+  /// （浅色近白、深色近黑，都是半透明），缝本身是实体色，任何封面都盖不住。
+  ///
+  /// **四边等宽**：垫片比主卡上下左右各大一个 [kcStackSeamWidth]，主卡则
+  /// 连同装饰卡一起下移 [_stackTopInset]，让顶部那道缝也完整露出。早期版本
+  /// 只垫左右和底部，顶部没有缝、主卡又贴着裁切边界，实拍就是「上边被切平」。
+  /// 圆角取 [kcCardRadius] + 缝宽，保证四角露出的厚度与四边一致。
+  Widget _buildStackSeam(BuildContext context, double cardW) {
+    final seam = kcStackSeamWidth;
+    return Positioned(
+      top: _stackTopInset - seam,
+      child: IgnorePointer(
+        child: Container(
+          width: cardW + 2 * seam,
+          height: cardW * 1.4 + 2 * seam,
+          // 主卡这圈缝的下段做垂直淡出：装饰卡按中心等比缩小，底边比主卡
+          // 高 0.05H/0.10H，实体色缝的竖直边会在装饰卡结束处突然断掉，
+          // 形成「水平→竖直→水平」的白色 L 形硬折角（实拍 325 用户指出）。
+          // 淡出后折角消失，顶部与中段的缝仍完整，几何一点不动。
+          decoration: _stackSeamDecoration(
+            context,
+            shadow: false,
+            fadeBottom: true,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 层间缝的统一外观：随主题的背景色 + 一圈柔和暗晕。
+  /// 主卡和 4 张装饰卡的颜色、圆角完全一致，保证「每张卡四边等边」。
+  ///
+  /// [shadow] 只给装饰卡开：装饰卡靠这圈暗晕把底边收口，不会又变成一条
+  /// 横切硬线。主卡用的是 `shadow: false`——它的缝是纯实体色，浮起感交给
+  /// [_buildSingleCard] 里跟随卡片圆角的阴影；如果缝自己也投一道带向下
+  /// offset 的矩形影，三层阴影会在主卡底边叠成一条边界笔直、与圆角脱节
+  /// 的深灰横带（实拍 330/333 用户指出的「底部阴影有问题」）。
+  ///
+  /// [fadeBottom] 只给主卡开：把缝的下 30% 从实体色渐变到透明。装饰卡按
+  /// 中心等比缩小，底边比主卡高，实体缝的竖直硬边原本会在装饰卡结束处
+  /// 突然断掉形成白色 L 形折角；淡出后下段不再有硬边，顶部/中段的分层
+  /// 缝仍完整。渐变与纯色互斥，所以 [color] 此时置空。
+  BoxDecoration _stackSeamDecoration(
+    BuildContext context, {
+    bool shadow = true,
+    bool fadeBottom = false,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final seamColor = cs.surface.withValues(alpha: isDark ? 0.72 : 0.82);
+    return BoxDecoration(
+      color: fadeBottom ? null : seamColor,
+      gradient: fadeBottom
+          ? LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                seamColor,
+                seamColor,
+                seamColor.withValues(alpha: 0),
+              ],
+              stops: const [0.0, 0.70, 1.0],
+            )
+          : null,
+      borderRadius: BorderRadius.circular(kcCardRadius + kcStackSeamWidth),
+      // 零 offset、零 spread、柔 blur：四边对称的一圈淡晕，任何一边都不会
+      // 比另一边更重，也不会留下矩形硬芯。分层主要靠实体色缝，这圈晕只
+      // 负责把装饰卡底边收口，所以强度压到几乎看不见。
+      boxShadow: shadow
+          ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.06),
+                blurRadius: 6,
+              ),
+            ]
+          : null,
+    );
   }
 
   Widget _buildSingleCard(
@@ -448,10 +640,19 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
         Container(
           decoration: BoxDecoration(
             boxShadow: [
+              // 接触阴影：四边均匀的一圈窄暗晕，盖在身后的装饰卡上。
+              // 不加 spreadRadius——1dp 硬芯会让卡片底边像贴了一条深灰
+              // 直线；不加 offset，左右与上下才会同样柔和。
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
+                color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.11),
+                blurRadius: 5,
+              ),
+              // 抬升阴影：只留极轻的向下趋势，配合大 blur 让底边阴影
+              // 顺着圆角渐隐，而不是形成一条贯穿卡片宽度的硬横带。
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.14 : 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 1),
               ),
             ],
             borderRadius: BorderRadius.circular(kcCardRadius),

@@ -359,7 +359,14 @@ class _GalleryModeState extends State<_GalleryMode>
     implements _ImageViewController {
   late PageController controller;
 
-  int get preCacheCount => appdata.settings["preloadImageCount"];
+  /// 兼容 num / 字符串并夹到 [1,16]：设置值可能来自 jsonDecode 的 double、
+  /// WebDAV 同步带来的字符串或越界数字，直接 `as int` 会在首次翻页时抛类型
+  /// 错误，负数还会让 [cache] 的循环空转、超大值会一次触发上百次解码。
+  int get preCacheCount {
+    var v = appdata.settings["preloadImageCount"];
+    var n = v is num ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 4;
+    return n.clamp(1, 16);
+  }
 
   /// Reader-wide image zoom factor (1.0 - 2.0) from the "display scale" setting.
   double get _imageDisplayScaleFactor {
@@ -992,6 +999,22 @@ final Map<String, List<String>> _preloadedChapterPages = {};
 /// 正在预取的 key，避免同一话被并发拉取多次。
 final Set<String> _preloadingChapters = {};
 
+/// 在途的预下载订阅。ImageDownloader 的流必须有人一直监听才会跑到 done，
+/// 但页面卸载后不该让网络请求与写缓存继续跑，退出阅读器时统一取消。
+final Set<StreamSubscription<dynamic>> _preloadImageSubscriptions = {};
+
+/// 退出阅读器时清掉跨话预取缓存：这几张表是文件顶层全局，不清理的话
+/// 下一个阅读会话可能拿到上一本漫画残留的图片列表，且 URL 一直占内存。
+/// 由 [_ReaderState.dispose] 调用。
+void clearChapterPreloadCache() {
+  _preloadedChapterPages.clear();
+  _preloadingChapters.clear();
+  for (final sub in _preloadImageSubscriptions) {
+    sub.cancel();
+  }
+  _preloadImageSubscriptions.clear();
+}
+
 String _chapterPreloadKey(ComicType type, Object cid, int chapter) =>
     '${type.comicSource?.key ?? type.value.toString()}|$cid|$chapter';
 
@@ -1039,7 +1062,14 @@ class _ContinuousModeState extends State<_ContinuousMode>
   bool _autoScrolling = false;
   bool get autoScrolling => _autoScrolling;
 
-  int get preCacheCount => appdata.settings["preloadImageCount"];
+  /// 兼容 num / 字符串并夹到 [1,16]：设置值可能来自 jsonDecode 的 double、
+  /// WebDAV 同步带来的字符串或越界数字，直接 `as int` 会在首次翻页时抛类型
+  /// 错误，负数还会让 [cache] 的循环空转、超大值会一次触发上百次解码。
+  int get preCacheCount {
+    var v = appdata.settings["preloadImageCount"];
+    var n = v is num ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 4;
+    return n.clamp(1, 16);
+  }
 
   /// Reader-wide image zoom factor (1.0 - 2.0) from the "display scale" setting.
   double get _imageDisplayScaleFactor {
@@ -1228,13 +1258,18 @@ class _ContinuousModeState extends State<_ContinuousMode>
         pages = res.data;
       }
       if (pages.isEmpty) return;
+      // 异步期间用户可能已经退出或手动切章：迟到的结果不要再写进全局表，
+      // 否则永远没人消费，白占一个 LRU 槽位。
+      if (!mounted || reader.chapter >= chapter) return;
       _preloadedChapterPages[key] = pages;
       // 上限 4 条，避免连续翻章时无限攒着。
       while (_preloadedChapterPages.length > 4) {
         _preloadedChapterPages.remove(_preloadedChapterPages.keys.first);
       }
-    } catch (_) {
-      // 预取是尽力而为：失败就交给切章时的正常加载。
+    } catch (e, s) {
+      // 预取是尽力而为：失败就交给切章时的正常加载，但要留日志，
+      // 否则网络/文件错误完全不可观测。
+      Log.error("Preload chapter", e, s);
     } finally {
       _preloadingChapters.remove(key);
     }
@@ -1300,10 +1335,18 @@ class _ContinuousModeState extends State<_ContinuousMode>
 
   void cacheImages(int current) {
     for (int i = current + 1; i <= current + preCacheCount; i++) {
-      if (i <= reader.maxPage && !cached[i]) {
+      // cached 是定长数组，maxPage 若在 State 存活期间变大也不能越界。
+      if (i > reader.maxPage || i >= cached.length || cached[i]) continue;
+      // 本地漫画没有下载器可用：走 ImageProvider 预解码，而不是让
+      // _preDownloadImage 对 file:// 直接 return（旧实现让连续模式下
+      // 本地漫画完全没有预加载，与画廊模式行为不一致）。
+      final key = reader.images?.elementAtOrNull(i - 1);
+      if (key != null && key.startsWith('file://')) {
+        _precacheImage(i, context);
+      } else {
         _preDownloadImage(i, context);
-        cached[i] = true;
       }
+      cached[i] = true;
     }
   }
 
@@ -1867,7 +1910,11 @@ void _precacheImage(int page, BuildContext context) {
   }
   var image = _createImageProvider(page, context);
   if (image == null) return;
-  precacheImage(image, context);
+  // 解码失败（403 / 损坏文件 / 本地文件已删）以前是未处理的异步错误，
+  // 既没有日志也可能在 debug 下冒泡；预解码只是尽力而为，记下即可。
+  precacheImage(image, context).onError((Object e, StackTrace s) {
+    Log.error("Precache image", e, s);
+  });
 }
 
 /// [_preDownloadImage] is used to download the image for the given page.
@@ -1886,7 +1933,21 @@ void _preDownloadImage(int page, BuildContext context) {
   var cid = reader.cid;
   var eid = reader.eid;
   var sourceKey = reader.type.comicSource?.key;
-  ImageDownloader.loadComicImage(imageKey, sourceKey, cid, eid);
+  // 必须挂一个订阅并保持到 done：ImageDownloader 的 _StreamWrapper 在
+  // 没有任何 listener（controllers 为空）时，收到第一个网络分块就 break，
+  // 上游 async* 生成器随即被取消，末尾的 CacheManager.writeCache 永远执行
+  // 不到。旧代码把 Stream 丢掉，等于所有「预下载」都只跑了第一个分块，
+  // 实际生效的只剩相邻 ±1 页的 precacheImage。
+  StreamSubscription<dynamic>? sub;
+  sub = ImageDownloader.loadComicImage(imageKey, sourceKey, cid, eid).listen(
+    (_) {},
+    onError: (Object e, StackTrace s) {
+      Log.error("Preload image", e, s);
+      _preloadImageSubscriptions.remove(sub);
+    },
+    onDone: () => _preloadImageSubscriptions.remove(sub),
+  );
+  _preloadImageSubscriptions.add(sub);
 }
 
 class _SwipeChangeChapterProgress extends StatefulWidget {

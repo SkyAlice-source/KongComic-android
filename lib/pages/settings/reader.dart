@@ -547,6 +547,9 @@ class _ReaderSettingsState extends State<ReaderSettings> {
             interval: 1,
             min: 1,
             max: 16,
+            // 阅读器的 preCacheCount 按 int 用；显式取整避免导入/同步写进
+            // double 后首次翻页抛类型错误（读取侧另有 num→int 兜底）。
+            roundToInt: true,
             comicId: isEnabledSpecificSettings ? widget.comicId : null,
             comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
             useDeviceSettings: useDeviceSpecificSettings,

@@ -266,6 +266,9 @@ class HistoryManager with ChangeNotifier {
 
     notifyListeners();
     ImageFavoriteManager().init();
+    // 全量导入会删掉 history.db 再换文件，图片收藏表也跟着换。以前这里
+    // 只 init 不 notify，图片收藏页会一直显示旧列表直到手动刷新或重启。
+    ImageFavoriteManager().notifyListeners();
     isInitialized = true;
   }
 
@@ -670,6 +673,10 @@ class HistoryManager with ChangeNotifier {
   void close() {
     isInitialized = false;
     _db.close();
+    // DB 会被整包替换：不清缓存的话 find() 仍按旧的 _cachedHistoryIds
+    // 判存在性，新导入的记录被判「不存在」，已删掉的记录还会返回旧对象。
+    _cachedHistoryIds = null;
+    cachedHistories.clear();
   }
 
   void batchDeleteHistories(List<ComicID> histories) {

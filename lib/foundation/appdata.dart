@@ -42,18 +42,23 @@ class Appdata with Init {
       var file = File(FilePath.join(App.dataPath, 'appdata.json'));
       futures.add(file.writeAsString(data));
 
+      // syncdata.json 是 WebDAV 上传专用的脱敏快照，必须始终生成：上传端
+      // 恒用 exportAppData(true) 读它。内置设备字段（WebDAV 明文密码、
+      // proxy、deviceId…）一律剔除，用户自定义跳过字段追加；dataVersion
+      // 保留，导入侧的版本判定还要用。旧实现只在「自定义跳过字段非空」时
+      // 才写这个文件，默认用户上传的其实是完整的 appdata.json。
+      var json4sync = jsonDecode(data) as Map<String, dynamic>;
+      var settings4sync = json4sync["settings"] as Map<String, dynamic>;
+      for (var field in _disableSync) {
+        settings4sync.remove(field);
+      }
       var disableSyncFields =
           json["settings"]["disableSyncFields"] as String? ?? "";
-      if (disableSyncFields.isNotEmpty) {
-        var json4sync = jsonDecode(data);
-        List<String> customDisableSync = splitField(disableSyncFields);
-        for (var field in customDisableSync) {
-          json4sync["settings"].remove(field);
-        }
-        var data4sync = jsonEncode(json4sync);
-        var file4sync = File(FilePath.join(App.dataPath, 'syncdata.json'));
-        futures.add(file4sync.writeAsString(data4sync));
+      for (var field in splitField(disableSyncFields)) {
+        settings4sync.remove(field);
       }
+      var file4sync = File(FilePath.join(App.dataPath, 'syncdata.json'));
+      futures.add(file4sync.writeAsString(jsonEncode(json4sync)));
 
       await Future.wait(futures);
     } finally {
@@ -110,23 +115,40 @@ class Appdata with Init {
     "deviceId",
   ];
 
-  /// Sync data from another device
-  void syncData(Map<String, dynamic> data) {
+  /// Sync data from another device.
+  ///
+  /// [triggerSync] 仅由导入流程控制：`saveData()` 内部会异步触发
+  /// `DataSync().uploadData()`，而 WebDAV 下载合并时若让它触发，就会在
+  /// 「刚下载完」立刻回传一份、并把 dataVersion 再 +1（DataSync 的
+  /// `_isImporting` 守卫那时可能已经解除）。自动同步导入显式传 false。
+  void syncData(Map<String, dynamic> data, [bool triggerSync = true]) {
     if (data['settings'] is Map) {
       var settings = data['settings'] as Map<String, dynamic>;
 
       List<String> customDisableSync = splitField(
-        this.settings["disableSyncFields"] as String,
+        this.settings["disableSyncFields"] as String? ?? "",
       );
 
       for (var key in settings.keys) {
         if (!_disableSync.contains(key) && !customDisableSync.contains(key)) {
-          this.settings[key] = settings[key];
+          // dataVersion 必须是 int：上传端会 ++、导入端会做 <= 比较，老备份
+          // 或跨平台导出可能写成 12.0 / "12"。
+          if (key == 'dataVersion') {
+            var v = settings[key];
+            // 老备份 / 跨平台导出可能写成 12.0 或 "12"；上传端会 ++、
+            // 下载端做 <= 比较，字符串会让版本号被重置为 1。
+            this.settings[key] = v is num
+                ? v.toInt()
+                : int.tryParse(v?.toString() ?? '') ?? 0;
+          } else {
+            this.settings[key] = settings[key];
+          }
         }
       }
     }
-    searchHistory = List.from(data['searchHistory'] ?? []);
-    saveData();
+    var history = data['searchHistory'];
+    searchHistory = history is List ? List.from(history) : <String>[];
+    saveData(triggerSync);
   }
 
   var implicitData = <String, dynamic>{};

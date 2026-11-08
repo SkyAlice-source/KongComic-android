@@ -844,6 +844,9 @@ class _SystemUiProvider extends StatelessWidget {
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
         systemStatusBarContrastEnforced: false,
+        // API 29+ 在导航栏透明时默认加一层半透明对比度保护（scrim），
+        // 会在手势条区域留下一条灰底，和边到边的全透明设计不一致。
+        systemNavigationBarContrastEnforced: false,
       );
     } else {
       systemUiStyle = SystemUiOverlayStyle.light.copyWith(
@@ -851,6 +854,7 @@ class _SystemUiProvider extends StatelessWidget {
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.light,
         systemStatusBarContrastEnforced: false,
+        systemNavigationBarContrastEnforced: false,
       );
     }
     return AnnotatedRegion<SystemUiOverlayStyle>(

@@ -54,3 +54,8 @@ android/*.jks
 
 # AI-generated artifact (overview.md etc.)
 overview.md
+
+# Local design/audit artifacts (never shipped)
+audit_shots/
+*_audit*.html
+*_proposal*.html

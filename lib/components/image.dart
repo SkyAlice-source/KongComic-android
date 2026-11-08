@@ -310,7 +310,9 @@ class _AnimatedImageState extends State<AnimatedImage>
           color: widget.color,
           opacity: widget.opacity,
           colorBlendMode: widget.colorBlendMode,
-          fit: BoxFit.cover,
+          // 与上面的 part 分支保持一致：调用方传了 fit 就生效，没传才回落
+          // cover。之前硬编码 cover 会让 CoverBox(fit: ...) 静默失效。
+          fit: widget.fit ?? BoxFit.cover,
           alignment: widget.alignment,
           repeat: widget.repeat,
           centerSlice: widget.centerSlice,

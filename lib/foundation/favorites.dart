@@ -782,11 +782,13 @@ class LocalFavoritesManager with ChangeNotifier {
   void mergeFrom(String backupDbPath) {
     _db.execute("ATTACH DATABASE ? AS backup", [backupDbPath]);
     try {
-      var tables = _db.select("""
+      var backupTables = _db
+          .select("""
         SELECT name FROM backup.sqlite_master WHERE type == 'table';
-      """);
-      var folders = tables
+      """)
           .map((e) => e["name"] as String)
+          .toSet();
+      var folders = backupTables
           .where((name) => name != "folder_order" && name != "folder_sync")
           .toList();
       for (var folder in folders) {
@@ -796,14 +798,32 @@ class LocalFavoritesManager with ChangeNotifier {
         var rows = _db.select('select * from backup."$folder";');
         for (var row in rows) {
           var comic = FavoriteItem.fromRow(row);
-          addComic(folder, comic, null, null, false);
+          // 保留备份里的夹内手动排序：原来传 null，addComic 会按本机
+          // newFavoriteAddTo 重新生成 display_order，合并后顺序全乱。
+          // 老备份没有这一列时 row 里取到 null，自动退回默认行为。
+          addComic(
+            folder,
+            comic,
+            (row['display_order'] as num?)?.toInt(),
+            null,
+            false,
+          );
         }
       }
       // Merge folder_sync links for folders that aren't already linked.
-      _db.execute("""
-        INSERT OR IGNORE INTO folder_sync
-        SELECT * FROM backup.folder_sync;
-      """);
+      if (backupTables.contains('folder_sync')) {
+        _db.execute("""
+          INSERT OR IGNORE INTO folder_sync (folder_name, source_key, source_folder)
+          SELECT folder_name, source_key, source_folder FROM backup.folder_sync;
+        """);
+      }
+      // 收藏夹顺序也必须合进来，否则新导入的夹子顺序全靠创建顺序决定。
+      if (backupTables.contains('folder_order')) {
+        _db.execute("""
+          INSERT OR IGNORE INTO folder_order (folder_name, order_value)
+          SELECT folder_name, order_value FROM backup.folder_order;
+        """);
+      }
       initCounts();
       notifyListeners();
     } finally {

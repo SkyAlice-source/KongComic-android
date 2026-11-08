@@ -169,33 +169,46 @@ class _CoverBoxState extends State<CoverBox> {
 
     if (image == null) return placeholder;
 
-    return Stack(
-      fit: StackFit.expand,
-      clipBehavior: Clip.none,
-      children: [
-        placeholder,
-        AnimatedImage(
-          key: ValueKey('cover_${image.hashCode}_$_attempt'),
-          image: image,
-          fit: widget.fit,
-          filterQuality: widget.filterQuality,
-          cacheWidth: widget.cacheWidth,
-          cacheHeight: widget.cacheHeight,
-          // 占位由外层 Stack 提供；这里透明，避免把首字盖住。
-          placeholder: const SizedBox.shrink(),
-          errorWidget: const SizedBox.shrink(),
-          onError: (_, __) {
-            widget.onFailed?.call();
-            if (!_failed && mounted) setState(() => _failed = true);
-          },
-        ),
-        if (_failed && widget.retryable)
-          Positioned(
-            right: 8,
-            bottom: 8,
-            child: _CoverRetryButton(onTap: _retry),
-          ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // AnimatedImage 内部是 loose 约束的 AnimatedSwitcher：只给 Stack 的
+        // expand 约束不够，RawImage 会按图片固有尺寸居中绘制，容器上下露出
+        // secondaryContainer 的浅粉底，看起来就是「封面框填充不满、上下都空」。
+        // 把容器尺寸显式传给 AnimatedImage，BoxFit.cover 才有明确的填充目标。
+        // unbounded 场景（少数无固定尺寸的调用方）传 null，保持原行为。
+        final w = constraints.hasBoundedWidth ? constraints.maxWidth : null;
+        final h = constraints.hasBoundedHeight ? constraints.maxHeight : null;
+        return Stack(
+          fit: StackFit.expand,
+          clipBehavior: Clip.none,
+          children: [
+            placeholder,
+            AnimatedImage(
+              key: ValueKey('cover_${image.hashCode}_$_attempt'),
+              image: image,
+              width: w,
+              height: h,
+              fit: widget.fit,
+              filterQuality: widget.filterQuality,
+              cacheWidth: widget.cacheWidth,
+              cacheHeight: widget.cacheHeight,
+              // 占位由外层 Stack 提供；这里透明，避免把首字盖住。
+              placeholder: const SizedBox.shrink(),
+              errorWidget: const SizedBox.shrink(),
+              onError: (_, __) {
+                widget.onFailed?.call();
+                if (!_failed && mounted) setState(() => _failed = true);
+              },
+            ),
+            if (_failed && widget.retryable)
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: _CoverRetryButton(onTap: _retry),
+              ),
+          ],
+        );
+      },
     );
   }
 }

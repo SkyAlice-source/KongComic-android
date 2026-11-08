@@ -861,7 +861,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
           PaginatedSliverGridComics(
             key: _gridKey,
             pageLoader: _loadPage,
-            selections: selectedComics,
+            // 只有多选态才套「每本单独边框」的单元格外框；正常阅读态让封面
+            // 直接铺到卡座边缘，不再因为 6dp margin + 2dp 透明边四周留空。
+            selections: multiSelectMode ? selectedComics : null,
             showSourceOnCover: false,
             showBottomSourceDate: true,
             onLoadedComicsChanged: (loaded) {
@@ -878,7 +880,9 @@ class _LocalFavoritesPageState extends State<_LocalFavoritesPage>
         else
           SliverGridComics(
             comics: visible,
-            selections: selectedComics,
+            // 只有多选态才套「每本单独边框」的单元格外框；正常阅读态让封面
+            // 直接铺到卡座边缘，不再因为 6dp margin + 2dp 透明边四周留空。
+            selections: multiSelectMode ? selectedComics : null,
             showSourceOnCover: false,
             showBottomSourceDate: true,
             menuBuilder: (c) {
