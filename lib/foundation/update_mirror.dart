@@ -289,6 +289,7 @@ Future<MirrorProbeResult> probeMirror(
   UpdateMirror mirror,
   String assetUrl, {
   Duration timeout = const Duration(seconds: 8),
+  CancelToken? cancelToken,
 }) async {
   final stopwatch = Stopwatch()..start();
   final url = mirror.apply(assetUrl);
@@ -320,6 +321,10 @@ Future<MirrorProbeResult> probeMirror(
         // of Dio's exception path so the reason is readable.
         validateStatus: (status) => status != null && status < 500,
       ),
+      // A probe is the first thing a download does, and up to four mirrors can
+      // be tried in a row. Without a cancel token, "stop" would wait out the
+      // current probe (up to 8 s) before the loop noticed.
+      cancelToken: cancelToken,
     );
     final status = res.statusCode ?? 0;
     if (status != 200 && status != 206) {

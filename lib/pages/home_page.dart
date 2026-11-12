@@ -360,15 +360,20 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
             children: [
               // Decorative stacked cards (background)
               ..._buildStackedCards(context, cardW, widget.width),
-              // 层间缝：垫在装饰卡与主卡之间，主卡四周露出 2dp 背景色间隙。
-              // 放在这里而不是叠在主卡上，是为了不缩小封面、不改堆叠几何。
-              _buildStackSeam(context, cardW),
               // Main card with in-place replacement (AnimatedSwitcher)
               // 整叠（装饰卡 + 缝 + 主卡）统一下移 [_stackTopInset]，主卡
               // 不再贴着 Stack 顶边，顶部的缝和接触阴影不会被 Clip.hardEdge
               // 切掉；四边缝宽因此完全一致。
+              //
+              // 层间缝以前是独立的一层，压在装饰卡上、垫在主卡下面。切卡时
+              // 主卡走 ScaleTransition（从 0 放大）并淡出旧卡，那块缝留在原地
+              // 不动，于是每滑一次都会从卡片背后露出一圈白色圆角底板（用户
+              // 实拍「中间卡片一直有个白色的底」）。现在把缝和主卡放进同一个
+              // switcher child：缝跟着卡片一起缩放、淡入淡出，牌面之外不再有
+              // 任何残留。静态几何完全不变（外层整体上移一个缝宽，卡片仍在
+              // 原来的 top）。
               Positioned(
-                top: _stackTopInset,
+                top: _stackTopInset - kcStackSeamWidth,
                 child: GestureDetector(
                   onHorizontalDragEnd: (details) {
                   if (details.velocity.pixelsPerSecond.dx > 80) {
@@ -404,16 +409,36 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
                   },
                   child: SizedBox(
                     key: ValueKey(_currentIndex),
-                    width: cardW,
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: () => _navigateToComic(_comics[_currentIndex]),
-                        child: _buildSingleCard(
-                          context,
-                          _comics[_currentIndex],
-                          width: cardW,
+                    // 外框比卡片大一圈缝宽，缝本身也在这个 child 里：切卡时
+                    // 两者一起缩放/淡出，不会有一块静止的白底从牌面下露出来。
+                    width: cardW + 2 * kcStackSeamWidth,
+                    height: cardW * 1.4 + 2 * kcStackSeamWidth,
+                    child: Stack(
+                      children: [
+                        // 层间缝：实体色垫片，主卡四周露出一圈背景色间隙。
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: Container(
+                              decoration: _stackSeamDecoration(
+                                context,
+                                shadow: false,
+                                fadeBottom: true,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        Center(
+                          child: GestureDetector(
+                            onTap: () =>
+                                _navigateToComic(_comics[_currentIndex]),
+                            child: _buildSingleCard(
+                              context,
+                              _comics[_currentIndex],
+                              width: cardW,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -579,39 +604,6 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
     return items;
   }
 
-  /// 主卡与身后装饰卡之间的「层间缝」。
-  ///
-  /// 分层只靠逐层蒙层时，蒙层是叠在**封面**上的半透明色：封面花纹一密、
-  /// 或两张封面明暗接近，那 0.10/0.22 的差值就被吃掉了，整叠看着像一张
-  /// 被竖线切开的图。这里改成在两层之间垫一圈不随封面变化的背景色间隙
-  /// （浅色近白、深色近黑，都是半透明），缝本身是实体色，任何封面都盖不住。
-  ///
-  /// **四边等宽**：垫片比主卡上下左右各大一个 [kcStackSeamWidth]，主卡则
-  /// 连同装饰卡一起下移 [_stackTopInset]，让顶部那道缝也完整露出。早期版本
-  /// 只垫左右和底部，顶部没有缝、主卡又贴着裁切边界，实拍就是「上边被切平」。
-  /// 圆角取 [kcCardRadius] + 缝宽，保证四角露出的厚度与四边一致。
-  Widget _buildStackSeam(BuildContext context, double cardW) {
-    final seam = kcStackSeamWidth;
-    return Positioned(
-      top: _stackTopInset - seam,
-      child: IgnorePointer(
-        child: Container(
-          width: cardW + 2 * seam,
-          height: cardW * 1.4 + 2 * seam,
-          // 主卡这圈缝的下段做垂直淡出：装饰卡按中心等比缩小，底边比主卡
-          // 高 0.05H/0.10H，实体色缝的竖直边会在装饰卡结束处突然断掉，
-          // 形成「水平→竖直→水平」的白色 L 形硬折角（实拍 325 用户指出）。
-          // 淡出后折角消失，顶部与中段的缝仍完整，几何一点不动。
-          decoration: _stackSeamDecoration(
-            context,
-            shadow: false,
-            fadeBottom: true,
-          ),
-        ),
-      ),
-    );
-  }
-
   /// 层间缝的统一外观：随主题的背景色 + 一圈柔和暗晕。
   /// 主卡和 4 张装饰卡的颜色、圆角完全一致，保证「每张卡四边等边」。
   ///
@@ -736,6 +728,9 @@ class _BannerState extends State<_Banner> with AutoListenMixin {
       failed: _failedCovers.contains(comic.id),
       onFailed: () => _failedCovers.add(comic.id),
       initialFontSize: decorative ? 38 : 52,
+      // 只有主卡显示真实百分比：装饰卡是背景，一屏叠着三四张，环里再跳
+      // 数字会把视线从主卡拽走。
+      showProgressPercent: !decorative,
     );
   }
 }

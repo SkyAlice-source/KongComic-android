@@ -533,6 +533,12 @@ class _MixedExplorePageState
   @override
   Widget buildContent(BuildContext context, List<Object> data) {
     return SmoothCustomScrollView(
+      // 这个页与 ComicList 共用 `PageStorageKey("comic_list")`（同一个 tab
+      // 只渲染其中一个，但 PageStorage 的槽是跨 widget 持久的）。不给本页
+      // 滚动视图独立 key，它就会读到 ComicList 写进去的分页状态 Map，触发
+      // `readState(...) as double?` 的类型崩溃。参见 comic.dart 的
+      // `_ComicGridSkeleton` 同款注释。
+      key: const PageStorageKey('mixed_scroll'),
       controller: widget.controller,
       slivers: [
         ...buildSlivers(context, data),

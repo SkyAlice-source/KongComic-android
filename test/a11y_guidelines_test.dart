@@ -187,6 +187,27 @@ void main() {
   });
 
   group('已知例外（如实记录，不放宽门禁）', () {
+    // 翻页胶囊只有 38dp 高，箭头若按 48dp 撑宽，整条胶囊会从约 150dp 胖回
+    // 195dp（用户实拍「太长了」）。这里钉死紧凑尺寸：谁去掉 ToolsPillButton
+    // 里的 `tapTargetSize: shrinkWrap`，本用例会红。
+    testWidgets('翻页胶囊箭头：34dp 紧凑命中区，标签仍可读', (tester) async {
+      await tester.pumpWidget(host(ToolsPillButton(
+        icon: HugeIcons.strokeRoundedArrowLeft01,
+        tooltip: 'Previous page',
+        minSize: kcPagerArrowSize,
+        onPressed: () {},
+      )));
+      final handle = tester.ensureSemantics();
+      try {
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      } finally {
+        handle.dispose();
+      }
+      final rect = tester.getRect(find.byType(ToolsPillButton));
+      expect(rect.width, kcPagerArrowSize);
+      expect(rect.height, kcPagerArrowSize);
+    });
+
     // Button.icon 视觉上是 30–36dp 的小图标按钮，用在投票胶囊 / toast 关闭 /
     // Appbar actions 这类紧凑行里；直接放大到 48dp 会改变既有间距节奏。
     // 这里钉死当前尺寸：谁把它修到 48dp，本用例会红，提醒把组件并入上面的

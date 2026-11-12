@@ -3,27 +3,11 @@ import 'package:kong_comic/components/components.dart';
 
 /// 回顶悬浮按钮的统一样式。
 ///
-/// 暗色模式：使用 [ColorScheme.surfaceContainerHighest]（实心），
-///   避免按钮与深色背景融为一体（之前纯 surface 在暗色下几乎看不见）。
-/// 浅色模式：半透明 [ColorScheme.surface] + 细描边，呈现玻璃质感，
-///   不再是一块死白的实心圆。
+/// 配色与翻页胶囊共用 [kcFloatingGlassColors]：两个控件经常同屏（发现页分页
+/// 模式底部并排），一处改两处一起变，不会出现「一个半透明、一个实心」。
 ({Color background, Color foreground, BorderSide? side}) scrollTopFabColors(
   BuildContext context,
-) {
-  final cs = Theme.of(context).colorScheme;
-  if (cs.brightness == Brightness.dark) {
-    return (
-      background: cs.surfaceContainerHighest,
-      foreground: cs.onSurface,
-      side: null,
-    );
-  }
-  return (
-    background: cs.surface.withValues(alpha: 0.82),
-    foreground: cs.onSurface.withValues(alpha: 0.92),
-    side: BorderSide(color: cs.outline.withValues(alpha: 0.16), width: 1),
-  );
-}
+) => kcFloatingGlassColors(context);
 
 /// 统一的「回到顶部」悬浮按钮。
 ///

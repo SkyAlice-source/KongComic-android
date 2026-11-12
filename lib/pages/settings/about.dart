@@ -499,8 +499,13 @@ Future<void> _startBackgroundUpdateDownload(
       ),
     );
     if (stop == true) {
-      AppUpdate.cancelActiveDownload();
+      await AppUpdate.cancelActiveDownload();
       await AppNotifications.cancelAppUpdate();
+      // Say it out loud: the notification only disappearing looked like the
+      // cancel had failed, which made people tap "cancel" over and over.
+      if (App.rootContext.mounted) {
+        App.rootContext.showMessage(message: "Download canceled".tl);
+      }
     }
     return;
   }
@@ -618,12 +623,26 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
   bool _starting = true;
   bool _installing = false;
   bool _exportingApk = false;
-  String? _mirrorName;
-  final FileDownloaderHandle _handle = FileDownloaderHandle();
+  bool _switching = false;
+
+  /// Route currently in use. Shown as "Source: …" and used to work out which
+  /// mirror the "switch source" button should hand the download to next.
+  UpdateMirror? _currentMirror;
+
+  /// Route the user explicitly chose for the current attempt, or null for the
+  /// automatic rotation.
+  UpdateMirror? _pinnedMirror;
+
+  /// Handle of the current attempt. Replaced on every (re)start so callbacks
+  /// belonging to an abandoned attempt cannot write into the UI.
+  FileDownloaderHandle? _handle;
+
+  /// The attempt in flight, awaited before a new one starts.
+  Future<void>? _run;
 
   @override
   void dispose() {
-    _handle.cancel();
+    _handle?.cancel();
     super.dispose();
   }
 
@@ -633,47 +652,102 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
     _startDownload();
   }
 
-  Future<void> _startDownload() async {
+  Future<void> _startDownload({UpdateMirror? mirror}) async {
+    if (mirror != null) _pinnedMirror = mirror;
+    final handle = FileDownloaderHandle();
+    _handle = handle;
     setState(() {
       _starting = true;
       _error = null;
       _failureStage = UpdateFailureStage.download;
+      if (mirror != null) {
+        // A new route is a new measurement: keeping the old percentage would
+        // display progress that no longer belongs to this download.
+        _progress = 0;
+        _bytesPerSecond = 0;
+        _currentMirror = null;
+      }
     });
+    final run = AppUpdate.downloadAndInstall(
+      widget.info,
+      abi: widget.abi,
+      mirror: _pinnedMirror,
+      onProgress: (p, speed) {
+        if (!mounted || !identical(_handle, handle)) return;
+        setState(() {
+          // 镜像下载可能把 totalBytes 报小，使 p 略大于 1；收敛到 [0,1] 防断言。
+          _progress = p.clamp(0.0, 1.0);
+          _bytesPerSecond = speed;
+        });
+      },
+      onMirrorChanged: (mirror) {
+        if (!mounted || !identical(_handle, handle)) return;
+        setState(() => _currentMirror = mirror);
+      },
+      handle: handle,
+    );
+    _run = run;
     try {
-      await AppUpdate.downloadAndInstall(
-        widget.info,
-        abi: widget.abi,
-        onProgress: (p, speed) {
-          if (!mounted) return;
-          setState(() {
-            // 镜像下载可能把 totalBytes 报小，使 p 略大于 1；收敛到 [0,1] 防断言。
-            _progress = p.clamp(0.0, 1.0);
-            _bytesPerSecond = speed;
-          });
-        },
-        onMirrorChanged: (name) {
-          if (!mounted) return;
-          setState(() => _mirrorName = name);
-        },
-        handle: _handle,
-      );
-      if (!mounted) return;
+      await run;
+      if (!mounted || !identical(_handle, handle)) return;
       setState(() {
         _installing = true;
       });
     } catch (e, s) {
       AppUpdate.safeLog(e, s);
-      if (!mounted) return;
-      // Cancellation is not an error: the user closed the dialog and
-      // [dispose] already triggered [_handle.cancel]. Do not mutate state.
-      if (_handle.isCanceled) return;
+      if (!mounted || !identical(_handle, handle)) return;
+      // Cancellation is not an error: the user closed the dialog (or switched
+      // source) and the handle was already canceled. Do not mutate state.
+      if (handle.isCanceled) return;
       setState(() {
         _failureStage = updateFailureStage(e);
         _error = updateFailureMessage(e);
         _starting = false;
+        // A route that just failed must not pin the retry as well: switching
+        // was the escape from a bad mirror, and pinning a second one would trap
+        // the user there. Install failures keep the pin — the bytes are fine.
+        if (_failureStage != UpdateFailureStage.install) _pinnedMirror = null;
       });
     }
   }
+
+  /// Hand the download to the next mirror.
+  ///
+  /// A throttled GitHub connection is the usual reason an update crawls, and
+  /// "auto" only moves on when a route delivers *nothing*. This is the manual
+  /// escape: cancel the current route, then restart pinned to the next one.
+  /// Bytes already on disk survive whenever the next mirror serves the same
+  /// file over Range (see [canResumeAcrossMirror]).
+  Future<void> _switchMirror() async {
+    if (_switching || _installing) return;
+    final next = _nextMirror();
+    if (next == null) return;
+    setState(() => _switching = true);
+    _handle?.cancel();
+    final run = _run;
+    if (run != null) {
+      try {
+        await run;
+      } catch (_) {
+        // The abandoned attempt always fails; that is the point.
+      }
+    }
+    if (!mounted) return;
+    setState(() => _switching = false);
+    await _startDownload(mirror: next);
+  }
+
+  UpdateMirror? _nextMirror() {
+    final rotation = UpdateMirrorPreference.rotation();
+    // A pinned route collapses the rotation to a single entry; cycling then has
+    // to fall back to the built-in list or "switch" would do nothing.
+    final list = rotation.length > 1 ? rotation : UpdateMirrors.all;
+    if (list.isEmpty) return null;
+    final currentId = _currentMirror?.id ?? _pinnedMirror?.id;
+    final index = list.indexWhere((m) => m.id == currentId);
+    return list[(index + 1) % list.length];
+  }
+
 
   /// Manual recovery for the install stage: publish the already-downloaded APK
   /// to the public Download folder and let the system installer handle it.
@@ -707,7 +781,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
   }
 
   void _cancel() {
-    _handle.cancel();
+    _handle?.cancel();
     if (mounted) {
       Navigator.of(context).pop();
     }
@@ -757,6 +831,14 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
       actions: [
         if (!_installing)
           Button.text(onPressed: _cancel, child: Text("Cancel".tl)),
+        // Only while a download is actually running: once it failed, "Retry"
+        // is the way out, and offering both invites double taps.
+        if (!_installing && _error == null)
+          Button.text(
+            onPressed: _switchMirror,
+            isLoading: _switching,
+            child: Text("Switch source".tl),
+          ),
         // The APK is already on disk for the install stage, so retrying the
         // download would just redownload the same file. Offer the paths that
         // can actually get it installed.
@@ -811,10 +893,10 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _mirrorName == null
+              _currentMirror == null
                   ? "Connecting...".tl
                   : "Connecting to @source...".tlParams({
-                      "source": _mirrorName!,
+                      "source": _currentMirror!.name,
                     }),
             ),
           ),
@@ -844,14 +926,28 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
           "${(_progress * 100).toStringAsFixed(1)}%  ${_formatSpeed(_bytesPerSecond)}",
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        if (_mirrorName != null)
+        if (_currentMirror != null)
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Text(
-              "Source: @source".tlParams({"source": _mirrorName!}),
+              "Source: @source".tlParams({"source": _currentMirror!.name}),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
+            ),
+          ),
+        // Speed is the only number that tells the user whether waiting is
+        // worthwhile. Below the pipeline's own threshold, point at the escape
+        // hatch instead of letting them stare at a 5 KB/s crawl.
+        if (_bytesPerSecond > 0 &&
+            _bytesPerSecond < AppUpdate.kSlowRouteBytesPerSecond)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              "Slow download. Try another source.".tl,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: kcAccentColor(context)),
             ),
           ),
       ],

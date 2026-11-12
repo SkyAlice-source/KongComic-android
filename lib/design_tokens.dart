@@ -280,6 +280,19 @@ const double kcSpace18 = 18;
 // 同一个值：只改一处会让「最后一行能滚到胶囊上方」的保证静默失效。
 const double kcPagerPillHeight = 38;
 
+/// 回顶 FAB 的直径（Material 3 标准 `FloatingActionButton`，`mini: false`）。
+///
+/// 翻页胶囊和它同处底部右侧尾排：窄屏或大字号下胶囊会变长，按这个值算出
+/// 让位空间，保证永远不会压到按钮上。
+const double kcScrollTopFabSize = 56;
+
+/// 分页胶囊里左 / 右箭头按钮的边长。
+///
+/// 刻意小于 [kcMinTapTarget]：胶囊本身只有 38dp 高，箭头按 48dp 撑宽会把
+/// 整条胶囊拉到内容区一半宽（用户实拍反馈「太长了」）。34dp ≈ 9mm，仍大于
+/// 指腹触点；胶囊横向因此从约 195dp 收到约 150dp。
+const double kcPagerArrowSize = 34;
+
 // ── 单选 / 筛选弹窗（KcChoiceDialog）────────────────────
 // 参考式样：大圆角浅色卡 + 左上粗标题 + 红色单选圈 + 右下红色胶囊「确认」。
 // 集中成令牌，避免本地 / 图片收藏 / 收藏 / 历史各自写一套 padding 与圆角。

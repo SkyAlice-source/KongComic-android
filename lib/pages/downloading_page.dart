@@ -66,22 +66,14 @@ class _DownloadingPageState extends State<DownloadingPage>
     return PopUpWidgetScaffold(
       title: "Downloads".tl,
       body: tasks.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  HugeIcon(
-                    icon: HugeIcons.strokeRoundedDownload01,
-                    size: 48,
-                    color: context.colorScheme.outline,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "No active downloads".tl,
-                    style: TextStyle(fontSize: kcSubtitle),
-                  ),
-                ],
-              ),
+          // 空态改用全站统一的 EmptyState（角色插画 + 标题 + 说明）：
+          // 原来是一颗裸图标 + 一行字，和收藏 / 历史 / 发现页的空态不是同一套
+          // 语言；而且只说「没有下载」，没告诉用户任务要从哪来。
+          ? EmptyState(
+              title: "No active downloads".tl,
+              subtitle:
+                  "Start a download from a comic's detail page and it will show up here."
+                      .tl,
             )
           : ListView.builder(
               itemCount: tasks.length + 1,
@@ -121,7 +113,9 @@ class _DownloadingPageState extends State<DownloadingPage>
       child: Row(
         children: [
           if (first?.isError == true)
-            Text("Error".tl, style: TextStyle(fontSize: kcSectionTitle).bold)
+            // 「Error」太笼统：这里换成本地化的「下载失败」，与下方卡片的
+            // 错误原因、右侧的「开始」按钮凑成一句完整的话。
+            Text("Download failed".tl, style: TextStyle(fontSize: kcSectionTitle).bold)
           else if (first?.isPaused == true)
             Text("Paused".tl, style: TextStyle(fontSize: kcSectionTitle).bold)
           else
@@ -299,7 +293,13 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile>
                 if (!widget.task.isPaused || widget.task.isError)
                   Text(
                     widget.task.message,
-                    style: TextStyle(fontSize: kcCaption),
+                    style: TextStyle(
+                      fontSize: kcCaption,
+                      // 失败原因用语义错误色：暂停 / 进行中的那行是中性灰，
+                      // 一眼扫过整列时只有出错的那张卡会「亮」起来，不必逐行读
+                      // 文案才知道哪本没下完。
+                      color: widget.task.isError ? cs.error : null,
+                    ),
                     maxLines: 3,
                   ),
                 const SizedBox(height: 4),
@@ -308,7 +308,9 @@ class _DownloadTaskTileState extends State<_DownloadTaskTile>
                   value: widget.task.progress.clamp(0.0, 1.0),
                   minHeight: 5,
                   borderRadius: BorderRadius.circular(kcPillRadius),
-                  color: isDark
+                  color: widget.task.isError
+                      ? cs.error
+                      : isDark
                       ? Color.alphaBlend(
                           kcAccentColor(context).withValues(alpha: 0.34),
                           cs.surface,

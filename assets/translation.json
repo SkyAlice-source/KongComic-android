@@ -1090,7 +1090,11 @@
     "Try again. If it keeps happening, view details and export the logs.": "先重试一次；若反复出现，可展开详情并导出日志便于排查。",
     "View details": "查看详情",
     "Hide details": "收起详情",
-    "Technical details": "技术信息"
+    "Technical details": "技术信息",
+    "Start a download from a comic's detail page and it will show up here.": "在漫画详情页点「下载」，任务会出现在这里。",
+    "Switch source": "切换线路",
+    "Download canceled": "已取消下载",
+    "Slow download. Try another source.": "下载较慢，可以换个线路试试。"
   },
   "zh_TW": {
     "Organize": "整理",
@@ -2183,7 +2187,11 @@
     "Try again. If it keeps happening, view details and export the logs.": "先重試一次；若反覆發生，可展開詳情並匯出日誌以便排查。",
     "View details": "查看詳情",
     "Hide details": "收起詳情",
-    "Technical details": "技術資訊"
+    "Technical details": "技術資訊",
+    "Start a download from a comic's detail page and it will show up here.": "在漫畫詳情頁點「下載」，任務會出現在這裡。",
+    "Switch source": "切換線路",
+    "Download canceled": "已取消下載",
+    "Slow download. Try another source.": "下載較慢，可以換條線路試試。"
   },
   "ja_JP": {
     "Organize": "整理",
@@ -3276,6 +3284,10 @@
     "Try again. If it keeps happening, view details and export the logs.": "まず再試行してください。繰り返す場合は詳細を開き、ログを書き出して確認できます。",
     "View details": "詳細を見る",
     "Hide details": "詳細を閉じる",
-    "Technical details": "技術情報"
+    "Technical details": "技術情報",
+    "Start a download from a comic's detail page and it will show up here.": "漫画の詳細ページからダウンロードすると、ここに表示されます。",
+    "Switch source": "配信元を切り替え",
+    "Download canceled": "ダウンロードを中止しました",
+    "Slow download. Try another source.": "速度が遅い場合は配信元を切り替えてください。"
   }
 }

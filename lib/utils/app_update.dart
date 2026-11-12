@@ -23,6 +23,47 @@ class UpdateStalledException implements Exception {
   String toString() => "Download stalled";
 }
 
+/// Raised when a route *is* delivering bytes, but far too slowly to be worth
+/// waiting for (a throttled GitHub connection crawling at a few KB/s).
+///
+/// Kept separate from [UpdateStalledException] because it drives a different
+/// recovery: if every route turns out slow, the pipeline goes back to the
+/// fastest one and finishes without the speed guard instead of failing the
+/// update outright.
+class UpdateSlowRouteException implements Exception {
+  const UpdateSlowRouteException(this.bytesPerSecond);
+
+  final int bytesPerSecond;
+
+  @override
+  String toString() => "Download route too slow ($bytesPerSecond B/s)";
+}
+
+/// Whether a partially downloaded APK can keep going on a different mirror.
+///
+/// Every built-in mirror serves byte-identical content (they all proxy the same
+/// GitHub asset, and the finished file is checked against the published
+/// SHA-256), so the block layout written by one route stays valid on the next
+/// one — as long as the remote reports the same total size and honors Range.
+/// Keeping the bytes means "switch source" costs nothing instead of restarting
+/// a 40 MB download from zero; ignoring this rule when it does not hold would
+/// splice two different files together.
+bool canResumeAcrossMirror({
+  required bool supportsRange,
+  required int? remoteSize,
+  required int localSize,
+}) {
+  if (!supportsRange) return false;
+  if (localSize <= 0) return false;
+  if (remoteSize == null) {
+    // Some Range-capable hosts omit Content-Range on the probe. Size equality
+    // is what proves the bytes line up, and without it a resume could produce a
+    // corrupt APK, so start over.
+    return false;
+  }
+  return remoteSize == localSize;
+}
+
 /// Thrown when every configured download route failed.
 class UpdateAllSourcesFailedException implements Exception {
   const UpdateAllSourcesFailedException(this.detail);
@@ -196,6 +237,29 @@ class AppUpdate {
   /// freezes. Waiting for the socket timeout would burn minutes per route; this
   /// keeps each hopeless route to a few seconds.
   static const Duration kStallTimeout = Duration(seconds: 15);
+
+  /// How long a route may run before its throughput is judged at all.
+  ///
+  /// TCP slow start on a 40 MB asset spends the first seconds ramping up; a
+  /// route that has been going this long with no speed is genuinely slow.
+  static const Duration kSlowRouteGrace = Duration(seconds: 20);
+
+  /// A route delivering less than this is handed over to the next mirror.
+  ///
+  /// 48 KB/s means roughly 14 minutes for a 40 MB APK while a working mirror
+  /// typically finishes in well under a minute — not worth waiting for.
+  static const int kSlowRouteBytesPerSecond = 48 * 1024;
+
+  /// Why the current route was abandoned, as an exception for the caller.
+  static Object _routeAbortError(FileDownloaderHandle handle, int speed) {
+    if (handle._canceled) return StateError("Download canceled by user");
+    if (handle._slow) return UpdateSlowRouteException(speed);
+    // A stalled route and an explicit "switch source" tap mean the same thing
+    // to the pipeline: try the next mirror. Consume the tap here so the route
+    // that gets abandoned does not keep aborting every later one.
+    if (handle.switchPending) handle._consumeSwitch();
+    return const UpdateStalledException();
+  }
 
   /// Invisible per-language section delimiter used inside changelog files,
   /// e.g. `<!-- lang:zh -->`. Markdown renderers hide HTML comments, so the
@@ -597,12 +661,18 @@ class AppUpdate {
   }
 
   /// Core download-and-install logic for the direct GitHub asset URL.
+  ///
+  /// [slowGuard] enables abandoning a route that trickles bytes far below
+  /// [kSlowRouteBytesPerSecond]. It stays off when only one route is available
+  /// (a user-pinned mirror, or the last-resort retry): the alternative there is
+  /// not "a faster mirror", it is "no update at all".
   static Future<void> _downloadAndInstallFromUrl(
     String url,
     String version, {
     required String? abi,
     String? expectedSha256,
     bool singleStream = false,
+    bool slowGuard = false,
     void Function(double progress, int bytesPerSecond)? onProgress,
     FileDownloaderHandle? handle,
   }) async {
@@ -633,24 +703,40 @@ class AppUpdate {
     var lastActivity = DateTime.now();
     void touch() => lastActivity = DateTime.now();
     touch();
+    final routeStartedAt = DateTime.now();
+    var lastSpeed = 0;
+    var slowTicks = 0;
     final watchdog = Timer.periodic(const Duration(seconds: 2), (_) {
       if (completer.isCompleted) return;
       if (DateTime.now().difference(lastActivity) > kStallTimeout) {
         handle?.stall();
+        return;
+      }
+      // A route that trickles bytes never trips the stall watchdog, yet a 40 MB
+      // APK at a few KB/s is effectively broken. Give the connection a grace
+      // period (TCP ramp-up is not slowness) and then hand the download over.
+      if (!slowGuard || handle == null) return;
+      if (DateTime.now().difference(routeStartedAt) < kSlowRouteGrace) return;
+      if (lastSpeed < kSlowRouteBytesPerSecond) {
+        slowTicks++;
+        if (slowTicks >= 3) handle.slow();
+      } else {
+        slowTicks = 0;
       }
     });
     try {
       sub = stream.listen(
         (status) {
           touch();
-          if (handle != null && (handle._canceled || handle._stalled)) {
+          lastSpeed = status.bytesPerSecond;
+          if (handle != null &&
+              (handle._canceled ||
+                  handle._stalled ||
+                  handle._slow ||
+                  handle.switchPending)) {
             downloader.stop();
             if (!completer.isCompleted) {
-              completer.completeError(
-                handle._canceled
-                    ? StateError("Download canceled by user")
-                    : const UpdateStalledException(),
-              );
+              completer.completeError(_routeAbortError(handle, lastSpeed));
             }
             return;
           }
@@ -674,21 +760,41 @@ class AppUpdate {
           if (completer.isCompleted) return;
           if (finished) {
             completer.complete();
-          } else if (handle != null && handle._stalled) {
-            completer.completeError(const UpdateStalledException());
-          } else if (handle != null && handle._canceled) {
-            completer.completeError(StateError("Download canceled by user"));
+          } else if (handle != null &&
+              (handle._canceled ||
+                  handle._stalled ||
+                  handle._slow ||
+                  handle.switchPending)) {
+            completer.completeError(_routeAbortError(handle, lastSpeed));
           } else {
             completer.completeError(Exception("Download stopped unexpectedly"));
           }
         },
       );
-      await completer.future;
+      if (handle != null) {
+        // Race the download against the cancel signal. The stream only reports
+        // between chunks, so on a silent socket the update could keep running
+        // for its whole receive timeout after the user pressed stop — which is
+        // exactly why canceling used to need several taps.
+        final completedNormally = await Future.any<bool>([
+          completer.future.then((_) => true),
+          handle.whenCanceled.then((_) => false),
+        ]);
+        if (!completedNormally) {
+          await downloader.stop();
+          throw StateError("Download canceled by user");
+        }
+      } else {
+        await completer.future;
+      }
     } on StateError {
       // User-initiated cancellation is not a failure.
       rethrow;
     } on UpdateStalledException {
       // Different route next time, please.
+      rethrow;
+    } on UpdateSlowRouteException {
+      // Too slow to be worth waiting for; another mirror gets a turn.
       rethrow;
     } catch (e) {
       throw UpdateDownloadException(e.toString());
@@ -768,17 +874,36 @@ class AppUpdate {
     AppUpdateInfo info, {
     required String? abi,
     void Function(double progress, int bytesPerSecond)? onProgress,
-    void Function(String mirrorName)? onMirrorChanged,
+    void Function(UpdateMirror mirror)? onMirrorChanged,
     FileDownloaderHandle? handle,
+    UpdateMirror? mirror,
   }) {
     final running = _activeDownload;
-    if (running != null) return running;
+    if (running != null) {
+      // A plain request joins the pipeline in flight: two pipelines would share
+      // the same temp file and split the bandwidth.
+      if (mirror == null) return running;
+      // A pinned request while another pipeline runs means "switch source":
+      // stop the old one first, then start the new one. Never run both.
+      _activeHandle?.cancel();
+      return running.catchError((_) {}).then(
+        (_) => downloadAndInstall(
+          info,
+          abi: abi,
+          onProgress: onProgress,
+          onMirrorChanged: onMirrorChanged,
+          handle: handle,
+          mirror: mirror,
+        ),
+      );
+    }
     final future = _downloadAndInstallInternal(
       info,
       abi: abi,
       onProgress: onProgress,
       onMirrorChanged: onMirrorChanged,
       handle: handle,
+      pinnedMirror: mirror,
     );
     _activeDownload = future;
     _activeVersion = info.latestVersion;
@@ -807,9 +932,30 @@ class AppUpdate {
   /// Stop the in-flight update download. Both the in-app dialog and the
   /// notification shade's Cancel action route here, so there is always an exit
   /// even when the background path (no dialog) is the one running.
-  static void cancelActiveDownload() {
-    _activeHandle?.cancel();
+  ///
+  /// Completes once the pipeline has actually unwound, so the caller can tell
+  /// the user "canceled" truthfully — and so a second "check for updates" tap
+  /// does not land on a pipeline that is still shutting down and answer
+  /// "already downloading" again.
+  static Future<void> cancelActiveDownload() async {
+    final handle = _activeHandle;
+    handle?.cancel();
+    final running = _activeDownload;
+    if (running == null) return;
+    try {
+      // Cancel aborts the HTTP layer immediately, so this is normally instant.
+      // The cap only exists so a wedged platform install call cannot hang the
+      // caller forever.
+      await running.timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // Cancellation (or the timeout) is not an error worth reporting here.
+    }
   }
+
+  /// Ask the running pipeline to abandon the current route and continue on the
+  /// next mirror, keeping the bytes already downloaded. Used by the
+  /// notification's "switch source" action.
+  static void switchActiveDownload() => _activeHandle?.requestSwitch();
 
   /// Whether [e] is the "the user pressed cancel" signal rather than a real
   /// failure. Callers must not report a cancellation as a download error.
@@ -820,12 +966,28 @@ class AppUpdate {
     AppUpdateInfo info, {
     required String? abi,
     void Function(double progress, int bytesPerSecond)? onProgress,
-    void Function(String mirrorName)? onMirrorChanged,
+    void Function(UpdateMirror mirror)? onMirrorChanged,
     FileDownloaderHandle? handle,
+    UpdateMirror? pinnedMirror,
+    bool allowSlow = false,
   }) async {
+    // The background (notification driven) path downloads without a UI to
+    // cancel it, so it hands over no handle.
+    final effectiveHandle = handle ?? FileDownloaderHandle();
+    // Publish the handle before anything can block. It used to be published
+    // only once the first route started, so a cancel arriving while the
+    // pipeline resolved a cached APK or probed a mirror found nothing and
+    // silently did nothing — the "I had to tap cancel several times" symptom.
+    _activeHandle = effectiveHandle;
+    if (effectiveHandle.isCanceled) {
+      throw StateError("Download canceled by user");
+    }
     // 复用已下载的同版本 APK：错过安装弹窗后无需重复下载，直接再次拉起安装器。
     if (await tryInstallDownloaded(info.latestVersion)) {
       return;
+    }
+    if (effectiveHandle.isCanceled) {
+      throw StateError("Download canceled by user");
     }
     await _cleanupOldApks(info.latestVersion);
     final url = info.pickUrlForCurrentDevice(abi);
@@ -841,33 +1003,49 @@ class AppUpdate {
       if (map != null) expected = map[key];
     }
 
-    final routes = UpdateMirrorPreference.rotation();
-    // The background (notification driven) path downloads without a UI to cancel
-    // it, so it hands over no handle. The stall watchdog still needs one to stop
-    // a dead route, otherwise it could never move on from it.
-    final effectiveHandle = handle ?? FileDownloaderHandle();
-    // Published so [cancelActiveDownload] can stop the background path, which
-    // has no dialog and therefore no handle of its own to cancel.
-    _activeHandle = effectiveHandle;
+    final routes = pinnedMirror != null
+        ? [pinnedMirror]
+        : UpdateMirrorPreference.rotation();
+    // Handing a slow route over only makes sense when another route exists:
+    // with a single one (a pinned mirror, or the last-resort retry) the
+    // alternative is not "faster", it is "no update at all".
+    final slowGuard = routes.length > 1 && !allowSlow;
     Object? lastError;
     String? lastDetail;
+    final peakSpeed = <String, int>{};
 
     for (final mirror in routes) {
       if (effectiveHandle.isCanceled) {
         throw StateError("Download canceled by user");
       }
-      onMirrorChanged?.call(mirror.name);
+      onMirrorChanged?.call(mirror);
       final target = mirror.apply(url);
       try {
-        final probe = await probeMirror(mirror, url);
+        final probe = await probeMirror(
+          mirror,
+          url,
+          cancelToken: effectiveHandle.cancelToken,
+        );
+        if (effectiveHandle.isCanceled) {
+          throw StateError("Download canceled by user");
+        }
         if (!probe.ok) {
           throw UpdateDownloadException(probe.error ?? "Unreachable");
         }
-        // A previous route may have left bytes behind. Its resume state is not
-        // valid for a different server (different chunk size, different
-        // content-length), so start this route from a clean slate.
         if (lastError != null) {
-          await _resetPartial(info.latestVersion);
+          // Keep the bytes already on disk when this route serves the same file
+          // over Range — switching mirrors then costs nothing instead of
+          // restarting a 40 MB download from zero. Otherwise start clean:
+          // splicing bytes from two different servers yields an APK that only
+          // fails later, at the SHA-256 check.
+          final localSize = await _partialSize(info.latestVersion);
+          if (!canResumeAcrossMirror(
+            supportsRange: probe.supportsRange,
+            remoteSize: probe.size,
+            localSize: localSize,
+          )) {
+            await _resetPartial(info.latestVersion);
+          }
         }
         await _downloadAndInstallFromUrl(
           target,
@@ -875,7 +1053,13 @@ class AppUpdate {
           abi: abi,
           expectedSha256: expected,
           singleStream: !probe.supportsRange,
-          onProgress: onProgress,
+          slowGuard: slowGuard,
+          onProgress: (p, speed) {
+            if (speed > (peakSpeed[mirror.id] ?? 0)) {
+              peakSpeed[mirror.id] = speed;
+            }
+            onProgress?.call(p, speed);
+          },
           handle: effectiveHandle,
         );
         UpdateMirrorPreference.markWorking(mirror.id);
@@ -891,10 +1075,30 @@ class AppUpdate {
           rethrow;
         }
         lastError = e;
-        lastDetail = "$mirror: $e";
+        lastDetail = "${mirror.name}: $e";
         if (kDebugMode) {
           Log.error("AppUpdate", "Update via ${mirror.name} failed: $e", s);
         }
+      }
+    }
+
+    // Every route was merely slow — nothing failed outright. Rather than
+    // failing the update, go back to the fastest one and let it finish without
+    // the speed guard.
+    if (!allowSlow &&
+        routes.length > 1 &&
+        lastError is UpdateSlowRouteException) {
+      final best = _fastestRoute(routes, peakSpeed);
+      if (best != null) {
+        return _downloadAndInstallInternal(
+          info,
+          abi: abi,
+          onProgress: onProgress,
+          onMirrorChanged: onMirrorChanged,
+          handle: effectiveHandle,
+          pinnedMirror: best,
+          allowSlow: true,
+        );
       }
     }
 
@@ -907,6 +1111,37 @@ class AppUpdate {
           : UpdateDownloadException(lastError.toString());
     }
     throw UpdateAllSourcesFailedException(lastDetail ?? "unknown error");
+  }
+
+  /// The route that actually moved bytes fastest, or null when none did.
+  ///
+  /// Used as the last-resort retry after every mirror has been deemed too
+  /// slow: resuming the least-bad one still beats failing the update.
+  static UpdateMirror? _fastestRoute(
+    List<UpdateMirror> routes,
+    Map<String, int> peakSpeed,
+  ) {
+    UpdateMirror? best;
+    var bestSpeed = 0;
+    for (final mirror in routes) {
+      final speed = peakSpeed[mirror.id] ?? 0;
+      if (speed > bestSpeed) {
+        bestSpeed = speed;
+        best = mirror;
+      }
+    }
+    return best;
+  }
+
+  /// Bytes already downloaded for [version], or 0 when there is nothing on disk.
+  static Future<int> _partialSize(String version) async {
+    try {
+      final apk = File(apkPath(version));
+      if (!await apk.exists()) return 0;
+      return await apk.length();
+    } catch (_) {
+      return 0;
+    }
   }
 
   /// Delete the partially downloaded APK and its resume state.
@@ -953,11 +1188,12 @@ class AppUpdate {
   }
 }
 
-/// A lightweight handle that lets the UI cancel an in-flight download.
+/// A lightweight handle that lets the UI control an in-flight download.
 /// Pass an instance into [AppUpdate.downloadAndInstall] and call [cancel]
 /// when the user dismisses the dialog.
 class FileDownloaderHandle {
   FileDownloader? _downloader;
+
   bool _canceled = false;
 
   /// Set by the pipeline's stall watchdog, not by the user. A stalled download
@@ -965,18 +1201,59 @@ class FileDownloaderHandle {
   /// simply stopped delivering bytes.
   bool _stalled = false;
 
+  /// Set by the slow-route watchdog: bytes are arriving, just hopelessly
+  /// slowly. Treated like a stall (move on to the next mirror) but remembered
+  /// separately so the pipeline can fall back to the fastest route.
+  bool _slow = false;
+
+  /// Counts "switch source" taps. Compared against [_switchHandled] instead of
+  /// being a plain bool: a tap can land while the route is still being probed,
+  /// and a bool would be wiped by [resetStall] before the route starts — the
+  /// tap would look ignored, which is the exact complaint this feature fixes.
+  int _switchRequests = 0;
+  int _switchHandled = 0;
+
+  /// Cancels the requests the pipeline makes outside a [FileDownloader] —
+  /// mainly the mirror probes, which can each sit for up to 8 s. Canceled only
+  /// by [cancel]; a new attempt always uses a new handle.
+  final CancelToken cancelToken = CancelToken();
+
+  final Completer<void> _cancelCompleter = Completer<void>();
+
+  /// Completes the moment [cancel] is called.
+  ///
+  /// The download loop listens for this instead of only checking [_canceled]
+  /// between chunks, so pressing "Cancel" ends the pipeline immediately even
+  /// when the current chunk is stuck on a silent socket.
+  Future<void> get whenCanceled => _cancelCompleter.future;
+
   bool get isCanceled => _canceled;
 
   bool get isStalled => _stalled;
 
+  bool get isSlow => _slow;
+
+  /// Whether a "switch source" tap is still waiting for a route to act on it.
+  bool get switchPending => _switchRequests > _switchHandled;
+
+  /// Marks the pending switch as served by the route that just aborted.
+  void _consumeSwitch() => _switchHandled = _switchRequests;
+
   void _attach(FileDownloader downloader) {
     _downloader = downloader;
+    // Cancel (or switch) may land while a probe is still running, i.e. before
+    // anything was attached. Without this the freshly created downloader would
+    // start behind the user's back and the pipeline would look like it
+    // ignored the tap.
+    if (_canceled || switchPending) downloader.stop();
   }
 
   /// Stop the in-flight download. Safe to call multiple times.
   void cancel() {
     if (_canceled) return;
     _canceled = true;
+    if (!_cancelCompleter.isCompleted) _cancelCompleter.complete();
+    if (!cancelToken.isCancelled) cancelToken.cancel("Update canceled");
     _downloader?.stop();
   }
 
@@ -989,8 +1266,26 @@ class FileDownloaderHandle {
     _downloader?.stop();
   }
 
-  /// Clear the stalled flag before a new route starts.
+  /// Abandon a route that is delivering bytes far too slowly.
+  void slow() {
+    if (_canceled || _slow) return;
+    _slow = true;
+    _downloader?.stop();
+  }
+
+  /// Ask the pipeline to move to another mirror right now, keeping the
+  /// download (and its partial bytes) alive.
+  void requestSwitch() {
+    if (_canceled) return;
+    _switchRequests++;
+    _downloader?.stop();
+  }
+
+  /// Clear the per-route flags before a new route starts.
+  ///
+  /// [_switchRequests] is intentionally left alone: see [switchPending].
   void resetStall() {
     _stalled = false;
+    _slow = false;
   }
 }

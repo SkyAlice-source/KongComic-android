@@ -89,6 +89,14 @@ class NaviPaneState extends State<NaviPane>
         with
         TickerProviderStateMixin,
         AutoListenMixin {
+  /// 当前活跃的根导航面板。
+  ///
+  /// 全局唯一（`MainPage` 只有一个 [NaviPane]）。给 `Overlay` 层的东西用：
+  /// Toast 的 context 来自 `App.rootContext`（在 NaviPane 之上）或已经 pop 的
+  /// 弹窗 context，都向上查不到本 State，只能靠这个引用读到实时的
+  /// [bottomBarHeight] 与 [isRootTabPage]，从而让开浮岛底栏。
+  static NaviPaneState? active;
+
   /// 返回键分流信号：当前路由是否「内部就能吃掉一次 pop」。
   ///
   /// 注意它与 [isRootTabPage] 不是一回事：内联在根 tab 页里的组件只要注册了
@@ -323,6 +331,7 @@ class NaviPaneState extends State<NaviPane>
       vsync: this,
     );
     _pageNotifier.value = widget.initialPage;
+    NaviPaneState.active = this;
     listen(widget.observer, onNavigatorStateChange);
     listen(pageActionsNotifier, _onPageActionsChanged);
     listen(pageTitleNotifier, _onPageActionsChanged);
@@ -333,6 +342,9 @@ class NaviPaneState extends State<NaviPane>
 
   @override
   void dispose() {
+    // 只清自己：热重载 / 重建时新 State 的 initState 可能先于旧 State 的
+    // dispose 执行，无脑置 null 会把新实例的引用抹掉。
+    if (identical(NaviPaneState.active, this)) NaviPaneState.active = null;
     controller.dispose();
     _chromeController.dispose();
     _pageNotifier.dispose();

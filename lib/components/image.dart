@@ -23,6 +23,7 @@ class AnimatedImage extends StatefulWidget {
     this.isAntiAlias = false,
     this.part,
     this.onError,
+    this.onProgress,
     this.placeholder,
     this.errorWidget,
     Map<String, String>? headers,
@@ -67,6 +68,16 @@ class AnimatedImage extends StatefulWidget {
   final ImagePart? part;
 
   final Function? onError;
+
+  /// 下载进度回调（每次收到一个 chunk 触发一次，加载完成时收到 null）。
+  ///
+  /// [CachedImageProvider] 会把 HTTP `content-length` 与已收字节数塞进
+  /// [ImageChunkEvent]，所以 `expectedTotalBytes` 非 null 时能算出真实百分比；
+  /// 服务器用 chunked 不报长度时为 null，调用方要退回「不确定进度」。
+  ///
+  /// 之所以用回调而不是把进度塞进 [placeholder]：placeholder 是 AnimatedSwitcher
+  /// 的 child，每次进度变化都换一个新实例会让它重播切换动画（一圈一圈地闪）。
+  final ValueChanged<ImageChunkEvent?>? onProgress;
 
   /// 加载中显示的图层。默认 [Center]（即空白），封面类场景请传骨架占位，
   /// 否则慢网/断网时整块卡片就是一片空白。
@@ -204,6 +215,10 @@ class _AnimatedImageState extends State<AnimatedImage>
       _frameNumber = _frameNumber == null ? 0 : _frameNumber! + 1;
       _wasSynchronouslyLoaded = _wasSynchronouslyLoaded | synchronousCall;
     });
+    // 清除进度必须在 setState 之外：调用方通常在回调里改 ValueNotifier，
+    // 那会同步触发其它 widget 的 setState，塞进本帧的 setState 回调里就成了
+    // 「build 期间 markNeedsBuild」。
+    widget.onProgress?.call(null);
   }
 
   void _handleImageChunk(ImageChunkEvent event) {
@@ -211,6 +226,7 @@ class _AnimatedImageState extends State<AnimatedImage>
       _loadingProgress = event;
       _lastException = null;
     });
+    widget.onProgress?.call(event);
   }
 
   void _replaceImage({required ImageInfo? info}) {

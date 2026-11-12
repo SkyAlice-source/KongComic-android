@@ -8,8 +8,12 @@ void showToast({
   int? seconds,
 }) {
   var newEntry = OverlayEntry(
-    builder: (context) =>
-        _ToastOverlay(message: message, icon: icon, trailing: trailing),
+    builder: (context) => _ToastOverlay(
+      message: message,
+      icon: icon,
+      trailing: trailing,
+      bottomInset: _toastBottomInset(context),
+    ),
   );
 
   var state = context.findAncestorStateOfType<OverlayWidgetState>();
@@ -17,6 +21,23 @@ void showToast({
   state?.addOverlay(newEntry);
 
   Timer(Duration(seconds: seconds ?? 2), () => state?.remove(newEntry));
+}
+
+/// Toast 距屏幕底边的距离。
+///
+/// 根 tab 页底部有一块浮岛底栏（栏体 + 外边距 + 系统手势区，约 92dp），
+/// 提示如果还按 24dp 贴底，就会正好压在 5 个 tab 上 —— 用户刚点完「已收藏」，
+/// 视线却被提示挡住，也看不清自己点了哪个 tab。这里查到 [NaviPaneState]
+/// 就整体抬到栏体上方；子页面（详情、阅读器）没有底栏，仍是 24dp。
+///
+/// 走 [NaviPaneState.active] 兜底是因为 [showUndoMessage] 拿的是
+/// `App.rootContext`（在 NaviPane 之上，向上查不到 State），而这类「删除后可
+/// 撤销」的提示几乎都发生在根 tab 页。
+double _toastBottomInset(BuildContext context) {
+  final pane =
+      context.findAncestorStateOfType<NaviPaneState>() ?? NaviPaneState.active;
+  if (pane == null || !pane.mounted || !pane.isRootTabPage) return 24;
+  return pane.bottomBarHeight + kcSpaceSm;
 }
 
 /// 破坏性操作后的「撤销」提示。
@@ -49,6 +70,7 @@ void showUndoMessage({
   entry = OverlayEntry(
     builder: (_) => _ToastOverlay(
       message: message,
+      bottomInset: _toastBottomInset(context),
       trailing: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
@@ -81,9 +103,17 @@ void showUndoMessage({
 }
 
 class _ToastOverlay extends StatelessWidget {
-  const _ToastOverlay({required this.message, this.icon, this.trailing});
+  const _ToastOverlay({
+    required this.message,
+    required this.bottomInset,
+    this.icon,
+    this.trailing,
+  });
 
   final String message;
+
+  /// 距屏幕底边的基准距离（不含键盘）。根 tab 页会抬到浮岛底栏上方。
+  final double bottomInset;
 
   final Widget? icon;
 
@@ -92,7 +122,7 @@ class _ToastOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
+      bottom: bottomInset + MediaQuery.of(context).viewInsets.bottom,
       left: 0,
       right: 0,
       child: Align(

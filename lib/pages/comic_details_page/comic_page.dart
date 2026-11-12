@@ -437,14 +437,21 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 height: 144,
                 width: 144 * 0.72,
                 clipBehavior: Clip.antiAlias,
-                child: AnimatedImage(
+                child: CoverBox(
+                  // 以前这里是裸 AnimatedImage：加载中是一片空底色，慢网下
+                  // 唯一的信息是「这块位置将来会有图」；失败则什么也看不到，
+                  // 详情页连重试入口都没有。改走统一封面链后，占位是书名
+                  // 首字、慢加载有百分比环、失败可点重试。
                   image: CachedImageProvider(
                     widget.cover ?? comic.cover,
                     sourceKey: comic.sourceKey,
                     cid: comic.id,
                   ),
-                  width: double.infinity,
-                  height: double.infinity,
+                  label: comic.title,
+                  initialFontSize: 40,
+                  showProgressPercent: true,
+                  // 封面只有 104dp 宽，放不下「⟳ 重试」那条 pill，用紧凑圆点。
+                  retryable: false,
                 ),
               ),
             ),

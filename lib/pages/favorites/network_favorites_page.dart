@@ -197,89 +197,92 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
   }
 
   Widget _buildList(_FavoritesPageState favPage) {
-    return ComicList(
-      key: comicListKey,
-      controller: widget.controller,
-      showSourceOnCover: false,
-      showBottomSourceDate: true,
-      openLocalIfAvailable: true,
-      leadingSliver: MultiSliver(
-        children: [
-          // 文件夹胶囊条常驻顶栏下方（pinned，不随列表滚走）。
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
-          ),
-        ],
-      ),
-      // 错误 / 未登录态不能用 leadingSliver，胶囊单独补在共享顶栏下方，
-      // 否则会卡在网络源错误页里没有分组切换入口（顶栏本身由共享栏提供）。
-      errorLeading: Column(
-        mainAxisSize: MainAxisSize.min,
-        // stretch 让胶囊与正常态一样左对齐、占满整行，而不是被 Column 居中。
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [_GroupPills(favPage: favPage)],
-      ),
-      loadPage: widget.data.loadComic == null
-          ? null
-          : (i) => widget.data.loadComic!(i),
-      loadNext: widget.data.loadNext == null
-          ? null
-          : (next) => widget.data.loadNext!(next),
-      menuBuilder: (comic) {
-        return [
-          MenuEntry(
-            icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedDownload04,
-              size: 18,
-              color: context.colorScheme.onSurfaceVariant,
+    return KeyedSubtree(
+      key: const PageStorageKey('network_favorites_root'),
+      child: ComicList(
+        key: comicListKey,
+        controller: widget.controller,
+        showSourceOnCover: false,
+        showBottomSourceDate: true,
+        openLocalIfAvailable: true,
+        leadingSliver: MultiSliver(
+          children: [
+            // 文件夹胶囊条常驻顶栏下方（pinned，不随列表滚走）。
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverFolderChipsHeader(_GroupPills(favPage: favPage)),
             ),
-            color: context.colorScheme.onSurfaceVariant,
-            text: "Download".tl,
-            onClick: () {
-              var source = ComicSource.find(comic.sourceKey);
-              if (source == null) {
-                context.showMessage(message: "Source not found".tl);
-                return;
-              }
-              if (LocalManager().isDownloaded(
-                comic.id,
-                ComicType.fromKey(comic.sourceKey),
-              )) {
-                context.showMessage(message: "Already downloaded".tl);
-                return;
-              }
-              LocalManager().addTask(
-                ImagesDownloadTask(
-                  source: source,
-                  comicId: comic.id,
-                  comicTitle: comic.title,
-                ),
-              );
-              context.showMessage(message: "Download started".tl);
-            },
-          ),
-          MenuEntry(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-            text: "Remove".tl,
-            onClick: () async {
-              var res = await _deleteComic(
-                comic.id,
-                null,
-                comic.sourceKey,
-                comic.favoriteId,
-                onRefresh: () {
-                  comicListKey.currentState?.refresh();
-                },
-              );
-              if (res) {
-                comicListKey.currentState!.remove(comic);
-              }
-            },
-          ),
-        ];
-      },
-      enablePageStorage: true,
+          ],
+        ),
+        // 错误 / 未登录态不能用 leadingSliver，胶囊单独补在共享顶栏下方，
+        // 否则会卡在网络源错误页里没有分组切换入口（顶栏本身由共享栏提供）。
+        errorLeading: Column(
+          mainAxisSize: MainAxisSize.min,
+          // stretch 让胶囊与正常态一样左对齐、占满整行，而不是被 Column 居中。
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [_GroupPills(favPage: favPage)],
+        ),
+        loadPage: widget.data.loadComic == null
+            ? null
+            : (i) => widget.data.loadComic!(i),
+        loadNext: widget.data.loadNext == null
+            ? null
+            : (next) => widget.data.loadNext!(next),
+        menuBuilder: (comic) {
+          return [
+            MenuEntry(
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedDownload04,
+                size: 18,
+                color: context.colorScheme.onSurfaceVariant,
+              ),
+              color: context.colorScheme.onSurfaceVariant,
+              text: "Download".tl,
+              onClick: () {
+                var source = ComicSource.find(comic.sourceKey);
+                if (source == null) {
+                  context.showMessage(message: "Source not found".tl);
+                  return;
+                }
+                if (LocalManager().isDownloaded(
+                  comic.id,
+                  ComicType.fromKey(comic.sourceKey),
+                )) {
+                  context.showMessage(message: "Already downloaded".tl);
+                  return;
+                }
+                LocalManager().addTask(
+                  ImagesDownloadTask(
+                    source: source,
+                    comicId: comic.id,
+                    comicTitle: comic.title,
+                  ),
+                );
+                context.showMessage(message: "Download started".tl);
+              },
+            ),
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+              text: "Remove".tl,
+              onClick: () async {
+                var res = await _deleteComic(
+                  comic.id,
+                  null,
+                  comic.sourceKey,
+                  comic.favoriteId,
+                  onRefresh: () {
+                    comicListKey.currentState?.refresh();
+                  },
+                );
+                if (res) {
+                  comicListKey.currentState!.remove(comic);
+                }
+              },
+            ),
+          ];
+        },
+        enablePageStorage: true,
+      ),
     );
   }
 }
@@ -698,89 +701,93 @@ class _FavoriteFolder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ComicList(
-      key: comicListKey,
-      enablePageStorage: true,
-      allFavorite: true,
-      showSourceOnCover: false,
-      showBottomSourceDate: true,
-      openLocalIfAvailable: true,
-      leadingSliver: SliverAppbar(
-        title: Text(title),
-        actions: [
-          MenuButton(
-            entries: [
-              MenuEntry(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
-                text: "Convert to local".tl,
-                onClick: () {
-                  importNetworkFolder(data.key, 9999999, title, folderID);
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-      errorLeading: Appbar(title: Text(title)),
-      loadPage: data.loadComic == null
-          ? null
-          : (i) => data.loadComic!(i, folderID),
-      loadNext: data.loadNext == null
-          ? null
-          : (next) => data.loadNext!(next, folderID),
-      menuBuilder: (comic) {
-        return [
-          MenuEntry(
-            icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedDownload04,
-              size: 18,
-              color: context.colorScheme.onSurfaceVariant,
-            ),
-            color: context.colorScheme.onSurfaceVariant,
-            text: "Download".tl,
-            onClick: () {
-              var source = ComicSource.find(comic.sourceKey);
-              if (source == null) {
-                context.showMessage(message: "Source not found".tl);
-                return;
-              }
-              if (LocalManager().isDownloaded(
-                comic.id,
-                ComicType.fromKey(comic.sourceKey),
-              )) {
-                context.showMessage(message: "Already downloaded".tl);
-                return;
-              }
-              LocalManager().addTask(
-                ImagesDownloadTask(
-                  source: source,
-                  comicId: comic.id,
-                  comicTitle: comic.title,
+    return KeyedSubtree(
+      // 每个文件夹一个独立槽：不同文件夹的分页状态不能互相覆盖。
+      key: PageStorageKey('network_favorites_folder_$folderID'),
+      child: ComicList(
+        key: comicListKey,
+        enablePageStorage: true,
+        allFavorite: true,
+        showSourceOnCover: false,
+        showBottomSourceDate: true,
+        openLocalIfAvailable: true,
+        leadingSliver: SliverAppbar(
+          title: Text(title),
+          actions: [
+            MenuButton(
+              entries: [
+                MenuEntry(
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
+                  text: "Convert to local".tl,
+                  onClick: () {
+                    importNetworkFolder(data.key, 9999999, title, folderID);
+                  },
                 ),
-              );
-              context.showMessage(message: "Download started".tl);
-            },
-          ),
-          MenuEntry(
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-            text: "Remove".tl,
-            onClick: () async {
-              var res = await _deleteComic(
-                comic.id,
-                null,
-                comic.sourceKey,
-                comic.favoriteId,
-                onRefresh: () {
-                  comicListKey.currentState?.refresh();
-                },
-              );
-              if (res) {
-                comicListKey.currentState!.remove(comic);
-              }
-            },
-          ),
-        ];
-      },
+              ],
+            ),
+          ],
+        ),
+        errorLeading: Appbar(title: Text(title)),
+        loadPage: data.loadComic == null
+            ? null
+            : (i) => data.loadComic!(i, folderID),
+        loadNext: data.loadNext == null
+            ? null
+            : (next) => data.loadNext!(next, folderID),
+        menuBuilder: (comic) {
+          return [
+            MenuEntry(
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedDownload04,
+                size: 18,
+                color: context.colorScheme.onSurfaceVariant,
+              ),
+              color: context.colorScheme.onSurfaceVariant,
+              text: "Download".tl,
+              onClick: () {
+                var source = ComicSource.find(comic.sourceKey);
+                if (source == null) {
+                  context.showMessage(message: "Source not found".tl);
+                  return;
+                }
+                if (LocalManager().isDownloaded(
+                  comic.id,
+                  ComicType.fromKey(comic.sourceKey),
+                )) {
+                  context.showMessage(message: "Already downloaded".tl);
+                  return;
+                }
+                LocalManager().addTask(
+                  ImagesDownloadTask(
+                    source: source,
+                    comicId: comic.id,
+                    comicTitle: comic.title,
+                  ),
+                );
+                context.showMessage(message: "Download started".tl);
+              },
+            ),
+            MenuEntry(
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+              text: "Remove".tl,
+              onClick: () async {
+                var res = await _deleteComic(
+                  comic.id,
+                  null,
+                  comic.sourceKey,
+                  comic.favoriteId,
+                  onRefresh: () {
+                    comicListKey.currentState?.refresh();
+                  },
+                );
+                if (res) {
+                  comicListKey.currentState!.remove(comic);
+                }
+              },
+            ),
+          ];
+        },
+      ),
     );
   }
 }

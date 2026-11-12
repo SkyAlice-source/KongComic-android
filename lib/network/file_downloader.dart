@@ -31,7 +31,25 @@ class FileDownloader {
     this.savePath, {
     this.maxConcurrent = 4,
     this.singleStream = false,
-  });
+    CancelToken? cancelToken,
+    this.resolveProxy,
+  }) : _cancelToken = cancelToken ?? CancelToken();
+
+  /// Overrides app-wide proxy discovery. Tests point it at `null` so they can
+  /// talk to a loopback server without the settings layer.
+  final Future<String?> Function()? resolveProxy;
+
+  /// Cancels every in-flight request of this download.
+  ///
+  /// Relying on the `_canceled` flag alone only takes effect between chunks:
+  /// a chunk blocked on a throttled socket waits out its 30 s receive timeout
+  /// before the loop reads the flag again. That is why "stop" used to need
+  /// several taps — the first one only flipped a flag nobody was looking at.
+  /// A canceled [CancelToken] closes the connection immediately.
+  final CancelToken _cancelToken;
+
+  /// Whether [stop] has been called. Exposed for the pipeline's bookkeeping.
+  bool get isCanceled => _canceled;
 
   int _currentBytes = 0;
 
@@ -137,6 +155,7 @@ class FileDownloader {
     var res = await _dio.head(
       url,
       options: Options(headers: updateRequestHeaders()),
+      cancelToken: _cancelToken,
     );
     var length = res.headers["content-length"]?.first;
     if (length == null) {
@@ -208,7 +227,7 @@ class FileDownloader {
 
   void _download(StreamController<DownloadingStatus> resultStream) async {
     try {
-      var proxy = await getProxy();
+      var proxy = resolveProxy == null ? await getProxy() : await resolveProxy!();
       _dio.httpClientAdapter = IOHttpClientAdapter(
         createHttpClient: () {
           final client = HttpClient();
@@ -286,6 +305,13 @@ class FileDownloader {
     } catch (e, s) {
       await _file?.close();
       _file = null;
+      // A stopped download raises all sorts of socket/descriptor errors on the
+      // way out. They are the expected consequence of canceling, not failures,
+      // and surfacing one would make the update pipeline look broken.
+      if (_canceled) {
+        if (!resultStream.isClosed) await resultStream.close();
+        return;
+      }
       resultStream.addError(e, s);
       resultStream.close();
     }
@@ -364,7 +390,11 @@ class FileDownloader {
       ),
       preserveHeaderCase: true,
     );
-    var res = await _dio.get<ResponseBody>(url, options: options);
+    var res = await _dio.get<ResponseBody>(
+      url,
+      options: options,
+      cancelToken: _cancelToken,
+    );
     if (_canceled) return;
     if (res.data == null) {
       throw Exception("Failed to block $start-$end");
@@ -429,6 +459,11 @@ class FileDownloader {
 
   Future<void> stop() async {
     _canceled = true;
+    // Abort the HTTP layer first. Closing the sink afterwards is what makes an
+    // in-progress `writeFrom` bail out instead of writing into a dead handle.
+    if (!_cancelToken.isCancelled) {
+      _cancelToken.cancel("Download stopped");
+    }
     await _file?.close();
     _file = null;
   }

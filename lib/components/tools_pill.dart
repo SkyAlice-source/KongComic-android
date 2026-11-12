@@ -59,6 +59,7 @@ class ToolsPillButton extends StatelessWidget {
     this.color,
     this.tooltip,
     this.size = 18,
+    this.minSize = kcMinTapTarget,
   });
 
   /// HugeIcons 常量（`List<List<dynamic>>` 形式的路径数据），不是 IconData。
@@ -76,6 +77,13 @@ class ToolsPillButton extends StatelessWidget {
 
   final double size;
 
+  /// 命中区下限（宽高同值），默认 48dp。
+  ///
+  /// 翻页胶囊只有 38dp 高，箭头按 48dp 撑宽会把整条胶囊拉到内容区一半宽；
+  /// 那里传胶囊自身高度，箭头保持正方形，用户「往左/往右按一下」的动作
+  /// 本来也只需要一个指腹宽。
+  final double minSize;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -86,11 +94,16 @@ class ToolsPillButton extends StatelessWidget {
       icon: HugeIcon(icon: icon, size: size),
       color: color ?? (active ? kcBrandAdaptive(context) : cs.onSurfaceVariant),
       tooltip: tooltip,
-      constraints: const BoxConstraints(
-        minWidth: kcMinTapTarget,
-        minHeight: kcMinTapTarget,
-      ),
+      constraints: BoxConstraints(minWidth: minSize, minHeight: minSize),
       padding: EdgeInsets.zero,
+      // M3 的 IconButton 默认挂 `tapTargetSize: padded`，会把命中区补到 48×48，
+      // 光给 constraints 是压不下去的（实测 minSize 38 仍渲染 48）。翻页胶囊
+      // 只有 38dp 高，必须显式 shrinkWrap 才能按 minSize 收窄。
+      style: IconButton.styleFrom(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        minimumSize: Size.square(minSize),
+        padding: EdgeInsets.zero,
+      ),
       splashRadius: 24,
       onPressed: onPressed,
     );

@@ -47,10 +47,13 @@ void _onNotificationResponse(NotificationResponse response) {
     _retryInstall(payload.substring('app_update:'.length));
     return;
   }
-  // 正在下载更新的通知：取消按钮 → 停掉更新下载流程
+  // 正在下载更新的通知：取消按钮 → 停掉更新下载流程；换线按钮 → 让管线
+  // 放弃当前线路、带着已下载的字节继续下一条。
   if (payload == 'app_update_download') {
     if (response.actionId == 'cancel') {
       AppUpdate.cancelActiveDownload();
+    } else if (response.actionId == 'switch') {
+      AppUpdate.switchActiveDownload();
     }
     return;
   }
@@ -353,7 +356,10 @@ class AppNotifications {
           priority: Priority.defaultPriority,
           // Without this the background download had no exit at all: the only
           // control was to wait for a 40 MB asset over a throttled link.
-          actions: [AndroidNotificationAction('cancel', 'Cancel'.tl)],
+          actions: [
+            AndroidNotificationAction('switch', 'Switch source'.tl),
+            AndroidNotificationAction('cancel', 'Cancel'.tl),
+          ],
         ),
       ),
       payload: 'app_update_download',

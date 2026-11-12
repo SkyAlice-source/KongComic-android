@@ -72,6 +72,48 @@ class _KcAdaptiveBlur extends StatelessWidget {
   }
 }
 
+/// 贴着内容浮起的小控件（回顶 FAB / 翻页胶囊）共用的玻璃配色。
+///
+/// 浅色：半透明 surface + 发丝描边 —— 能透出背后的封面，又不会像实心白块
+/// 那样在列表上糊出一条硬边；深色：`surfaceContainerHighest` 实心，纯 surface
+/// 在近黑底上几乎看不见。
+///
+/// 收在一处是因为这两个控件同处屏幕右侧/底部尾排，配色一旦分叉（一个半透明
+/// 带描边、一个实心带投影）并排看就是两种材质。
+({Color background, Color foreground, BorderSide? side}) kcFloatingGlassColors(
+  BuildContext context,
+) {
+  final cs = Theme.of(context).colorScheme;
+  if (cs.brightness == Brightness.dark) {
+    return (
+      background: cs.surfaceContainerHighest,
+      foreground: cs.onSurface,
+      side: null,
+    );
+  }
+  return (
+    background: cs.surface.withValues(alpha: 0.82),
+    foreground: cs.onSurface.withValues(alpha: 0.92),
+    side: BorderSide(color: cs.outline.withValues(alpha: 0.16), width: 1),
+  );
+}
+
+/// 悬浮小控件的玻璃外框：同一套底色 + 描边，圆角由调用方按形状给。
+///
+/// 底色本身是半透明的，压在封面上时调用方要自己配一层
+/// `BackdropFilter`（见翻页胶囊），否则底下的书名会透进控件。
+BoxDecoration kcFloatingGlassDecoration(
+  BuildContext context, {
+  required BorderRadius borderRadius,
+}) {
+  final colors = kcFloatingGlassColors(context);
+  return BoxDecoration(
+    color: colors.background,
+    borderRadius: borderRadius,
+    border: colors.side == null ? null : Border.fromBorderSide(colors.side!),
+  );
+}
+
 /// iOS 26 Liquid Glass 风格容器
 /// 更高透明度 + 光线折射感 + 流动动态
 class GlassContainer extends StatefulWidget {

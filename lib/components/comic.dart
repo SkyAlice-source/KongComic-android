@@ -1674,8 +1674,18 @@ class _ComicGridSkeleton extends StatelessWidget {
         final crossAxisCount =
             math.max(2, (constraints.maxWidth / 150).floor());
         // 弱网时骨架屏也会挂十秒，叠一层慢网络提示，让用户知道不是在卡死。
+        // 独立的 PageStorageKey 是**必须**的，不是洁癖：
+        // ComicList 会用 `PageStorageKey('comic_list')`（或调用方的 GlobalKey）
+        // 把整份分页状态（一个 Map）写进同一个 bucket，而 PageStorage 的槽位
+        // 标识只看「到 bucket 为止路径上有哪些 PageStorageKey」，不看 widget
+        // 类型。这里不给 key，GridView 的 ScrollPosition 就会去读 ComicList
+        // 那个槽，`readState(...) as double?` 拿到 `_Map<String, dynamic>`
+        // 直接抛类型错误，整块 body 变成 ErrorWidget（表现为整页空白 + 一行红字：
+        // 「type '_Map<String, dynamic>' is not a subtype of type 'double?'」）。
+        // 刷新 / 跳到未加载页时骨架屏重建，就是这个崩溃的触发点。
         return SlowLoadingOverlay(
           child: GridView.count(
+            key: const PageStorageKey('kc_grid_skeleton'),
             crossAxisCount: crossAxisCount,
             childAspectRatio: 0.7,
             padding: const EdgeInsets.all(kcSpaceMd),
@@ -1833,6 +1843,24 @@ class ComicListState extends State<ComicList> {
 
   late bool enablePageStorage = widget.enablePageStorage;
 
+  /// 滑动列表时把分页胶囊淡出。
+  ///
+  /// 胶囊是悬浮在网格底部的一层，最后一排封面正好从它下面穿过；划动时它既
+  /// 挡内容又跟着手指走，很碍事。手指抬起、滚动停下后再淡入。
+  bool _pageBarHidden = false;
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    // 只在「开始滚动」「滚动结束」两个边界各切一次：滚动全过程每帧都会发
+    // ScrollUpdateNotification，在那里 setState 等于每帧重建整个网格。
+    if (notification is ScrollStartNotification && !_pageBarHidden) {
+      setState(() => _pageBarHidden = true);
+    } else if (notification is ScrollEndNotification && _pageBarHidden) {
+      setState(() => _pageBarHidden = false);
+    }
+    // 返回 false：继续把通知冒泡给 RefreshIndicator / 外层滚动监听。
+    return false;
+  }
+
   Map<String, dynamic> get state => {
     'maxPage': _maxPage,
     'data': _data,
@@ -1895,6 +1923,10 @@ class ComicListState extends State<ComicList> {
     storeState();
     setState(() {});
     await _loadPage(1);
+    // 列表数据回来了，不等于封面也回来了：失败的封面 State 还活着、[AnimatedImage]
+    // 的 key 也没变，不会自己重试 —— 用户下拉了、漫画也刷出来了，缺图仍缺图。
+    // 这里给所有失败封面一个统一的重来信号，省掉「重载封面」这种额外按钮。
+    CoverBox.refreshAll();
   }
 
   @override
@@ -1915,37 +1947,60 @@ class ComicListState extends State<ComicList> {
     setState(() {});
   }
 
-  /// 分页条：`‹  12 / 90 ⌄  ›` 三段式胶囊，居中。
+  /// 分页胶囊：`‹  1 / 52 ⌄  ›`，居中的玻璃胶囊。
   ///
   /// 老实现是「84dp 后退按钮 + 页码胶囊 + 84dp 前进按钮」占满一整行，两端固定
   /// 宽度把中间挤成一条缝；跳转还要走「点胶囊 → 弹窗 → 键盘 → 输入 → 确认」。
-  /// 现在收成一颗胶囊：两侧箭头翻页，中间页码区点开页码网格，一次点击直达。
+  /// 后来收成一颗胶囊，但中间那截仍是本地化后的「页面 1 / 52」——中文 / 日文
+  /// 一长就把胶囊撑到内容区一半宽，压在最后一行封面上，也和右下角的回顶按钮
+  /// 挤在同一排。现在只留数字（`1 / 52`，等宽数字翻页不抖），去掉条内发丝线，
+  /// 底色 / 描边与回顶按钮共用 [kcFloatingGlassColors]：两颗控件并排时是同一块
+  /// 玻璃上的两个孔位，不是两种材质。
   ///
-  /// 箭头统一用中性色而不是「前进=品牌红实心」：分页条在列表顶部和底部各出现
-  /// 一次，两颗红按钮同屏太吵，而且它只是导航而不是主 CTA。
+  /// 箭头统一用中性色而不是「前进=品牌红实心」：分页条只出现在列表底部，
+  /// 两颗红按钮同屏太吵，而且它只是导航而不是主 CTA。
   Widget _buildPageSelector() {
     final maxPage = _maxPage;
     // 取数期间在页码后面挂个小转圈，替代原来「整条消失 → 骨架屏」的跳变。
     final loading = _data[_page] == null && _error == null;
-    // 只返回胶囊本体：定位、让位、悬浮阴影统一由 _buildPageBar 负责，
-    // 之前这里自带 Center + 上下 8dp 内边距，把胶囊绑死在整宽底栏里。
-    return ToolsPill(
+    final radius = BorderRadius.circular(kcPillRadius);
+    final pill = Container(
       height: kcPagerPillHeight,
-      children: [
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedArrowLeft01,
-          tooltip: "Previous page".tl,
-          onPressed: _page > 1 ? () => _goToPage(_page - 1) : null,
-        ),
-        _buildPageLabel(loading: loading),
-        ToolsPillButton(
-          icon: HugeIcons.strokeRoundedArrowRight01,
-          tooltip: "Next page".tl,
-          onPressed: maxPage == null || _page < maxPage
-              ? () => _goToPage(_page + 1)
-              : null,
-        ),
-      ],
+      padding: const EdgeInsets.symmetric(horizontal: kcSpaceXs),
+      decoration: kcFloatingGlassDecoration(context, borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ToolsPillButton(
+            icon: HugeIcons.strokeRoundedArrowLeft01,
+            tooltip: "Previous page".tl,
+            // 不按 48dp 撑宽：那一圈多出来的宽度正是胶囊偏长的一半来源。
+            // 34dp 见 [kcPagerArrowSize]，仍是一个指腹的触点。
+            minSize: kcPagerArrowSize,
+            onPressed: _page > 1 ? () => _goToPage(_page - 1) : null,
+          ),
+          _buildPageLabel(loading: loading),
+          ToolsPillButton(
+            icon: HugeIcons.strokeRoundedArrowRight01,
+            tooltip: "Next page".tl,
+            minSize: kcPagerArrowSize,
+            onPressed: maxPage == null || _page < maxPage
+                ? () => _goToPage(_page + 1)
+                : null,
+          ),
+        ],
+      ),
+    );
+    // 半透明底色必须配一层真模糊：胶囊横在封面上，只降不透明度会让底下那行
+    // 书名从胶囊里透出来（"深渊融接 1 / 52" 看着像控件里的字）。滚动时胶囊
+    // 本来就是隐藏的，这笔模糊只在静止时生效。
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: pill,
+      ),
     );
   }
 
@@ -1956,12 +2011,15 @@ class ComicListState extends State<ComicList> {
       borderRadius: BorderRadius.circular(kcPillRadius),
       onTap: _showPagePicker,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: kcSpace6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "Page @page / @maxPage".tlParams({
+              '$_page / ${maxPage ?? '?'}',
+              // 屏幕上压成纯数字，读屏仍念完整句子（「页面 1 / 52」）：
+              // 视觉短了，语义没丢。
+              semanticsLabel: "Page @page / @maxPage".tlParams({
                 "page": _page,
                 "maxPage": maxPage ?? '?',
               }),
@@ -1973,13 +2031,13 @@ class ComicListState extends State<ComicList> {
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: kcSpaceXs),
             if (loading)
               KcInlineSpinner(size: 12, color: cs.onSurfaceVariant)
             else
               HugeIcon(
                 icon: HugeIcons.strokeRoundedArrowDown01,
-                size: 14,
+                size: 12,
                 color: cs.onSurfaceVariant,
               ),
           ],
@@ -2037,8 +2095,9 @@ class ComicListState extends State<ComicList> {
           }
 
           return ContentDialog(
+            // 不传 headerIcon：纯标题的紧凑头部。页码弹窗的入口就是胶囊上的
+            // 「1 / 52」，网格图标是纯装饰，42dp 徽章反而占掉一行的高度。
             title: "Jump to page".tl,
-            headerIcon: HugeIcons.strokeRoundedGrid02,
             showClose: false,
             content: TextField(
               controller: controller,
@@ -2082,7 +2141,11 @@ class ComicListState extends State<ComicList> {
     if (showDock) {
       // bottomBarHeight 已含系统手势区；再补一段呼吸，让胶囊底边完全离开
       // dock 的玻璃体（实测旧版仍重叠约 15dp）。
-      return pane.bottomBarHeight + kcPageBottomGap;
+      //
+      // 再加半格高差：回顶按钮 56dp、胶囊 38dp，两者底边对齐时中线差 9dp，
+      // 同排一高一低看着像没对齐。抬这 9dp 换来两颗浮件同心。
+      final centerAlign = (kcScrollTopFabSize - kcPagerPillHeight) / 2;
+      return pane.bottomBarHeight + kcPageBottomGap + centerAlign;
     }
     // 子页面没有 dock：只要避开系统手势区再留一点呼吸。原实现无 dock 也照叠
     // kcPageBottomGap + kcSpaceLg 两段，胶囊下方空出约 56dp 纯白，正是
@@ -2091,26 +2154,30 @@ class ComicListState extends State<ComicList> {
   }
 
   /// 胶囊本体 + 底部让位，由 [buildPagingMode] 以 [Positioned] 悬浮。
+  ///
+  /// 不再套 BoxShadow：回顶按钮是 `elevation: 0` 的平片，两颗控件并排时一颗
+  /// 带投影一颗不带会像两个年代的组件（DESIGN.md §6 也禁止普通浮层自造阴影）。
+  /// 分离感交给玻璃底色 + 发丝描边。
   Widget _buildPageBar() {
-    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.only(bottom: _pageBarBottomInset()),
-      child: Center(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(kcPillRadius),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: cs.brightness == Brightness.dark ? 0.32 : 0.14,
-                ),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: _buildPageSelector(),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 右下角那颗 56dp 回顶按钮是页面级 FAB，和胶囊同处一条尾排。给它
+          // 留出「直径 + 16dp 边距 + 8dp 呼吸」的均分空间：窄屏或超大字号下
+          // 胶囊整体等比缩小，而不是叠到按钮上去。
+          final reserved =
+              2 * (kcScrollTopFabSize + kcSpaceLg + kcSpaceSm);
+          final available = constraints.maxWidth - reserved;
+          final pill = _buildPageSelector();
+          if (available <= 0) return Center(child: pill);
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: available),
+              child: FittedBox(fit: BoxFit.scaleDown, child: pill),
+            ),
+          );
+        },
       ),
     );
   }
@@ -2235,16 +2302,41 @@ class ComicListState extends State<ComicList> {
     }
     // 胶囊是 overlay，不再吃掉一整条底部布局高度：网格可以铺到屏幕底边，
     // 原先那片跟着胶囊出现的白色底板随之消失。
-    return Stack(
-      children: [
-        Positioned.fill(child: body),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _buildPageBar(),
-        ),
-      ],
+    final reduceMotion = kcReduceMotion(context);
+    final fadeDuration = reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: Stack(
+        children: [
+          Positioned.fill(child: body),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              // 淡出后不挡住下面的封面：此时点击应该落到网格上，而不是被一层
+              // 透明的胶囊吃掉。
+              ignoring: _pageBarHidden,
+              child: AnimatedOpacity(
+                opacity: _pageBarHidden ? 0 : 1,
+                duration: fadeDuration,
+                curve: Curves.easeOut,
+                child: AnimatedSlide(
+                  // 往下沉一点再淡出，收得比纯改透明度更像「让开」。
+                  offset: _pageBarHidden
+                      ? const Offset(0, 0.35)
+                      : Offset.zero,
+                  duration: fadeDuration,
+                  curve: Curves.easeOut,
+                  child: _buildPageBar(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2264,6 +2356,10 @@ class ComicListState extends State<ComicList> {
                 setState(() {
                   _error = null;
                 });
+                // 整页取数失败往往是网络整体中断，此时封面的失败标记也多半是
+                // 同一段时间落下的。重试时一并放开所有失败封面，否则列表回来
+                // 了、封面仍停在「首字 + 重试点」上，看起来像只修了一半。
+                CoverBox.refreshAll();
               },
             ),
           ),
@@ -2344,6 +2440,10 @@ class ComicListState extends State<ComicList> {
                 setState(() {
                   _error = null;
                 });
+                // 整页取数失败往往是网络整体中断，此时封面的失败标记也多半是
+                // 同一段时间落下的。重试时一并放开所有失败封面，否则列表回来
+                // 了、封面仍停在「首字 + 重试点」上，看起来像只修了一半。
+                CoverBox.refreshAll();
               },
             ),
           ),
@@ -2491,8 +2591,8 @@ class _PagePickerDialogState extends State<_PagePickerDialog> {
     final gridWidth = _gridWidth(context);
     final cellWidth = (gridWidth - (_columns - 1) * _gap) / _columns;
     return ContentDialog(
+      // 纯标题的紧凑头部：省下的 34dp 全给页码网格（见 [_PagePickerDialog]）。
       title: "Jump to page".tl,
-      headerIcon: HugeIcons.strokeRoundedGrid02,
       showClose: false,
       content: SizedBox(
         // 固定宽度：ContentDialog 外面是 IntrinsicWidth，不给尺寸它会去问

@@ -130,11 +130,26 @@ a11y_test: test/a11y_guidelines_test.dart
 - 错误页**必须有标题**（`loading.dart` 的 `title` 参数），只有返回箭头不行。
 - `NetworkError` 给三层信息：**分类标题**（发生了什么）+ **归一化原因** + **下一步建议**（能做什么），由 `classifyErrorMessage()` / `_errorStyle()` 决定；技术原文和导出日志默认收进「查看详情」，不要摆进主视觉区。错误文案一律走 `friendlyErrorMessage()`，禁止把英文异常串直出界面。
 - 错误页视觉用 `kcAccentSurface` 柔光圆徽章 + `kcBrandAdaptive` / `kcBrandColorOnDark`，AMOLED 保持零彩色；内容列限宽 `kcChoiceDialogMaxWidth`，平板/横屏不铺满整块内容区。
-- 新增滚动容器要给显式 `PageStorageKey`：发现页等调用方在同一个 bucket 里存过 Map 类型状态，隐式 key 会让 `ScrollPosition.restoreScrollOffset` 把它当 `double?` 读出来并整页报错。
+- **`ComicList` 子树里的每个滚动容器都必须有自己的 `PageStorageKey`**（骨架屏 `GridView`、混合探索页滚动、多段页滚动都算）。原因不是洁癖：`PageStorage` 的槽位标识只是「到 bucket 为止路径上有哪些 `PageStorageKey`」，**不区分 widget 类型**，而 `ComicList` 会把自己整份分页状态（一个 `Map`）写进同一个槽。无 key 的滚动视图就会在 `ScrollPosition.restoreScrollOffset` 里执行 `readState(...) as double?` 拿到 `_Map<String, dynamic>`，抛 `type '_Map<String, dynamic>' is not a subtype of type 'double?'`，整块列表变成 ErrorWidget（表现：整页空白 + 一行报错文字，刷新或跳未加载页时触发）。
+  - 已加固：骨架屏 `kc_grid_skeleton`、`_MixedExplorePage` 的 `mixed_scroll`、网络收藏两处 `ComicList` 用 `KeyedSubtree(PageStorageKey(...))` 单独分槽（`GlobalKey` 不是 `PageStorageKey`，会让它写进「空标识」污染整个 bucket）。
+  - 回归测试：`test/comic_list_page_storage_test.dart`。
 - 任何 `await` 网络动作都要 try/catch 复位 loading 标志，否则按钮永久转圈（评论发送/点赞/投票曾 8 处中招）。
 - 开关类设置**先落盘再刷新 UI**；滑块加防抖，不要每次 `onChanged` 都写盘。
 - 收藏角标刷新用 `AutoListenMixin.listen()`，不要手写 `addListener`（漏 dispose 就是角标不刷新的根因）。
 - 阅读设置按 `(cid, sourceKey, key)` 取 `getReaderSetting()`，**不要监听整张 `appdata.settings`**。
+- **封面一律走 `CoverBox`**（不要裸 `AnimatedImage`）：占位 = 书名首字 + **延迟 320ms** 才出现的加载环；失败给重试入口（大卡 pill / 小卡紧凑圆点）+ 一次带抖动的自动重试。裸 `AnimatedImage` 加载中只有一片空底色、失败什么都没有，用户分不清「慢」和「坏」。
+  - **百分比环只给大卡**（`showProgressPercent`：主页英雄卡、详情页封面）。环内写真实 `N%`，数据来自 `AnimatedImage.onProgress` 转发的 `ImageChunkEvent`；数字套 `FittedBox`，`100%` 和大字号都不会顶到环上。
+  - 服务器不报 `content-length`（chunked）时 `expectedTotalBytes` 为 null，必须退回不确定环，**不要画一个停在 0% 的假进度**。
+  - 列表小卡一律不确定环：几十张同时跳数字比安静转圈噪得多，小环也塞不下两位数。
+  - 下拉刷新只清列表数据、不重建卡片 State，**失败封面不会自己重试**。`ComicList._handleRefresh` 末尾调 `CoverBox.refreshAll()`（全局代次 +1，只重置失败项）让存量缺图重来 —— 因此不需要额外的「重载封面」按钮。回归测试：`test/cover_loading_test.dart`。
+
+**悬浮小控件（回顶 FAB / 分页胶囊）**：
+- 配色统一走 `kcFloatingGlassColors(context)` / `kcFloatingGlassDecoration()`，**不要再各写一套**：浅色是半透明 surface@0.82 + 描边@0.16，深色是 `surfaceContainerHighest` 实心。两者同屏并排时要像同一块玻璃上的两个孔位。
+- 不套 `BoxShadow`（`elevation: 0` 的平片）；分离感交给底色 + 发丝描边。
+- 半透明底压在封面 / 文字上时**必须配一层 `BackdropFilter`**：只降不透明度会让底下的书名透进控件里（"深渊融接 1 / 52" 看着像控件里的字）。滚动时这类控件本来就会隐藏，模糊只在静止时开销。
+- 分页胶囊与右下角回顶 FAB 同处一条尾排：胶囊用 `kcScrollTopFabSize + kcSpaceLg + kcSpaceSm` 算左右让位、用两者半高差算抬高，保证同心且窄屏 / 大字号下只会等比缩小，不会压到按钮。
+- 分页胶囊只显示数字 `1 / 52`（读屏走 `semanticsLabel` 念完整句），箭头用 `kcPagerArrowSize`（34dp）——小于 48dp 是**已知例外**：胶囊总高只有 38dp，箭头按 48dp 撑宽会把整条拉长到内容区一半（`test/a11y_guidelines_test.dart` 里钉死，别偷偷改回去）。
+- **Toast 必须让开浮岛底栏**（`showToast` / `showUndoMessage` → `_toastBottomInset`）：根 tab 页抬到 `NaviPaneState.bottomBarHeight + kcSpaceSm`，子页面（无底栏）才用 24dp。写死 24dp 会把提示正好压在 5 个 tab 上 —— 用户刚点完「已收藏」，反馈条却盖住了自己点的那一格。`NaviPaneState.active` 是给 `App.rootContext` / 已 pop 的弹窗 context 兜底用的（它们向上查不到 State）。
 
 ## 5. Layout Principles
 
@@ -152,6 +167,8 @@ a11y_test: test/a11y_guidelines_test.dart
 | `kcRadius3 … kcRadius32` | 3/4/6/8/10/16/18/20/22/24/32 | 其余圆角 |
 | 对话框 | `kcDialogInset 22` / `kcDialogRadius` / `kcDialogOptionHeight 48` / `kcDialogTabHeight 40` / `kcDialogConfirmHeight 44` / `kcChoiceDialogMaxWidth 420` | 统一对话框几何 |
 | `kcMinTapTarget` | **48** | 所有可点区域下限 |
+| `kcPagerPillHeight / kcPagerArrowSize` | 38 / 34 | 悬浮分页胶囊：高度、箭头命中区（见 §4 说明） |
+| `kcScrollTopFabSize` | 56 | 回顶 FAB 直径；分页胶囊按它算让位与同心 |
 
 留白哲学（抽自内容型站点，落到移动端）：**浏览页靠等宽缝和分区间距建立节奏；阅读页靠「隐藏 UI」制造留白**，不要靠加大 padding 把画面挤小。
 
