@@ -567,7 +567,7 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
                 onLongPressed: quickFavorite,
                 iconColor: kcBrandAdaptive(context),
               ),
-              if (comicSource.commentsLoader != null)
+              if (comicSource?.commentsLoader != null)
                 _ActionButton(
                   icon: HugeIcon(
                     icon: HugeIcons.strokeRoundedComment01,
@@ -867,7 +867,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
     }
 
     bool enableTranslation =
-        App.locale.languageCode == 'zh' && comicSource.enableTagsTranslate;
+        App.locale.languageCode == 'zh' &&
+        (comicSource?.enableTagsTranslate ?? false);
 
     return SliverLazyToBoxAdapter(
       child: Column(
@@ -886,7 +887,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
             buildWrap(
               children: [
                 if (e.value.isNotEmpty)
-                  buildTag(text: e.key.ts(comicSource.key), isTitle: true),
+                  buildTag(
+                    text: e.key.ts(comicSource?.key ?? comic.sourceKey),
+                    isTitle: true,
+                  ),
                 for (var tag in e.value)
                   buildTag(
                     text: enableTranslation
@@ -946,7 +950,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   }
 
   Widget buildThumbnails() {
-    if (comic.thumbnails == null && comicSource.loadComicThumbnail == null) {
+    if (comic.thumbnails == null &&
+        comicSource?.loadComicThumbnail == null) {
       return const SliverPadding(padding: EdgeInsets.zero);
     }
     return const _ComicThumbnails();

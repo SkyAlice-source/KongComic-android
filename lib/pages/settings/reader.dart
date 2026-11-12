@@ -168,6 +168,7 @@ class _ReaderSettingsState extends State<ReaderSettings> {
                 title: Text("Enable comic specific settings".tl),
                 trailing: KcSwitch(
                   value: isEnabledSpecificSettings,
+                  semanticLabel: "Enable comic specific settings".tl,
                   onChanged: (b) {
                     setState(() {
                       appdata.settings.setEnabledComicSpecificSettings(
@@ -218,6 +219,7 @@ class _ReaderSettingsState extends State<ReaderSettings> {
                 title: Text("Enable device specific settings".tl),
                 trailing: KcSwitch(
                   value: useDeviceSpecificSettings,
+                  semanticLabel: "Enable device specific settings".tl,
                   onChanged: (b) {
                     setState(() {
                       appdata.settings.setEnabledDeviceSpecificSettings(b);

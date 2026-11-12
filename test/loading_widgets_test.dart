@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kong_comic/components/components.dart';
+import 'package:kong_comic/utils/translations.dart';
 
 // 加载态组件的「数据诚实性」测试。
 //
@@ -74,5 +75,118 @@ void main() {
     );
     expect(find.text(''), findsOneWidget);
     expect(find.text('Network Error'), findsOneWidget);
+  });
+
+  // 分类是「友好错误页」的地基：判错了，给出的下一步建议就会南辕北辙。
+  test('错误分类覆盖离线 / 拦截 / 验证 / 脚本 / 登录 / 未知', () {
+    expect(
+      classifyErrorMessage('DioException [unknown]: null', 'Network Error'),
+      KcErrorKind.network,
+    );
+    expect(
+      classifyErrorMessage('403 Forbidden', '请求被源站拦截：可能是 Cloudflare 验证'),
+      KcErrorKind.blocked,
+    );
+    expect(
+      classifyErrorMessage('CloudflareException: challenge', '需要验证'),
+      KcErrorKind.verification,
+    );
+    expect(
+      classifyErrorMessage('ReferenceError: x is not defined', '该源的脚本出错了'),
+      KcErrorKind.source,
+    );
+    expect(classifyErrorMessage('Not login', '需登录'), KcErrorKind.auth);
+    expect(classifyErrorMessage('HTTP 502', '这是服务器端错误，请稍后重试'), KcErrorKind.server);
+    expect(classifyErrorMessage('404 Not found', '未找到。'), KcErrorKind.notFound);
+    expect(classifyErrorMessage('', '未知错误'), KcErrorKind.unknown);
+  });
+
+  // 断网时不再落「未知错误」：原文要能被归一化成网络类文案。
+  test('DioException [unknown]: null 归一化为网络错误', () {
+    expect(friendlyErrorMessage('DioException [unknown]: null'), 'Network Error');
+    expect(
+      friendlyErrorMessage('SocketException: Network is unreachable, errno = 101'),
+      'Network Error',
+    );
+  });
+
+  testWidgets('错误页默认收起技术细节，展开后才出现日志入口', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NetworkError(message: 'DioException [unknown]: null', retry: () {}),
+      ),
+    );
+    // 分类标题与「下一步」建议都在；开发者向的原文 / 导出日志先藏起来。
+    expect(find.text("Can't connect to the network"), findsOneWidget);
+    expect(
+      find.text('Check Wi-Fi or mobile data, or try another line, then retry.'),
+      findsOneWidget,
+    );
+    expect(find.byType(SelectableText), findsNothing);
+    expect(find.text('Export logs'), findsNothing);
+
+    await tester.tap(find.text('View details'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SelectableText), findsOneWidget);
+    expect(find.text('Technical details'), findsOneWidget);
+    expect(find.text('Export logs'), findsOneWidget);
+
+    await tester.tap(find.text('Hide details'));
+    await tester.pumpAndSettle();
+    expect(find.text('Export logs'), findsNothing);
+  });
+
+  // 分类标题/建议必须真的画到界面上，而不只是分类函数返回正确值。
+  testWidgets('不同类别显示各自的标题与下一步建议', (tester) async {
+    const cases = <(String, String, String)>[
+      (
+        '403 Forbidden',
+        'Access blocked by the source',
+        'Switch networks or lines, or wait a while before retrying.',
+      ),
+      (
+        'ReferenceError: x is not defined',
+        'This source needs an update',
+        'Update this source in Comic Sources; if the site has changed, remove it.',
+      ),
+      ('Not login', 'Sign-in needed', 'Log in to this source, then try again.'),
+    ];
+    for (final (message, title, suggestion) in cases) {
+      await tester.pumpWidget(
+        MaterialApp(home: NetworkError(message: message, retry: () {})),
+      );
+      expect(find.text(title), findsOneWidget, reason: message);
+      expect(find.textContaining(suggestion), findsWidgets, reason: message);
+    }
+  });
+
+  testWidgets('Cloudflare 挑战给出验证按钮而不是普通重试', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NetworkError(
+          message: 'CloudflareException: https://example.com/chapter',
+          retry: () {},
+        ),
+      ),
+    );
+    expect(find.text('Verification needed'), findsOneWidget);
+    expect(find.text('Verify'), findsOneWidget);
+    expect(find.text('Retry'), findsNothing);
+  });
+
+  // 有些调用点把错误页塞在 Column / ScrollView 里，maxHeight 是 infinity；
+  // 拿它直接当 minHeight 会触发 BoxConstraints 断言。
+  testWidgets('嵌在无界高度的滚动容器里不崩', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: NetworkError(message: 'Network Error', withAppbar: false),
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.byType(NetworkError), findsOneWidget);
   });
 }

@@ -13,7 +13,8 @@ part of 'components.dart';
 ///
 /// 交互细节：
 /// · 点击回调前先给一次 [HapticFeedback.selectionClick]，与 App 内其它开关一致；
-/// · 热区比轨道四周各外扩 4dp，小尺寸也不难按；
+/// · 视觉轨道 44×26 居中，命中区 52×34；嵌在 KcListTile / _KcSettingTile 里时
+///   由整行 48dp+ 的 InkWell 覆盖触控下限（孤立使用才需要自己补满 48dp）；
 /// · 系统「减弱动效」开启时退化为瞬切。
 class KcSwitch extends StatelessWidget {
   const KcSwitch({
@@ -21,6 +22,7 @@ class KcSwitch extends StatelessWidget {
     required this.value,
     this.onChanged,
     this.enabled = true,
+    this.semanticLabel,
   });
 
   final bool value;
@@ -28,6 +30,10 @@ class KcSwitch extends StatelessWidget {
   final ValueChanged<bool>? onChanged;
 
   final bool enabled;
+
+  /// 无障碍标签：开关嵌在 [KcListTile] 里时语义节点是独立的，TalkBack 只读得到
+  /// 「已开启」，读不出是什么开关。由使用方传行标题，组件自身不知道业务语义。
+  final String? semanticLabel;
 
   static const double _trackWidth = 44;
   static const double _trackHeight = 26;
@@ -55,6 +61,7 @@ class KcSwitch extends StatelessWidget {
     return Semantics(
       toggled: value,
       enabled: canTap,
+      label: semanticLabel,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: canTap
@@ -64,6 +71,8 @@ class KcSwitch extends StatelessWidget {
               }
             : null,
         child: SizedBox(
+          // 高度保持轨道 + 8：外层列表行已提供 48dp+ 命中区。若这里放大到 48，
+          // _KcSettingTile 的 12dp 上下 padding 会把每个开关行从 58dp 顶到 72dp。
           width: _trackWidth + 8,
           height: _trackHeight + 8,
           child: Center(

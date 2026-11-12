@@ -123,7 +123,94 @@ class SlowLoadingOverlay extends StatelessWidget {
   }
 }
 
-class NetworkError extends StatelessWidget {
+/// 一类错误配一套「图标 + 标题 + 下一步建议」。
+///
+/// 标题说的是「发生了什么」，建议说的是「我能做什么」，正文仍然保留
+/// [friendlyErrorMessage] 给出的具体原因 —— 三层信息互不替代。
+class _ErrorStyle {
+  const _ErrorStyle({
+    required this.icon,
+    required this.title,
+    required this.suggestion,
+  });
+
+  final List<List<dynamic>> icon;
+  final String title;
+  final String suggestion;
+}
+
+/// 错误页图标前景：深色下走提亮一档的 [kcBrandColorOnDark]（16dp 小图标
+/// 在暗底上用原色会发闷），AMOLED 保持零彩色走中性灰，浅色用品牌红。
+Color _errorIconColor(BuildContext context) {
+  if (kcIsAmoled()) return kcBrandAdaptive(context);
+  return context.isDarkMode ? kcBrandColorOnDark : kcBrandColor;
+}
+
+_ErrorStyle _errorStyle(KcErrorKind kind) {
+  return switch (kind) {
+    KcErrorKind.network => _ErrorStyle(
+      icon: HugeIcons.strokeRoundedGlobe,
+      title: "Can't connect to the network".tl,
+      suggestion:
+          "Check Wi-Fi or mobile data, or try another line, then retry.".tl,
+    ),
+    KcErrorKind.auth => _ErrorStyle(
+      icon: HugeIcons.strokeRoundedSecurityLock,
+      title: "Sign-in needed".tl,
+      suggestion:
+          "Log in to this source, then try again. If you're already logged in, sign in once more."
+              .tl,
+    ),
+    KcErrorKind.blocked => _ErrorStyle(
+      icon: HugeIcons.strokeRoundedCancelCircle,
+      title: "Access blocked by the source".tl,
+      suggestion:
+          "Switch networks or lines, or wait a while before retrying.".tl,
+    ),
+    KcErrorKind.verification => _ErrorStyle(
+      icon: HugeIcons.strokeRoundedShieldKey,
+      title: "Verification needed".tl,
+      suggestion:
+          "Tap Verify to complete the check in the browser, then come back and retry."
+              .tl,
+    ),
+    KcErrorKind.source => _ErrorStyle(
+      icon: HugeIcons.strokeRoundedSourceCode,
+      title: "This source needs an update".tl,
+      suggestion:
+          "Update this source in Comic Sources; if the site has changed, remove it."
+              .tl,
+    ),
+    KcErrorKind.server => _ErrorStyle(
+      icon: HugeIcons.strokeRoundedCloud,
+      title: "Source server is busy".tl,
+      suggestion:
+          "Wait a moment and retry. You don't need to report this issue.".tl,
+    ),
+    KcErrorKind.notFound => _ErrorStyle(
+      icon: HugeIcons.strokeRoundedSearch01,
+      title: "Content not found".tl,
+      suggestion:
+          "It may have been removed. Go back and try another entry.".tl,
+    ),
+    KcErrorKind.unknown => _ErrorStyle(
+      icon: HugeIcons.strokeRoundedAlertCircle,
+      title: "Something went wrong".tl,
+      suggestion:
+          "Try again. If it keeps happening, view details and export the logs."
+              .tl,
+    ),
+  };
+}
+
+/// 统一的整页/区块错误态。
+///
+/// 旧版无论哪种失败都只画一颗红感叹号 +「错误」+ 四行截断的文案，再把
+/// 「导出日志」摆在主按钮下面：像开发者调试页，用户看不出原因，也不知道
+/// 除了重试还能做什么。现在按 [classifyErrorMessage] 的类别换图标与标题，
+/// 补一条可执行的建议；技术原文和日志导出收进「查看详情」，普通用户不会
+/// 第一眼就撞见它们，需要反馈问题时又能长按复制。
+class NetworkError extends StatefulWidget {
   const NetworkError({
     super.key,
     required this.message,
@@ -153,83 +240,238 @@ class NetworkError extends StatelessWidget {
   final String? title;
 
   @override
+  State<NetworkError> createState() => _NetworkErrorState();
+}
+
+class _NetworkErrorState extends State<NetworkError> {
+  bool _showDetails = false;
+
+  @override
   Widget build(BuildContext context) {
-    var cfe = CloudflareException.fromString(message);
+    final cfe = CloudflareException.fromString(widget.message);
     final cs = context.colorScheme;
-    final displayMessage = friendlyErrorMessage(
-      cfe == null ? message : "Cloudflare verification required".tl,
+    // Cloudflare 是已经判明的原因，直接给本地化文案；再过一次归一化会把
+    // 英文环境里的这句 key 吞成「Unknown error」，白丢一次可解释的机会。
+    final displayMessage = cfe == null
+        ? friendlyErrorMessage(widget.message)
+        : "Cloudflare verification required".tl;
+    final style = _errorStyle(
+      classifyErrorMessage(widget.message, displayMessage),
     );
-    Widget body = Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            HugeIcon(
-              icon: HugeIcons.strokeRoundedAlertCircle,
-              size: 44,
-              color: cs.error,
+    final rawText = widget.message.trim().isEmpty
+        ? '—'
+        : widget.message.trim();
+
+    // 内容列单独构造，LayoutBuilder 只负责「居中 + 限宽 + 可滚动」三件事，
+    // 避免把 200 行的 Column 塞进四层括号里（缩进一旦错位很难读）。
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 低饱和圆形徽章：沿用全站强调色（AMOLED 自动退成灰阶），
+        // 比一整颗高饱和红感叹号温和，又不丢失「这里出错了」的语义。
+        Container(
+          width: 68,
+          height: 68,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: kcAccentSurface(context, alpha: 0.12),
+          ),
+          child: Center(
+            child: HugeIcon(
+              icon: style.icon,
+              size: 30,
+              color: _errorIconColor(context),
             ),
-            const SizedBox(height: 16),
-            Text(
-              "Error".tl,
-              style: TextStyle(
-                fontSize: kcSubtitle,
-                fontWeight: FontWeight.w600,
-                color: cs.error,
+          ),
+        ),
+        const SizedBox(height: kcSpace18),
+        Text(
+          style.title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: kcSectionTitle,
+            fontWeight: FontWeight.w600,
+            color: cs.onSurface,
+          ),
+        ),
+        const SizedBox(height: kcSpaceSm),
+        // 不再 maxLines: 4 + 省略号：归一化后的建议型文案本来就长，
+        // 截掉的往往正是「请切换网络后重试」这半句最有用的部分。
+        Text(
+          displayMessage,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: kcBody,
+            color: cs.onSurfaceVariant,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: kcSpaceLg),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: kcSpaceMd,
+            vertical: kcSpaceMd,
+          ),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(kcCardRadius),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: kcSpaceXs / 2),
+                child: HugeIcon(
+                  icon: HugeIcons.strokeRoundedInformationCircle,
+                  size: 16,
+                  color: _errorIconColor(context),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              displayMessage,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: kcBody,
-                color: cs.onSurfaceVariant,
-                height: 1.4,
-              ),
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 24),
-            if (retry != null)
-              if (cfe != null)
-                Button.filled(
-                  onPressed: () => passCloudflare(
-                    CloudflareException.fromString(message)!,
-                    retry!,
+              const SizedBox(width: kcSpaceSm),
+              Expanded(
+                child: Text(
+                  style.suggestion,
+                  style: TextStyle(
+                    fontSize: kcCaption,
+                    color: cs.onSurfaceVariant,
+                    height: 1.45,
                   ),
-                  child: Text('Verify'.tl),
-                )
-              else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: kcSpaceLg),
+        if (widget.retry != null)
+          if (cfe != null)
+            Button.filled(
+              onPressed: () => passCloudflare(
+                CloudflareException.fromString(widget.message)!,
+                widget.retry!,
+              ),
+              child: Text('Verify'.tl),
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.action != null)
+                  widget.action!.paddingRight(kcSpaceSm),
+                Button.filled(
+                  onPressed: () => widget.retry?.call(),
+                  child: Text(widget.buttonText ?? 'Retry'.tl),
+                ),
+              ],
+            ),
+        // 技术细节是给「需要反馈问题」的少数人准备的，默认收起。
+        Button.text(
+          onPressed: () => setState(() => _showDetails = !_showDetails),
+          child: Text(_showDetails ? "Hide details".tl : "View details".tl),
+        ),
+        AnimatedSize(
+          duration: kcReduceMotion(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          child: _showDetails
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (action != null) action!.paddingRight(8),
-                    Button.filled(
-                      onPressed: () => retry?.call(),
-                      child: Text(buttonText ?? 'Retry'.tl),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Technical details".tl,
+                        style: TextStyle(
+                          fontSize: kcCaption,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: kcSpace6),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(kcSpaceMd),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(kcCardRadius),
+                      ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 120),
+                        child: SingleChildScrollView(
+                          key: const PageStorageKey(
+                            'kc_network_error_details',
+                          ),
+                          child: SelectableText(
+                            rawText,
+                            style: TextStyle(
+                              fontSize: kcCaption,
+                              color: cs.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Button.text(
+                      onPressed: () {
+                        saveFile(
+                          data: utf8.encode(Log().toString()),
+                          filename: 'log.txt',
+                        );
+                      },
+                      child: Text("Export logs".tl),
                     ),
                   ],
-                ),
-            const SizedBox(height: 8),
-            Button.text(
-              onPressed: () {
-                saveFile(
-                  data: utf8.encode(Log().toString()),
-                  filename: 'log.txt',
-                );
-              },
-              child: Text("Export logs".tl),
-            ),
-          ],
+                )
+              : const SizedBox(width: double.infinity, height: 0),
         ),
-      ),
+      ],
     );
-    if (withAppbar) {
+
+    Widget body = LayoutBuilder(
+      builder: (context, constraints) {
+        // 平板 / 横屏下错误区会跟着内容区拉到 900dp 宽，建议卡片变成一条
+        // 贴边细带、中间大片空白。收在弹窗级宽度里，重心回到屏幕中央。
+        final contentMaxWidth = math.min<double>(
+          kcChoiceDialogMaxWidth,
+          constraints.maxWidth,
+        );
+        return SingleChildScrollView(
+          // 显式 PageStorageKey：发现页等调用方在同一个 bucket 里存过 Map 类型的
+          // 页面状态，若不指定 key，ScrollPosition.restoreScrollOffset 会把那份
+          // Map 当 double? 读出来并抛类型错误，整页只剩一行异常文本。
+          key: const PageStorageKey('kc_network_error_body'),
+          child: ConstrainedBox(
+            // 短内容在可用区域里居中；展开详情后内容变高，仍能滚动到底部。
+            // 部分调用点把本组件塞在 Column / ScrollView 里，maxHeight 是
+            // infinity，直接拿它当 minHeight 会触发 BoxConstraints 断言。
+            constraints: BoxConstraints(
+              minHeight: constraints.hasBoundedHeight
+                  ? constraints.maxHeight
+                  : 0,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: contentMaxWidth),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: kcSpaceLg,
+                  ),
+                  child: content,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (widget.withAppbar) {
       body = Column(
         children: [
-          Appbar(title: Text(title ?? "")),
+          Appbar(title: Text(widget.title ?? "")),
           Expanded(child: body),
         ],
       );

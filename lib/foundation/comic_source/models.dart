@@ -514,10 +514,17 @@ class PageJumpTarget {
         ),
       );
     } else if (page == "category") {
-      var key = ComicSource.find(sourceKey)!.categoryData!.key;
+      // 源可能已停用/卸载，或没有分类页配置：旧实现的两处空断言会让点击
+      // 分类标签直接崩溃。这里降级为提示，不再跳转。
+      var categoryKey = ComicSource.find(sourceKey)?.categoryData?.key;
+      if (categoryKey == null) {
+        Log.error("Page Jump", "Category source unavailable: $sourceKey");
+        context.showMessage(message: "Comic source not found".tl);
+        return;
+      }
       context.to(
         () => CategoryComicsPage(
-          categoryKey: key,
+          categoryKey: categoryKey,
           category:
               attributes?["category"] ??
               (throw ArgumentError("Category name is required")),

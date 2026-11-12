@@ -1111,7 +1111,11 @@ class _WebdavSettingState extends State<_WebdavSetting> {
               contentPadding: EdgeInsets.zero,
               leading: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
               title: Text("Auto Sync Data".tl),
-              trailing: KcSwitch(value: autoSync, onChanged: onAutoSyncChanged),
+              trailing: KcSwitch(
+                value: autoSync,
+                semanticLabel: "Auto Sync Data".tl,
+                onChanged: onAutoSyncChanged,
+              ),
             ),
             const SizedBox(height: 12),
             RadioGroup<bool>(

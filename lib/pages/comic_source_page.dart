@@ -2475,6 +2475,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
         ),
         trailing: KcSwitch(
           value: on,
+          semanticLabel: entry.label,
           onChanged: (v) => _setGroupEnabled(settingKey, [entry.value], v),
         ),
       );
@@ -2552,6 +2553,7 @@ class _ComicSourceCardState extends State<_ComicSourceCard> {
             title: Text((item.value['title'] as String).ts(source.key)),
             trailing: KcSwitch(
               value: current == true,
+              semanticLabel: (item.value['title'] as String).ts(source.key),
               onChanged: (v) {
                 source.data['settings'][key] = v;
                 source.saveData();

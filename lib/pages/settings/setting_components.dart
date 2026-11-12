@@ -390,7 +390,11 @@ class _SwitchSettingState extends State<_SwitchSetting> {
     return _KcSettingTile(
       title: Text(widget.title),
       subtitle: widget.subtitle,
-      trailing: KcSwitch(value: value, onChanged: toggle),
+      trailing: KcSwitch(
+        value: value,
+        semanticLabel: widget.title,
+        onChanged: toggle,
+      ),
       onTap: () {
         HapticFeedback.selectionClick();
         toggle(!value);

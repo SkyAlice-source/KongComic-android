@@ -219,6 +219,19 @@ String friendlyErrorMessage(String raw) {
       .trim();
   if (msg.isEmpty) return "Unknown error".tl;
 
+  // 断网时 Dio 抛的是 `DioException [unknown]: null`，剥掉前缀后只剩 "null"；
+  // 日志里同一时刻还有 `Network is unreachable (errno = 101)`。这一串谁都不
+  // 认识，于是落到最后的兜底「未知错误」—— 用户明明离线，界面却什么都没说。
+  // 统一归到网络错误，再由错误页给出「检查网络 / 切换线路」的下一步。
+  if (msg == 'null' ||
+      msg.contains('Network is unreachable') ||
+      msg.contains('Network is down') ||
+      msg.contains('errno = 101') ||
+      msg.contains('ENONETWORK') ||
+      msg.contains('Software caused connection abort')) {
+    return "Network Error".tl;
+  }
+
   if (isAuthError(msg)) {
     return "Login required".tl;
   }
@@ -511,4 +524,155 @@ String rawSourceError(String? raw) {
   final text = raw?.trim() ?? '';
   if (text.isEmpty || text == 'null') return sourceReturnedNothingError();
   return text;
+}
+
+/// 错误页的类别 —— 决定标题、图标和「下一步能做什么」。
+///
+/// [friendlyErrorMessage] 已经把五花八门的异常收敛成有限的几类文案，但界面
+/// 此前无论哪一种都只画一颗红感叹号、写「错误」，用户既看不出是离线、要登录
+/// 还是源脚本过期，也不知道除了「重试」还能做什么。这里只负责分类，具体
+/// 呈现（含本地化标题与建议）在 `NetworkError` 里，避免 utils 层依赖 UI。
+enum KcErrorKind {
+  network,
+  auth,
+  blocked,
+  verification,
+  source,
+  server,
+  notFound,
+  unknown,
+}
+
+bool _containsAny(String text, List<String> keys) {
+  for (final key in keys) {
+    if (text.contains(key)) return true;
+  }
+  return false;
+}
+
+/// 分类依据：优先用原始技术串 [raw]，因为调用方有时传进来的已经是归一化
+/// 后的中文文案（例如 `friendlyError(...)`），这时再靠 [display] 的多语关键词
+/// 兜底。顺序刻意把「拦截」放在「验证」之前 —— 源站拦截的建议里也含
+/// 「Cloudflare 验证」字样，反过来会误判成需要人机验证。
+KcErrorKind classifyErrorMessage(String raw, String display) {
+  final r = raw.toLowerCase();
+
+  if (_containsAny(r, [
+        '403',
+        'forbidden',
+        'access denied',
+        'rate limit',
+      ]) ||
+      _containsAny(display, [
+        '拦截',
+        '攔截',
+        '阻擋',
+        'ブロック',
+        '频率限制',
+        '頻率限制',
+        '地区限制',
+        '地區限制',
+      ])) {
+    return KcErrorKind.blocked;
+  }
+  if (r.contains('cloudflareexception') ||
+      (r.contains('cloudflare') && r.contains('challenge')) ||
+      (display.contains('Cloudflare') && !display.contains('拦截'))) {
+    return KcErrorKind.verification;
+  }
+  if (_containsAny(r, [
+        'not login',
+        'not logged',
+        'login required',
+        'please log in',
+        'unauthorized',
+        'unlogged',
+      ]) ||
+      _containsAny(display, ['登录', '登入', 'ログイン'])) {
+    return KcErrorKind.auth;
+  }
+  if (_containsAny(r, [
+        'referenceerror',
+        'syntaxerror',
+        'typeerror',
+        'cannot read property',
+        'is not a function',
+        'script failed',
+        'empty data',
+      ]) ||
+      _containsAny(display, [
+        '脚本',
+        '腳本',
+        'スクリプト',
+        '源返回空数据',
+        '源返回',
+      ])) {
+    return KcErrorKind.source;
+  }
+  if (_containsAny(display, [
+        '服务器端',
+        '伺服器',
+        '服务器端错误',
+        '服务器繁忙',
+        '伺服器忙碌',
+        'サーバー',
+        '稍后重试',
+        '稍後重試',
+      ]) ||
+      _containsAny(r, [
+        'bad gateway',
+        'service unavailable',
+        'internal server error',
+      ])) {
+    return KcErrorKind.server;
+  }
+  if (_containsAny(display, [
+        '未找到',
+        '找不到',
+        '見つかりません',
+        '不存在',
+        '已被移除',
+        '已移除',
+      ]) ||
+      _containsAny(r, ['404', 'not found', 'the resource has been removed'])) {
+    return KcErrorKind.notFound;
+  }
+  if (_containsAny(r, [
+        'network error',
+        'network is unreachable',
+        'network is down',
+        'errno = 101',
+        'enonetwork',
+        'no route to host',
+        'failed host lookup',
+        'unable to resolve host',
+        'connection reset',
+        'connection closed',
+        'connection refused',
+        'handshake',
+        'ssl',
+        'certificate',
+        'timed out',
+        'timeout',
+        'socketexception',
+        'dioexception',
+        'failed to fetch',
+      ]) ||
+      _containsAny(display, [
+        '网络',
+        '網路',
+        'ネットワーク',
+        '连接',
+        '連線',
+        '接続',
+        '超时',
+        '逾時',
+        'タイムアウト',
+        'SSL',
+        '证书',
+        '憑證',
+      ])) {
+    return KcErrorKind.network;
+  }
+  return KcErrorKind.unknown;
 }

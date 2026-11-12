@@ -29,7 +29,8 @@ class _ComicThumbnailsState extends State<_ComicThumbnails> {
   }
 
   void loadNext() async {
-    if (state.comicSource.loadComicThumbnail == null) return;
+    final loadComicThumbnail = state.comicSource?.loadComicThumbnail;
+    if (loadComicThumbnail == null) return;
     if (!isInitialLoading && next == null) {
       return;
     }
@@ -39,7 +40,7 @@ class _ComicThumbnailsState extends State<_ComicThumbnails> {
         isLoading = true;
       });
     });
-    var res = await state.comicSource.loadComicThumbnail!(state.comic.id, next);
+    var res = await loadComicThumbnail(state.comic.id, next);
     if (res.success) {
       thumbnails.addAll(res.data);
       next = res.subData;

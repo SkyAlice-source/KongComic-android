@@ -5,7 +5,17 @@ abstract mixin class _ComicPageActions {
 
   ComicDetails get comic;
 
-  ComicSource get comicSource => ComicSource.find(comic.sourceKey)!;
+  /// 详情页停留期间源可能被停用/卸载/重载，此时 [ComicSource.find] 返回
+  /// null。依赖源的操作统一走 [_requireSource]，不要再用空断言。
+  ComicSource? get comicSource => ComicSource.find(comic.sourceKey);
+
+  ComicSource? _requireSource() {
+    var source = comicSource;
+    if (source == null) {
+      App.rootContext.showMessage(message: "Comic source not found".tl);
+    }
+    return source;
+  }
 
   History? get history;
 
@@ -15,9 +25,11 @@ abstract mixin class _ComicPageActions {
 
   void likeOrUnlike() async {
     if (isLiking) return;
+    final likeOrUnlikeComic = _requireSource()?.likeOrUnlikeComic;
+    if (likeOrUnlikeComic == null) return;
     isLiking = true;
     update();
-    var res = await comicSource.likeOrUnlikeComic!(comic.id, isLiked);
+    var res = await likeOrUnlikeComic(comic.id, isLiked);
     if (res.error) {
       App.rootContext.showMessage(
         message: friendlySourceError(res.errorMessage),
@@ -175,6 +187,9 @@ abstract mixin class _ComicPageActions {
   void onReadEnd();
 
   void download() async {
+    final source = _requireSource();
+    if (source == null) return;
+    final archiveDownloader = source.archiveDownloader;
     if (LocalManager().isDownloading(comic.id, comic.comicType)) {
       App.rootContext.showMessage(message: "The comic is downloading".tl);
       return;
@@ -185,7 +200,7 @@ abstract mixin class _ComicPageActions {
       return;
     }
 
-    if (comicSource.archiveDownloader != null) {
+    if (archiveDownloader != null) {
       bool useNormalDownload = false;
       List<ArchiveInfo>? archives;
       int selected = -1;
@@ -220,7 +235,7 @@ abstract mixin class _ComicPageActions {
                         onExpansionChanged: (b) {
                           if (!isLoading && b && archives == null) {
                             isLoading = true;
-                            comicSource.archiveDownloader!
+                            archiveDownloader
                                 .getArchives(comic.id)
                                 .then((value) {
                                   if (value.success) {
@@ -265,7 +280,7 @@ abstract mixin class _ComicPageActions {
                       setState(() {
                         isGettingLink = true;
                       });
-                      var res = await comicSource.archiveDownloader!
+                      var res = await archiveDownloader
                           .getDownloadUrl(comic.id, archives![selected].id);
                       if (!context.mounted) return;
                       if (res.error) {
@@ -303,7 +318,7 @@ abstract mixin class _ComicPageActions {
     if (comic.chapters == null) {
       LocalManager().addTask(
         ImagesDownloadTask(
-          source: comicSource,
+          source: source,
           comicId: comic.id,
           comic: comic,
         ),
@@ -332,7 +347,7 @@ abstract mixin class _ComicPageActions {
       if (selected == null) return;
       LocalManager().addTask(
         ImagesDownloadTask(
-          source: comicSource,
+          source: source,
           comicId: comic.id,
           comic: comic,
           chapters: selected!.map((i) {
@@ -346,8 +361,9 @@ abstract mixin class _ComicPageActions {
   }
 
   void onTapTag(String tag, String namespace) {
-    var target = comicSource.handleClickTagEvent?.call(namespace, tag);
-    var context = App.mainNavigatorKey!.currentContext!;
+    var target = comicSource?.handleClickTagEvent?.call(namespace, tag);
+    var context = App.mainNavigatorKey?.currentContext;
+    if (context == null) return;
     target?.jump(context);
   }
 
@@ -362,7 +378,7 @@ abstract mixin class _ComicPageActions {
           onClick: download,
         ),
       // 评论
-      if (comicSource.commentsLoader != null)
+      if (comicSource?.commentsLoader != null)
         MenuEntry(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
           text: (comic.commentCount ?? 'Comments'.tl).toString(),
@@ -376,7 +392,8 @@ abstract mixin class _ComicPageActions {
           onClick: () => launchUrlString(comic.url!),
         ),
       // 评分
-      if (comicSource.isLogged && comicSource.starRatingFunc != null)
+      if (comicSource?.isLogged == true &&
+          comicSource?.starRatingFunc != null)
         MenuEntry(
           icon: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 18),
           text: "Rating".tl,
@@ -408,7 +425,7 @@ abstract mixin class _ComicPageActions {
           ),
           text: "Debug Info".tl,
           onClick: () {
-            context.showMessage(message: comicSource.key);
+            context.showMessage(message: comicSource?.key ?? comic.sourceKey);
           },
         ),
     ]);
@@ -442,14 +459,18 @@ abstract mixin class _ComicPageActions {
   }
 
   void showComments() {
+    final source = _requireSource();
+    if (source == null) return;
     showSideBar(
       App.rootContext,
-      CommentsPage(data: comic, source: comicSource),
+      CommentsPage(data: comic, source: source),
     );
   }
 
   void starRating() {
-    if (!comicSource.isLogged) {
+    final source = _requireSource();
+    final starRatingFunc = source?.starRatingFunc;
+    if (source == null || !source.isLogged || starRatingFunc == null) {
       return;
     }
     var rating = 0.0;
@@ -485,25 +506,26 @@ abstract mixin class _ComicPageActions {
                             setState(() {
                               isLoading = true;
                             });
-                            comicSource
-                                .starRatingFunc!(comic.id, rating.round())
-                                .then((value) {
-                                  if (value.success) {
-                                    App.rootContext.showMessage(
-                                      message: "Success".tl,
-                                    );
-                                    Navigator.of(dialogContext).pop();
-                                  } else {
-                                    App.rootContext.showMessage(
-                                      message: friendlySourceError(
-                                        value.errorMessage,
-                                      ),
-                                    );
-                                    setState(() {
-                                      isLoading = false;
-                                    });
-                                  }
+                            starRatingFunc(
+                              comic.id,
+                              rating.round(),
+                            ).then((value) {
+                              if (value.success) {
+                                App.rootContext.showMessage(
+                                  message: "Success".tl,
+                                );
+                                Navigator.of(dialogContext).pop();
+                              } else {
+                                App.rootContext.showMessage(
+                                  message: friendlySourceError(
+                                    value.errorMessage,
+                                  ),
+                                );
+                                setState(() {
+                                  isLoading = false;
                                 });
+                              }
+                            });
                           },
                           child: Text("Submit".tl),
                         ),
